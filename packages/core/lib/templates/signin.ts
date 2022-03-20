@@ -1,3 +1,4 @@
+export default `
 doctype html
 html
     head
@@ -19,13 +20,14 @@ html
                 background-color: #060665;
             }
     body
-        p   To sign in to your school, click the following link.
+        p   To sign in, click the following link.
         div(class="cta-container") 
             a(
-                href=`${magiclink}`
+                href=\`\${magiclink}\`
                 class="cta"
             ) Sign in
         p
             strong IMPORTANT:
             |   Do not share this email with anyone as anyone can log in to your
             |   account using the link in this email.
+`;
