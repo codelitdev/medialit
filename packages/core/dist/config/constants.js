@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.mailPort = exports.mailFrom = exports.mailPass = exports.mailUser = exports.mailHost = exports.jwtExpire = exports.jwtSecret = exports.dbConnectionString = exports.appName = void 0;
+exports.appName = process.env.APP_NAME || "Cloud Upload Service";
+exports.dbConnectionString = process.env.DB_CONNECTION_STRING;
+exports.jwtSecret = process.env.JWT_SECRET || "r@nd0m1e";
+exports.jwtExpire = process.env.JWT_EXPIRES_IN || "1d";
+exports.mailHost = process.env.EMAIL_HOST;
+exports.mailUser = process.env.EMAIL_USER;
+exports.mailPass = process.env.EMAIL_PASS;
+exports.mailFrom = process.env.EMAIL_FROM;
+exports.mailPort = parseInt(process.env.EMAIL_PORT || "") || 587;

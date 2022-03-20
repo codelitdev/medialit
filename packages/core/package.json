@@ -1,0 +1,53 @@
+{
+  "name": "@medialit/core",
+  "version": "0.0.0",
+  "description": "The core service for managing uploads, users and tying everthing together",
+  "author": "Rajat Saxena <hi@rajatsaxena.dev>",
+  "homepage": "https://github.com/codelitdev/cloud-upload-service#readme",
+  "license": "AGPL-3.0-or-later",
+  "main": "dist/index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codelitdev/cloud-upload-service.git"
+  },
+  "bugs": {
+    "url": "https://github.com/codelitdev/cloud-upload-service/issues"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "nodemon src/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "express": "^4.17.3",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^6.2.7",
+    "nodemailer": "^6.7.2",
+    "passport": "^0.5.2",
+    "passport-jwt": "^4.0.0",
+    "passport-magic-link": "^2.1.0",
+    "pino": "^7.9.1",
+    "pug": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.13",
+    "@types/jsonwebtoken": "^8.5.8",
+    "@types/mongoose": "^5.11.97",
+    "@types/node": "^17.0.21",
+    "@types/nodemailer": "^6.4.4",
+    "@types/passport": "^1.0.7",
+    "@types/passport-jwt": "^3.0.6",
+    "@types/pug": "^2.0.6",
+    "lerna": "^4.0.0",
+    "nodemon": "^2.0.15",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.2"
+  }
+}
