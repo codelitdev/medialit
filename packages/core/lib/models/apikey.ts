@@ -7,7 +7,7 @@ import {
 
 export interface Apikey {
     key: string;
-    userId: typeof mongoose.Types.ObjectId;
+    userId: string;
     restriction?: typeof APIKEY_RESTRICTION_REFERRER | typeof APIKEY_RESTRICTION_IP | typeof APIKEY_RESTRICTION_CUSTOM;
     httpReferrers: string[];
     ipAddresses: string[];
