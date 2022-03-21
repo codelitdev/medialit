@@ -14,7 +14,7 @@ const jwtStrategyOptions: StrategyOptions = {
 
 export default new Strategy(jwtStrategyOptions, function (
   _: any,
-  jwtToken: { email: string; domain: string },
+  jwtToken: { email: string; },
   done: any
 ) {
   const { email } = jwtToken;

@@ -1,10 +1,7 @@
-/**
- * This route handles everything related to signing users in.
- */
-
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { jwtExpire, jwtSecret } from '../config/constants';
+import { SUCCESS } from '../config/strings';
 
 export default (passport: any) => {
     const router = express.Router();
@@ -13,7 +10,7 @@ export default (passport: any) => {
         "/login",
         passport.authenticate("magiclink", { action: "requestToken" }),
         (req, res) => {
-            res.status(200).json({ message: "Success" });
+            res.status(200).json({ message: SUCCESS });
         }
     );
 

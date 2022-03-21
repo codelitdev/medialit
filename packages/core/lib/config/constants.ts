@@ -7,3 +7,6 @@ export const mailUser = process.env.EMAIL_USER;
 export const mailPass = process.env.EMAIL_PASS;
 export const mailFrom = process.env.EMAIL_FROM;
 export const mailPort = parseInt(process.env.EMAIL_PORT || "") || 587;
+export const APIKEY_RESTRICTION_REFERRER = "referrer";
+export const APIKEY_RESTRICTION_IP = "ipaddress";
+export const APIKEY_RESTRICTION_CUSTOM = "custom";
