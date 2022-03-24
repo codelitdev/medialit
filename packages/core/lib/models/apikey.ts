@@ -7,16 +7,16 @@ import {
 
 export interface Apikey {
     key: string;
-    userId: string;
+    userId: mongoose.Types.ObjectId;
     restriction?: typeof APIKEY_RESTRICTION_REFERRER | typeof APIKEY_RESTRICTION_IP | typeof APIKEY_RESTRICTION_CUSTOM;
     httpReferrers: string[];
     ipAddresses: string[];
     custom: string;
 }
 
-const ApikeySchema = new mongoose.Schema({
+const ApikeySchema = new mongoose.Schema<Apikey>({
     key: { type: String, required: true },
-    userId: { type: mongoose.Types.ObjectId, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
     restriction: { type: String, enum: [
         APIKEY_RESTRICTION_REFERRER,
         APIKEY_RESTRICTION_IP,

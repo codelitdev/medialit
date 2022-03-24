@@ -5,13 +5,9 @@ function isSubscriptionValid (dateStr: Date): boolean {
     return new Date(dateStr).getTime() > new Date().getTime();
 };
 
-export async function validateSubscriptionOrRespondWithError(userId: string, res: any, next: any) {
+export async function hasValidSubscription(userId: string) {
     const subscription: Subscription | null = await SubscriptionModel.findOne({ userId });
-    const hasValidSubscription = subscription && isSubscriptionValid(subscription.endsAt);
-    if (!hasValidSubscription) {
-        res.status(403).json({ message: SUBSCRIPTION_NOT_VALID });
-        next(SUBSCRIPTION_NOT_VALID);
-    }
+    return subscription && isSubscriptionValid(subscription.endsAt);
 }
 
 export default async function subscription(req: any, res: any, next: (...args: any[]) => void) {
@@ -19,6 +15,11 @@ export default async function subscription(req: any, res: any, next: (...args: a
         res.status(401).json({ message: UNAUTHORISED });
     }
 
-    await validateSubscriptionOrRespondWithError(req.user._id, res, next);
+    const isSubscriptionValid = await hasValidSubscription(req.user._id);
+    if (!isSubscriptionValid) {
+        res.status(403).json({ message: SUBSCRIPTION_NOT_VALID });
+        next(SUBSCRIPTION_NOT_VALID);
+    }
+
     next();
 }
