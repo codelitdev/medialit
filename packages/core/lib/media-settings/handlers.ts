@@ -1,6 +1,6 @@
 import Joi from 'joi';
-import { SUCCESS } from '../../config/strings';
-import MediaSettingsModel from '../../models/media-settings';
+import { SUCCESS } from '../config/strings';
+import MediaSettingsModel from './model';
 
 export async function updateMediaSettings(req: any, res: any, next: (...args: any[]) => void) {
     const mediaSettingsSchema = Joi.object({
