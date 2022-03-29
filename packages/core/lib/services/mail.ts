@@ -30,6 +30,6 @@ export const send = async ({ to, subject, body } : {
       html: body,
     });
   } catch (err: any) {
-    logger.error(err.message);
+    logger.error({ err }, err.message);
   }
 };

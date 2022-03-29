@@ -4,8 +4,9 @@
     "files": true
   },
   "compilerOptions": {
+    "lib": ["ES2020"],
     "outDir": "./dist",
-    "typeRoots": ["@types"],
+    "typeRoots": ["src/@types"],
     "types": ["node"],
   }
 }

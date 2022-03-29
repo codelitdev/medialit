@@ -29,7 +29,7 @@ export default async function (): Promise<void> {
         connection.isConnected = dbConnection.connections[0].readyState;
         logger.info("Database connected");
     } catch (err: any) {
-        logger.error(err.message)
+        logger.error({ err }, err.message)
         process.exit(1);
     }
 };

@@ -1,0 +1,39 @@
+{
+  "name": "@medialit/images",
+  "version": "0.0.0",
+  "description": "Image processing utilities",
+  "keywords": [
+    "image",
+    "utilities"
+  ],
+  "author": "Rajat Saxena <hi@rajatsaxena.dev>",
+  "homepage": "https://github.com/codelitdev/cloud-upload-service#readme",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.yarnpkg.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codelitdev/cloud-upload-service.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1",
+    "build": "tsc"
+  },
+  "bugs": {
+    "url": "https://github.com/codelitdev/cloud-upload-service/issues"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.23",
+    "typescript": "^4.6.3"
+  },
+  "types": "dist/index.d.ts"
+}

@@ -2,13 +2,13 @@ import aws from 'aws-sdk';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ReadStream } from 'fs';
-const {
+import {
   cloudEndpoint,
   cloudKey,
   cloudSecret,
   cloudBucket,
   cloudRegion,
-} = require("../../config/constants");
+} from "../config/constants";
 
 export interface UploadParams {
     Key: string;
@@ -23,7 +23,7 @@ export interface DeleteParams {
 
 export interface PresignedURLParams {
     name: string;
-    mimetype: string;
+    mimetype?: string;
 }
 
 export const putObject = (params: UploadParams) =>
@@ -72,7 +72,7 @@ export const deleteObject = (params: DeleteParams) =>
     );
   });
 
-export const generateSignedUrl = async ({ name, mimetype }: PresignedURLParams) => {
+export const generateSignedUrl = async ({ name, mimetype }: PresignedURLParams): Promise<string> => {
   const client = new S3Client({
     region: cloudRegion,
     endpoint: cloudEndpoint,
@@ -83,7 +83,6 @@ export const generateSignedUrl = async ({ name, mimetype }: PresignedURLParams) 
   });
 
   const command = new GetObjectCommand({
-    // ACL: "public-read",
     Bucket: cloudBucket,
     Key: name,
   });

@@ -1,0 +1,92 @@
+import Joi from "joi";
+import { maxFileUploadSize } from "../config/constants";
+import { FILE_IS_REQUIRED, FILE_SIZE_EXCEEDED, MEDIA_NOT_FOUND } from "../config/strings";
+import logger from "../services/log";
+import { Request } from "express";
+import mediaService from './service';
+
+function validateUploadOptions(req: Request): Joi.ValidationResult {
+    const uploadSchema = Joi.object({
+        caption: Joi.string(),
+        access: Joi.string().valid('public', 'private') 
+    });
+    const { caption, access } = req.body;
+    return uploadSchema.validate({ caption, access });
+}
+
+export async function uploadMedia(req: any, res: any, next: (...args: any[]) => void) {
+    req.socket.setTimeout(10 * 60 * 1000);
+  
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ error: FILE_IS_REQUIRED });
+    }
+  
+    if (req.files.file.size > maxFileUploadSize) {
+      return res.status(400).json({ error: FILE_SIZE_EXCEEDED });
+    }
+
+    const { error } = validateUploadOptions(req);
+    if (error) {
+        res.status(400).json({ error: error.message });
+    }
+
+    const { file } = req.files;
+    const { access, caption } = req.body;
+    const userId = req.user.id;
+    try {
+        const mediaId = await mediaService.upload({ userId, file, access, caption });
+        return res.status(200).json({ mediaId });
+    } catch (err: any) {
+        logger.error({ err }, err.message);
+        res.status(500).json({ error: err.message });
+    }
+}
+
+export async function getMedia(req: any, res: any, next: (...args: any[]) => void) {
+    const getMediaSchema = Joi.object({
+        page: Joi.number().positive(),
+        limit: Joi.number().positive(),
+        access: Joi.string().valid('public', 'private')
+    });
+
+    const {
+        page,
+        limit,
+        access
+    } = req.query;
+
+    const { error } = getMediaSchema.validate({ page, limit, access });
+
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    try {
+        const result = await mediaService.getPage({
+            userId: req.user._id,
+            access,
+            page,
+            recordsPerPage: limit
+        })
+        return res.status(200).json(result);
+    } catch (err: any) {
+        logger.error({ err }, err.message);
+        return res.status(500).json(err.message);
+    }
+}
+
+export async function getMediaDetails(req: any, res: any) {
+    const { mediaId } = req.params;
+    
+    try {
+        const media = await mediaService.getMediaDetails(req.user.id, mediaId); 
+        if (!media) { 
+            return res.status(404).json({ error: MEDIA_NOT_FOUND });
+        }
+
+        return res.status(200).json(media);
+    } catch (err: any) {
+        logger.error({ err }, err.message);
+        return res.status(500).json(err.message);
+    }
+}
