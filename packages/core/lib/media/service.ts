@@ -16,23 +16,23 @@ import {
   moveFile,
 } from "./utils/manage-files-on-disk";
 import MediaModel, { Media } from './model';
-import { generateSignedUrl, putObject } from '../services/s3';
+import { generateSignedUrl, putObject, deleteObject } from '../services/s3';
 import logger from '../services/log';
 import generateKey from './utils/generate-key';
 import { getMediaSettings } from '../media-settings/queries';
 import generateFileName from './utils/generate-file-name';
 import mongoose from 'mongoose';
 import GetPageProps from './GetPageProps';
-import { getMedia, getPaginatedPage } from './queries';
+import { deleteMediaQuery, getMedia, getPaginatedMedia } from './queries';
 
 const generateAndUploadThumbnail = async ({
   workingDirectory,
-  cloudDirectory,
+  key,
   mimetype,
   originalFilePath,
 } : {
   workingDirectory: string,
-  cloudDirectory: string,
+  key: string,
   mimetype: string,
   originalFilePath: string
 }): Promise<boolean> => {
@@ -55,7 +55,7 @@ const generateAndUploadThumbnail = async ({
 
   if (isThumbGenerated) {
     await putObject({
-      Key: `${cloudDirectory}/thumb.webp`,
+      Key: key,
       Body: createReadStream(thumbPath),
       ContentType: "image/webp",
       ACL: "public-read",
@@ -98,7 +98,8 @@ async function upload ({ userId, file, access, caption }: UploadProps): Promise<
     Key: generateKey({
       userId, 
       mediaId: fileName.name, 
-      extension: fileName.ext
+      extension: fileName.ext,
+      type: "main"
     }),
     Body: createReadStream(mainFilePath),
     ContentType: file.mimetype,
@@ -109,9 +110,14 @@ async function upload ({ userId, file, access, caption }: UploadProps): Promise<
   try {
     isThumbGenerated = await generateAndUploadThumbnail({
       workingDirectory: temporaryFolderForWork,
-      cloudDirectory: directory,
       mimetype: file.mimetype,
       originalFilePath: mainFilePath,
+      key: generateKey({
+        userId, 
+        mediaId: fileName.name, 
+        extension: fileName.ext,
+        type: "thumb"
+      })
     });
   } catch (err: any) {
     logger.error({ err }, err.message)
@@ -146,32 +152,18 @@ async function upload ({ userId, file, access, caption }: UploadProps): Promise<
 //   });
 // };
 
-// export const deleteObject = async (media: any, res: any) => {
-//   try {
-//     await deleteObjectPromise({ Key: media.file });
-//     if (media.thumbnail) {
-//       await deleteObjectPromise({ Key: media.thumbnail });
-//     }
-//     await media.delete();
-
-//     return res.status(200).json({ message: SUCCESS });
-//   } catch (err: any) {
-//     return res.status(500).json({ message: err.message });
-//   }
-// };
-
 type MappedMedia = Partial<Omit<Omit<Media, 'accessControl'>, 'thumbnailGenerated'>> & { 
     access: "private" | "public",
     thumbnail: string;
 };
 
 async function getPage ({ userId, access, page, recordsPerPage }: GetPageProps): Promise<MappedMedia[]> {
-  const result = await getPaginatedPage({
+  const result = await getPaginatedMedia({
       userId,
       access,
       page,
       recordsPerPage
-  })
+  });
   const mappedResult = result.map((media: Media): MappedMedia => ({
       mediaId: media.mediaId,
       originalFileName: media.originalFileName,
@@ -206,7 +198,8 @@ async function getMediaDetails (userId: string, mediaId: string): Promise<Record
               name: generateKey({
                   userId,
                   mediaId: media.mediaId,
-                  extension
+                  extension,
+                  type: "main"
               }) 
           }) 
           : `${cdnEndpoint}/${media.userId}/${media.mediaId}/main.${media.mimeType.split("/")[1]}`,
@@ -217,8 +210,34 @@ async function getMediaDetails (userId: string, mediaId: string): Promise<Record
   };
 }
 
+async function deleteMedia(userId: string, mediaId: string): Promise<void> {
+  const media = await getMedia(userId, mediaId);
+  if (!media) return;
+
+  const key = generateKey({
+    userId,
+    mediaId,
+    extension: media.mimeType.split("/")[1],
+    type: "main"
+  });
+  await deleteObject({ Key: key });
+
+  if (media.thumbnailGenerated) {
+    const thumbKey = generateKey({
+      userId,
+      mediaId,
+      extension: media.mimeType.split("/")[1],
+      type: "thumb" 
+    });
+    await deleteObject({ Key: thumbKey });
+  }
+
+  await deleteMediaQuery(userId, mediaId);
+}
+
 export default {
   upload,
   getPage,
-  getMediaDetails
+  getMediaDetails,
+  deleteMedia
 }

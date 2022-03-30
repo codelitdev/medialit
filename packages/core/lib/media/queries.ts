@@ -6,7 +6,7 @@ export async function getMedia(userId: string, mediaId: string): Promise<Media |
     return await MediaModel.findOne({ mediaId, userId });
 }
 
-export async function getPaginatedPage({ userId, access, page, recordsPerPage }: GetPageProps): Promise<Media[]> {
+export async function getPaginatedMedia({ userId, access, page, recordsPerPage }: GetPageProps): Promise<Media[]> {
     let query: Partial<Media> = { userId };
     if (access) {
         query.accessControl = access === "private" ? "private" : "public-read";
@@ -30,4 +30,8 @@ export async function getPaginatedPage({ userId, access, page, recordsPerPage }:
         .sort({ _id: 1 })
         .skip(page ? (page - 1) * limitWithFallback: 0)
         .limit(limitWithFallback);
+}
+
+export async function deleteMediaQuery(userId: string, mediaId: string): Promise<any> {
+    return await MediaModel.deleteOne({ userId, mediaId });
 }

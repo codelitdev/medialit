@@ -1,6 +1,6 @@
 import Joi from "joi";
 import { maxFileUploadSize } from "../config/constants";
-import { FILE_IS_REQUIRED, FILE_SIZE_EXCEEDED, MEDIA_NOT_FOUND } from "../config/strings";
+import { FILE_IS_REQUIRED, FILE_SIZE_EXCEEDED, MEDIA_NOT_FOUND, SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from './service';
@@ -85,6 +85,19 @@ export async function getMediaDetails(req: any, res: any) {
         }
 
         return res.status(200).json(media);
+    } catch (err: any) {
+        logger.error({ err }, err.message);
+        return res.status(500).json(err.message);
+    }
+}
+
+export async function deleteMedia(req: any, res: any) {
+    const { mediaId } = req.params;
+
+    try {
+        await mediaService.deleteMedia(req.user.id, mediaId);
+        
+        return res.status(200).json({ message: SUCCESS })
     } catch (err: any) {
         logger.error({ err }, err.message);
         return res.status(500).json(err.message);
