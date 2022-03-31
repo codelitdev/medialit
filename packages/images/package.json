@@ -26,7 +26,8 @@
   },
   "scripts": {
     "test": "echo \"Error: run tests from root\" && exit 1",
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "yarn run build"
   },
   "bugs": {
     "url": "https://github.com/codelitdev/cloud-upload-service/issues"
