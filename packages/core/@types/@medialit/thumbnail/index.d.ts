@@ -1,1 +1,1 @@
-declare module '@medialit/thumbnail';
+declare module "@medialit/thumbnail";

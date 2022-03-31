@@ -1,6 +1,9 @@
-import express from 'express';
-import subscription from '../subscription/middleware';
-import { getMediaSettingsHandler, updateMediaSettingsHandler } from '../media-settings/handlers';
+import express from "express";
+import subscription from "../subscription/middleware";
+import {
+    getMediaSettingsHandler,
+    updateMediaSettingsHandler,
+} from "../media-settings/handlers";
 
 export default (passport: any) => {
     const router = express.Router();
@@ -20,4 +23,4 @@ export default (passport: any) => {
     );
 
     return router;
-}
+};

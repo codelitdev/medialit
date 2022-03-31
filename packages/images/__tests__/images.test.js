@@ -1,7 +1,7 @@
-'use strict';
+"use strict";
 
-const images = require('..');
+const images = require("..");
 
-describe('@medialit/images', () => {
-    it('needs tests');
+describe("@medialit/images", () => {
+    it("needs tests");
 });

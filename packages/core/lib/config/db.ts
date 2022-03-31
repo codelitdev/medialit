@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
-import logger from '../services/log';
-import { dbConnectionString } from './constants';
+import mongoose from "mongoose";
+import logger from "../services/log";
+import { dbConnectionString } from "./constants";
 
 interface ConnectionProps {
     isConnected?: number;
@@ -18,18 +18,21 @@ export default async function (): Promise<void> {
         return;
     }
 
-    const options: mongoose.ConnectOptions = { 
+    const options: mongoose.ConnectOptions = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
         serverSelectionTimeoutMS: 5000,
     } as mongoose.ConnectOptions;
 
     try {
-        const dbConnection = await mongoose.connect(dbConnectionString, options);
+        const dbConnection = await mongoose.connect(
+            dbConnectionString,
+            options
+        );
         connection.isConnected = dbConnection.connections[0].readyState;
         logger.info("Database connected");
     } catch (err: any) {
-        logger.error({ err }, err.message)
+        logger.error({ err }, err.message);
         process.exit(1);
     }
-};
+}

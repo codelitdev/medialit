@@ -1,5 +1,5 @@
-import { convertToWebp } from "./webp"
+import { convertToWebp } from "./webp";
 
 export default {
-    convertToWebp
-}
+    convertToWebp,
+};

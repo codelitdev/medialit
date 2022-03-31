@@ -1,28 +1,37 @@
 import Joi from "joi";
 import { maxFileUploadSize } from "../config/constants";
-import { FILE_IS_REQUIRED, FILE_SIZE_EXCEEDED, NOT_FOUND, SUCCESS } from "../config/strings";
+import {
+    FILE_IS_REQUIRED,
+    FILE_SIZE_EXCEEDED,
+    NOT_FOUND,
+    SUCCESS,
+} from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
-import mediaService from './service';
+import mediaService from "./service";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
         caption: Joi.string(),
-        access: Joi.string().valid('public', 'private') 
+        access: Joi.string().valid("public", "private"),
     });
     const { caption, access } = req.body;
     return uploadSchema.validate({ caption, access });
 }
 
-export async function uploadMedia(req: any, res: any, next: (...args: any[]) => void) {
+export async function uploadMedia(
+    req: any,
+    res: any,
+    next: (...args: any[]) => void
+) {
     req.socket.setTimeout(10 * 60 * 1000);
-  
+
     if (!req.files || !req.files.file) {
-      return res.status(400).json({ error: FILE_IS_REQUIRED });
+        return res.status(400).json({ error: FILE_IS_REQUIRED });
     }
-  
+
     if (req.files.file.size > maxFileUploadSize) {
-      return res.status(400).json({ error: FILE_SIZE_EXCEEDED });
+        return res.status(400).json({ error: FILE_SIZE_EXCEEDED });
     }
 
     const { error } = validateUploadOptions(req);
@@ -34,7 +43,12 @@ export async function uploadMedia(req: any, res: any, next: (...args: any[]) => 
     const { access, caption } = req.body;
     const userId = req.user.id;
     try {
-        const mediaId = await mediaService.upload({ userId, file, access, caption });
+        const mediaId = await mediaService.upload({
+            userId,
+            file,
+            access,
+            caption,
+        });
         return res.status(200).json({ mediaId });
     } catch (err: any) {
         logger.error({ err }, err.message);
@@ -42,18 +56,18 @@ export async function uploadMedia(req: any, res: any, next: (...args: any[]) => 
     }
 }
 
-export async function getMedia(req: any, res: any, next: (...args: any[]) => void) {
+export async function getMedia(
+    req: any,
+    res: any,
+    next: (...args: any[]) => void
+) {
     const getMediaSchema = Joi.object({
         page: Joi.number().positive(),
         limit: Joi.number().positive(),
-        access: Joi.string().valid('public', 'private')
+        access: Joi.string().valid("public", "private"),
     });
 
-    const {
-        page,
-        limit,
-        access
-    } = req.query;
+    const { page, limit, access } = req.query;
 
     const { error } = getMediaSchema.validate({ page, limit, access });
 
@@ -66,8 +80,8 @@ export async function getMedia(req: any, res: any, next: (...args: any[]) => voi
             userId: req.user._id,
             access,
             page,
-            recordsPerPage: limit
-        })
+            recordsPerPage: limit,
+        });
         return res.status(200).json(result);
     } catch (err: any) {
         logger.error({ err }, err.message);
@@ -77,10 +91,10 @@ export async function getMedia(req: any, res: any, next: (...args: any[]) => voi
 
 export async function getMediaDetails(req: any, res: any) {
     const { mediaId } = req.params;
-    
+
     try {
-        const media = await mediaService.getMediaDetails(req.user.id, mediaId); 
-        if (!media) { 
+        const media = await mediaService.getMediaDetails(req.user.id, mediaId);
+        if (!media) {
             return res.status(404).json({ error: NOT_FOUND });
         }
 
@@ -96,8 +110,8 @@ export async function deleteMedia(req: any, res: any) {
 
     try {
         await mediaService.deleteMedia(req.user.id, mediaId);
-        
-        return res.status(200).json({ message: SUCCESS })
+
+        return res.status(200).json({ message: SUCCESS });
     } catch (err: any) {
         logger.error({ err }, err.message);
         return res.status(500).json(err.message);

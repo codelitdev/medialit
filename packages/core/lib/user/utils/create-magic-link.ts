@@ -5,5 +5,5 @@ interface CreateMagicLinkProps {
 }
 
 export default function ({ protocol, host, token }: CreateMagicLinkProps) {
-    return `${protocol}://${host}/user/login?token=${token}`
+    return `${protocol}://${host}/user/login?token=${token}`;
 }

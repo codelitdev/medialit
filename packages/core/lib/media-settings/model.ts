@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 export interface MediaSettings {
     userId: mongoose.Types.ObjectId | undefined;
@@ -13,7 +13,8 @@ const MediaSettingsSchema = new mongoose.Schema<MediaSettings>({
     useWebP: Boolean,
     webpOutputQuality: Number,
     thumbnailWidth: Number,
-    thumbnailHeight: Number
-})
+    thumbnailHeight: Number,
+});
 
-export default mongoose.models.MediaSettings || mongoose.model("MediaSettings", MediaSettingsSchema);
+export default mongoose.models.MediaSettings ||
+    mongoose.model("MediaSettings", MediaSettingsSchema);

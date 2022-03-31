@@ -1,6 +1,6 @@
-import { spawn } from 'child_process';
+import { spawn } from "child_process";
 
-export function convertToWebp (path: string, quality: number = 75): Promise<void> {
+export function convertToWebp(path: string, quality = 75): Promise<void> {
     return new Promise((resolve: any, reject: any) => {
         const process = spawn(
             "cwebp",
@@ -12,10 +12,12 @@ export function convertToWebp (path: string, quality: number = 75): Promise<void
 
         process.on("exit", (code) => {
             if (code !== 0) {
-                reject(new Error("Error in converting the file to Webp format."));
+                reject(
+                    new Error("Error in converting the file to Webp format.")
+                );
             }
 
             resolve();
         });
     });
-} 
+}

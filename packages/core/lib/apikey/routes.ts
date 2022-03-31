@@ -1,6 +1,6 @@
-import express from 'express';
-import subscription from '../subscription/middleware';
-import { createApikey, deleteApikey, getApikey } from './handlers';
+import express from "express";
+import subscription from "../subscription/middleware";
+import { createApikey, deleteApikey, getApikey } from "./handlers";
 
 export default (passport: any) => {
     const router = express.Router();
@@ -31,4 +31,4 @@ export default (passport: any) => {
     );
 
     return router;
-}
+};

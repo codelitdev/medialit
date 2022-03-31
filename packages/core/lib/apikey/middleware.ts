@@ -1,10 +1,18 @@
-import { BAD_REQUEST, SUBSCRIPTION_NOT_VALID, UNAUTHORISED } from "../config/strings";
+import {
+    BAD_REQUEST,
+    SUBSCRIPTION_NOT_VALID,
+    UNAUTHORISED,
+} from "../config/strings";
 import { Apikey } from "./model";
 import { validateSubscription } from "../subscription/validate-subscription";
 import { getApiKeyUsingKeyId } from "./queries";
 import { getUser } from "../user/queries";
 
-export default async function apikey(req: any, res: any, next: (...args: any[]) => void) {
+export default async function apikey(
+    req: any,
+    res: any,
+    next: (...args: any[]) => void
+) {
     const reqKey = req.body.apikey;
 
     if (!reqKey) {
@@ -16,7 +24,9 @@ export default async function apikey(req: any, res: any, next: (...args: any[]) 
         return res.status(401).json({ error: UNAUTHORISED });
     }
 
-    const isSubscriptionValid = await validateSubscription(apiKey!.userId.toString());
+    const isSubscriptionValid = await validateSubscription(
+        apiKey!.userId.toString()
+    );
     if (!isSubscriptionValid) {
         return res.status(403).json({ error: SUBSCRIPTION_NOT_VALID });
     }

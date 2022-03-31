@@ -1,13 +1,13 @@
-import aws from 'aws-sdk';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { ReadStream } from 'fs';
+import aws from "aws-sdk";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { ReadStream } from "fs";
 import {
-  cloudEndpoint,
-  cloudKey,
-  cloudSecret,
-  cloudBucket,
-  cloudRegion,
+    cloudEndpoint,
+    cloudKey,
+    cloudSecret,
+    cloudBucket,
+    cloudRegion,
 } from "../config/constants";
 
 export interface UploadParams {
@@ -27,66 +27,69 @@ export interface PresignedURLParams {
 }
 
 export const putObject = (params: UploadParams) =>
-  new Promise((resolve, reject) => {
-    const endpoint = new aws.Endpoint(cloudEndpoint);
-    const s3 = new aws.S3({
-      endpoint,
-      accessKeyId: cloudKey,
-      secretAccessKey: cloudSecret,
-    });
+    new Promise((resolve, reject) => {
+        const endpoint = new aws.Endpoint(cloudEndpoint);
+        const s3 = new aws.S3({
+            endpoint,
+            accessKeyId: cloudKey,
+            secretAccessKey: cloudSecret,
+        });
 
-    const settings = Object.assign(
-      {},
-      {
-        Bucket: cloudBucket,
-      },
-      params
-    );
-    s3.putObject(settings, (err, result) => {
-      if (err) reject(err);
-      resolve(result);
+        const settings = Object.assign(
+            {},
+            {
+                Bucket: cloudBucket,
+            },
+            params
+        );
+        s3.putObject(settings, (err, result) => {
+            if (err) reject(err);
+            resolve(result);
+        });
     });
-  });
 
 export const deleteObject = (params: DeleteParams) =>
-  new Promise((resolve, reject) => {
-    const endpoint = new aws.Endpoint(cloudEndpoint);
-    const s3 = new aws.S3({
-      endpoint,
-      accessKeyId: cloudKey,
-      secretAccessKey: cloudSecret,
+    new Promise((resolve, reject) => {
+        const endpoint = new aws.Endpoint(cloudEndpoint);
+        const s3 = new aws.S3({
+            endpoint,
+            accessKeyId: cloudKey,
+            secretAccessKey: cloudSecret,
+        });
+
+        s3.deleteObject(
+            Object.assign(
+                {},
+                {
+                    Bucket: cloudBucket,
+                },
+                params
+            ),
+            (err, result) => {
+                if (err) reject(err);
+                resolve(result);
+            }
+        );
     });
 
-    s3.deleteObject(
-      Object.assign(
-        {},
-        {
-          Bucket: cloudBucket,
+export const generateSignedUrl = async ({
+    name,
+    mimetype,
+}: PresignedURLParams): Promise<string> => {
+    const client = new S3Client({
+        region: cloudRegion,
+        endpoint: cloudEndpoint,
+        credentials: {
+            accessKeyId: cloudKey,
+            secretAccessKey: cloudSecret,
         },
-        params
-      ),
-      (err, result) => {
-        if (err) reject(err);
-        resolve(result);
-      }
-    );
-  });
+    });
 
-export const generateSignedUrl = async ({ name, mimetype }: PresignedURLParams): Promise<string> => {
-  const client = new S3Client({
-    region: cloudRegion,
-    endpoint: cloudEndpoint,
-    credentials: {
-      accessKeyId: cloudKey,
-      secretAccessKey: cloudSecret,
-    },
-  });
+    const command = new GetObjectCommand({
+        Bucket: cloudBucket,
+        Key: name,
+    });
 
-  const command = new GetObjectCommand({
-    Bucket: cloudBucket,
-    Key: name,
-  });
-
-  const url = await getSignedUrl(client, command);
-  return url;
+    const url = await getSignedUrl(client, command);
+    return url;
 };

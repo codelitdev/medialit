@@ -1,8 +1,8 @@
-import express from 'express';
-import jwt from 'jsonwebtoken';
-import { jwtExpire, jwtSecret } from '../config/constants';
-import { SUCCESS } from '../config/strings';
-import magicLink from './passport-strategies/magic-link';
+import express from "express";
+import jwt from "jsonwebtoken";
+import { jwtExpire, jwtSecret } from "../config/constants";
+import { SUCCESS } from "../config/strings";
+import magicLink from "./passport-strategies/magic-link";
 
 export default (passport: any) => {
     passport.use(magicLink);
@@ -23,13 +23,11 @@ export default (passport: any) => {
             session: false,
         }),
         (req: any, res: any) => {
-            const token = jwt.sign(
-                { email: req.user.email },
-                jwtSecret,
-                { expiresIn: jwtExpire }
-            );
+            const token = jwt.sign({ email: req.user.email }, jwtSecret, {
+                expiresIn: jwtExpire,
+            });
 
-            return res.status(200).json({ "access_token": token });
+            return res.status(200).json({ access_token: token });
         }
     );
 

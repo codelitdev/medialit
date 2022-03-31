@@ -1,1 +1,1 @@
-declare module 'passport-magic-link';
+declare module "passport-magic-link";

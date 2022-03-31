@@ -6,6 +6,6 @@
   "compilerOptions": {
     "outDir": "./dist",
     "typeRoots": ["@types"],
-    "types": ["node"],
+    "types": ["node"]
   }
 }

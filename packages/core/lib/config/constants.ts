@@ -1,7 +1,7 @@
 export const appName = process.env.APP_NAME || "Cloud Upload Service";
 export const dbConnectionString = process.env.DB_CONNECTION_STRING;
 export const jwtSecret = process.env.JWT_SECRET || "r@nd0m1e";
-export const jwtExpire = process.env.JWT_EXPIRES_IN || "1d"; 
+export const jwtExpire = process.env.JWT_EXPIRES_IN || "1d";
 export const mailHost = process.env.EMAIL_HOST;
 export const mailUser = process.env.EMAIL_USER;
 export const mailPass = process.env.EMAIL_PASS;
@@ -10,7 +10,7 @@ export const mailPort = parseInt(process.env.EMAIL_PORT || "") || 587;
 export const APIKEY_RESTRICTION_REFERRER = "referrer";
 export const APIKEY_RESTRICTION_IP = "ipaddress";
 export const APIKEY_RESTRICTION_CUSTOM = "custom";
-export const tempFileDirForUploads = process.env.TEMP_FILE_DIR_FOR_UPLOADS; 
+export const tempFileDirForUploads = process.env.TEMP_FILE_DIR_FOR_UPLOADS;
 export const maxFileUploadSize = process.env.MAX_UPLOAD_SIZE || 2147483648;
 export const imagePattern = /^image\/(jpe?g|png)$/;
 export const imagePatternIncludingGif = /^image\/(jpe?g|png|gif)$/;
