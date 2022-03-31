@@ -72,10 +72,13 @@ const thumbGenerator = (
         }
 
         if (process.env.DEBUG === "true") {
-            convert.stderr.on("data", (data) => console.error(data.toString())); // eslint-disable-line no-console
+            convert.stderr.on("data", (data: any) => {
+                // eslint-disable-next-line no-console
+                console.error(data.toString());
+            });
         }
 
-        convert.on("exit", (code) => {
+        convert.on("exit", (code: number) => {
             if (code !== 0) {
                 reject(new Error(`Child process exited with code ${code}`));
             }

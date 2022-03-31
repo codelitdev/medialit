@@ -10,7 +10,7 @@ export function convertToWebp(path: string, quality = 75): Promise<void> {
             }
         );
 
-        process.on("exit", (code) => {
+        process.on("exit", (code: number) => {
             if (code !== 0) {
                 reject(
                     new Error("Error in converting the file to Webp format.")
