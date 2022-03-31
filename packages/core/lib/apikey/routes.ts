@@ -6,25 +6,25 @@ export default (passport: any) => {
     const router = express.Router();
 
     router.post(
-        "/apikey",
+        "/create",
         passport.authenticate("jwt", { session: false }),
         subscription,
         createApikey
     );
-    router.get(
-        "/apikey",
+    router.post(
+        "/get",
         passport.authenticate("jwt", { session: false }),
         subscription,
         getApikey
     );
-    router.get(
-        "/apikey/:keyId",
+    router.post(
+        "/get/:keyId",
         passport.authenticate("jwt", { session: false }),
         subscription,
         getApikey
     );
     router.delete(
-        "/apikey/:keyId",
+        "/delete/:keyId",
         passport.authenticate("jwt", { session: false }),
         subscription,
         deleteApikey

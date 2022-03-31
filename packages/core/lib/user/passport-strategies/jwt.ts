@@ -3,7 +3,7 @@ import { jwtExpire, jwtSecret } from "../../config/constants";
 import UserModel, { User } from "../model";
 
 const jwtStrategyOptions: StrategyOptions = {
-  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  jwtFromRequest: ExtractJwt.fromBodyField("token"),
   secretOrKey: jwtSecret,
   jsonWebTokenOptions: {
     // @ts-ignore: VerifyOptions does not have the expiresIn option

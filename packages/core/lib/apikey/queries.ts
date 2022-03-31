@@ -12,8 +12,8 @@ export async function getApiKeyUsingKeyId(key: string): Promise<Apikey | null> {
     return await ApikeyModel.findOne({ key });
 }
 
-export async function getApiKey(userId: string, keyId?: string): Promise<Apikey | null> {
-    let result: Apikey | null;
+export async function getApiKeyByUserId(userId: string, keyId?: string): Promise<Apikey | Apikey[] | null> {
+    let result: Apikey | Apikey[] | null;
     const projections = {
         _id: 0,
         key: 1,
@@ -28,7 +28,7 @@ export async function getApiKey(userId: string, keyId?: string): Promise<Apikey 
             userId
         }, projections);
     } else {
-        result = await ApikeyModel.findOne({ userId }, projections);
+        result = await ApikeyModel.find({ userId }, projections);
     }
 
     return result;

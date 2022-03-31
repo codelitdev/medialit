@@ -1,16 +1,23 @@
 import express from 'express';
 import subscription from '../subscription/middleware';
-import { updateMediaSettings } from '../media-settings/handlers';
+import { getMediaSettingsHandler, updateMediaSettingsHandler } from '../media-settings/handlers';
 
 export default (passport: any) => {
     const router = express.Router();
 
     router.post(
-        "/",
+        "/create",
         passport.authenticate("jwt", { session: false }),
         subscription,
-        updateMediaSettings
-    )
+        updateMediaSettingsHandler
+    );
+
+    router.post(
+        "/get",
+        passport.authenticate("jwt", { session: false }),
+        subscription,
+        getMediaSettingsHandler
+    );
 
     return router;
 }

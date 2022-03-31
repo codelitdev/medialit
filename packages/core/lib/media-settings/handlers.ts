@@ -1,13 +1,15 @@
 import Joi from 'joi';
 import { SUCCESS } from '../config/strings';
-import MediaSettingsModel from './model';
+import logger from '../services/log';
+import { updateMediaSettings } from './queries';
+import * as mediaSettingsService from './service';
 
-export async function updateMediaSettings(req: any, res: any, next: (...args: any[]) => void) {
+export async function updateMediaSettingsHandler(req: any, res: any, next: (...args: any[]) => void) {
     const mediaSettingsSchema = Joi.object({
         useWebP: Joi.boolean(),
-        webpOutputQuality: Joi.number().integer(),
-        thumbnailWidth: Joi.number().integer(),
-        thumbnailHeight: Joi.number().integer()
+        webpOutputQuality: Joi.number().min(0).max(100),
+        thumbnailWidth: Joi.number().positive(),
+        thumbnailHeight: Joi.number().positive()
     })
 
     const {
@@ -28,17 +30,29 @@ export async function updateMediaSettings(req: any, res: any, next: (...args: an
         return res.status(400).json({ error: error.message });
     }
 
-    await MediaSettingsModel.findOneAndUpdate(
-        { userId: req.user.id},
-        { $set: {
-                useWebP,
-                webpOutputQuality,
-                thumbnailWidth,
-                thumbnailHeight
-            } 
-        },
-        { upsert: true }
-    );
+    try {
+        await updateMediaSettings({
+            userId: req.user.id,
+            useWebP,
+            webpOutputQuality,
+            thumbnailWidth,
+            thumbnailHeight
+        });
+        return res.status(200).json({ message: SUCCESS });
+    } catch(err: any) {
+        logger.error({ err }, err.message);
+        return res.status(500).json({ error: err.message });
+    }
 
     res.status(200).json({ message: SUCCESS });
+}
+
+export async function getMediaSettingsHandler(req: any, res: any) {
+    try {
+        const mediaSettings = await mediaSettingsService.getMediaSettings(req.user.id);
+        return res.status(200).json(mediaSettings);
+    } catch(err: any) {
+        logger.error({ err }, err.message);
+        return res.status(500).json({ error: err.message });
+    }
 }

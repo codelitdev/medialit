@@ -1,7 +1,7 @@
 import { Apikey } from "./model";
 import logger from "../services/log";
-import { SUCCESS } from "../config/strings";
-import { createApiKey, deleteApiKey, getApiKey } from "./queries";
+import { NOT_FOUND, SUCCESS } from "../config/strings";
+import { createApiKey, deleteApiKey, getApiKeyByUserId } from "./queries";
 
 export async function createApikey(req: any, res: any, next: (...args: any[]) => void) {
     try {
@@ -20,7 +20,11 @@ export async function getApikey(req: any, res: any, next: (...args: any[]) => vo
     const { keyId } = req.params;
 
     try {
-        const apikey = await getApiKey(req.user.id, keyId);
+        const apikey = await getApiKeyByUserId(req.user.id, keyId);
+
+        if (!apikey) {
+            return res.status(404).json({ error: NOT_FOUND })
+        }
         res.status(200).json(apikey);
     } catch (err: any) {
         logger.error({ err }, err.message);

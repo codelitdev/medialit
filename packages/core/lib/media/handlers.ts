@@ -1,6 +1,6 @@
 import Joi from "joi";
 import { maxFileUploadSize } from "../config/constants";
-import { FILE_IS_REQUIRED, FILE_SIZE_EXCEEDED, MEDIA_NOT_FOUND, SUCCESS } from "../config/strings";
+import { FILE_IS_REQUIRED, FILE_SIZE_EXCEEDED, NOT_FOUND, SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from './service';
@@ -81,7 +81,7 @@ export async function getMediaDetails(req: any, res: any) {
     try {
         const media = await mediaService.getMediaDetails(req.user.id, mediaId); 
         if (!media) { 
-            return res.status(404).json({ error: MEDIA_NOT_FOUND });
+            return res.status(404).json({ error: NOT_FOUND });
         }
 
         return res.status(200).json(media);

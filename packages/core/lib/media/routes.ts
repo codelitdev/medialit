@@ -13,9 +13,9 @@ router.use(
     })
 );
 
-router.post('/', apikey, uploadMedia);
-router.get('/', apikey, getMedia);
-router.get('/:mediaId', apikey, getMediaDetails);
-router.delete('/:mediaId', apikey, deleteMedia);
+router.post('/create', apikey, uploadMedia);
+router.post('/get/:mediaId', apikey, getMediaDetails);
+router.post('/get', apikey, getMedia);
+router.delete('/delete/:mediaId', apikey, deleteMedia);
 
 export default router;
