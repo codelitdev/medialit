@@ -32,3 +32,6 @@ report*.json
 
 # Build files
 dist
+
+# Dev tools files
+.eslintcache
