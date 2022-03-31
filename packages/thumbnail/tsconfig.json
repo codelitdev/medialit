@@ -2,6 +2,6 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "typeRoots": ["src/@types"],
+    "types": ["node"]
   }
 }
