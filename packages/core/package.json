@@ -1,6 +1,7 @@
 {
   "name": "@medialit/core",
   "version": "0.0.0",
+  "private": true,
   "description": "The core service for managing uploads, users and tying everthing together",
   "author": {
     "name": "The CodeLit Team",
@@ -47,7 +48,6 @@
     "pug": "^3.0.2"
   },
   "devDependencies": {
-    "@medialit/eslint-config": "^0.0.0",
     "@types/express": "^4.17.13",
     "@types/express-fileupload": "^1.2.2",
     "@types/jsonwebtoken": "^8.5.8",
