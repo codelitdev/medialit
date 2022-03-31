@@ -18,7 +18,7 @@ jobs:
         run: |
           git config --global user.name 'Rajat Saxena'
           git config --global user.email 'hi@sub.rajatsaxena.dev'
-          git remote set-url origin https://$GITHUB_ACTOR:$GITHUB_PAT@github.com/codelitdev/courselit
+          git remote set-url origin https://$GITHUB_ACTOR:$GITHUB_PAT@github.com/codelitdev/medialit
         env:
           GITHUB_PAT: ${{ secrets.PAT }}
 
