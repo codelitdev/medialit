@@ -7,6 +7,5 @@
     "lib": ["ES2020"],
     "outDir": "./dist",
     "typeRoots": ["src/@types"],
-    "types": ["node"]
   }
 }

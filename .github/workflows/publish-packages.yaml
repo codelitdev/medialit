@@ -39,7 +39,6 @@ jobs:
 
       - name: Publish package
         run: |
-          npm whoami
           yarn lerna publish from-git --yes
         env:
           GH_TOKEN: ${{ secrets.PAT }}
