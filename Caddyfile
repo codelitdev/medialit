@@ -1,0 +1,5 @@
+corelit.xyz {
+    reverse_proxy medialit:8000
+    
+    encode gzip
+}

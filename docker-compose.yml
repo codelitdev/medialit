@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  medialit:
+    image: codelit/medialit
+    restart: on-failure
+    environment:
+      - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
+      - CLOUD_ENDPOINT=${CLOUD_ENDPOINT}
+      - CLOUD_REGION=${CLOUD_REGION}
+      - CLOUD_KEY=${CLOUD_KEY}
+      - CLOUD_SECRET=${CLOUD_SECRET}
+      - CLOUD_BUCKET_NAME=${CLOUD_BUCKET_NAME}
+      - CDN_ENDPOINT=${CDN_ENDPOINT}
+      - TEMP_FILE_DIR_FOR_UPLOADS=${TEMP_FILE_DIR_FOR_UPLOADS}
+      - PORT=8000
+    expose:
+      - 8000 
+
+  proxy:
+    image: caddy
+    restart: on-failure
+    volumes:
+      - "./Caddyfile:/etc/caddy/Caddyfile"
+    depends_on:
+      - medialit 
