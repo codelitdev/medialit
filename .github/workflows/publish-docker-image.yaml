@@ -30,7 +30,7 @@ jobs:
         id: meta_core 
         uses: docker/metadata-action@v3
         with:
-          images: medialit/core
+          images: codelit/medialit 
 
       - name: Build and push core
         id: docker_build_core
