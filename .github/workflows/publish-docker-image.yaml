@@ -2,8 +2,8 @@ name: Publish Docker Images
 
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - main 
 
 jobs:
   publish-docker-images:
