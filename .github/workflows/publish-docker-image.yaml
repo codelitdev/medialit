@@ -33,7 +33,7 @@ jobs:
           images: codelit/medialit 
 
       - name: Printing meta
-        run: echo ${{ steps.meta_core.outputs }}
+        run: echo ${{ steps.meta_core.outputs.tags }}
 
       - name: Build and push core
         id: docker_build_core
