@@ -23,4 +23,7 @@ app.use("/settings/media", mediaSettingsRoutes(passport));
 app.use("/settings/apikey", apikeyRoutes(passport));
 app.use("/media", mediaRoutes);
 
-app.listen(8000);
+const port = process.env.PORT || 80;
+app.listen(port, () => {
+    console.log(`Medialit server running at ${port}`); // eslint-disable-line no-console
+});
