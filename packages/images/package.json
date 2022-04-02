@@ -1,6 +1,6 @@
 {
   "name": "@medialit/images",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "Image processing utilities",
   "keywords": [
     "image",
