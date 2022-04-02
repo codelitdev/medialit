@@ -1,4 +1,4 @@
-name: Publish Npm packages and the Docker image
+name: Publish Npm packages
 
 on:
   push:
