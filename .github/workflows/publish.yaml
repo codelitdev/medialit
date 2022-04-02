@@ -1,6 +1,6 @@
 name: Publish Npm packages and the Docker image
 
-on
+on:
   push:
     branches:
       - main 
