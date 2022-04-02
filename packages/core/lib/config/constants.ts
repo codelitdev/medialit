@@ -25,4 +25,4 @@ export const thumbnailWidth = 120;
 export const thumbnailHeight = 69;
 export const numberOfRecordsPerPage = 10;
 export const PRESIGNED_URL_VALIDITY_MINUTES = 5;
-export const PRESIGNED_URL_LENGTH = 100;
+export const PRESIGNED_URL_LENGTH = 120;
