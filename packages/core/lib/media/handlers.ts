@@ -48,7 +48,9 @@ export async function uploadMedia(
             file,
             access,
             caption,
+            signature: req.query.signature,
         });
+
         return res.status(200).json({ mediaId });
     } catch (err: any) {
         logger.error({ err }, err.message);

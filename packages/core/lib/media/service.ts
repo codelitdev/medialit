@@ -24,6 +24,7 @@ import generateFileName from "./utils/generate-file-name";
 import mongoose from "mongoose";
 import GetPageProps from "./GetPageProps";
 import { deleteMediaQuery, getMedia, getPaginatedMedia } from "./queries";
+import * as presignedUrlService from "../presigning/service";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -70,6 +71,7 @@ interface UploadProps {
     file: any;
     access: string;
     caption: string;
+    signature: string;
 }
 
 async function upload({
@@ -77,6 +79,7 @@ async function upload({
     file,
     access,
     caption,
+    signature,
 }: UploadProps): Promise<{ mediaId: string }> {
     const fileName = generateFileName(file.name);
     const mediaSettings = await getMediaSettings(userId);
@@ -140,6 +143,15 @@ async function upload({
     };
 
     const media = await MediaModel.create(mediaObject);
+
+    if (signature) {
+        presignedUrlService.cleanup(userId, signature).catch((err: any) => {
+            logger.error(
+                { err },
+                `Error in cleaning up expired links for ${userId}`
+            );
+        });
+    }
 
     return media.mediaId;
 }

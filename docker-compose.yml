@@ -14,12 +14,19 @@ services:
       - CDN_ENDPOINT=${CDN_ENDPOINT}
       - TEMP_FILE_DIR_FOR_UPLOADS=${TEMP_FILE_DIR_FOR_UPLOADS}
       - PORT=8000
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
     expose:
       - 8000 
 
   proxy:
     image: caddy
     restart: on-failure
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
       - "./Caddyfile:/etc/caddy/Caddyfile"
     depends_on:

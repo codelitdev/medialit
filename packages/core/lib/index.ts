@@ -8,7 +8,9 @@ import userRoutes from "./user/routes";
 import jwt from "./user/passport-strategies/jwt";
 import apikeyRoutes from "./apikey/routes";
 import mediaRoutes from "./media/routes";
+import presignedUrlRoutes from "./presigning/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
+import logger from "./services/log";
 
 connectToDatabase();
 const app = express();
@@ -21,9 +23,10 @@ app.use(express.json());
 app.use("/user", userRoutes(passport));
 app.use("/settings/media", mediaSettingsRoutes(passport));
 app.use("/settings/apikey", apikeyRoutes(passport));
+app.use("/media/presigned", presignedUrlRoutes);
 app.use("/media", mediaRoutes);
 
 const port = process.env.PORT || 80;
 app.listen(port, () => {
-    console.log(`Medialit server running at ${port}`); // eslint-disable-line no-console
+    logger.info(`Medialit server running at ${port}`);
 });
