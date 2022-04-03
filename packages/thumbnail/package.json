@@ -1,6 +1,6 @@
 {
   "name": "@medialit/thumbnail",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "description": "Creates thumbnails for your images and videos.",
   "keywords": [
     "thumbnail"
