@@ -1,3 +1,4 @@
+import { MEDIA_ID_LENGTH } from "../../config/constants";
 import getUniqueId from "../../utils/unique-id";
 
 interface FileNameWithExtention {
@@ -11,7 +12,7 @@ export default function generateFileName(
     const extention = filename.split(".");
 
     return {
-        name: getUniqueId(),
+        name: getUniqueId(MEDIA_ID_LENGTH),
         ext: extention[extention.length - 1],
     };
 }

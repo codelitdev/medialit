@@ -42,3 +42,28 @@ export async function deleteMediaQuery(
 ): Promise<any> {
     return await MediaModel.deleteOne({ userId, mediaId });
 }
+
+export async function createMedia({
+    mediaId,
+    userId,
+    originalFileName,
+    mimeType,
+    size,
+    thumbnailGenerated,
+    caption,
+    accessControl,
+    group,
+}: Media) {
+    const media = await MediaModel.create({
+        mediaId,
+        userId,
+        originalFileName,
+        mimeType,
+        size,
+        thumbnailGenerated,
+        caption,
+        accessControl,
+        group,
+    });
+    return media;
+}

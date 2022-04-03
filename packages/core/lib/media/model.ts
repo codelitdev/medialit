@@ -1,13 +1,14 @@
 import mongoose from "mongoose";
 
 export interface Media {
-    originalFileName: string;
     mediaId: string;
+    userId: mongoose.Types.ObjectId;
+    originalFileName: string;
     mimeType: string;
     size: number;
-    userId: mongoose.Types.ObjectId;
     thumbnailGenerated: boolean;
-    accessControl?: string;
+    accessControl: string;
+    group?: string;
     caption?: string;
 }
 
@@ -18,8 +19,9 @@ const MediaSchema = new mongoose.Schema<Media>(
         originalFileName: { type: String, required: true },
         mimeType: { type: String, required: true },
         size: { type: Number, required: true },
-        accessControl: { type: String, required: true, default: "private" },
         thumbnailGenerated: { type: Boolean, required: true, default: false },
+        accessControl: { type: String, required: true, default: "private" },
+        group: { type: String },
         caption: { type: String },
     },
     {

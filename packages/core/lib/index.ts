@@ -27,6 +27,9 @@ app.use("/media/presigned", presignedUrlRoutes);
 app.use("/media", mediaRoutes);
 
 const port = process.env.PORT || 80;
+
+// TODO: Put checks for mandatory env vars
+
 app.listen(port, () => {
     logger.info(`Medialit server running at ${port}`);
 });

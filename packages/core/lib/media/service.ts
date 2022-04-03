@@ -8,6 +8,7 @@ import {
     thumbnailHeight,
     imagePatternIncludingGif,
     cdnEndpoint,
+    CLOUD_PREFIX,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -16,26 +17,41 @@ import {
     moveFile,
 } from "./utils/manage-files-on-disk";
 import MediaModel, { Media } from "./model";
-import { generateSignedUrl, putObject, deleteObject } from "../services/s3";
+import {
+    generateSignedUrl,
+    putObject,
+    deleteObject,
+    UploadParams,
+    getObjectTagging as objectTagging,
+} from "../services/s3";
 import logger from "../services/log";
 import generateKey from "./utils/generate-key";
 import { getMediaSettings } from "../media-settings/queries";
 import generateFileName from "./utils/generate-file-name";
 import mongoose from "mongoose";
 import GetPageProps from "./GetPageProps";
-import { deleteMediaQuery, getMedia, getPaginatedMedia } from "./queries";
+import {
+    deleteMediaQuery,
+    getMedia,
+    getPaginatedMedia,
+    createMedia,
+} from "./queries";
 import * as presignedUrlService from "../presigning/service";
+import getTags from "./utils/get-tags";
+import { getMainFileUrl, getThumbnailUrl } from "./utils/get-cdn-urls";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
     key,
     mimetype,
     originalFilePath,
+    tags,
 }: {
     workingDirectory: string;
     key: string;
     mimetype: string;
     originalFilePath: string;
+    tags: string;
 }): Promise<boolean> => {
     const thumbPath = `${workingDirectory}/thumb.webp`;
 
@@ -60,6 +76,7 @@ const generateAndUploadThumbnail = async ({
             Body: createReadStream(thumbPath),
             ContentType: "image/webp",
             ACL: "public-read",
+            Tagging: tags,
         });
     }
 
@@ -71,7 +88,8 @@ interface UploadProps {
     file: any;
     access: string;
     caption: string;
-    signature: string;
+    group?: string;
+    signature?: string;
 }
 
 async function upload({
@@ -79,13 +97,13 @@ async function upload({
     file,
     access,
     caption,
+    group,
     signature,
 }: UploadProps): Promise<{ mediaId: string }> {
     const fileName = generateFileName(file.name);
     const mediaSettings = await getMediaSettings(userId);
     const useWebP = mediaSettings?.useWebP || false;
     const webpOutputQuality = mediaSettings?.webpOutputQuality || 0;
-    const directory = `${userId}/${fileName.name}`;
 
     const temporaryFolderForWork = `${tempFileDirForUploads}/${fileName.name}`;
     if (!foldersExist([temporaryFolderForWork])) {
@@ -100,9 +118,8 @@ async function upload({
         await imageUtils.convertToWebp(mainFilePath, webpOutputQuality);
     }
 
-    await putObject({
+    const uploadParams: UploadParams = {
         Key: generateKey({
-            userId,
             mediaId: fileName.name,
             extension: fileName.ext,
             type: "main",
@@ -110,7 +127,11 @@ async function upload({
         Body: createReadStream(mainFilePath),
         ContentType: file.mimetype,
         ACL: access === "public" ? "public-read" : "private",
-    });
+    };
+    const tags = getTags(userId, group);
+    uploadParams.Tagging = tags;
+
+    await putObject(uploadParams);
 
     let isThumbGenerated = false;
     try {
@@ -119,11 +140,11 @@ async function upload({
             mimetype: file.mimetype,
             originalFilePath: mainFilePath,
             key: generateKey({
-                userId,
                 mediaId: fileName.name,
                 extension: fileName.ext,
                 type: "thumb",
             }),
+            tags,
         });
     } catch (err: any) {
         logger.error({ err }, err.message);
@@ -140,9 +161,9 @@ async function upload({
         thumbnailGenerated: isThumbGenerated,
         caption,
         accessControl: access === "public" ? "public-read" : "private",
+        group,
     };
-
-    const media = await MediaModel.create(mediaObject);
+    const media = await createMedia(mediaObject);
 
     if (signature) {
         presignedUrlService.cleanup(userId, signature).catch((err: any) => {
@@ -194,7 +215,7 @@ async function getPage({
             size: media.size,
             access: media.accessControl === "private" ? "private" : "public",
             thumbnail: media.thumbnailGenerated
-                ? `${cdnEndpoint}/${media.userId}/${media.mediaId}/thumb.webp`
+                ? getThumbnailUrl(media.mediaId)
                 : "",
             caption: media.caption,
         })
@@ -224,17 +245,14 @@ async function getMediaDetails(
             media.accessControl === "private"
                 ? await generateSignedUrl({
                       name: generateKey({
-                          userId,
                           mediaId: media.mediaId,
                           extension,
                           type: "main",
                       }),
                   })
-                : `${cdnEndpoint}/${media.userId}/${media.mediaId}/main.${
-                      media.mimeType.split("/")[1]
-                  }`,
+                : getMainFileUrl(media),
         thumbnail: media.thumbnailGenerated
-            ? `${cdnEndpoint}/${media.userId}/${media.mediaId}/thumb.webp`
+            ? getThumbnailUrl(media.mediaId)
             : "",
         caption: media.caption,
     };
@@ -245,7 +263,6 @@ async function deleteMedia(userId: string, mediaId: string): Promise<void> {
     if (!media) return;
 
     const key = generateKey({
-        userId,
         mediaId,
         extension: media.mimeType.split("/")[1],
         type: "main",
@@ -254,7 +271,6 @@ async function deleteMedia(userId: string, mediaId: string): Promise<void> {
 
     if (media.thumbnailGenerated) {
         const thumbKey = generateKey({
-            userId,
             mediaId,
             extension: media.mimeType.split("/")[1],
             type: "thumb",

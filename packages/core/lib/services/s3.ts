@@ -15,6 +15,7 @@ export interface UploadParams {
     Body: ReadStream;
     ContentType: string;
     ACL: "private" | "public-read";
+    Tagging?: string;
 }
 
 export interface DeleteParams {
@@ -58,6 +59,30 @@ export const deleteObject = (params: DeleteParams) =>
         });
 
         s3.deleteObject(
+            Object.assign(
+                {},
+                {
+                    Bucket: cloudBucket,
+                },
+                params
+            ),
+            (err, result) => {
+                if (err) reject(err);
+                resolve(result);
+            }
+        );
+    });
+
+export const getObjectTagging = (params: { Key: string }) =>
+    new Promise((resolve, reject) => {
+        const endpoint = new aws.Endpoint(cloudEndpoint);
+        const s3 = new aws.S3({
+            endpoint,
+            accessKeyId: cloudKey,
+            secretAccessKey: cloudSecret,
+        });
+
+        s3.getObjectTagging(
             Object.assign(
                 {},
                 {

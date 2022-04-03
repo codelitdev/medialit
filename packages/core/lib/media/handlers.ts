@@ -14,9 +14,10 @@ function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
         caption: Joi.string(),
         access: Joi.string().valid("public", "private"),
+        group: Joi.string(),
     });
-    const { caption, access } = req.body;
-    return uploadSchema.validate({ caption, access });
+    const { caption, access, group } = req.body;
+    return uploadSchema.validate({ caption, access, group });
 }
 
 export async function uploadMedia(
@@ -36,11 +37,11 @@ export async function uploadMedia(
 
     const { error } = validateUploadOptions(req);
     if (error) {
-        res.status(400).json({ error: error.message });
+        return res.status(400).json({ error: error.message });
     }
 
     const { file } = req.files;
-    const { access, caption } = req.body;
+    const { access, caption, group } = req.body;
     const userId = req.user.id;
     try {
         const mediaId = await mediaService.upload({
@@ -48,6 +49,7 @@ export async function uploadMedia(
             file,
             access,
             caption,
+            group,
             signature: req.query.signature,
         });
 
