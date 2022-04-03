@@ -69,11 +69,12 @@ export async function getMedia(
         page: Joi.number().positive(),
         limit: Joi.number().positive(),
         access: Joi.string().valid("public", "private"),
+        group: Joi.string(),
     });
 
-    const { page, limit, access } = req.query;
+    const { page, limit, access, group } = req.query;
 
-    const { error } = getMediaSchema.validate({ page, limit, access });
+    const { error } = getMediaSchema.validate({ page, limit, access, group });
 
     if (error) {
         return res.status(400).json({ error: error.message });
@@ -84,6 +85,7 @@ export async function getMedia(
             userId: req.user._id,
             access,
             page,
+            group,
             recordsPerPage: limit,
         });
         return res.status(200).json(result);

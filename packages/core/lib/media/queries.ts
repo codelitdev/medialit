@@ -13,11 +13,15 @@ export async function getPaginatedMedia({
     userId,
     access,
     page,
+    group,
     recordsPerPage,
 }: GetPageProps): Promise<Media[]> {
     const query: Partial<Media> = { userId };
     if (access) {
         query.accessControl = access === "private" ? "private" : "public-read";
+    }
+    if (group) {
+        query.group = group;
     }
     const limitWithFallback = recordsPerPage || numberOfRecordsPerPage;
 
@@ -30,6 +34,7 @@ export async function getPaginatedMedia({
         accessControl: 1,
         thumbnailGenerated: 1,
         caption: 1,
+        group: 1,
     })
         .sort({ _id: 1 })
         .skip(page ? (page - 1) * limitWithFallback : 0)

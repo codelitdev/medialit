@@ -5,4 +5,5 @@ export default interface GetPageProps {
     access: "public-read" | "private";
     page: number;
     recordsPerPage: number;
+    group?: string;
 }

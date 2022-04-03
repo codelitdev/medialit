@@ -199,12 +199,14 @@ async function getPage({
     userId,
     access,
     page,
+    group,
     recordsPerPage,
 }: GetPageProps): Promise<MappedMedia[]> {
     const result = await getPaginatedMedia({
         userId,
         access,
         page,
+        group,
         recordsPerPage,
     });
     const mappedResult = result.map(
@@ -218,6 +220,7 @@ async function getPage({
                 ? getThumbnailUrl(media.mediaId)
                 : "",
             caption: media.caption,
+            group: media.group,
         })
     );
 
@@ -255,6 +258,7 @@ async function getMediaDetails(
             ? getThumbnailUrl(media.mediaId)
             : "",
         caption: media.caption,
+        group: media.group,
     };
 }
 
