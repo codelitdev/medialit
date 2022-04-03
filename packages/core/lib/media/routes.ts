@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import cors from "cors";
 import fileUpload from "express-fileupload";
 import { tempFileDirForUploads } from "../config/constants";
 import apikey from "../apikey/middleware";
@@ -21,6 +22,7 @@ router.use(
 
 router.post(
     "/create",
+    cors(),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
         const { signature } = req.query;
         if (signature) {
