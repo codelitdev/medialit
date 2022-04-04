@@ -1,4 +1,4 @@
-corelit.xyz {
+{$SITE_ADDRESS} {
     reverse_proxy medialit:8000
     
     encode gzip

@@ -24,6 +24,8 @@ services:
   proxy:
     image: caddy
     restart: on-failure
+    environment:
+      - SITE_ADDRESS=${SITE_ADDRESS}
     ports:
       - "80:80"
       - "443:443"
