@@ -10,6 +10,7 @@ export interface PreSignedUrl {
     userId: mongoose.Types.ObjectId;
     signature: string;
     validTill: Date;
+    group?: string;
 }
 
 const PreSignedUrlSchema = new mongoose.Schema<PreSignedUrl>(
@@ -29,6 +30,7 @@ const PreSignedUrlSchema = new mongoose.Schema<PreSignedUrl>(
                         PRESIGNED_URL_VALIDITY_MINUTES * 60000
                 ),
         },
+        group: String,
     },
     {
         timestamps: true,

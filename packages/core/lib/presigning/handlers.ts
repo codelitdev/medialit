@@ -1,16 +1,32 @@
+import { Request } from "express";
+import Joi from "joi";
 import logger from "../services/log";
 import * as preSignedUrlService from "./service";
+
+function validatePresigningOptions(req: Request): Joi.ValidationResult {
+    const uploadSchema = Joi.object({
+        group: Joi.string().optional(),
+    });
+    const { group } = req.body;
+    return uploadSchema.validate({ group });
+}
 
 export async function getPresignedUrl(
     req: any,
     res: any,
     next: (...args: any[]) => void
 ) {
+    const { error } = validatePresigningOptions(req);
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
     try {
         const presignedUrl = await preSignedUrlService.generateSignedUrl({
             userId: req.user.id,
             protocol: req.protocol,
             host: req.get("Host"),
+            group: req.body.group,
         });
         return res.status(200).json({ message: presignedUrl });
     } catch (err: any) {

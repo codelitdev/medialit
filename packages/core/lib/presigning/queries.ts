@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { PRESIGNED_URL_VALIDITY_MINUTES } from "../config/constants";
 import PreSignedUrlModel, { PreSignedUrl } from "./model";
 
 export async function getPresignedUrl(
@@ -15,9 +14,10 @@ export async function deletePresignedUrl(
 }
 
 export async function createPresignedUrl(
-    userId: string
+    userId: string,
+    group?: string
 ): Promise<PreSignedUrl> {
-    const presignedUrl = await PreSignedUrlModel.create({ userId });
+    const presignedUrl = await PreSignedUrlModel.create({ userId, group });
     return presignedUrl;
 }
 

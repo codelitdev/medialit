@@ -1,12 +1,20 @@
 import logger from "../services/log";
-import { User } from "../user/model";
 import { getUser } from "../user/queries";
 import * as queries from "./queries";
+import { PreSignedUrl } from "./model";
+import { User } from "../user/model";
 
-export async function getUserFromPresignedUrl(
+interface UserAndGroup {
+    user: User;
+    group?: string;
+}
+
+export async function getUserAndGroupFromPresignedUrl(
     signature: string
-): Promise<User | null> {
-    const signedUrl = await queries.getPresignedUrl(signature);
+): Promise<UserAndGroup | null> {
+    const signedUrl: PreSignedUrl | null = await queries.getPresignedUrl(
+        signature
+    );
 
     if (!signedUrl) {
         return null;
@@ -17,21 +25,29 @@ export async function getUserFromPresignedUrl(
         return null;
     }
 
-    return await getUser(signedUrl!.userId.toString());
+    const user: User | null = await getUser(signedUrl!.userId.toString());
+
+    if (!user) {
+        return null;
+    }
+
+    return { user, group: signedUrl.group };
 }
 
 interface GenerateSignedUrlProps {
     userId: string;
     protocol: string;
     host: string;
+    group?: string;
 }
 
 export async function generateSignedUrl({
     userId,
     protocol,
     host,
+    group,
 }: GenerateSignedUrlProps): Promise<string> {
-    const presignedUrl = await queries.createPresignedUrl(userId);
+    const presignedUrl = await queries.createPresignedUrl(userId, group);
 
     queries.cleanupExpiredLinks(userId).catch((err: any) => {
         logger.error(

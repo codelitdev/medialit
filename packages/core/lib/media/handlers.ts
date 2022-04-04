@@ -12,9 +12,9 @@ import mediaService from "./service";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
-        caption: Joi.string(),
-        access: Joi.string().valid("public", "private"),
-        group: Joi.string(),
+        caption: Joi.string().optional().allow(""),
+        access: Joi.string().valid("public", "private").optional(),
+        group: Joi.string().optional(),
     });
     const { caption, access, group } = req.body;
     return uploadSchema.validate({ caption, access, group });

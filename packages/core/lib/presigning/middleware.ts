@@ -9,14 +9,19 @@ export default async function presigned(
 ) {
     const { signature } = req.query;
 
-    const user = await preSignedUrlService.getUserFromPresignedUrl(
+    const response = await preSignedUrlService.getUserAndGroupFromPresignedUrl(
         signature as string
     );
-    if (!user) {
+    if (!response) {
         return res.status(404).json({ error: PRESIGNED_URL_INVALID });
     }
 
+    const { user, group } = response;
+
     req.user = user;
+    if (group) {
+        req.body.group = group;
+    }
 
     next();
 }
