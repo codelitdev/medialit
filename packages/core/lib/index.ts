@@ -15,6 +15,8 @@ import logger from "./services/log";
 connectToDatabase();
 const app = express();
 
+app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true");
+
 passport.use(jwt);
 // passport.use(apikey);
 app.use(passport.initialize());
