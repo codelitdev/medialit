@@ -19,6 +19,7 @@ services:
       - EMAIL_PASS=${EMAIL_PASS}
       - EMAIL_FROM=${EMAIL_FROM}
       - ENABLE_TRUST_PROXY=${ENABLE_TRUST_PROXY}
+      - CLOUD_PREFIX=${CLOUD_PREFIX}
     expose:
       - 8000 
 
