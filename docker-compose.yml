@@ -18,6 +18,7 @@ services:
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASS=${EMAIL_PASS}
       - EMAIL_FROM=${EMAIL_FROM}
+      - ENABLE_TRUST_PROXY=${ENABLE_TRUST_PROXY}
     expose:
       - 8000 
 
@@ -27,7 +28,6 @@ services:
     environment:
       - SITE_ADDRESS=${SITE_ADDRESS}
     ports:
-      - "80:80"
       - "443:443"
     volumes:
       - "./Caddyfile:/etc/caddy/Caddyfile"
