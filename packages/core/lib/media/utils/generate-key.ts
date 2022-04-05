@@ -2,14 +2,14 @@ import { CLOUD_PREFIX } from "../../config/constants";
 
 interface GenerateKeyProps {
     mediaId: string;
-    extension: string;
     type: "main" | "thumb";
+    extension?: string;
 }
 
 export default function generateKey({
     mediaId,
-    extension,
     type,
+    extension,
 }: GenerateKeyProps): string {
     return `${CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : ""}${mediaId}/${type}.${
         type === "thumb" ? "webp" : extension

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 export interface Media {
+    fileName: string;
     mediaId: string;
     userId: mongoose.Types.ObjectId;
     originalFileName: string;
@@ -14,6 +15,7 @@ export interface Media {
 
 const MediaSchema = new mongoose.Schema<Media>(
     {
+        fileName: { type: String, required: true },
         mediaId: { type: String, required: true },
         userId: { type: mongoose.Schema.Types.ObjectId, required: true },
         originalFileName: { type: String, required: true },

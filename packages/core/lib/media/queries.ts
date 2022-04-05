@@ -49,6 +49,7 @@ export async function deleteMediaQuery(
 }
 
 export async function createMedia({
+    fileName,
     mediaId,
     userId,
     originalFileName,
@@ -60,6 +61,7 @@ export async function createMedia({
     group,
 }: Media) {
     const media = await MediaModel.create({
+        fileName,
         mediaId,
         userId,
         originalFileName,

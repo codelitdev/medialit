@@ -1,3 +1,4 @@
+import path from "path";
 import thumbnail from "@medialit/thumbnail";
 import { createReadStream, rmdirSync } from "fs";
 import {
@@ -7,8 +8,6 @@ import {
     thumbnailWidth,
     thumbnailHeight,
     imagePatternIncludingGif,
-    cdnEndpoint,
-    CLOUD_PREFIX,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -16,7 +15,7 @@ import {
     createFolders,
     moveFile,
 } from "./utils/manage-files-on-disk";
-import MediaModel, { Media } from "./model";
+import { Media } from "./model";
 import {
     generateSignedUrl,
     putObject,
@@ -110,8 +109,13 @@ async function upload({
         createFolders([temporaryFolderForWork]);
     }
 
-    const fileExtension =
-        useWebP && imagePattern.test(file.mimetype) ? "webp" : fileName.ext;
+    let fileExtension = fileName.ext;
+    let mimeType = file.mimetype;
+    if (useWebP && imagePattern.test(mimeType)) {
+        fileExtension = "webp";
+        mimeType = "image/webp";
+    }
+
     const mainFilePath = `${temporaryFolderForWork}/main.${fileExtension}`;
     await moveFile(file, mainFilePath);
     if (useWebP && imagePattern.test(file.mimetype)) {
@@ -121,11 +125,11 @@ async function upload({
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            extension: fileName.ext,
+            extension: fileExtension,
             type: "main",
         }),
         Body: createReadStream(mainFilePath),
-        ContentType: file.mimetype,
+        ContentType: mimeType,
         ACL: access === "public" ? "public-read" : "private",
     };
     const tags = getTags(userId, group);
@@ -141,7 +145,6 @@ async function upload({
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                extension: fileName.ext,
                 type: "thumb",
             }),
             tags,
@@ -153,10 +156,11 @@ async function upload({
     rmdirSync(temporaryFolderForWork, { recursive: true });
 
     const mediaObject: Media = {
+        fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
         userId: new mongoose.Types.ObjectId(userId),
         originalFileName: file.name,
-        mimeType: file.mimetype,
+        mimeType,
         size: file.size,
         thumbnailGenerated: isThumbGenerated,
         caption,
@@ -176,17 +180,6 @@ async function upload({
 
     return media.mediaId;
 }
-
-// exports.serve = async ({ media, res }) => {
-//   res.status(200).json({
-//     media: {
-//       id: media.id,
-//       file: `${cdnEndpoint}/${media.file}`,
-//       thumbnail: media.thumbnail ? `${cdnEndpoint}/${media.thumbnail}` : "",
-//       caption: media.caption,
-//     },
-//   });
-// };
 
 type MappedMedia = Partial<
     Omit<Omit<Media, "accessControl">, "thumbnailGenerated">
@@ -236,8 +229,6 @@ async function getMediaDetails(
         return null;
     }
 
-    const extension = media.mimeType.split("/")[1];
-
     return {
         mediaId: media.mediaId,
         originalFileName: media.originalFileName,
@@ -249,7 +240,9 @@ async function getMediaDetails(
                 ? await generateSignedUrl({
                       name: generateKey({
                           mediaId: media.mediaId,
-                          extension,
+                          extension: path
+                              .extname(media.fileName)
+                              .replace(".", ""),
                           type: "main",
                       }),
                   })
