@@ -1,6 +1,6 @@
 {
   "name": "@medialit/core",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "private": true,
   "description": "The core service for managing uploads, users and tying everthing together",
   "author": {
@@ -32,8 +32,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.55.0",
     "@aws-sdk/s3-request-presigner": "^3.55.0",
-    "@medialit/images": "^0.0.22",
-    "@medialit/thumbnail": "^0.0.22",
+    "@medialit/images": "^0.0.23",
+    "@medialit/thumbnail": "^0.0.23",
     "aws-sdk": "^2.1099.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
