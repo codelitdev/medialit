@@ -31,8 +31,14 @@ export default async function (): Promise<void> {
         );
         connection.isConnected = dbConnection.connections[0].readyState;
         logger.info("Database connected");
-    } catch (err: any) {
-        logger.error({ err }, err.message);
+    } catch (err) {
+        if (err instanceof Error) {
+            logger.error({ err }, err.message);
+        }
         process.exit(1);
     }
+}
+
+export async function disconnect(): Promise<void> {
+    return await mongoose.disconnect();
 }
