@@ -59,8 +59,8 @@ export async function createMedia({
     caption,
     accessControl,
     group,
-}: Media) {
-    const media = await MediaModel.create({
+}: Media): Promise<Media> {
+    const media: Media = await MediaModel.create({
         fileName,
         mediaId,
         userId,

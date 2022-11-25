@@ -5,6 +5,14 @@ import connectToDatabase, { disconnect } from "../config/db";
 import { createApiKey } from "../apikey/queries";
 import { Apikey } from "../apikey/model";
 
+const args = process.argv.slice(2);
+const email = args[0];
+if (!email) {
+    // eslint-disable-next-line
+    console.error("Error: Please provide an email address to setup an account");
+    process.exit(1);
+}
+
 (async () => {
     try {
         await connectToDatabase();
@@ -17,7 +25,7 @@ import { Apikey } from "../apikey/model";
 
         // Create a user
         const user = await User.create({
-            email: "fake@email.com",
+            email,
             active: true,
             name: "Admin",
         });

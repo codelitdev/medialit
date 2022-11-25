@@ -53,7 +53,9 @@ export async function uploadMedia(
             signature: req.query.signature,
         });
 
-        return res.status(200).json({ mediaId });
+        const media = await mediaService.getMediaDetails(req.user.id, mediaId);
+
+        return res.status(200).json(media);
     } catch (err: any) {
         logger.error({ err }, err.message);
         res.status(500).json({ error: err.message });

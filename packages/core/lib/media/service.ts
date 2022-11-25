@@ -98,7 +98,7 @@ async function upload({
     caption,
     group,
     signature,
-}: UploadProps): Promise<{ mediaId: string }> {
+}: UploadProps): Promise<string> {
     const fileName = generateFileName(file.name);
     const mediaSettings = await getMediaSettings(userId);
     const useWebP = mediaSettings?.useWebP || false;
