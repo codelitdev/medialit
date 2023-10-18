@@ -1,8 +1,18 @@
-## What is MediaLit?
+# Introduction
 
 MediaLit is a Node.js based app to store, convert and optimise the media files on any AWS S3 compatible storage.
 
-### Creating a local user
+## Enable trust proxy
+
+This app is based on express which cannot work reliably when it is behind a proxy. For example, it cannot detect if it behind a proxy.
+
+Hence, we need to enable it on our own. To do that, set the following environment variable.
+
+```
+ENABLE_TRUST_PROXY=true
+```
+
+## Creating a local user
 
 In order to interact with the API, you need to have an API key. To create one, execute the following command.
 

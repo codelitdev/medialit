@@ -35,3 +35,6 @@ dist
 
 # Dev tools files
 .eslintcache
+
+# IDE files
+.rgignore
