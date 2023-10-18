@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
 
 export function convertToWebp(path: string, quality = 75): Promise<void> {
     return new Promise((resolve: any, reject: any) => {

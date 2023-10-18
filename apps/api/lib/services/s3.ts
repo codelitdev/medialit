@@ -43,7 +43,7 @@ export const putObject = (params: UploadParams) =>
             },
             params
         );
-        s3.putObject(settings, (err, result) => {
+        s3.upload(settings, (err: unknown, result: unknown) => {
             if (err) reject(err);
             resolve(result);
         });
