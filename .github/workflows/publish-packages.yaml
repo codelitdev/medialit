@@ -9,7 +9,6 @@ on:
 
 env:
   CI: true
-  PNPM_CACHE_FOLDER: .pnpm-store
 
 jobs:
   publish-packages:
@@ -39,9 +38,6 @@ jobs:
           npm whoami
         env:
           NPM_TOKEN: ${{ secrets.NPM }}
-        
-      - name: Setup pnpm config
-        run: pnpm config set store-dir $PNPM_CACHE_FOLDER
 
       - name: Install dependencies
         run: pnpm install 
