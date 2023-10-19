@@ -1,0 +1,9 @@
+# @medialit/api
+
+## 0.0.25
+
+### Patch Changes
+
+-   Updated dependencies [7a07e615]
+    -   @medialit/thumbnail@0.0.25
+    -   @medialit/images@0.0.25
