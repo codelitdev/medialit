@@ -15,17 +15,20 @@ COPY apps/api ./apps/api
 COPY packages/images ./packages/images
 COPY packages/thumbnail ./packages/thumbnail
 
-FROM base AS prod-deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
+# TODO: figure out why it is not working
+# FROM base AS prod-deps
+# RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
 
 FROM base AS build
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm --filter=@medialit/thumbnail build
 RUN pnpm --filter=@medialit/images build
 RUN pnpm --filter=@medialit/api build
-RUN ls -ltr packages
 
-FROM base
+FROM node:20-slim 
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 
 # install required softwares
 RUN apt-get update && apt-get -y install ffmpeg imagemagick webp
@@ -37,7 +40,7 @@ ENV NODE_ENV production
 WORKDIR /app
 
 # copy files
-COPY --chown=node:node --from=prod-deps /app/node_modules /app/node_modules 
+#COPY --chown=node:node --from=prod-deps /app/node_modules /app/node_modules 
 COPY --chown=node:node --from=build /app/package.json /app/package.json
 COPY --chown=node:node --from=build /app/pnpm-lock.yaml /app/pnpm-lock.yaml
 COPY --chown=node:node --from=build /app/pnpm-workspace.yaml /app/pnpm-workspace.yaml
@@ -47,6 +50,9 @@ COPY --chown=node:node --from=build /app/packages/images/package.json /app/packa
 COPY --chown=node:node --from=build /app/packages/images/dist /app/packages/images/dist
 COPY --chown=node:node --from=build /app/apps/api/package.json /app/apps/api/package.json
 COPY --chown=node:node --from=build /app/apps/api/dist /app/apps/api/dist
+
+# Run pnpm install
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # set a low privileged user
 USER node
