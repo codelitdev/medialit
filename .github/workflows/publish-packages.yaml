@@ -47,6 +47,7 @@ jobs:
         run: pnpm install 
 
       - name: Create and publish versions
+        id: changesets
         uses: changesets/action@v1
         with:
           commit: "chore: update versions"
@@ -55,3 +56,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
           NPM_TOKEN: ${{ secrets.NPM }}
+
+      - name: Echo changeset output
+        run: echo "${{ steps.changesets.outputs.hasChangesets }}"
