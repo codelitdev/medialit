@@ -25,7 +25,7 @@
   "scripts": {
     "test": "jest",
     "build": "tsc",
-    "prepublishOnly": "yarn run build"
+    "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
     "jest": "^24.8.0",

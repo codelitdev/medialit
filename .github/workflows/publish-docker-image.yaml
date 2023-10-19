@@ -5,6 +5,8 @@ on:
     tags:
       - '*'
 
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   publish-docker-images:
     runs-on: ubuntu-latest
