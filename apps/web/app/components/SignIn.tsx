@@ -50,7 +50,7 @@ export default function SignIn(props: any) {
         if (response.ok) {
             setShowCode(true);
         } else {
-            console.log(await response.json());
+            await response.json()
         }
     };
 
