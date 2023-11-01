@@ -5,6 +5,7 @@ import VerificationToken from "@/models/verification-token";
 import { hashCode } from "@/lib/utils";
 import User from "@/models/user";
 import connectToDatabase from "@/lib/connect-db";
+import { NextApiRequest, NextApiResponse } from "next";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -44,6 +45,7 @@ export const authOptions: NextAuthOptions = {
     pages: {
         signIn: "/api/auth/sign-in",
     },
+    secret: process.env.NEXTAUTH_SECRET,
     callbacks: {
         async redirect({ url, baseUrl }) {
             return url;
@@ -51,7 +53,7 @@ export const authOptions: NextAuthOptions = {
     },
 };
 
-async function auth(req: Request, res: Response) {
+async function auth(req: NextApiRequest, res: NextApiResponse) {
     return await NextAuth(req, res, authOptions);
 }
 export { auth as GET, auth as POST };
