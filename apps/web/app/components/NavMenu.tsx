@@ -16,7 +16,7 @@ function AuthButton() {
     }
     return (
         <div className={styles.navbar}>
-            Guest <br />
+            Guest
             <button onClick={() => signIn()}>Sign in</button>
         </div>
     );
