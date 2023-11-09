@@ -1,31 +1,64 @@
 "use client";
 
 import { signIn, signOut, useSession } from "next-auth/react";
-import styles from "./NavMenu.module.css";
+import Link from "next/link";
+import Button from "./Button";
 
 function AuthButton() {
     const { data: session } = useSession();
-
     if (session) {
         return (
-            <div className={styles.navbar}>
-                {session?.user?.email} <br />
-                <button onClick={() => signOut()}>Sign out</button>
+            <div>
+                <Button className={"w-20"} onClick={() => signOut()}>
+                    Sign out
+                </Button>
             </div>
         );
     }
     return (
-        <div className={styles.navbar}>
-            Guest
-            <button onClick={() => signIn()}>Sign in</button>
+        <div>
+            <Button className="w-20" onClick={() => signIn()}>
+                Sign in
+            </Button>
         </div>
     );
 }
 
 export default function NavMenu() {
+    const { data: session } = useSession();
+
+    const Dashboard = session ? (
+        <Link href="/dashboard" className="text-lg text-primary font-normal">
+            Dashboard
+        </Link>
+    ) : (
+        ""
+    );
+
     return (
-        <div>
-            <AuthButton />
-        </div>
+        <>
+            <nav className="bg-white flex items-center justify-between p-4">
+                <div className="flex items-center space-x-4">
+                    <div className="text-primary text-2xl font-extrabold">
+                        <Link href="/">Medialit</Link>
+                    </div>
+                    <ul className="flex gap-2 text-lg text-primary font-normal item-center">
+                        <li>
+                            <Link href="/#features">Features</Link>
+                        </li>
+                        <li>
+                            <Link href="/#pricing">Pricing</Link>
+                        </li>
+                        <li>
+                            <Link href="/docs">Docs</Link>
+                        </li>
+                    </ul>
+                </div>
+                <div className="flex items-center gap-2">
+                    {Dashboard}
+                    <AuthButton />
+                </div>
+            </nav>
+        </>
     );
 }
