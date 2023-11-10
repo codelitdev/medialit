@@ -1,16 +1,19 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import PopoverNavMenu from "../components/PopoverNavMenu";
 
 export default function Dashboard() {
-    const { data: session } = useSession();
     return (
         <>
-            <div>
-                <Link href="/">Home</Link>
-                <p>{session?.user && <>Welcome {session?.user?.email}</>}</p>
-            </div>
+            <nav className="flex justify-between">
+                <div className="text-primary text-2xl font-extrabold">
+                    <Link href="/">Medialit</Link>
+                </div>
+                <div>
+                    <PopoverNavMenu />
+                </div>
+            </nav>
         </>
     );
 }
