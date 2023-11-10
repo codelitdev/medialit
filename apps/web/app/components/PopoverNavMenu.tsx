@@ -7,9 +7,10 @@ import {
     GearIcon,
     BackpackIcon,
     ExitIcon,
+    DashboardIcon
 } from "@radix-ui/react-icons";
 import { signOut, useSession } from "next-auth/react";
-import Button from "./Button";
+import Link from "next/link";
 
 const PopoverNavMenu = () => {
     const { data: session, status } = useSession();
@@ -27,12 +28,18 @@ const PopoverNavMenu = () => {
                 <Popover.Portal>
                     <Popover.Content
                         align="end"
-                        className="rounded p-5 w-[200px] bg-white shadow-[0_10px_38px_-10px_hsla(206,22%,7%,.35),0_10px_20px_-15px_hsla(206,22%,7%,.2)] focus:shadow-[0_10px_38px_-10px_hsla(206,22%,7%,.35),0_10px_20px_-15px_hsla(206,22%,7%,.2), will-change-[transform,opacity] data-[state=open]:data-[side=top]:animate-slideDownAndFade data-[state=open]:data-[side=right]:animate-slideLeftAndFade data-[state=open]:data-[side=bottom]:animate-slideUpAndFade data-[state=open]:data-[side=left]:animate-slideRightAndFade"
+                        className="rounded p-3 w-[200px] bg-white shadow-[0_10px_38px_-10px_hsla(206,22%,7%,.35),0_10px_20px_-15px_hsla(206,22%,7%,.2)] focus:shadow-[0_10px_38px_-10px_hsla(206,22%,7%,.35),0_10px_20px_-15px_hsla(206,22%,7%,.2), will-change-[transform,opacity] data-[state=open]:data-[side=top]:animate-slideDownAndFade data-[state=open]:data-[side=right]:animate-slideLeftAndFade data-[state=open]:data-[side=bottom]:animate-slideUpAndFade data-[state=open]:data-[side=left]:animate-slideRightAndFade"
                         sideOffset={5}
                     >
                         <div className="flex flex-col gap-2.5">
-                            <p className="text-secondary">
+                            <p className="text-secondary truncate w-15">
                                 {session?.user && session?.user?.email}
+                            </p>
+                            <p className="text-[15px] flex gap-2 items-center">
+                                <Link href='/dashboard' className="text-[15px] flex gap-2 items-center">
+                                <DashboardIcon />
+                                Dashboard
+                                </Link>
                             </p>
                             <p className="text-[15px] flex gap-2 items-center">
                                 <GearIcon />

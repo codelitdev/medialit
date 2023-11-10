@@ -4,12 +4,10 @@ import Link from "next/link";
 import Features from "./components/Features";
 import Pricing from "./components/Pricing";
 import Button from "./components/Button";
-import NavMenu from "./components/NavMenu";
 
 export default function Home() {
     return (
         <>
-        <NavMenu/>
             <section className="mb-5 flex items-center justify-center text-center p-20">
                 <div className="p-4 flex flex-col items-center gap-4">
                     <div className="text-primary w-[640px] font-bold text-6xl ">
