@@ -8,7 +8,7 @@ const Footer = () => {
     return (
         <footer className="bg-primary ">
             <div className="mx-auto max-w-[1024px] flex justify-between h-20 px-5 items-center">
-                <div className="text-white text-sm">
+                <div className="text-white text-xs md:text-base">
                     &copy; 2023 CodeLit.dev. All rights reserved
                 </div>
                 <div className="text-white text-sm flex gap-4">

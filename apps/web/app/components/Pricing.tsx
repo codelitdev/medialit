@@ -45,7 +45,7 @@ const PricingPane = ({
     isSecondary = false,
 }: PricingPaneProps) => {
     return (
-        <div className=" p-4 w-1/2 h-80 border border-[#8B8B8B] rounded flex flex-col justify-between">
+        <div className=" p-4 w-full md:w-[49%] h-80 border border-[#8B8B8B] rounded flex flex-col justify-between mb-[2%]">
            <div>
             <h6 className="text-primary text-lg font-bold">{name}</h6>
             <p className="text-secondary">{description}</p>
@@ -79,13 +79,13 @@ const PricingPane = ({
 const Pricing = () => {
     return (
         <section id="pricing" className="mb-2">
-            <h4 className="text-primary text-xl font-extrabold">Pricing</h4>
-            <p className="text-secondary">
+            <h4 className="text-primary text-lg md:text-2xl font-semibold mb-2">Pricing</h4>
+            <p className="text-secondary mb-4">
                 Leave all your upload woes to us! We take care of your file
                 uploads so that you focus on your users.
             </p>
 
-            <div className="flex items-center gap-3 mt-5">
+            <div className="flex flex-wrap items-center gap-[2%]">
                 {pricingPlans.map((pricingPlan) => (
                     <PricingPane key={pricingPlan.name} {...pricingPlan} />
                 ))}
