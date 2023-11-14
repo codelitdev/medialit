@@ -32,7 +32,7 @@ const NavMenu = () => {
         <>
             {session ? (
                 <nav className="flex justify-between p-4">
-                    <div className="text-primary text-lg md:text-2xl font-extrabold">
+                    <div className="text-primary text-2xl font-extrabold">
                         <Link href="/">Medialit</Link>
                     </div>
                     <div>
@@ -42,10 +42,10 @@ const NavMenu = () => {
             ) : (
                 <nav className="bg-white flex items-center justify-between p-4">
                     <div className="flex items-center space-x-4">
-                        <div className="text-primary text-xl md:text-2xl font-extrabold">
+                        <div className="text-primary text-2xl font-extrabold">
                             <Link href="/">Medialit</Link>
                         </div>
-                        <ul className="hidden md:flex gap-2 text-lg text-primary font-normal item-center">
+                        <ul className="hidden md:flex md:gap-2 md:item-center text-lg text-primary font-normal">
                             <li>
                                 <Link href="/#features">Features</Link>
                             </li>
@@ -58,13 +58,12 @@ const NavMenu = () => {
                         </ul>
                     </div>
 
-                    {session ? (
+                    <div className="md:hidden">
                         <PopoverNavMenu />
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <AuthButton />
-                        </div>
-                    )}
+                    </div>
+                    <div className="hidden md:block">
+                        <AuthButton />
+                    </div>
                 </nav>
             )}
         </>
