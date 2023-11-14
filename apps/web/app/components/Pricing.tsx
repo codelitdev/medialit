@@ -45,7 +45,8 @@ const PricingPane = ({
     isSecondary = false,
 }: PricingPaneProps) => {
     return (
-        <div className=" p-4 w-1/2 h-80 border border-[#8B8B8B] rounded">
+        <div className=" p-4 w-1/2 h-80 border border-[#8B8B8B] rounded flex flex-col justify-between">
+           <div>
             <h6 className="text-primary text-lg font-bold">{name}</h6>
             <p className="text-secondary">{description}</p>
             <div className="py-4">
@@ -60,10 +61,12 @@ const PricingPane = ({
                     </div>
                 ))}
             </div>
+           </div>
+
             <Button
                 className={
                     isSecondary
-                        ? " w-full bg-white hover:bg-white text-black border border-secondary mt-6 justify-center"
+                        ? " w-full bg-white hover:bg-white !text-primary border border-secondary mt-6 justify-center"
                         : "w-full"
                 }
             >
