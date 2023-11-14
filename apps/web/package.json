@@ -9,13 +9,18 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@courselit/components-library": "^0.38.1",
+    "@radix-ui/colors": "^3.0.0",
+    "@radix-ui/react-icons": "^1.3.0",
+    "@radix-ui/react-popover": "^1.0.7",
     "mongodb": "^6.2.0",
     "mongoose": "^6.2.7",
     "next": "13.5.6",
     "next-auth": "^4.24.3",
     "nodemailer": "^6.7.2",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-icons": "^4.11.0"
   },
   "devDependencies": {
     "@types/json-schema": "^7.0.14",

@@ -3,7 +3,6 @@
 import { signIn, useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
-import styles from "./SignIn.module.css";
 
 const signinErrors: Record<Lowercase<any>, string> = {
     default: "Unable to sign in.",
@@ -22,9 +21,7 @@ const signinErrors: Record<Lowercase<any>, string> = {
 };
 
 export default function SignIn(props: any) {
-    const {
-        error: errorType,
-    } = props;
+    const { error: errorType } = props;
     const [showCode, setShowCode] = useState(false);
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
@@ -50,7 +47,7 @@ export default function SignIn(props: any) {
         if (response.ok) {
             setShowCode(true);
         } else {
-            await response.json()
+            await response.json();
         }
     };
 
@@ -63,7 +60,7 @@ export default function SignIn(props: any) {
     };
 
     return (
-        <div className={styles.content}>
+        <div>
             {error && (
                 <div className="error">
                     <p>{error}</p>
@@ -71,28 +68,46 @@ export default function SignIn(props: any) {
             )}
 
             {!showCode && !session && (
-                <form onSubmit={checkToken}>
+                <form
+                    onSubmit={checkToken}
+                    className="min-h-screen mt-[-100px] flex flex-col justify-center items-center gap-2"
+                >
                     <input
-                        type="email"
+                        type="email" 
                         name="email"
                         value={email}
                         placeholder="Enter your email"
                         required
+                        className="p-2 border rounded focus:outline-none focus:border-[#8B8B8B]"
                         onChange={(e) => setEmail(e.target.value)}
                     />
-                    <button type="submit"> Get Code </button>
+                    <button
+                        type="submit"
+                        className="bg-[#000000] hover:bg-[#333333] w-20 h-8 font-normal text-sm text-[#FFFFFF] text-center rounded transition duration-300"
+                    >
+                        Get Code
+                    </button>
                 </form>
             )}
 
             {showCode && (
-                <form onSubmit={signInUser}>
+                <form
+                    onSubmit={signInUser}
+                    className="min-h-screen mt-[-100px] flex flex-col items-center gap-2 justify-center"
+                >
                     Enter the code sent to {email}
                     <input
                         type="text"
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
+                        className="p-2 border rounded focus:outline-none focus:border-[#8B8B8B]"
                     />
-                    <button type="submit"> Login </button>
+                    <button
+                        type="submit"
+                        className="bg-[#000000] hover:bg-[#333333] w-20 h-8 font-normal text-sm text-[#FFFFFF] text-center rounded transition duration-300"
+                    >
+                        Login
+                    </button>
                 </form>
             )}
         </div>
