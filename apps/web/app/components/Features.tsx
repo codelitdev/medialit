@@ -43,7 +43,7 @@ interface FeaturePaneProps {
 
 const FeaturePane = ({ title, description, icon }: FeaturePaneProps) => {
     return (
-        <div className="p-4 w-full md:w-[49%] h-full border border-[#8B8B8B] rounded flex flex-col justify-between mb-[2%]">
+        <div className="p-4 w-full md:w-[49%] h-auto border border-[#8B8B8B] rounded flex flex-col mb-[2%]">
                 <div className="flex items-center gap-2 mb-2">
                     {icon}
                     <h6 className="text-primary md:text-lg font-semibold">{title}</h6>

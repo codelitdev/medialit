@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import Button from "../components/Button";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
 
 const medias = [
     {
@@ -51,6 +53,11 @@ const medias = [
 ];
 
 export default function Dashboard() {
+    const { data: session } = useSession();
+
+    if (!session) {
+        redirect("/api/auth/sign-in");
+    }
 
     return (
         <>
@@ -79,7 +86,10 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center justify-center gap-2">
                 <Button className="bg-secondary "> Previous </Button>
-                <p> <span className="font-bold">1</span> of 10 (98 Files) </p>
+                <p>
+                    {" "}
+                    <span className="font-bold">1</span> of 10 (98 Files){" "}
+                </p>
                 <Button> Next </Button>
             </div>
         </>
