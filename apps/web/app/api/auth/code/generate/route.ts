@@ -6,7 +6,6 @@ import { createTransport } from "nodemailer";
 
 export const GET = async (request: NextRequest) => {
     const searchParams = request.nextUrl.searchParams;
-    const domain = request.headers.get("host")?.split(".")[0] || "main";
     const email = searchParams.get("email");
     if (!email) {
         return;

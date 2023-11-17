@@ -55,6 +55,18 @@ const PopoverNavMenu = () => {
                                         Billing
                                     </p>
                                     <p className="border-t"></p>
+
+                                    <p className="text-[15px] flex gap-2 items-center">
+                                        <Link href="/#features">Features</Link>
+                                    </p>
+                                    <p className="text-[15px] flex gap-2 items-center">
+                                        <Link href="/#pricing">Pricing</Link>
+                                    </p>
+                                    <p className="text-[15px] flex gap-2 items-center">
+                                        <Link href="/docs">Docs</Link>
+                                    </p>
+
+                                    <p className="border-t"></p>
                                     <p>
                                         <button
                                             onClick={() => signOut()}
@@ -81,7 +93,6 @@ const PopoverNavMenu = () => {
                                         onClick={() => signIn()}
                                         className="text-[15px] flex gap-2 items-center"
                                     >
-                                        
                                         SignIn
                                     </button>
                                 </ul>

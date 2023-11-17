@@ -14,7 +14,6 @@ export const authOptions: NextAuthOptions = {
             credentials: {},
             async authorize(credentials, req) {
                 const { email, code }: any = credentials;
-                const domain = req.headers?.host?.split(".")[0] || "main";
                 await connectToDatabase();
                 const verificationToken =
                     await VerificationToken.findOneAndDelete({

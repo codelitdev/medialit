@@ -93,7 +93,7 @@ export default function SignIn(props: any) {
             {showCode && (
                 <form
                     onSubmit={signInUser}
-                    className="min-h-screen mt-[-100px] flex flex-col items-center gap-2 justify-center"
+                    className="min-h-screen mt-[-100px] flex flex-col items-center gap-2 justify-center text-center"
                 >
                     Enter the code sent to {email}
                     <input

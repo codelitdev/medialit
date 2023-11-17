@@ -64,7 +64,7 @@ const Features = () => {
 
             <div className="flex flex-wrap gap-[2%]">
                 {features.map((feature) => (
-                    <FeaturePane {...feature} />
+                    <FeaturePane key={feature.title} {...feature} />
                 ))}
             </div>
         </section>
