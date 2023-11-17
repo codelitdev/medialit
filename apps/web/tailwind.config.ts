@@ -45,11 +45,6 @@ const config: Config = {
                 slideLeftAndFade:
                     "slideLeftAndFade 400ms cubic-bezier(0.16, 1, 0.3, 1)",
             },
-            screens: {
-                sm: { min: "640px", max: "767px" },
-                md: { min: "768px", max: "1023px" },
-                lg: { min: "1024px" },
-            },
         },
     },
     plugins: [],

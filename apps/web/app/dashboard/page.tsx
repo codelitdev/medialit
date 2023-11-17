@@ -117,8 +117,8 @@ export default function Dashboard() {
     return (
         <>
             <div className="text-primary text-xl font-bold">Your files</div>
-            <div className="border border-secondary min-h-screen my-5 p-1 rounded">
-                <div className="flex flex-wrap gap-2 sm:gap-3 sm:p-4 md:gap-7 md:p-6 lg:gap-2.5 p-5">
+            <div className="border border-secondary min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
+                <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-7 md:p-5 lg:gap-3">
                     {medias.map((media: any, index:number) => (
                         <div key={index} className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[148px] w-[48%] sm:h-[148px] sm:w-[148px] md:h-[148px] md:w-[148px] lg:h-[148px] lg:w-[148px]">
                             <div className="border bg-secondary h-[148px] w-full sm:h-[148px] sm:w-[148px] md:h-[148px] md:w-[148px] lg:h-[148px] lg:w-[148px]">
