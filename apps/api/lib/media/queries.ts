@@ -2,21 +2,27 @@ import { numberOfRecordsPerPage } from "../config/constants";
 import GetPageProps from "./GetPageProps";
 import MediaModel, { Media } from "./model";
 
-export async function getMedia(
-    userId: string,
-    mediaId: string
-): Promise<Media | null> {
-    return await MediaModel.findOne({ mediaId, userId });
+export async function getMedia({
+    userId,
+    apikey,
+    mediaId,
+}: {
+    userId: string;
+    apikey: string;
+    mediaId: string;
+}): Promise<Media | null> {
+    return await MediaModel.findOne({ mediaId, apikey, userId });
 }
 
 export async function getPaginatedMedia({
     userId,
+    apikey,
     access,
     page,
     group,
     recordsPerPage,
 }: GetPageProps): Promise<Media[]> {
-    const query: Partial<Media> = { userId };
+    const query: Partial<Media> = { userId, apikey };
     if (access) {
         query.accessControl = access === "private" ? "private" : "public-read";
     }
@@ -52,6 +58,7 @@ export async function createMedia({
     fileName,
     mediaId,
     userId,
+    apikey,
     originalFileName,
     mimeType,
     size,
@@ -64,6 +71,7 @@ export async function createMedia({
         fileName,
         mediaId,
         userId,
+        apikey,
         originalFileName,
         mimeType,
         size,

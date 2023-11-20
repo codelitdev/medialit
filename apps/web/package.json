@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@courselit/components-library": "^0.38.1",
+    "@medialit/models": "workspace:*",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-icons": "^1.3.0",
     "@radix-ui/react-popover": "^1.0.7",

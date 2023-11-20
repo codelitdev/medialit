@@ -4,6 +4,7 @@ export interface Media {
     fileName: string;
     mediaId: string;
     userId: mongoose.Types.ObjectId;
+    apikey: string;
     originalFileName: string;
     mimeType: string;
     size: number;
@@ -18,6 +19,7 @@ const MediaSchema = new mongoose.Schema<Media>(
         fileName: { type: String, required: true },
         mediaId: { type: String, required: true },
         userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+        apikey: { type: String, required: true },
         originalFileName: { type: String, required: true },
         mimeType: { type: String, required: true },
         size: { type: Number, required: true },
