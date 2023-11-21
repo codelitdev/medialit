@@ -15,7 +15,7 @@ import {
     createFolders,
     moveFile,
 } from "./utils/manage-files-on-disk";
-import { Media } from "./model";
+import type { MediaWithUserId } from "./model";
 import {
     generateSignedUrl,
     putObject,
@@ -157,7 +157,7 @@ async function upload({
 
     rmdirSync(temporaryFolderForWork, { recursive: true });
 
-    const mediaObject: Media = {
+    const mediaObject: MediaWithUserId = {
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
         userId: new mongoose.Types.ObjectId(userId),
@@ -185,7 +185,7 @@ async function upload({
 }
 
 type MappedMedia = Partial<
-    Omit<Omit<Media, "accessControl">, "thumbnailGenerated">
+    Omit<Omit<MediaWithUserId, "accessControl">, "thumbnailGenerated">
 > & {
     access: "private" | "public";
     thumbnail: string;
@@ -208,7 +208,7 @@ async function getPage({
         recordsPerPage,
     });
     const mappedResult = result.map(
-        (media: Media): MappedMedia => ({
+        (media: MediaWithUserId): MappedMedia => ({
             mediaId: media.mediaId,
             originalFileName: media.originalFileName,
             mimeType: media.mimeType,
@@ -234,7 +234,11 @@ async function getMediaDetails({
     apikey: string;
     mediaId: string;
 }): Promise<Record<string, unknown> | null> {
-    const media: Media | null = await getMedia({ userId, apikey, mediaId });
+    const media: MediaWithUserId | null = await getMedia({
+        userId,
+        apikey,
+        mediaId,
+    });
     if (!media) {
         return null;
     }

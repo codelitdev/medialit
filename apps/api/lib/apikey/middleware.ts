@@ -24,6 +24,15 @@ export default async function apikey(
         return res.status(401).json({ error: UNAUTHORISED });
     }
 
+    if (req.body.internalKey) {
+        const internalApikey: Apikey | null = await getApiKeyUsingKeyId(
+            req.body.internalKey
+        );
+        if (!internalApikey) {
+            return res.status(401).json({ error: UNAUTHORISED });
+        }
+    }
+
     const isSubscriptionValid = await validateSubscription(
         apiKey!.userId.toString()
     );

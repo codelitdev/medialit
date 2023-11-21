@@ -21,16 +21,4 @@ const UserSchema = new mongoose.Schema<User>(
     }
 );
 
-UserSchema.post("save", async function (doc, next) {
-    if (doc.isNew) {
-        await mongoose.model("Apikey", ApikeySchema).create({
-            name: internalApikeyName,
-            key: getUniqueId(),
-            userId: doc.userId,
-            internal: true,
-        });
-    }
-    next();
-});
-
 export default UserSchema;

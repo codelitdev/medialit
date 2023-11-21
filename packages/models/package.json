@@ -16,6 +16,6 @@
     },
     "dependencies": {
         "@medialit/utils": "workspace:^0.1.0",
-        "mongoose": "^6.2.7"
+        "mongoose": "^8.0.1"
     }
 }

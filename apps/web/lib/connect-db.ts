@@ -1,9 +1,8 @@
-import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 
-export default async function connectToDatabase(): Promise<MongoClient> {
+export default async function connectToDatabase(): Promise<any> {
     if (mongoose.connection.readyState >= 1) {
-        return <MongoClient>(<unknown>mongoose.connection.getClient());
+        return mongoose.connection.getClient();
     }
 
     const options = {
@@ -15,5 +14,5 @@ export default async function connectToDatabase(): Promise<MongoClient> {
         process.env.MONGODB_URI || "",
         options
     );
-    return <MongoClient>(<unknown>dbConnection.connection.getClient());
+    return dbConnection.connection.getClient();
 }
