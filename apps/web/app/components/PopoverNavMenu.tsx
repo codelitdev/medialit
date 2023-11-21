@@ -11,9 +11,12 @@ import {
 } from "@radix-ui/react-icons";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const PopoverNavMenu = () => {
-    const { data: session, status } = useSession();
+    const { data: session } = useSession();
+    const pathname = usePathname();
+
     return (
         <>
             <Popover.Root>
@@ -56,17 +59,26 @@ const PopoverNavMenu = () => {
                                     </p>
                                     <p className="border-t"></p>
 
-                                    <p className="text-[15px] flex gap-2 items-center">
-                                        <Link href="/#features">Features</Link>
-                                    </p>
-                                    <p className="text-[15px] flex gap-2 items-center">
-                                        <Link href="/#pricing">Pricing</Link>
-                                    </p>
-                                    <p className="text-[15px] flex gap-2 items-center">
-                                        <Link href="/docs">Docs</Link>
-                                    </p>
-
-                                    <p className="border-t"></p>
+                                    {pathname === "/" ? (
+                                        <div className="md:hidden flex flex-col gap-2">
+                                            <p className="text-[15px] flex gap-2 items-center">
+                                                <Link href="/#features">
+                                                    Features
+                                                </Link>
+                                            </p>
+                                            <p className="text-[15px] flex gap-2 items-center">
+                                                <Link href="/#pricing">
+                                                    Pricing
+                                                </Link>
+                                            </p>
+                                            <p className="text-[15px] flex gap-2 items-center">
+                                                <Link href="/docs">Docs</Link>
+                                            </p>
+                                            <p className="border-t"></p>
+                                        </div>
+                                    ) : (
+                                        ""
+                                    )}
                                     <p>
                                         <button
                                             onClick={() => signOut()}
