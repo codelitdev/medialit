@@ -20,10 +20,12 @@ COPY apps/web/next.config.js ./apps/web/next.config.js
 COPY apps/web/postcss.config.js ./apps/web/postcss.config.js
 COPY apps/web/tailwind.config.ts ./apps/web/tailwind.config.ts
 COPY apps/web/tsconfig.json ./apps/web/tsconfig.json
+COPY packages/models ./packages/models
 
 RUN pnpm install
 
 # RUN pnpm build
+RUN pnpm --filter=@medialit/models build
 RUN pnpm --filter=@medialit/web build
 
 ENV NODE_ENV production 

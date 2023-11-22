@@ -1,6 +1,6 @@
 import path from "path";
 import { cdnEndpoint, CLOUD_PREFIX } from "../../config/constants";
-import { Media } from "../model";
+import { Media } from "@medialit/models";
 
 export function getMainFileUrl(media: Media) {
     return `${cdnEndpoint}/${CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : ""}${

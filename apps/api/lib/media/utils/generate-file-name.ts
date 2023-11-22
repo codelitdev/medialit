@@ -1,5 +1,5 @@
+import { getUniqueId } from "@medialit/utils";
 import { MEDIA_ID_LENGTH } from "../../config/constants";
-import getUniqueId from "../../utils/unique-id";
 
 interface FileNameWithExtention {
     name: string;

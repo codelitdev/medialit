@@ -33,6 +33,7 @@ export async function updateMediaSettingsHandler(
     try {
         await updateMediaSettings({
             userId: req.user.id,
+            apikey: req.apikey,
             useWebP,
             webpOutputQuality,
             thumbnailWidth,
@@ -48,7 +49,8 @@ export async function updateMediaSettingsHandler(
 export async function getMediaSettingsHandler(req: any, res: any) {
     try {
         const mediaSettings = await mediaSettingsService.getMediaSettings(
-            req.user.id
+            req.user.id,
+            req.apikey
         );
         return res.status(200).json(mediaSettings);
     } catch (err: any) {

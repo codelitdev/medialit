@@ -1,6 +1,7 @@
 import { Strategy, ExtractJwt, StrategyOptions } from "passport-jwt";
 import { jwtExpire, jwtSecret } from "../../config/constants";
-import UserModel, { User } from "../model";
+import UserModel from "../model";
+import { User } from "@medialit/models";
 
 const jwtStrategyOptions: StrategyOptions = {
     jwtFromRequest: ExtractJwt.fromBodyField("token"),

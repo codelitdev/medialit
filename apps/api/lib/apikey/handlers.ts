@@ -1,22 +1,27 @@
-import { Apikey } from "./model";
 import logger from "../services/log";
 import { NOT_FOUND, SUCCESS } from "../config/strings";
 import { createApiKey, deleteApiKey, getApiKeyByUserId } from "./queries";
+import { Apikey } from "@medialit/models";
 
 export async function createApikey(
     req: any,
     res: any,
     next: (...args: any[]) => void
 ) {
-    try {
-        const apikey: Apikey = await createApiKey(req.user.id);
+    const { name } = req.body;
+    if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+    }
 
-        res.status(200).json({
+    try {
+        const apikey: Apikey = await createApiKey(req.user.id, name);
+
+        return res.status(200).json({
             key: apikey.key,
         });
     } catch (err: any) {
         logger.error({ err }, err.message);
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
 }
 

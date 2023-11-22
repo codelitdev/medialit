@@ -1,21 +1,7 @@
 import { Apikey } from "@medialit/models";
-import ApikeyModel from "./model";
+import ApikeyModel from "@/models/apikey";
 import { getUniqueId } from "@medialit/utils";
-
-export async function createApiKey(
-    userId: string,
-    name: string
-): Promise<Apikey> {
-    return await ApikeyModel.create({
-        name,
-        key: getUniqueId(),
-        userId,
-    });
-}
-
-export async function getApiKeyUsingKeyId(key: string): Promise<Apikey | null> {
-    return await ApikeyModel.findOne({ key });
-}
+import mongoose from "mongoose";
 
 export async function getApiKeyByUserId(
     userId: string,
@@ -50,12 +36,32 @@ export async function getApiKeyByUserId(
     return result;
 }
 
-export async function deleteApiKey(
+export async function createApiKey(
     userId: string,
-    keyId: string
-): Promise<void> {
-    await ApikeyModel.deleteOne({
-        key: keyId,
+    name: string
+): Promise<Apikey> {
+    return await ApikeyModel.create({
+        name,
+        key: getUniqueId(),
         userId,
     });
+}
+
+export async function getInternalApikey(
+    userId: mongoose.Types.ObjectId
+): Promise<Apikey | null> {
+    return await ApikeyModel.findOne({
+        userId,
+        internal: true,
+    }).lean();
+}
+
+export async function getApikeyFromName(
+    userId: mongoose.Types.ObjectId,
+    name: string
+): Promise<Apikey | null> {
+    return await ApikeyModel.findOne({
+        name,
+        internal: false,
+    }).lean();
 }

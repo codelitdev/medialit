@@ -1,0 +1,21 @@
+{
+    "name": "@medialit/models",
+    "version": "0.1.0",
+    "license": "MIT",
+    "main": "dist/index.js",
+    "scripts": {
+        "test": "echo \"Error: run tests from root\" && exit 1",
+        "build": "tsc",
+        "prepublishOnly": "pnpm build"
+    },
+    "files": [
+        "dist"
+    ],
+    "devDependencies": {
+        "typescript": "^5.2.2"
+    },
+    "dependencies": {
+        "@medialit/utils": "workspace:^0.1.0",
+        "mongoose": "^8.0.1"
+    }
+}

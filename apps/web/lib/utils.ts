@@ -1,4 +1,7 @@
+import Apikey from "@/models/apikey";
+import User from "@/models/user";
 import { createHash, randomInt } from "crypto";
+import { Session } from "next-auth";
 
 export function generateUniquePasscode() {
     return randomInt(100000, 999999);

@@ -4,8 +4,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import VerificationToken from "@/models/verification-token";
 import { hashCode } from "@/lib/utils";
 import User from "@/models/user";
+import Apikey from "@/models/apikey";
 import connectToDatabase from "@/lib/connect-db";
 import { NextApiRequest, NextApiResponse } from "next";
+import { Constants } from "@medialit/models";
+import { getUniqueId } from "@medialit/utils";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -31,6 +34,12 @@ export const authOptions: NextAuthOptions = {
                 if (!user) {
                     user = await User.create({
                         email,
+                    });
+                    await Apikey.create({
+                        name: Constants.internalApikeyName,
+                        key: getUniqueId(),
+                        userId: user.id,
+                        internal: true,
                     });
                 }
                 return {
