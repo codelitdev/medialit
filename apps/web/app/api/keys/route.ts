@@ -18,7 +18,7 @@ export const GET = async () => {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const apikeys = await getApiKeyByUserId(dbUser.id);
+    const apikeys = await getApiKeyByUserId(dbUser._id);
     return NextResponse.json(apikeys);
 };
 

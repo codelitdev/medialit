@@ -4,7 +4,7 @@ import { getUniqueId } from "@medialit/utils";
 import mongoose from "mongoose";
 
 export async function getApiKeyByUserId(
-    userId: string,
+    userId: mongoose.Types.ObjectId,
     keyId?: string
 ): Promise<Apikey | Apikey[] | null> {
     let result: Apikey | Apikey[] | null;
