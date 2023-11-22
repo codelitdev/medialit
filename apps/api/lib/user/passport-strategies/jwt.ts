@@ -14,25 +14,21 @@ const jwtStrategyOptions: StrategyOptions = {
     passReqToCallback: true,
 };
 
-export default new Strategy(jwtStrategyOptions, function (
+export default new Strategy(jwtStrategyOptions, async function (
     _: any,
     jwtToken: { email: string },
     done: any
 ) {
     const { email } = jwtToken;
-
-    UserModel.findOne(
-        { email, active: true },
-        function (err: Error, user: User) {
-            if (err) {
-                return done(err, false);
-            }
-
-            if (user) {
-                return done(null, user);
-            } else {
-                return done(null, false);
-            }
+    const query = { email, active: true };
+    try {
+        const user = await UserModel.findOne(query);
+        if (user) {
+            return done(null, user);
+        } else {
+            return done(null, false);
         }
-    );
+    } catch (err: any) {
+        return done(err, false);
+    }
 });

@@ -17,6 +17,7 @@ export async function getApiKeyByUserId(
         createdAt: 1,
         updatedAt: 1,
     };
+
     if (keyId) {
         result = await ApikeyModel.findOne(
             {

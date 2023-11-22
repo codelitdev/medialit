@@ -1,109 +1,24 @@
 "use client";
 
-import Image from "next/image";
 import Button from "../components/Button";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 
-const medias = [
+const apikeys = [
     {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
+        name: "Hola",
     },
     {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
+        name: "Hola2",
     },
     {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
+        name: "Hola3",
     },
     {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
+        name: "Hola4",
     },
     {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
-    },
-    {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
-    },
-    {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
-    },
-    {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
-    },
-    {
-        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
-        originalFileName: "banner.png",
-        mimeType: "image/png",
-        size: 57252,
-        access: "private",
-        thumbnail:
-            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
-        caption: "CourseLit banner",
-        group: "true",
+        name: "Hola5",
     },
 ];
 
@@ -116,35 +31,23 @@ export default function Dashboard() {
 
     return (
         <>
-            <div className="text-primary text-xl font-bold">Your files</div>
+        <div className="flex justify-between">
+            <div className="text-primary text-xl font-bold">Your apps</div>
+            <Button className="!w-20">New app</Button>
+        </div>
             <div className="border border-secondary min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
-                <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-7 md:p-5 lg:gap-3">
-                    {medias.map((media: any, index:number) => (
-                        <div key={index} className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[148px] w-[48%] sm:h-[148px] sm:w-[148px] md:h-[148px] md:w-[148px] lg:h-[148px] lg:w-[148px]">
-                            <div className="border bg-secondary h-[148px] w-full sm:h-[148px] sm:w-[148px] md:h-[148px] md:w-[148px] lg:h-[148px] lg:w-[148px]">
-                                <Image
-                                    src={media.thumbnail}
-                                    width={0}
-                                    height={0}
-                                    alt="Media"
-                                />
-                            </div>
-                            <div className="p-2 absolute bottom-0 bg-white w-full">
-                                <div className="text-sm">{media.originalFileName}</div>
-                                <div className="text-secondary text-sm">
-                                    {media.mimeType.split("/")[0]}
-                                </div>
+                <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-3 md:p-5 lg:gap-3">
+                    {apikeys.map((apikey: any, index: number) => (
+                        <div
+                            key={index}
+                            className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[151px] w-[48%] sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]"
+                        >
+                            <div className="flex items-center justify-center border h-[151px] w-full sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]">
+                                {apikey.name}
                             </div>
                         </div>
                     ))}
                 </div>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-                <Button className="bg-secondary "> Previous </Button>
-                <p>
-                    <span className="font-bold">1</span> of 10 (98 Files){" "}
-                </p>
-                <Button> Next </Button>
             </div>
         </>
     );
