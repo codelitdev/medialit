@@ -33,12 +33,11 @@ export async function getApiKeyByUserId(
             projections
         );
     }
-
     return result;
 }
 
 export async function createApiKey(
-    userId: string,
+    userId: mongoose.Types.ObjectId,
     name: string
 ): Promise<Apikey> {
     return await ApikeyModel.create({

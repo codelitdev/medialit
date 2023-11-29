@@ -20,11 +20,12 @@ export async function getPaginatedMedia({
     access,
 }: GetPaginatedMediaProps): Promise<Media[]> {
     const urlParams = new URLSearchParams();
+
     if (group) {
         urlParams.append("group", group);
     }
     urlParams.append("page", page ? page.toString() : "1");
-    urlParams.append("limit", limit ? limit.toString() : "20");
+    urlParams.append("limit", limit ? limit.toString() : "10");
     if (access) {
         urlParams.append("access", access);
     }

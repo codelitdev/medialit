@@ -5,13 +5,15 @@ import { NextResponse } from "next/server";
 import { getUserFromSession } from "@/lib/user-handlers";
 import { getApikeyFromName, getInternalApikey } from "@/lib/apikey-handlers";
 import { getPaginatedMedia } from "@/lib/media-handlers";
+import { type NextRequest } from "next/server";
 
 export const GET = async (
-    request: Request,
+    request: NextRequest,
     { params }: { params: { name: string } }
 ) => {
     const name = params.name;
-
+    const searchParams = request.nextUrl.searchParams;
+    const page = searchParams.get("page");
     await connectToDatabase();
 
     const session = await getServerSession(authOptions);
@@ -26,6 +28,7 @@ export const GET = async (
 
     const internalApikey = await getInternalApikey(dbUser._id);
     const apikey = await getApikeyFromName(dbUser._id, name);
+
     if (!apikey || !internalApikey) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -33,6 +36,7 @@ export const GET = async (
     const media = await getPaginatedMedia({
         apikey: apikey!.key,
         internalApikey: internalApikey!.key,
+        page: page ? +page : 1,
     });
 
     return NextResponse.json(media);

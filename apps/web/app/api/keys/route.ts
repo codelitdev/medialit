@@ -43,6 +43,6 @@ export const POST = async (request: NextRequest) => {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const apikey = await createApiKey(dbUser.id, name);
+    const apikey = await createApiKey(dbUser._id, name);
     return NextResponse.json({ key: apikey.key });
 };
