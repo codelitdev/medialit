@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import Features from "./components/Features";
-import Pricing from "./components/Pricing";
-import Button from "./components/Button";
+import Features from "../components/Features";
+import Pricing from "../components/Pricing";
+import Button from "../components/Button";
 
 export default function Home() {
     return (

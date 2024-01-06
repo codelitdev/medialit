@@ -1,34 +1,14 @@
-"use client";
-
 import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import Button from "./Button";
 import PopoverNavMenu from "./PopoverNavMenu";
-import { usePathname } from "next/navigation";
+// import { usePathname } from "next/navigation";
+import { auth } from "@/auth";
+import AuthButton from "./AuthButton";
 
-function AuthButton() {
-    const { data: session } = useSession();
-    if (session) {
-        return (
-            <div>
-                <Button className={"w-20"} onClick={() => signOut()}>
-                    Sign out
-                </Button>
-            </div>
-        );
-    }
-    return (
-        <div>
-            <Button className="w-20" onClick={() => signIn()}>
-                Sign in
-            </Button>
-        </div>
-    );
-}
-
-const NavMenu = () => {
-    const { data: session } = useSession();
-    const pathname = usePathname();
+export default async function NavMenu() {
+    const session = await auth();
+    // const pathname = usePathname();
 
     return (
         <>
@@ -38,8 +18,7 @@ const NavMenu = () => {
                         <div className="text-primary text-2xl font-extrabold">
                             <Link href="/">Medialit</Link>
                         </div>
-                        {pathname === "/" ? (
-                            <ul className="hidden md:flex md:gap-2 md:item-center text-lg text-primary font-normal">
+                        <ul className="hidden md:flex md:gap-2 md:item-center text-lg text-primary font-normal">
                                 <li>
                                     <Link href="/#features">Features</Link>
                                 </li>
@@ -50,9 +29,6 @@ const NavMenu = () => {
                                     <Link href="/docs">Docs</Link>
                                 </li>
                             </ul>
-                        ) : (
-                            ""
-                        )}
                     </div>
                     <div>
                         <PopoverNavMenu />
@@ -88,5 +64,3 @@ const NavMenu = () => {
         </>
     );
 };
-
-export default NavMenu;

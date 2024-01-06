@@ -12,9 +12,11 @@ import {
 import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { auth } from "@/auth";
 
-const PopoverNavMenu = () => {
-    const { data: session } = useSession();
+const PopoverNavMenu = async () => {
+    // const { data: session } = useSession();
+    const session = await auth()
     const pathname = usePathname();
 
     return (
