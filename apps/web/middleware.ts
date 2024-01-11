@@ -1,7 +1,3 @@
-// export { default } from "next-auth/middleware";
-
-// export const config = { matcher: ["/dashboard"] };
-
 import { auth } from "./auth";
 
 export const middleware = auth;

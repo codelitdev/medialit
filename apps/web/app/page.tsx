@@ -13,7 +13,7 @@ export default function Home() {
                     <div className="text-primary max-w-[640px] font-bold text-3xl md:text-4xl lg:text-6xl">
                         Easy file uploads for serverless apps
                     </div>
-                    <p className="text-secondary">
+                    <p className="text-muted-foregroundP">
                         Upload, store, transform, deliver for your files.
                         Automatically generate thumbnails too!
                     </p>

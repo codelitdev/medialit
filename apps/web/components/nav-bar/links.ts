@@ -1,5 +1,5 @@
 export const navlinks = [
-    { text: "Our tools", href: "/#tools" },
+    { text: "Features", href: "/#features" },
     { text: "Pricing", href: "/#pricing" },
-    { text: "FAQ", href: "/#faq" },
+    { text: "Docs", href: "/docs" },
 ];

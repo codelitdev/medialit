@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import Button from "./Button";
 import { signIn, signOut, useSession } from "next-auth/react";

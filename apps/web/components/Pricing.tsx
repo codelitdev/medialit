@@ -46,22 +46,25 @@ const PricingPane = ({
 }: PricingPaneProps) => {
     return (
         <div className=" p-4 w-full md:w-[49%] h-80 border border-[#8B8B8B] rounded flex flex-col justify-between mb-[2%]">
-           <div>
-            <h6 className="text-primary text-lg font-semibold">{name}</h6>
-            <p className="text-secondary">{description}</p>
-            <div className="py-4">
-                <span className="text-primary font-bold">&#36;{price}</span>
-                <span className="text-[#6B6666] font-bold"> /month</span>
-            </div>
             <div>
-                {features.map((feature) => (
-                    <div key={feature} className="flex gap-2 items-center mb-1">
-                        {icon}
-                        <p>{feature}</p>
-                    </div>
-                ))}
+                <h6 className="text-primary text-lg font-semibold">{name}</h6>
+                <p className="text-muted-foreground">{description}</p>
+                <div className="py-4">
+                    <span className="text-primary font-bold">&#36;{price}</span>
+                    <span className="text-[#6B6666] font-bold"> /month</span>
+                </div>
+                <div>
+                    {features.map((feature) => (
+                        <div
+                            key={feature}
+                            className="flex gap-2 items-center mb-1"
+                        >
+                            {icon}
+                            <p>{feature}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
-           </div>
 
             <Button
                 className={
@@ -79,8 +82,10 @@ const PricingPane = ({
 const Pricing = () => {
     return (
         <section id="pricing" className="mb-2">
-        <h4 className="text-primary text-lg md:text-2xl font-bold mb-2">Pricing</h4>
-            <p className="text-secondary mb-4">
+            <h4 className="text-primary text-lg md:text-2xl font-bold mb-2">
+                Pricing
+            </h4>
+            <p className="text-muted-foreground mb-4">
                 Leave all your upload woes to us! We take care of your file
                 uploads so that you focus on your users.
             </p>

@@ -1,13 +1,12 @@
 "use server";
 
+import { AuthError, Session } from "next-auth";
+import { createTransport } from "nodemailer";
 import { auth, signIn } from "@/auth";
-import connectToDatabase from "@/lib/connect-db";
 import { SITE_NAME } from "@/lib/constants";
 import { generateUniquePasscode, hashCode } from "@/lib/magic-code-utils";
+import connectToDatabase from "@/lib/connect-db";
 import verificationToken from "@/models/verification-token";
-import { AuthError } from "next-auth";
-import { cookies } from "next/headers";
-import { createTransport } from "nodemailer";
 
 export async function authenticate(
     prevState: Record<string, unknown>,
@@ -48,13 +47,8 @@ export async function authenticate(
 export async function sendCode(
     prevState: Record<string, unknown>,
     formData: FormData
-): Promise<{
-    success: boolean;
-    error?: string;
-}> {
+): Promise<{ success: boolean; error?: string }> {
     const email = formData.get("email") as string;
-    const cookieStore = cookies();
-    // const supabase = getSupabase(cookieStore);
     const code = generateUniquePasscode();
     await connectToDatabase();
 
@@ -63,20 +57,6 @@ export async function sendCode(
         code: hashCode(code),
         timestamp: Date.now() + 1000 * 60 * 5,
     });
-
-    // await supabase.from("verification_tokens").delete().eq("email", email);
-
-    // const { error: errorInInsert } = await supabase
-    //   .from("verification_tokens")
-    //   .insert({
-    //     email,
-    //     code: hashCode(code),
-    //     timestamp: new Date(Date.now() + 1000 * 60 * 5).toISOString(),
-    //   });
-
-    // if (errorInInsert) {
-    //   return { success: false, error: errorInInsert.message };
-    // }
 
     const transporter = createTransport({
         host: process.env.EMAIL_HOST,
@@ -105,7 +85,7 @@ export async function sendCode(
 }
 
 export async function getUser(): Promise<any | null> {
-    const session = await auth();
+    const session: Session | null = await auth();
     if (!session || !session.user) {
         return null;
     }
