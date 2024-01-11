@@ -2,20 +2,22 @@ import MediaSettingsModel, { MediaSettings } from "./model";
 import { UpdateMediaSettingsProps } from "./service";
 
 export async function getMediaSettings(
-    userId: string
+    userId: string,
+    apikey: string
 ): Promise<MediaSettings | null> {
-    return await MediaSettingsModel.findOne({ userId });
+    return await MediaSettingsModel.findOne({ userId, apikey });
 }
 
 export async function updateMediaSettings({
     userId,
+    apikey,
     useWebP,
     webpOutputQuality,
     thumbnailWidth,
     thumbnailHeight,
 }: UpdateMediaSettingsProps): Promise<void> {
     await MediaSettingsModel.findOneAndUpdate(
-        { userId },
+        { userId, apikey },
         {
             $set: {
                 useWebP,

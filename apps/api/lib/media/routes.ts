@@ -26,7 +26,11 @@ router.post(
     (req: Request, res: Response, next: (...args: any[]) => void) => {
         const { signature } = req.query;
         if (signature) {
-            presigned(req, res, next);
+            presigned(
+                req as Request & { user: any; apikey: string },
+                res,
+                next
+            );
         } else {
             apikey(req, res, next);
         }

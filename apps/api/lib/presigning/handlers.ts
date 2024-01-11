@@ -24,6 +24,7 @@ export async function getPresignedUrl(
     try {
         const presignedUrl = await preSignedUrlService.generateSignedUrl({
             userId: req.user.id,
+            apikey: req.apikey,
             protocol: req.protocol,
             host: req.get("Host"),
             group: req.body.group,

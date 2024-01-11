@@ -1,21 +1,4 @@
 import mongoose from "mongoose";
-
-export interface User {
-    _id: mongoose.Types.ObjectId;
-    email: string;
-    active: boolean;
-    name?: string;
-}
-
-const UserSchema = new mongoose.Schema<User>(
-    {
-        email: { type: String, required: true, unique: true },
-        active: { type: Boolean, required: true, default: true },
-        name: { type: String, required: false },
-    },
-    {
-        timestamps: true,
-    }
-);
+import { UserSchema } from "@medialit/models";
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);
