@@ -10,7 +10,7 @@ import VerificationToken from "@/models/verification-token";
 import User from "@/models/user";
 import Apikey from "@/models/apikey";
 
-export const { auth, signIn, signOut } = NextAuth({
+export const { auth, signIn, signOut, handlers } = NextAuth({
     ...authConfig,
     providers: [
         CredentialsProvider({
