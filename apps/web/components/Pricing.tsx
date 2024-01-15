@@ -69,7 +69,7 @@ const PricingPane = ({
             <Button
                 className={
                     isSecondary
-                        ? " w-full bg-white hover:bg-white !text-primary border border-secondary mt-6 justify-center"
+                        ? " w-full bg-white hover:bg-white !text-primary border border-muted-foreground mt-6 justify-center"
                         : "w-full"
                 }
             >

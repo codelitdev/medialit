@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { auth, signOut } from "../../auth";
 import { Button } from "@/components/ui/button";
-import { BackpackIcon, GearIcon, PersonIcon } from "@radix-ui/react-icons";
+import {
+    AvatarIcon,
+    BackpackIcon,
+    ExitIcon,
+    GearIcon,
+    PersonIcon,
+} from "@radix-ui/react-icons";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -50,16 +56,16 @@ export async function NavBar() {
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
-                                    variant="ghost"
-                                    className="relative h-8 w-8 rounded-full"
+                                    // variant="ghost"
+                                    className="relative h-10 w-10 rounded-full"
                                 >
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage
+                                    <Avatar className="h-10 w-10">
+                                        {/* <AvatarImage
                                             src="/avatars/01.png"
                                             alt="@shadcn"
-                                        />
-                                        <AvatarFallback>
-                                            <PersonIcon />
+                                        /> */}
+                                        <AvatarFallback className="bg-primary text-white hover:bg-[#333333]">
+                                            <AvatarIcon className="w-6 h-6" />
                                         </AvatarFallback>
                                     </Avatar>
                                 </Button>
@@ -71,14 +77,14 @@ export async function NavBar() {
                             >
                                 <DropdownMenuLabel className="font-normal">
                                     <div className="flex flex-col space-y-3">
-                                        <p className="text-sm font-medium leading-none">
+                                        <p className="text-sm text-muted-foreground font-medium truncate">
                                             {session.user?.email}
                                         </p>
-                                        <p className="text-[15px] flex gap-2 items-center leading-none text-muted-foreground">
+                                        <p className="text-[15px] flex gap-2 items-center text-primary">
                                             <GearIcon />
                                             Settings
                                         </p>
-                                        <p className="text-[15px] flex gap-2 items-center leading-none text-muted-foreground">
+                                        <p className="text-[15px] flex gap-2 items-center text-primary">
                                             <BackpackIcon />
                                             Billing
                                         </p>
@@ -105,8 +111,9 @@ export async function NavBar() {
                                     <form action={logOut} className="w-full">
                                         <button
                                             type="submit"
-                                            className="w-full text-start"
+                                            className="w-full text-start text-[15px] flex gap-2 items-center"
                                         >
+                                            <ExitIcon />
                                             Sign out
                                         </button>
                                     </form>
