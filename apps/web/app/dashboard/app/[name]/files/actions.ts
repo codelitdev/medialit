@@ -3,34 +3,43 @@ import { getUserFromSession } from "@/lib/user-handlers";
 import { getApikeyFromName, getInternalApikey } from "@/lib/apikey-handlers";
 import { getPaginatedMedia } from "@/lib/media-handlers";
 import { auth } from "@/auth";
+import { Media } from "@medialit/models";
 
-export async function getMediaFiles(name: string, page: number) {
+export async function getMediaFiles(
+    name: string,
+    page: number
+): Promise<Media[]> {
     if (!name) {
-        return;
+        throw new Error("Name is required");
     }
 
     const session = await auth();
     if (!session || !session.user) {
-        return;
+        throw new Error("Unauthenticated");
     }
 
     await connectToDatabase();
 
     const dbUser = await getUserFromSession(session);
     if (!dbUser) {
-        return;
+        throw new Error("User not found");
     }
 
     const internalApikey = await getInternalApikey(dbUser._id);
-    const apikey = await getApikeyFromName(dbUser._id, name);
+    if (!internalApikey) {
+        console.error("Internal apikey not found for user", dbUser._id); // eslint-disable-line no-console
+        throw new Error("We messed up. Please try again later.");
+    }
+    const decodedName = decodeURI(name);
+    const apikey = await getApikeyFromName(dbUser._id, decodedName);
 
-    if (!apikey || !internalApikey) {
-        return;
+    if (!apikey) {
+        throw new Error("Apikey not found");
     }
 
     const media = await getPaginatedMedia({
-        apikey: apikey!.key,
-        internalApikey: internalApikey!.key,
+        apikey: apikey.key,
+        internalApikey: internalApikey.key,
         page: page || 1,
     });
 
