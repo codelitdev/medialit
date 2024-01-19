@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getMediaFiles } from "./actions";
+import { Media } from "@medialit/models";
 
 export default async function Media({
     params,
@@ -13,18 +14,23 @@ export default async function Media({
     searchParams: { page: string };
 }) {
     const session = await auth();
-    const name = params.name;
-    const page = searchParams.page;
-    const medias: any = await getMediaFiles(name, +page);
-
-    // FIXME: Fix the total page (value is not coming correctly on frontend)
-    const mediasPerPage = 10;
-    const totalPages = medias
-        ? Math.ceil(medias.length / Number(mediasPerPage))
-        : 0;
-
     if (!session) {
         redirect("/login");
+    }
+
+    const name = params.name;
+    const page = searchParams.page;
+    let medias: Media[] = [];
+    const mediasPerPage = 10;
+    let totalPages = 0;
+    try {
+        medias = await getMediaFiles(name, +page);
+        // FIXME: Fix the total page (value is not coming correctly on frontend)
+        totalPages = medias
+            ? Math.ceil(medias.length / Number(mediasPerPage))
+            : 0;
+    } catch (error) {
+        return <div>Something went wrong</div>;
     }
 
     return (
