@@ -8,6 +8,7 @@ import {
     getMediaDetails,
     uploadMedia,
     deleteMedia,
+    getMediaCount,
 } from "./handlers";
 import presigned from "../presigning/middleware";
 
@@ -37,6 +38,7 @@ router.post(
     },
     uploadMedia
 );
+router.post("/get/count", apikey, getMediaCount);
 router.post("/get/:mediaId", apikey, getMediaDetails);
 router.post("/get", apikey, getMedia);
 router.delete("/delete/:mediaId", apikey, deleteMedia);
