@@ -3,7 +3,7 @@ import Button from "@/components/Button";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getMediaFiles } from "./actions";
+import { getMediaFiles, getCount } from "./actions";
 import { Media } from "@medialit/models";
 
 export default async function Media({
@@ -22,13 +22,17 @@ export default async function Media({
     const page = searchParams.page;
     let medias: Media[] = [];
     const mediasPerPage = 10;
-    let totalPages = 0;
+    let totalPages: any = 0;
+    let totalMediaCount;
     try {
+        totalMediaCount = await getCount(name);
         medias = await getMediaFiles(name, +page);
         // FIXME: Fix the total page (value is not coming correctly on frontend)
         totalPages = medias
-            ? Math.ceil(medias.length / Number(mediasPerPage))
+            ? Math.ceil(totalMediaCount.count / Number(mediasPerPage))
             : 0;
+
+        totalPages === 0 ? (totalPages = 1) : totalPages;
     } catch (error) {
         return <div>Something went wrong</div>;
     }
@@ -114,7 +118,19 @@ export default async function Media({
                         Number(page) + 1
                     }`}
                 >
-                    <Button> Next </Button>
+                    <Button
+                        disabled={page ? parseInt(page) >= totalPages : ""}
+                        className={
+                            page
+                                ? parseInt(page) >= totalPages
+                                    ? "!bg-muted-foreground"
+                                    : ""
+                                : ""
+                        }
+                    >
+                        {" "}
+                        Next{" "}
+                    </Button>
                 </Link>
             </div>
         </>

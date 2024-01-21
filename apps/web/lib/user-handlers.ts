@@ -12,5 +12,6 @@ export async function getUserFromSession(
     const dbUser: UserWithId | null = await UserModel.findOne<UserWithId>({
         email: user!.email,
     }).lean();
+
     return dbUser;
 }

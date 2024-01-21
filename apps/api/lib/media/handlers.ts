@@ -45,6 +45,7 @@ export async function uploadMedia(
     const { access, caption, group } = req.body;
     const userId = req.user.id;
     const apikey = req.apikey;
+
     try {
         const mediaId = await mediaService.upload({
             userId,
@@ -106,9 +107,10 @@ export async function getMedia(
 }
 
 export async function getMediaCount(req: any, res: any) {
+    const userId = req.user._id;
+    const apikey = req.apikey;
+
     try {
-        const userId = req.user._id;
-        const apikey = req.apikey;
         const totalMediaFiles = await getCount({ userId, apikey });
         return res.status(200).json({ count: totalMediaFiles });
     } catch (err: any) {
