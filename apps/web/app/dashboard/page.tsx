@@ -31,7 +31,7 @@ export default async function Dashboard() {
                                 <Link
                                     href={`/dashboard/app/${
                                         apikey.name
-                                    }/files?page=${1}`}
+                                    }/files`}
                                 >
                                     {apikey.name}
                                 </Link>

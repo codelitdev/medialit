@@ -19,15 +19,14 @@ export default async function Media({
     }
 
     const name = params.name;
-    const page = searchParams.page;
+    const page = searchParams.page || "1";
     let medias: Media[] = [];
     const mediasPerPage = 10;
-    let totalPages: any = 0;
+    let totalPages: number = 0;
     let totalMediaCount;
     try {
         totalMediaCount = await getCount(name);
         medias = await getMediaFiles(name, +page);
-        // FIXME: Fix the total page (value is not coming correctly on frontend)
         totalPages = medias
             ? Math.ceil(totalMediaCount.count / Number(mediasPerPage))
             : 0;
@@ -108,7 +107,6 @@ export default async function Media({
                         Previous
                     </Button>
                 </Link>
-                {/* FIXME:  totalPages*/}
                 <p>
                     <span className="font-bold">{page}</span> of {totalPages} (
                     {medias.length} Files)
