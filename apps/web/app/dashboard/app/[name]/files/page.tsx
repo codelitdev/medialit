@@ -38,9 +38,6 @@ export default async function Media({
 
     return (
         <>
-            <div className="text-primary font-semibold mb-3">
-                All apps /<span className="text-muted-foreground"> {name}</span>
-            </div>
             <ul className="flex gap-2 font-bold text-xl">
                 <li>
                     <Link
