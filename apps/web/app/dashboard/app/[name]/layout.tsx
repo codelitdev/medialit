@@ -10,9 +10,6 @@ export default async function FilesLayout({
 }) {
     const name = params.name;
     const decodedName = decodeURI(name);
-    // const decodeURIComponentName = decodeURIComponent(name);
-    // console.log("decodedName", decodedName, name);
-    // console.log("decodeURIComponentName", decodeURIComponentName, name);
 
     return (
         <>
