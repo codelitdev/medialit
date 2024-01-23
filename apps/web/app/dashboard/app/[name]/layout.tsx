@@ -19,12 +19,12 @@ export default async function FilesLayout({
             <main className="mx-auto max-w-[1024px] min-h-screen">
                 <div className="text-primary font-semibold px-2">
                     <Link href="/dashboard">
-                        {" "}
-                        All apps /{" "}
-                        <span className="text-muted-foreground">
-                            {decodedName}
-                        </span>
+                     All apps {" "}   
                     </Link>
+                    /{" "}
+                    <span className="text-muted-foreground">
+                        {decodedName}
+                    </span>
                 </div>
                 <div className="px-2 py-8 ">{children}</div>
             </main>
