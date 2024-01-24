@@ -22,7 +22,7 @@ export default async function Media({
     const page = searchParams.page || "1";
     let medias: Media[] = [];
     const mediasPerPage = 10;
-    let totalPages: number = 0;
+    let totalPages = 0;
     let totalMediaCount;
     try {
         totalMediaCount = await getCount(name);
