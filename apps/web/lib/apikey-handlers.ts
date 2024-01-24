@@ -62,6 +62,7 @@ export async function getApikeyFromName(
 ): Promise<Apikey | null> {
     return await ApikeyModel.findOne({
         name,
+        userId,
         internal: false,
     }).lean();
 }

@@ -14,6 +14,16 @@ export async function getMedia({
     return await MediaModel.findOne({ mediaId, apikey, userId }).lean();
 }
 
+export async function getMediaCount({
+    userId,
+    apikey,
+}: {
+    userId: string;
+    apikey: string;
+}): Promise<number> {
+    return await MediaModel.countDocuments({ apikey, userId }).lean();
+}
+
 export async function getPaginatedMedia({
     userId,
     apikey,

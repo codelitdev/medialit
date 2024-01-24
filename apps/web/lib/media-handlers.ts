@@ -1,4 +1,5 @@
 import { Media } from "@medialit/models";
+import mongoose from "mongoose";
 
 const medialitServer = process.env.API_SERVER || "https://api.medialit.cloud";
 
@@ -70,6 +71,27 @@ export async function getMedia({
         body: JSON.stringify({
             apikey,
             internalApikey,
+        }),
+    });
+    response = await response.json();
+    return response;
+}
+
+export async function getMediaCount({
+    apikey,
+    userId,
+}: {
+    apikey: string;
+    userId: mongoose.Types.ObjectId;
+}) {
+    let response: any = await fetch(`${medialitServer}/media/get/count`, {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+        },
+        body: JSON.stringify({
+            apikey,
+            userId,
         }),
     });
     response = await response.json();
