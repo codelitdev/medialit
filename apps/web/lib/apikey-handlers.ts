@@ -24,12 +24,13 @@ export async function getApiKeyByUserId(
                 key: keyId,
                 userId,
                 internal: false,
+                deleted: { $ne: true },
             },
             projections
         );
     } else {
         result = await ApikeyModel.find(
-            { userId, internal: false },
+            { userId, internal: false, deleted: { $ne: true } },
             projections
         );
     }
@@ -45,6 +46,19 @@ export async function createApiKey(
         key: getUniqueId(),
         userId,
     });
+}
+
+export async function deleteApiKey(
+    userId: mongoose.Types.ObjectId,
+    name: string
+) {
+    return await ApikeyModel.updateOne(
+        {
+            name,
+            userId,
+        },
+        { $set: { deleted: true } }
+    );
 }
 
 export async function getInternalApikey(
