@@ -64,14 +64,8 @@ export async function createNewApiKey(
 }
 
 export async function deleteApiKeyOfUser(
-    prevState: Record<string, unknown>,
-    formData: FormData
+    deletedApiKey: string
 ): Promise<{ success: boolean; error?: string }> {
-    const deletedApiKey = formData.get("deleteApiKey") as string;
-    if (!deleteApiKey) {
-        throw new Error("Name is required");
-    }
-
     const session = await auth();
     if (!session || !session.user) {
         return { success: false, error: "Invalid session" };
