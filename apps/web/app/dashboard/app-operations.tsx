@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
@@ -19,8 +19,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 export default function AppOperations() {
+    const [open, setOpen] = useState(false);
     const [apiKeyFormState, createApiKeyFormAction] = useFormState(
         createNewApiKey,
         { success: false }
@@ -30,14 +32,22 @@ export default function AppOperations() {
     const router = useRouter();
     const { toast } = useToast();
 
-    if (apiKeyFormState.success) {
-        router.refresh();
-        redirect("/dashboard");
-    }
+    useEffect(() => {
+        if (apiKeyFormState.success) {
+            setOpen(false)
+            router.refresh()
+            toast({
+                title: `Success`,
+                description: `App ${apiKey} is ready to go`,
+                action: <ToastAction altText="Go to app" onClick={() => {
+                    router.push(`/dashboard/app/${encodeURIComponent(apiKey)}/files`);
+                }}>Go to app</ToastAction>
+            });
+        }
+    }, [apiKeyFormState.success]);
 
     return (
-        <>
-            <Dialog>
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                     <Button className="!w-20 h-8">New app</Button>
                 </DialogTrigger>
@@ -70,13 +80,6 @@ export default function AppOperations() {
                         <DialogFooter>
                             <Submit
                                 className="!w-20 h-8"
-                                onClick={() => {
-                                    apiKeyFormState.success &&
-                                        toast({
-                                            variant: "success",
-                                            title: `New app "${apiKey}" has been Creted`,
-                                        });
-                                }}
                             >
                                 Create
                             </Submit>
@@ -84,18 +87,15 @@ export default function AppOperations() {
                     </form>
                 </DialogContent>
             </Dialog>
-        </>
     );
 }
 
 function Submit({
     children,
-    onClick,
     className = "",
 }: {
     children: React.ReactNode;
     className?: string;
-    onClick: (...args: any[]) => void;
 }) {
     const status = useFormStatus();
 
@@ -104,7 +104,6 @@ function Submit({
             type="submit"
             disabled={status.pending}
             className={className}
-            onClick={onClick}
         >
             {children}
         </Button>
