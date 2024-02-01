@@ -37,6 +37,17 @@ export async function getApiKeyByUserId(
     return result;
 }
 
+export async function getApikeyFromName(
+    userId: mongoose.Types.ObjectId,
+    name: string
+): Promise<Apikey | null> {
+    return await ApikeyModel.findOne({
+        name,
+        userId,
+        internal: false,
+    }).lean();
+}
+
 export async function createApiKey(
     userId: mongoose.Types.ObjectId,
     name: string
@@ -70,13 +81,14 @@ export async function getInternalApikey(
     }).lean();
 }
 
-export async function getApikeyFromName(
+export async function editApiKey(
     userId: mongoose.Types.ObjectId,
     name: string
-): Promise<Apikey | null> {
-    return await ApikeyModel.findOne({
-        name,
-        userId,
-        internal: false,
-    }).lean();
+) {
+    const editedApiKey = await ApikeyModel.updateOne(
+        { userId },
+        { $set: { name: name } }
+    );
+
+    return editedApiKey;
 }

@@ -5,6 +5,7 @@ import {
     createApiKey,
     getApiKeyByUserId,
     deleteApiKey,
+    editApiKey,
 } from "@/lib/apikey-handlers";
 import { getUserFromSession } from "@/lib/user-handlers";
 import { auth } from "@/auth";
@@ -82,6 +83,33 @@ export async function deleteApiKeyOfUser(
         const result = await deleteApiKey(dbUser._id, deletedApiKey);
         return { success: true };
     } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function editApiKeyforUser(
+    prevState: Record<string, unknown>,
+    formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+    const editedApikey = formData.get("editApiKey") as string;
+
+    const session = await auth();
+    if (!session || !session.user) {
+        return { success: false, error: "Invalid session" };
+    }
+
+    await connectToDatabase();
+
+    const dbUser = await getUserFromSession(session);
+    if (!dbUser) {
+        return { success: false, error: "Invalid User" };
+    }
+
+    try {
+        const result = await editApiKey(dbUser._id, editedApikey);
+        return { success: true };
+    } catch (err: any) {
+        // console.log("error on update api key", err.message);
         return { success: false, error: err.message };
     }
 }
