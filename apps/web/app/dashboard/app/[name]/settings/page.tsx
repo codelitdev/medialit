@@ -23,7 +23,7 @@ import { ToastAction } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export default function Settings({ params }: { params: { name: string } }) {
+export default async function Settings({ params }: { params: { name: string } }) {
     const [editApiKeyFormState, editApiKeyFormAction] = useFormState(
         editApiKeyforUser,
         { success: false }
@@ -75,7 +75,7 @@ export default function Settings({ params }: { params: { name: string } }) {
     return (
         <>
             <div className="border border-muted-foreground min-h-screen my-4 rounded p-2 md:p-2 lg:p-0">
-                <Dialog open={open} onOpenChange={setOpen}>
+                <Dialog>
                     <DialogTrigger asChild>
                         <Button className="!w-20 h-8 m-4">Delete app</Button>
                     </DialogTrigger>

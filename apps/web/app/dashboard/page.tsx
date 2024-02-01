@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
-import { getApiKeys } from "./actions";
+import { getApiKeys, getDeletedApiKeyforUser } from "./actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppOperations from "@/app/dashboard/app-operations";
-    
+
 export default async function Dashboard() {
     const session = await auth();
 
@@ -11,6 +11,7 @@ export default async function Dashboard() {
         redirect("/login");
     }
     const apiKeys: any = await getApiKeys();
+    const deletedApiKeys = await getDeletedApiKeyforUser();
 
     return (
         <>
@@ -30,6 +31,21 @@ export default async function Dashboard() {
                                     href={`/dashboard/app/${apikey.name}/files`}
                                 >
                                     {apikey.name}
+                                </Link>
+                            </div>
+                        </div>
+                    ))}
+
+                    {deletedApiKeys.map((deletedApiKey: any, index: number) => (
+                        <div
+                            key={index}
+                            className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[151px] w-[48%] sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]"
+                        >
+                            <div className="flex items-center justify-center border h-[151px] w-full sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]">
+                                <Link
+                                    href={`/dashboard/app/${deletedApiKey.name}/files`}
+                                >
+                                    {deletedApiKey.name}
                                 </Link>
                             </div>
                         </div>

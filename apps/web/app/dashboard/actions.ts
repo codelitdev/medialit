@@ -6,6 +6,7 @@ import {
     getApiKeyByUserId,
     deleteApiKey,
     editApiKey,
+    getDeletedApiKey,
 } from "@/lib/apikey-handlers";
 import { getUserFromSession } from "@/lib/user-handlers";
 import { auth } from "@/auth";
@@ -26,6 +27,26 @@ export async function getApiKeys() {
     const apikeys = await getApiKeyByUserId(dbUser._id);
     return apikeys;
 }
+
+export async function getDeletedApiKeyforUser(name?: string) {
+    await connectToDatabase();
+
+    const session = await auth();
+    if (!session || !session.user) {
+        return;
+    }
+
+    const dbUser = await getUserFromSession(session);
+    if (!dbUser) {
+        return;
+    }
+
+    const result = await getDeletedApiKey(dbUser._id, name);
+    // console.log("action result",result)
+    return result;
+}
+
+// getDeletedApiKeyforUser("key1");
 
 export async function createApiKeyForUser(
     name: string

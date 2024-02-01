@@ -72,6 +72,62 @@ export async function deleteApiKey(
     );
 }
 
+export async function getDeletedApiKey(
+    userId: mongoose.Types.ObjectId,
+    name?: string
+) {
+    const projections = {
+        _id: 0,
+        name: 1,
+        key: 1,
+        httpReferrers: 1,
+        ipAddresses: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        deleted: 1,
+    };
+
+    try {
+        if (name) {
+            const result = await ApikeyModel.findOneAndUpdate(
+                {
+                    userId,
+                    name,
+                    internal: false,
+                    deleted: true,
+                },
+                { $set: { deleted: false } },
+                projections
+            );
+
+            return result;
+        } else {
+            // const updateResult = await ApikeyModel.updateMany(
+            //     {
+            //         userId,
+            //         internal: false,
+            //         deleted: true,
+            //     },
+            //     { $set: { deleted: false } }
+            // );
+
+            const result = await ApikeyModel.find(
+                {
+                    userId,
+                    internal: false,
+                    deleted: true,
+                },
+                // { $set: { deleted: false } },
+                projections
+            );
+
+            return result;
+        }
+    } catch (err: any) {
+        console.log("err on get deleted api keys", err.message); // eslint-disable-line no-console
+    }
+}
+
 export async function getInternalApikey(
     userId: mongoose.Types.ObjectId
 ): Promise<Apikey | null> {
