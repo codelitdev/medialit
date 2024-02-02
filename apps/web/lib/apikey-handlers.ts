@@ -81,14 +81,19 @@ export async function getInternalApikey(
     }).lean();
 }
 
-export async function editApiKey(
-    userId: mongoose.Types.ObjectId,
-    name: string
-) {
-    const editedApiKey = await ApikeyModel.updateOne(
-        { userId },
-        { $set: { name: name } }
-    );
+export async function editApiKey({
+    userId,
+    name,
+    newName,
+}: {
+    userId: mongoose.Types.ObjectId;
+    name: string;
+    newName: string;
+}) {
+    const query = { userId, name };
+    const editedApiKey = await ApikeyModel.updateOne(query, {
+        $set: { name: newName },
+    });
 
     return editedApiKey;
 }

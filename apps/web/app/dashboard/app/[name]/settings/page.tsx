@@ -3,10 +3,7 @@
 import { useState, useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { redirect, useRouter } from "next/navigation";
-import {
-    deleteApiKeyOfUser,
-    editApiKeyforUser,
-} from "@/app/dashboard/actions";
+import { deleteApiKeyOfUser, editApiKeyforUser } from "@/app/dashboard/actions";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -24,13 +21,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function Settings({ params }: { params: { name: string } }) {
+    const name = params.name;
+    const decodedName = decodeURI(name);
+
     const [editApiKeyFormState, editApiKeyFormAction] = useFormState(
         editApiKeyforUser,
         { success: false }
     );
 
-    const name = params.name;
-    const decodedName = decodeURI(name);
     const { toast } = useToast();
     const router = useRouter();
 
@@ -43,7 +41,6 @@ export default function Settings({ params }: { params: { name: string } }) {
             setOpen(false);
             router.push("/dashboard");
             toast({
-                // variant: "destructive",
                 title: "Deleted",
                 description: `"${decodedName}" has been deleted`,
             });
@@ -55,7 +52,6 @@ export default function Settings({ params }: { params: { name: string } }) {
             setOpen(false);
             router.refresh();
             toast({
-                // variant: "destructive",
                 title: "Updated",
                 description: `"${editApiKey}" has been Updated`,
                 action: (
@@ -75,7 +71,7 @@ export default function Settings({ params }: { params: { name: string } }) {
     return (
         <>
             <div className="border border-muted-foreground min-h-screen my-4 rounded p-2 md:p-2 lg:p-0">
-                <Dialog open={open} onOpenChange={setOpen}>
+                <Dialog>
                     <DialogTrigger asChild>
                         <Button className="!w-20 h-8 m-4">Delete app</Button>
                     </DialogTrigger>
@@ -130,14 +126,24 @@ export default function Settings({ params }: { params: { name: string } }) {
                                     <Input
                                         className="col-span-3"
                                         id="editApiKey"
-                                        name="editApiKey"
                                         type="editApiKey"
+                                        name="newName"
                                         value={editApiKey}
                                         placeholder="Enter name"
                                         required
                                         onChange={(e) =>
                                             setEditApiKey(e.target.value)
                                         }
+                                    />
+                                    <Input
+                                        className="col-span-3"
+                                        id="name"
+                                        type="hidden"
+                                        name="name"
+                                        value={decodedName}
+                                        placeholder="Enter name"
+                                        required
+                                        readOnly
                                     />
                                 </div>
                             </div>

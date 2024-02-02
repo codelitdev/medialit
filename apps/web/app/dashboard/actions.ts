@@ -91,13 +91,17 @@ export async function editApiKeyforUser(
     prevState: Record<string, unknown>,
     formData: FormData
 ): Promise<{ success: boolean; error?: string }> {
-    const editedApikey = formData.get("editApiKey") as string;
+    const name = formData.get("name") as string;
+    const newName = formData.get("newName") as string;
 
     const session = await auth();
     if (!session || !session.user) {
         return { success: false, error: "Invalid session" };
     }
 
+    if (!newName && !name) {
+        throw new Error("Bad request");
+    }
     await connectToDatabase();
 
     const dbUser = await getUserFromSession(session);
@@ -106,10 +110,9 @@ export async function editApiKeyforUser(
     }
 
     try {
-        const result = await editApiKey(dbUser._id, editedApikey);
+        const result = await editApiKey({ userId: dbUser._id, name, newName });
         return { success: true };
     } catch (err: any) {
-        // console.log("error on update api key", err.message);
         return { success: false, error: err.message };
     }
 }
