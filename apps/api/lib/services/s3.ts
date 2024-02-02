@@ -1,7 +1,13 @@
-import aws from "aws-sdk";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ReadStream } from "fs";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+    DeleteObjectCommand,
+    GetObjectCommand,
+    PutObjectCommand,
+    S3,
+    S3Client,
+    GetObjectTaggingCommand,
+} from "@aws-sdk/client-s3";
 import {
     cloudEndpoint,
     cloudKey,
@@ -27,75 +33,70 @@ export interface PresignedURLParams {
     mimetype?: string;
 }
 
-export const putObject = (params: UploadParams) =>
-    new Promise((resolve, reject) => {
-        const endpoint = new aws.Endpoint(cloudEndpoint);
-        const s3 = new aws.S3({
-            endpoint,
+export const putObject = async (params: UploadParams) => {
+    const s3Client = new S3Client({
+        region: cloudRegion,
+        endpoint: cloudEndpoint,
+        credentials: {
             accessKeyId: cloudKey,
             secretAccessKey: cloudSecret,
-        });
-
-        const settings = Object.assign(
-            {},
-            {
-                Bucket: cloudBucket,
-            },
-            params
-        );
-        s3.upload(settings, (err: unknown, result: unknown) => {
-            if (err) reject(err);
-            resolve(result);
-        });
+        },
     });
 
-export const deleteObject = (params: DeleteParams) =>
-    new Promise((resolve, reject) => {
-        const endpoint = new aws.Endpoint(cloudEndpoint);
-        const s3 = new aws.S3({
-            endpoint,
+    try {
+        const command = new PutObjectCommand(
+            Object.assign({}, { Bucket: cloudBucket }, params)
+        );
+        const response = await s3Client.send(command);
+        return response;
+    } catch (err: any) {
+        console.log("Upload failed:", err.message); // eslint-disable-line no-console
+        throw err;
+    }
+};
+
+export const deleteObject = async (params: DeleteParams) => {
+    const s3Client = new S3Client({
+        region: cloudRegion,
+        endpoint: cloudEndpoint,
+        credentials: {
             accessKeyId: cloudKey,
             secretAccessKey: cloudSecret,
-        });
-
-        s3.deleteObject(
-            Object.assign(
-                {},
-                {
-                    Bucket: cloudBucket,
-                },
-                params
-            ),
-            (err, result) => {
-                if (err) reject(err);
-                resolve(result);
-            }
-        );
+        },
     });
+    try {
+        const command = new DeleteObjectCommand(
+            Object.assign({}, { Bucket: cloudBucket }, params)
+        );
+        const response = await s3Client.send(command);
+        return response;
+    } catch (err: any) {
+        console.log("Delete failed", err.message); // eslint-disable-line no-console
+        throw err;
+    }
+};
 
-export const getObjectTagging = (params: { Key: string }) =>
-    new Promise((resolve, reject) => {
-        const endpoint = new aws.Endpoint(cloudEndpoint);
-        const s3 = new aws.S3({
-            endpoint,
+export const getObjectTagging = async (params: { Key: string }) => {
+    const s3Client = new S3Client({
+        region: cloudRegion,
+        endpoint: cloudEndpoint,
+        credentials: {
             accessKeyId: cloudKey,
             secretAccessKey: cloudSecret,
-        });
-
-        s3.getObjectTagging(
-            Object.assign(
-                {},
-                {
-                    Bucket: cloudBucket,
-                },
-                params
-            ),
-            (err, result) => {
-                if (err) reject(err);
-                resolve(result);
-            }
-        );
+        },
     });
+
+    try {
+        const command = new GetObjectTaggingCommand(
+            Object.assign({}, { Bucket: cloudBucket }, params)
+        );
+        const response = await s3Client.send(command);
+        return response;
+    } catch (err: any) {
+        console.log("getObjectTagging failed", err); // eslint-disable-line no-console
+        throw err;
+    }
+};
 
 export const generateSignedUrl = async ({
     name,
