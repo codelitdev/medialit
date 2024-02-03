@@ -4,11 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default async function Tabs({
-    params,
-}: {
-    params: { name: string };
-}) {
+export default async function Tabs({ params }: { params: { name: string } }) {
     const name = params.name;
     const currentPathName = usePathname();
 

@@ -13,10 +13,15 @@
   },
   "scripts": {
     "prepare": "husky install",
-    "ci:publish": "pnpm publish -r"
+    "ci:publish": "pnpm publish -r",
+    "test": "pnpm --filter=@medialit/api test",
+    "lint": "eslint --cache --quiet **/*.{ts,tsx}",
+    "prettier": "prettier --check **/*.{ts,tsx,js,css,md}",
+    "lint:fix": "eslint --cache --fix **/*.{ts,tsx}",
+    "prettier:fix": "prettier --write **/*.{ts,tsx,js,css,md}"
   },
   "lint-staged": {
-    "*.ts": "eslint --cache --fix",
-    "*.{ts,js,css,md}": "prettier --write"
+    "*.{ts,tsx}": "eslint --cache --fix",
+    "*.{ts,tsx,js,css,md}": "prettier --write"
   }
 }

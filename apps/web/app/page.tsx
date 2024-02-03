@@ -18,7 +18,7 @@ export default function Home() {
                         Automatically generate thumbnails too!
                     </p>
                     <Link href={"/dashboard"}>
-                       <Button>Get started</Button>
+                        <Button>Get started</Button>
                     </Link>
                 </div>
             </section>
