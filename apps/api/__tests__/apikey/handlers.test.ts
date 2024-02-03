@@ -21,7 +21,7 @@ describe("API key test suite", () => {
         assert.strictEqual(response.error, "Name is required");
     });
 
-    test("Create API succeeds if name is provided", async (t) => {
+    test("Create API succeeds if name is provided.", async (t) => {
         const req = {
             body: {
                 name: "Test API",
