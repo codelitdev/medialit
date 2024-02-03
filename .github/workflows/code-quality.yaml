@@ -1,0 +1,43 @@
+name: Code Quality
+on: [push]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+env:
+  CI: true
+
+jobs:
+  publish-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Configure CI Git User
+        run: |
+          git config --global user.name 'Rajat Saxena'
+          git config --global user.email 'hi@sub.rajatsaxena.dev'
+          git remote set-url origin https://$GITHUB_ACTOR:$GITHUB_PAT@github.com/codelitdev/medialit
+        env:
+          GITHUB_PAT: ${{ secrets.PAT }}
+
+      - name: Checkout and pull branch
+        run: git checkout "${GITHUB_REF:11}" && git pull
+
+      - name: Install pnpm 
+        run: |
+          npm i pnpm@latest -g
+
+      - name: Install dependencies
+        run: pnpm install 
+
+      - name: Run lint 
+        run: pnpm lint 
+      
+      - name: Run prettier 
+        run: pnpm prettier 
+
+      - name: Run test
+        run: pnpm test

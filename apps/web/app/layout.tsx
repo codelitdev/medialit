@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { getServerSession } from "next-auth";
-import SessionProvider from "./components/SessionProvider";
-import { authOptions } from "./api/auth/[...nextauth]/route";
-import Footer from "./components/Footer";
-import NavMenu  from "./components/NavMenu";
+import { NavBar } from "../components/nav-bar";
+import Footer from "../components/Footer";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,17 +17,15 @@ export default async function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const session = await getServerSession(authOptions);
     return (
         <html lang="en">
             <body className={inter.className}>
-                <SessionProvider session={session}>
-                    <main className="mx-auto max-w-[1024px]">
-                        <NavMenu />
-                        <div className="p-4 min-h-screen">{children}</div>
-                    </main>
-                    <Footer />
-                </SessionProvider>
+                <NavBar />
+                <main className="mx-auto max-w-[1024px] min-h-screen">
+                    <div className="px-2 py-8 ">{children}</div>
+                </main>
+                <Toaster />
+                <Footer />
             </body>
         </html>
     );

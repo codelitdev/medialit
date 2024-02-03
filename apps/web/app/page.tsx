@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import Features from "./components/Features";
-import Pricing from "./components/Pricing";
-import Button from "./components/Button";
+import Features from "../components/Features";
+import Pricing from "../components/Pricing";
+import Button from "../components/Button";
 
 export default function Home() {
     return (
@@ -13,12 +13,12 @@ export default function Home() {
                     <div className="text-primary max-w-[640px] font-bold text-3xl md:text-4xl lg:text-6xl">
                         Easy file uploads for serverless apps
                     </div>
-                    <p className="text-secondary">
+                    <p className="text-muted-foregroundP">
                         Upload, store, transform, deliver for your files.
                         Automatically generate thumbnails too!
                     </p>
                     <Link href={"/dashboard"}>
-                       <Button>Get started</Button>
+                        <Button>Get started</Button>
                     </Link>
                 </div>
             </section>

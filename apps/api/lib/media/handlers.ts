@@ -9,6 +9,7 @@ import {
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
+import { getMediaCount as getCount } from "./queries";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
@@ -43,9 +44,12 @@ export async function uploadMedia(
     const { file } = req.files;
     const { access, caption, group } = req.body;
     const userId = req.user.id;
+    const apikey = req.apikey;
+
     try {
         const mediaId = await mediaService.upload({
             userId,
+            apikey,
             file,
             access,
             caption,
@@ -53,7 +57,11 @@ export async function uploadMedia(
             signature: req.query.signature,
         });
 
-        const media = await mediaService.getMediaDetails(req.user.id, mediaId);
+        const media = await mediaService.getMediaDetails({
+            userId: req.user.id,
+            apikey,
+            mediaId,
+        });
 
         return res.status(200).json(media);
     } catch (err: any) {
@@ -85,6 +93,7 @@ export async function getMedia(
     try {
         const result = await mediaService.getPage({
             userId: req.user._id,
+            apikey: req.apikey,
             access,
             page,
             group,
@@ -97,11 +106,27 @@ export async function getMedia(
     }
 }
 
+export async function getMediaCount(req: any, res: any) {
+    const userId = req.user._id;
+    const apikey = req.apikey;
+
+    try {
+        const totalMediaFiles = await getCount({ userId, apikey });
+        return res.status(200).json({ count: totalMediaFiles });
+    } catch (err: any) {
+        return res.status(500).json(err.message);
+    }
+}
+
 export async function getMediaDetails(req: any, res: any) {
     const { mediaId } = req.params;
 
     try {
-        const media = await mediaService.getMediaDetails(req.user.id, mediaId);
+        const media = await mediaService.getMediaDetails({
+            userId: req.user.id,
+            apikey: req.apikey,
+            mediaId,
+        });
         if (!media) {
             return res.status(404).json({ error: NOT_FOUND });
         }
@@ -117,7 +142,11 @@ export async function deleteMedia(req: any, res: any) {
     const { mediaId } = req.params;
 
     try {
-        await mediaService.deleteMedia(req.user.id, mediaId);
+        await mediaService.deleteMedia({
+            userId: req.user.id,
+            apikey: req.apikey,
+            mediaId,
+        });
 
         return res.status(200).json({ message: SUCCESS });
     } catch (err: any) {
