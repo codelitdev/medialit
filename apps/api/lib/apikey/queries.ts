@@ -59,3 +59,10 @@ export async function deleteApiKey(
         userId,
     });
 }
+
+export default {
+    createApiKey,
+    getApiKeyUsingKeyId,
+    getApiKeyByUserId,
+    deleteApiKey,
+};
