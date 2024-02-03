@@ -15,10 +15,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '21'
+
       - name: Configure CI Git User
         run: |
-          git config --global user.name 'Rajat Saxena'
-          git config --global user.email 'hi@sub.rajatsaxena.dev'
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'hi@codelit.dev'
           git remote set-url origin https://$GITHUB_ACTOR:$GITHUB_PAT@github.com/codelitdev/medialit
         env:
           GITHUB_PAT: ${{ secrets.PAT }}
