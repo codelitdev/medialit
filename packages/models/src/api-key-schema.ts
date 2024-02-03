@@ -15,6 +15,7 @@ const ApikeySchema = new mongoose.Schema<Apikey>(
         ipAddresses: [String],
         custom: String,
         internal: { type: Boolean, default: false },
+        deleted: { type: Boolean, default: false },
     },
     {
         timestamps: true,

@@ -1,7 +1,12 @@
 "use server";
 
 import connectToDatabase from "@/lib/connect-db";
-import { createApiKey, getApiKeyByUserId } from "@/lib/apikey-handlers";
+import {
+    createApiKey,
+    getApiKeyByUserId,
+    deleteApiKey,
+    editApiKey,
+} from "@/lib/apikey-handlers";
 import { getUserFromSession } from "@/lib/user-handlers";
 import { auth } from "@/auth";
 
@@ -43,4 +48,71 @@ export async function createApiKeyForUser(
 
     const apikey = await createApiKey(dbUser._id, name);
     return { key: apikey.key };
+}
+
+export async function createNewApiKey(
+    prevState: Record<string, unknown>,
+    formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+    const apikey = formData.get("apiKey") as string;
+
+    try {
+        const result = await createApiKeyForUser(apikey);
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function deleteApiKeyOfUser(
+    deletedApiKey: string
+): Promise<{ success: boolean; error?: string }> {
+    const session = await auth();
+    if (!session || !session.user) {
+        return { success: false, error: "Invalid session" };
+    }
+
+    await connectToDatabase();
+
+    const dbUser = await getUserFromSession(session);
+    if (!dbUser) {
+        return { success: false, error: "Invalid User" };
+    }
+
+    try {
+        const result = await deleteApiKey(dbUser._id, deletedApiKey);
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function editApiKeyforUser(
+    prevState: Record<string, unknown>,
+    formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+    const name = formData.get("name") as string;
+    const newName = formData.get("newName") as string;
+
+    const session = await auth();
+    if (!session || !session.user) {
+        return { success: false, error: "Invalid session" };
+    }
+
+    if (!newName && !name) {
+        throw new Error("Bad request");
+    }
+    await connectToDatabase();
+
+    const dbUser = await getUserFromSession(session);
+    if (!dbUser) {
+        return { success: false, error: "Invalid User" };
+    }
+
+    try {
+        const result = await editApiKey({ userId: dbUser._id, name, newName });
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 }

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "../components/nav-bar";
 import Footer from "../components/Footer";
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,6 +24,7 @@ export default async function RootLayout({
                 <main className="mx-auto max-w-[1024px] min-h-screen">
                     <div className="px-2 py-8 ">{children}</div>
                 </main>
+                <Toaster />
                 <Footer />
             </body>
         </html>

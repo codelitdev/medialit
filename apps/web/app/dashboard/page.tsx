@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
 import { getApiKeys } from "./actions";
 import { redirect } from "next/navigation";
-import Button from "../../components/Button";
 import Link from "next/link";
-
+import NewApp from "@/app/dashboard/new-app-button";
+    
 export default async function Dashboard() {
     const session = await auth();
 
@@ -16,9 +16,7 @@ export default async function Dashboard() {
         <>
             <div className="flex justify-between">
                 <div className="text-primary text-xl font-bold">Your apps</div>
-                <Link href="/dashboard/app/new">
-                    <Button className="!w-20">New app</Button>
-                </Link>
+                <NewApp />
             </div>
             <div className="border border-muted-foreground min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
                 <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-3 md:p-5 lg:gap-3">
@@ -29,9 +27,7 @@ export default async function Dashboard() {
                         >
                             <div className="flex items-center justify-center border h-[151px] w-full sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]">
                                 <Link
-                                    href={`/dashboard/app/${
-                                        apikey.name
-                                    }/files`}
+                                    href={`/dashboard/app/${apikey.name}/files`}
                                 >
                                     {apikey.name}
                                 </Link>

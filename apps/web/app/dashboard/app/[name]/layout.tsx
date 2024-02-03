@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Tabs from "./tabs";
 
 export default async function FilesLayout({
     params,
@@ -14,16 +15,16 @@ export default async function FilesLayout({
     return (
         <>
             <main className="mx-auto max-w-[1024px] min-h-screen">
-                <div className="text-primary font-semibold px-2">
-                    <Link href="/dashboard">
-                     All apps {" "}   
-                    </Link>
-                    /{" "}
-                    <span className="text-muted-foreground">
-                        {decodedName}
-                    </span>
+                <div className="text-primary font-semibold py-2">
+                    <Link href="/dashboard">All apps </Link>/{" "}
+                    <span className="text-muted-foreground">{decodedName}</span>
                 </div>
-                <div className="px-2 py-8 ">{children}</div>
+                <Tabs
+                    params={{
+                        name: name,
+                    }}
+                />
+                <div className="">{children}</div>
             </main>
         </>
     );

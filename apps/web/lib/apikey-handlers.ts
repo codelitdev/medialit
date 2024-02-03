@@ -24,16 +24,28 @@ export async function getApiKeyByUserId(
                 key: keyId,
                 userId,
                 internal: false,
+                deleted: { $ne: true },
             },
             projections
         );
     } else {
         result = await ApikeyModel.find(
-            { userId, internal: false },
+            { userId, internal: false, deleted: { $ne: true } },
             projections
         );
     }
     return result;
+}
+
+export async function getApikeyFromName(
+    userId: mongoose.Types.ObjectId,
+    name: string
+): Promise<Apikey | null> {
+    return await ApikeyModel.findOne({
+        name,
+        userId,
+        internal: false,
+    }).lean();
 }
 
 export async function createApiKey(
@@ -47,6 +59,19 @@ export async function createApiKey(
     });
 }
 
+export async function deleteApiKey(
+    userId: mongoose.Types.ObjectId,
+    name: string
+) {
+    return await ApikeyModel.updateOne(
+        {
+            name,
+            userId,
+        },
+        { $set: { deleted: true } }
+    );
+}
+
 export async function getInternalApikey(
     userId: mongoose.Types.ObjectId
 ): Promise<Apikey | null> {
@@ -56,13 +81,19 @@ export async function getInternalApikey(
     }).lean();
 }
 
-export async function getApikeyFromName(
-    userId: mongoose.Types.ObjectId,
-    name: string
-): Promise<Apikey | null> {
-    return await ApikeyModel.findOne({
-        name,
-        userId,
-        internal: false,
-    }).lean();
+export async function editApiKey({
+    userId,
+    name,
+    newName,
+}: {
+    userId: mongoose.Types.ObjectId;
+    name: string;
+    newName: string;
+}) {
+    const query = { userId, name };
+    const editedApiKey = await ApikeyModel.updateOne(query, {
+        $set: { name: newName },
+    });
+
+    return editedApiKey;
 }

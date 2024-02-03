@@ -10,4 +10,5 @@ export interface Apikey {
     ipAddresses?: string[];
     custom?: string;
     internal?: boolean;
+    deleted: boolean;
 }

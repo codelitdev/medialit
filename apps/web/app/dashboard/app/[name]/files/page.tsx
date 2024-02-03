@@ -38,24 +38,6 @@ export default async function Media({
 
     return (
         <>
-            <ul className="flex gap-2 font-bold text-xl">
-                <li>
-                    <Link
-                        href={`/dashboard/app/${name}/files`}
-                        className="hover:border-b-2 border-primary"
-                    >
-                        Files
-                    </Link>
-                </li>
-                <li>
-                    <Link
-                        href={`/dashboard/app/${name}/settings`}
-                        className="hover:border-b-2 border-primary"
-                    >
-                        Settings
-                    </Link>
-                </li>
-            </ul>
             <div className="border border-muted-foreground min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
                 <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-7 md:p-5 lg:gap-3">
                     {medias.map((media: any, index: number) => (
