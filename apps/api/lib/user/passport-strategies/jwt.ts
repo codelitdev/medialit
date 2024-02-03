@@ -1,7 +1,6 @@
 import { Strategy, ExtractJwt, StrategyOptions } from "passport-jwt";
 import { jwtExpire, jwtSecret } from "../../config/constants";
-import UserModel from "../model";
-import { User } from "@medialit/models";
+import UserModel, { User } from "../model";
 
 const jwtStrategyOptions: StrategyOptions = {
     jwtFromRequest: ExtractJwt.fromBodyField("token"),
@@ -14,21 +13,25 @@ const jwtStrategyOptions: StrategyOptions = {
     passReqToCallback: true,
 };
 
-export default new Strategy(jwtStrategyOptions, async function (
+export default new Strategy(jwtStrategyOptions, function (
     _: any,
     jwtToken: { email: string },
     done: any
 ) {
     const { email } = jwtToken;
-    const query = { email, active: true };
-    try {
-        const user = await UserModel.findOne(query);
-        if (user) {
-            return done(null, user);
-        } else {
-            return done(null, false);
+
+    UserModel.findOne(
+        { email, active: true },
+        function (err: Error, user: User) {
+            if (err) {
+                return done(err, false);
+            }
+
+            if (user) {
+                return done(null, user);
+            } else {
+                return done(null, false);
+            }
         }
-    } catch (err: any) {
-        return done(err, false);
-    }
+    );
 });

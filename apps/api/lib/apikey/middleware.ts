@@ -3,10 +3,10 @@ import {
     SUBSCRIPTION_NOT_VALID,
     UNAUTHORISED,
 } from "../config/strings";
+import { Apikey } from "./model";
 import { validateSubscription } from "../subscription/validate-subscription";
 import { getApiKeyUsingKeyId } from "./queries";
 import { getUser } from "../user/queries";
-import { Apikey } from "@medialit/models";
 
 export default async function apikey(
     req: any,
@@ -24,15 +24,6 @@ export default async function apikey(
         return res.status(401).json({ error: UNAUTHORISED });
     }
 
-    if (req.body.internalKey) {
-        const internalApikey: Apikey | null = await getApiKeyUsingKeyId(
-            req.body.internalKey
-        );
-        if (!internalApikey) {
-            return res.status(401).json({ error: UNAUTHORISED });
-        }
-    }
-
     const isSubscriptionValid = await validateSubscription(
         apiKey!.userId.toString()
     );
@@ -41,7 +32,6 @@ export default async function apikey(
     }
 
     req.user = await getUser(apiKey!.userId.toString());
-    req.apikey = apiKey.key;
 
     next();
 }

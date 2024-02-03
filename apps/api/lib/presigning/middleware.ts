@@ -3,7 +3,7 @@ import { PRESIGNED_URL_INVALID } from "../config/strings";
 import * as preSignedUrlService from "./service";
 
 export default async function presigned(
-    req: Request & { user: any; apikey: string },
+    req: Request,
     res: Response,
     next: (...args: any[]) => void
 ) {
@@ -16,10 +16,9 @@ export default async function presigned(
         return res.status(404).json({ error: PRESIGNED_URL_INVALID });
     }
 
-    const { user, apikey, group } = response;
+    const { user, group } = response;
 
     req.user = user;
-    req.apikey = apikey;
     if (group) {
         req.body.group = group;
     }

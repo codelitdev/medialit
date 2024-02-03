@@ -1,5 +1,5 @@
-import { User } from "@medialit/models";
 import { Request } from "express";
+import { User } from "../user/model";
 
 type UploadRequest<T> = Request<
     Record<string, unknown>,

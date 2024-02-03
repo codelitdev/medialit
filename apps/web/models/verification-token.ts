@@ -21,5 +21,5 @@ VerificationTokenSchema.index(
     { unique: true }
 );
 
-export default mongoose.models?.VerificationToken ||
+export default mongoose.models.VerificationToken ||
     mongoose.model("VerificationToken", VerificationTokenSchema);

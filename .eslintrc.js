@@ -1,15 +1,17 @@
 module.exports = {
     parser: "@typescript-eslint/parser",
-    plugins: ["@typescript-eslint"],
+    plugins: [
+        "@typescript-eslint"
+    ],
     extends: [
         "eslint:recommended",
         "plugin:@typescript-eslint/eslint-recommended",
-        "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended"
     ],
     env: {
-        node: true,
+        node: true
     },
     rules: {
-        "no-console": ["error", { allow: ["warn"] }],
-    },
-};
+        "no-console": ["error", {"allow": ["warn"]}]
+    }
+}

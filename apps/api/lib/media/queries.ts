@@ -1,38 +1,22 @@
 import { numberOfRecordsPerPage } from "../config/constants";
 import GetPageProps from "./GetPageProps";
-import MediaModel, { MediaWithUserId } from "./model";
+import MediaModel, { Media } from "./model";
 
-export async function getMedia({
-    userId,
-    apikey,
-    mediaId,
-}: {
-    userId: string;
-    apikey: string;
-    mediaId: string;
-}): Promise<MediaWithUserId | null> {
-    return await MediaModel.findOne({ mediaId, apikey, userId }).lean();
-}
-
-export async function getMediaCount({
-    userId,
-    apikey,
-}: {
-    userId: string;
-    apikey: string;
-}): Promise<number> {
-    return await MediaModel.countDocuments({ apikey, userId }).lean();
+export async function getMedia(
+    userId: string,
+    mediaId: string
+): Promise<Media | null> {
+    return await MediaModel.findOne({ mediaId, userId });
 }
 
 export async function getPaginatedMedia({
     userId,
-    apikey,
     access,
     page,
     group,
     recordsPerPage,
-}: GetPageProps): Promise<MediaWithUserId[]> {
-    const query: Partial<MediaWithUserId> = { userId, apikey };
+}: GetPageProps): Promise<Media[]> {
+    const query: Partial<Media> = { userId };
     if (access) {
         query.accessControl = access === "private" ? "private" : "public-read";
     }
@@ -68,7 +52,6 @@ export async function createMedia({
     fileName,
     mediaId,
     userId,
-    apikey,
     originalFileName,
     mimeType,
     size,
@@ -76,12 +59,11 @@ export async function createMedia({
     caption,
     accessControl,
     group,
-}: MediaWithUserId): Promise<MediaWithUserId> {
-    const media: MediaWithUserId = await MediaModel.create({
+}: Media): Promise<Media> {
+    const media: Media = await MediaModel.create({
         fileName,
         mediaId,
         userId,
-        apikey,
         originalFileName,
         mimeType,
         size,

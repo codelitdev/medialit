@@ -2,17 +2,16 @@ import logger from "../services/log";
 import { getUser } from "../user/queries";
 import * as queries from "./queries";
 import { PreSignedUrl } from "./model";
-import { User } from "@medialit/models";
+import { User } from "../user/model";
 
-interface PresignedUrlProps {
+interface UserAndGroup {
     user: User;
-    apikey: string;
     group?: string;
 }
 
 export async function getUserAndGroupFromPresignedUrl(
     signature: string
-): Promise<PresignedUrlProps | null> {
+): Promise<UserAndGroup | null> {
     const signedUrl: PreSignedUrl | null = await queries.getPresignedUrl(
         signature
     );
@@ -32,12 +31,11 @@ export async function getUserAndGroupFromPresignedUrl(
         return null;
     }
 
-    return { user, apikey: signedUrl.apikey, group: signedUrl.group };
+    return { user, group: signedUrl.group };
 }
 
 interface GenerateSignedUrlProps {
     userId: string;
-    apikey: string;
     protocol: string;
     host: string;
     group?: string;
@@ -45,16 +43,11 @@ interface GenerateSignedUrlProps {
 
 export async function generateSignedUrl({
     userId,
-    apikey,
     protocol,
     host,
     group,
 }: GenerateSignedUrlProps): Promise<string> {
-    const presignedUrl = await queries.createPresignedUrl(
-        userId,
-        apikey,
-        group
-    );
+    const presignedUrl = await queries.createPresignedUrl(userId, group);
 
     queries.cleanupExpiredLinks(userId).catch((err: any) => {
         logger.error(
@@ -63,7 +56,7 @@ export async function generateSignedUrl({
         );
     });
 
-    return `${protocol}://${host}/media/create?signature=${presignedUrl?.signature}`;
+    return `${protocol}://${host}/media/create?signature=${presignedUrl.signature}`;
 }
 
 export async function cleanup(userId: string, signature: string) {

@@ -1,5 +1,4 @@
-import { User } from "@medialit/models";
-import UserModel from "./model";
+import UserModel, { User } from "./model";
 
 export async function getUser(id: string): Promise<User | null> {
     return UserModel.findById(id);

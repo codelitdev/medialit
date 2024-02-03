@@ -1,14 +1,23 @@
-import { Media } from "@medialit/models";
 import mongoose from "mongoose";
 
-export type MediaWithUserId = Media & { userId: mongoose.Types.ObjectId };
+export interface Media {
+    fileName: string;
+    mediaId: string;
+    userId: mongoose.Types.ObjectId;
+    originalFileName: string;
+    mimeType: string;
+    size: number;
+    thumbnailGenerated: boolean;
+    accessControl: string;
+    group?: string;
+    caption?: string;
+}
 
-const MediaSchema = new mongoose.Schema<MediaWithUserId>(
+const MediaSchema = new mongoose.Schema<Media>(
     {
         fileName: { type: String, required: true },
         mediaId: { type: String, required: true },
         userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-        apikey: { type: String, required: true },
         originalFileName: { type: String, required: true },
         mimeType: { type: String, required: true },
         size: { type: Number, required: true },

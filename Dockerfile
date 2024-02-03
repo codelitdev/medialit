@@ -14,8 +14,6 @@ COPY tsconfig.json .
 COPY apps/api ./apps/api
 COPY packages/images ./packages/images
 COPY packages/thumbnail ./packages/thumbnail
-COPY packages/models ./packages/models
-COPY packages/utils ./packages/utils
 
 # TODO: figure out why it is not working
 # FROM base AS prod-deps
@@ -25,8 +23,6 @@ FROM base AS build
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm --filter=@medialit/thumbnail build
 RUN pnpm --filter=@medialit/images build
-RUN pnpm --filter=@medialit/utils build
-RUN pnpm --filter=@medialit/models build
 RUN pnpm --filter=@medialit/api build
 
 FROM node:20-slim 
@@ -52,10 +48,6 @@ COPY --chown=node:node --from=build /app/packages/thumbnail/package.json /app/pa
 COPY --chown=node:node --from=build /app/packages/thumbnail/dist /app/packages/thumbnail/dist  
 COPY --chown=node:node --from=build /app/packages/images/package.json /app/packages/images/package.json
 COPY --chown=node:node --from=build /app/packages/images/dist /app/packages/images/dist
-COPY --chown=node:node --from=build /app/packages/utils/package.json /app/packages/utils/package.json
-COPY --chown=node:node --from=build /app/packages/utils/dist /app/packages/utils/dist
-COPY --chown=node:node --from=build /app/packages/models/package.json /app/packages/models/package.json
-COPY --chown=node:node --from=build /app/packages/models/dist /app/packages/models/dist
 COPY --chown=node:node --from=build /app/apps/api/package.json /app/apps/api/package.json
 COPY --chown=node:node --from=build /app/apps/api/dist /app/apps/api/dist
 

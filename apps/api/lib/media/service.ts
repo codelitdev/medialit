@@ -15,7 +15,7 @@ import {
     createFolders,
     moveFile,
 } from "./utils/manage-files-on-disk";
-import type { MediaWithUserId } from "./model";
+import { Media } from "./model";
 import {
     generateSignedUrl,
     putObject,
@@ -84,7 +84,6 @@ const generateAndUploadThumbnail = async ({
 
 interface UploadProps {
     userId: string;
-    apikey: string;
     file: any;
     access: string;
     caption: string;
@@ -94,7 +93,6 @@ interface UploadProps {
 
 async function upload({
     userId,
-    apikey,
     file,
     access,
     caption,
@@ -102,7 +100,7 @@ async function upload({
     signature,
 }: UploadProps): Promise<string> {
     const fileName = generateFileName(file.name);
-    const mediaSettings = await getMediaSettings(userId, apikey);
+    const mediaSettings = await getMediaSettings(userId);
     const useWebP = mediaSettings?.useWebP || false;
     const webpOutputQuality = mediaSettings?.webpOutputQuality || 0;
 
@@ -157,11 +155,10 @@ async function upload({
 
     rmdirSync(temporaryFolderForWork, { recursive: true });
 
-    const mediaObject: MediaWithUserId = {
+    const mediaObject: Media = {
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
         userId: new mongoose.Types.ObjectId(userId),
-        apikey,
         originalFileName: file.name,
         mimeType,
         size: file.size,
@@ -185,7 +182,7 @@ async function upload({
 }
 
 type MappedMedia = Partial<
-    Omit<Omit<MediaWithUserId, "accessControl">, "thumbnailGenerated">
+    Omit<Omit<Media, "accessControl">, "thumbnailGenerated">
 > & {
     access: "private" | "public";
     thumbnail: string;
@@ -193,7 +190,6 @@ type MappedMedia = Partial<
 
 async function getPage({
     userId,
-    apikey,
     access,
     page,
     group,
@@ -201,14 +197,13 @@ async function getPage({
 }: GetPageProps): Promise<MappedMedia[]> {
     const result = await getPaginatedMedia({
         userId,
-        apikey,
         access,
         page,
         group,
         recordsPerPage,
     });
     const mappedResult = result.map(
-        (media: MediaWithUserId): MappedMedia => ({
+        (media: Media): MappedMedia => ({
             mediaId: media.mediaId,
             originalFileName: media.originalFileName,
             mimeType: media.mimeType,
@@ -225,20 +220,11 @@ async function getPage({
     return mappedResult;
 }
 
-async function getMediaDetails({
-    userId,
-    apikey,
-    mediaId,
-}: {
-    userId: string;
-    apikey: string;
-    mediaId: string;
-}): Promise<Record<string, unknown> | null> {
-    const media: MediaWithUserId | null = await getMedia({
-        userId,
-        apikey,
-        mediaId,
-    });
+async function getMediaDetails(
+    userId: string,
+    mediaId: string
+): Promise<Record<string, unknown> | null> {
+    const media: Media | null = await getMedia(userId, mediaId);
     if (!media) {
         return null;
     }
@@ -269,16 +255,8 @@ async function getMediaDetails({
     };
 }
 
-async function deleteMedia({
-    userId,
-    apikey,
-    mediaId,
-}: {
-    userId: string;
-    apikey: string;
-    mediaId: string;
-}): Promise<void> {
-    const media = await getMedia({ userId, apikey, mediaId });
+async function deleteMedia(userId: string, mediaId: string): Promise<void> {
+    const media = await getMedia(userId, mediaId);
     if (!media) return;
 
     const key = generateKey({

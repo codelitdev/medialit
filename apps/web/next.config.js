@@ -1,12 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     images: {
-        remotePatterns: [
-            {
-                protocol: "https",
-                hostname: "courselit-qa.s3.ap-southeast-1.amazonaws.com",
-            },
-        ],
+        domains: ["courselit-test.sgp1.cdn.digitaloceanspaces.com"],
     },
 };
 

@@ -1,40 +1,96 @@
-import { auth } from "@/auth";
-import { getApiKeys } from "./actions";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import NewApp from "@/app/dashboard/new-app-button";
+"use client";
 
-export default async function Dashboard() {
-    const session = await auth();
+import Image from "next/image";
+import Button from "../components/Button";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+
+const medias = [
+    {
+        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
+        originalFileName: "banner.png",
+        mimeType: "image/png",
+        size: 57252,
+        access: "private",
+        thumbnail:
+            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
+        caption: "CourseLit banner",
+        group: "true",
+    },
+    {
+        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
+        originalFileName: "banner.png",
+        mimeType: "image/png",
+        size: 57252,
+        access: "private",
+        thumbnail:
+            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
+        caption: "CourseLit banner",
+        group: "true",
+    },
+    {
+        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
+        originalFileName: "banner.png",
+        mimeType: "image/png",
+        size: 57252,
+        access: "private",
+        thumbnail:
+            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
+        caption: "CourseLit banner",
+        group: "true",
+    },
+    {
+        mediaId: "nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR",
+        originalFileName: "banner.png",
+        mimeType: "image/png",
+        size: 57252,
+        access: "private",
+        thumbnail:
+            "https://courselit-test.sgp1.cdn.digitaloceanspaces.com/medialit-service/nJ9WqHNxfRH8h9W_QAAQzzEMoymhYV5h4Jtyp_WR/thumb.webp",
+        caption: "CourseLit banner",
+        group: "true",
+    },
+];
+
+export default function Dashboard() {
+    const { data: session } = useSession();
 
     if (!session) {
-        redirect("/login");
+        redirect("/api/auth/sign-in");
     }
-    const apiKeys: any = await getApiKeys();
 
     return (
         <>
-            <div className="flex justify-between">
-                <div className="text-primary text-xl font-bold">Your apps</div>
-                <NewApp />
-            </div>
-            <div className="border border-muted-foreground min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
-                <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-3 md:p-5 lg:gap-3">
-                    {apiKeys.map((apikey: any, index: number) => (
-                        <div
-                            key={index}
-                            className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[151px] w-[48%] sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]"
-                        >
-                            <div className="flex items-center justify-center border h-[151px] w-full sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]">
-                                <Link
-                                    href={`/dashboard/app/${apikey.name}/files`}
-                                >
-                                    {apikey.name}
-                                </Link>
+            <div className="text-primary text-xl font-bold">Your files</div>
+            <div className="border border-secondary min-h-screen my-5 p-4 rounded">
+                <div className="flex flex-wrap gap-5 p-2">
+                    {medias.map((media: any) => (
+                        <div className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] h-[148px] w-[148px] relative">
+                            <div className="border bg-secondary h-[148px] w-[148px]">
+                                <Image
+                                    src={media.thumbnail}
+                                    width={0}
+                                    height={0}
+                                    alt="Media"
+                                />
+                            </div>
+                            <div className="p-2 absolute bottom-0 bg-white w-full">
+                                <div>{media.originalFileName}</div>
+                                <div className="text-secondary">
+                                    {media.mimeType.split("/")[0]}
+                                </div>
                             </div>
                         </div>
                     ))}
                 </div>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+                <Button className="bg-secondary "> Previous </Button>
+                <p>
+                    {" "}
+                    <span className="font-bold">1</span> of 10 (98 Files){" "}
+                </p>
+                <Button> Next </Button>
             </div>
         </>
     );

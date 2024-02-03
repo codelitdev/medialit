@@ -2,10 +2,10 @@ import { Strategy } from "passport-magic-link";
 import { appName, jwtSecret } from "../../config/constants";
 import pug from "pug";
 import { send } from "../../services/mail";
+import { User } from "../model";
 import signin from "../templates/signin";
 import { createUser, findByEmail } from "../queries";
 import createMagicLink from "../utils/create-magic-link";
-import { User } from "@medialit/models";
 
 export default new Strategy(
     {

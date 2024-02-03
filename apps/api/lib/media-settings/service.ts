@@ -2,13 +2,12 @@ import { MediaSettings } from "./model";
 import * as queries from "./queries";
 
 export async function getMediaSettings(
-    userId: string,
-    apikey: string
-): Promise<Omit<MediaSettings, "userId" | "apikey"> | null> {
-    const mediaSettings = await queries.getMediaSettings(userId, apikey);
+    userId: string
+): Promise<Omit<MediaSettings, "userId"> | null> {
+    const mediaSettings = await queries.getMediaSettings(userId);
 
     if (!mediaSettings) {
-        return {};
+        return null;
     }
 
     return {
@@ -21,7 +20,6 @@ export async function getMediaSettings(
 
 export interface UpdateMediaSettingsProps {
     userId: string;
-    apikey: string;
     useWebP: boolean;
     webpOutputQuality: number;
     thumbnailWidth: number;
@@ -30,7 +28,6 @@ export interface UpdateMediaSettingsProps {
 
 export async function updateMediaSettings({
     userId,
-    apikey,
     useWebP,
     webpOutputQuality,
     thumbnailWidth,
@@ -38,7 +35,6 @@ export async function updateMediaSettings({
 }: UpdateMediaSettingsProps): Promise<void> {
     await queries.updateMediaSettings({
         userId,
-        apikey,
         useWebP,
         webpOutputQuality,
         thumbnailWidth,

@@ -3,7 +3,7 @@ import User from "../user/model";
 import Subscription from "../subscription/model";
 import connectToDatabase, { disconnect } from "../config/db";
 import { createApiKey } from "../apikey/queries";
-import { Apikey } from "@medialit/models";
+import { Apikey } from "../apikey/model";
 
 const args = process.argv.slice(2);
 const email = args[0];
@@ -40,7 +40,7 @@ if (!email) {
         });
 
         // Create an API key
-        const apikey: Apikey = await createApiKey(user.id, "internal");
+        const apikey: Apikey = await createApiKey(user.id);
 
         console.log(`\nSuccess! Your API key: ${apikey.key}\n`); // eslint-disable-line no-console
     } catch (e: any) {

@@ -9,19 +9,14 @@
     "husky": ">=6",
     "lint-staged": ">=10",
     "prettier": "^2.6.1",
-    "typescript": "^5.2.2"
+    "typescript": "^4.6.3"
   },
   "scripts": {
     "prepare": "husky install",
-    "ci:publish": "pnpm publish -r",
-    "test": "pnpm --filter=@medialit/api test",
-    "lint": "eslint --cache --quiet **/*.{ts,tsx}",
-    "prettier": "prettier --check **/*.{ts,tsx,js,css,md}",
-    "lint:fix": "eslint --cache --fix **/*.{ts,tsx}",
-    "prettier:fix": "prettier --write **/*.{ts,tsx,js,css,md}"
+    "ci:publish": "pnpm publish -r"
   },
   "lint-staged": {
-    "*.{ts,tsx}": "eslint --cache --fix",
-    "*.{ts,tsx,js,css,md}": "prettier --write"
+    "*.ts": "eslint --cache --fix",
+    "*.{ts,js,css,md}": "prettier --write"
   }
 }
