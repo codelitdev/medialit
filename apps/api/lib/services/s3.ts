@@ -31,6 +31,7 @@ export interface PresignedURLParams {
     name: string;
     mimetype?: string;
 }
+
 const s3Client = new S3Client({
     region: cloudRegion,
     endpoint: cloudEndpoint,
