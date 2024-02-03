@@ -21,7 +21,7 @@
     "prettier:fix": "prettier --write **/*.{ts,tsx,js,css,md}"
   },
   "lint-staged": {
-    "*.{ts,tsx}": "eslint --cache --fix",
+    "*.{ts,tsx}": "eslint --cache --fix **/*.{ts,tsx}",
     "*.{ts,tsx,js,css,md}": "prettier --write"
   }
 }
