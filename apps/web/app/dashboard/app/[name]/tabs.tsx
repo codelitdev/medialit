@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default async function AppLinks({
+export default async function Tabs({
     params,
 }: {
     params: { name: string };
@@ -12,7 +12,7 @@ export default async function AppLinks({
     const name = params.name;
     const currentPathName = usePathname();
 
-    const appLinks = [
+    const tabs = [
         { name: "Files", href: `/dashboard/app/${name}/files` },
         { name: "Settings", href: `/dashboard/app/${name}/settings` },
     ];
@@ -20,17 +20,17 @@ export default async function AppLinks({
     return (
         <>
             <ul className="flex gap-2 font-bold text-xl py-2">
-                {appLinks.map((link) => (
-                    <li key={link.href}>
+                {tabs.map((tab) => (
+                    <li key={tab.href}>
                         <Link
-                            href={link.href}
+                            href={tab.href}
                             className={
-                                currentPathName === link.href
+                                currentPathName === tab.href
                                     ? "border-b-2 border-primary"
                                     : ""
                             }
                         >
-                            {link.name}
+                            {tab.name}
                         </Link>
                     </li>
                 ))}

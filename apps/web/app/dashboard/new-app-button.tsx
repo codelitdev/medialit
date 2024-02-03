@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 
-export default function AppOperations() {
+export default function NewApp() {
     const [open, setOpen] = useState(false);
     const [apiKeyFormState, createApiKeyFormAction] = useFormState(
         createNewApiKey,
