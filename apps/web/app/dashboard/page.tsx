@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { getApiKeys } from "./actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import AppOperations from "@/app/dashboard/app-operations";
+import NewApp from "@/app/dashboard/new-app-button";
     
 export default async function Dashboard() {
     const session = await auth();
@@ -16,7 +16,7 @@ export default async function Dashboard() {
         <>
             <div className="flex justify-between">
                 <div className="text-primary text-xl font-bold">Your apps</div>
-                <AppOperations />
+                <NewApp />
             </div>
             <div className="border border-muted-foreground min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
                 <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-3 md:p-5 lg:gap-3">

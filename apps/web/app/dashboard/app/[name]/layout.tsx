@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import AppLinks from "./appLinks";
+import Tabs from "./tabs";
 
 export default async function FilesLayout({
     params,
@@ -19,7 +19,7 @@ export default async function FilesLayout({
                     <Link href="/dashboard">All apps </Link>/{" "}
                     <span className="text-muted-foreground">{decodedName}</span>
                 </div>
-                <AppLinks
+                <Tabs
                     params={{
                         name: name,
                     }}
