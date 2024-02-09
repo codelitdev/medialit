@@ -45,3 +45,8 @@ export async function updateMediaSettings({
         thumbnailHeight,
     });
 }
+
+export default {
+    getMediaSettings,
+    updateMediaSettings,
+};

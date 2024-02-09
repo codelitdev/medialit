@@ -38,3 +38,7 @@ export async function cleanupExpiredLinks(userId: string): Promise<void> {
 export async function deleteBySignature(signature: string): Promise<void> {
     await PreSignedUrlModel.deleteOne({ signature });
 }
+
+export default {
+    createPresignedUrl,
+};

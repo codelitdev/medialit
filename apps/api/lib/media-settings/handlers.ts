@@ -52,6 +52,7 @@ export async function getMediaSettingsHandler(req: any, res: any) {
             req.user.id,
             req.apikey
         );
+
         return res.status(200).json(mediaSettings);
     } catch (err: any) {
         logger.error({ err }, err.message);

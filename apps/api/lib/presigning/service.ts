@@ -70,3 +70,7 @@ export async function cleanup(userId: string, signature: string) {
     await queries.deleteBySignature(signature);
     await queries.cleanupExpiredLinks(userId);
 }
+
+export default {
+    generateSignedUrl,
+};

@@ -31,6 +31,7 @@ export async function getApiKeyByUserId(
         createdAt: 1,
         updatedAt: 1,
     };
+
     if (keyId) {
         result = await ApikeyModel.findOne(
             {
@@ -53,8 +54,8 @@ export async function getApiKeyByUserId(
 export async function deleteApiKey(
     userId: string,
     keyId: string
-): Promise<void> {
-    await ApikeyModel.deleteOne({
+): Promise<any> {
+    return await ApikeyModel.deleteOne({
         key: keyId,
         userId,
     });
