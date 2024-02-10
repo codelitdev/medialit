@@ -3,7 +3,7 @@ import { getApiKeys } from "./actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import NewApp from "@/app/dashboard/new-app-button";
-    
+
 export default async function Dashboard() {
     const session = await auth();
 
