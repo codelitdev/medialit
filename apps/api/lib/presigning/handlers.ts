@@ -1,7 +1,7 @@
 import { Request } from "express";
 import Joi from "joi";
 import logger from "../services/log";
-import * as preSignedUrlService from "./service";
+import preSignedUrlService from "./service";
 
 function validatePresigningOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({

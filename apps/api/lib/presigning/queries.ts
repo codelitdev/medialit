@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
 import PreSignedUrlModel, { PreSignedUrl } from "./model";
-import { getUniqueId } from "@medialit/utils";
-import { PRESIGNED_URL_LENGTH } from "../config/constants";
 
 export async function getPresignedUrl(
     signature: string
@@ -40,5 +38,9 @@ export async function deleteBySignature(signature: string): Promise<void> {
 }
 
 export default {
+    getPresignedUrl,
+    deletePresignedUrl,
     createPresignedUrl,
+    deleteBySignature,
+    cleanupExpiredLinks,
 };

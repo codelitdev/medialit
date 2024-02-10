@@ -205,7 +205,9 @@ describe("Media test suite", () => {
             })
         );
 
-        const response = await getMedia(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await getMedia(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response.media, media);
     });
 
@@ -235,7 +237,9 @@ describe("Media test suite", () => {
             }
         );
 
-        const response = await getMedia(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await getMedia(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response.data, "Error in get page");
         assert.strictEqual(response.code, 500);
     });
@@ -263,7 +267,9 @@ describe("Media test suite", () => {
             }),
         };
 
-        const response = await uploadMedia(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await uploadMedia(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response.error, FILE_IS_REQUIRED);
     });
 
@@ -295,7 +301,9 @@ describe("Media test suite", () => {
             }),
         };
 
-        const response = await uploadMedia(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await uploadMedia(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response.error, FILE_SIZE_EXCEEDED);
     });
 
@@ -350,7 +358,9 @@ describe("Media test suite", () => {
             async () => media
         );
 
-        const response = await uploadMedia(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await uploadMedia(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response, media, "media");
     });
 
@@ -396,7 +406,9 @@ describe("Media test suite", () => {
             }
         );
 
-        const response = await uploadMedia(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await uploadMedia(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response.data.error, "Error in upload media");
         assert.strictEqual(response.code, 500);
     });

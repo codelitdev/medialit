@@ -174,7 +174,9 @@ describe("API key test suite", () => {
         mock.method(queries, "deleteApiKey").mock.mockImplementation(
             async () => ({ message: SUCCESS })
         );
-        const response = await deleteApikey(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await deleteApikey(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response.message, SUCCESS);
     });
 
@@ -199,7 +201,9 @@ describe("API key test suite", () => {
                 throw new Error("Error in deleting");
             }
         );
-        const response: any = await deleteApikey(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response: any = await deleteApikey(req, res, () => {
+            return 1;
+        });
         assert.strictEqual(response.data.error, "Error in deleting");
         assert.strictEqual(response.code, 500);
     });
