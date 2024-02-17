@@ -3,9 +3,7 @@
 import React, { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useState } from "react";
-import { Button } from "../../components/ui/button";
 import { redirect, useRouter } from "next/navigation";
-import { createNewApiKey } from "@/app/dashboard/actions";
 
 import {
     Dialog,
@@ -20,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { Button } from "./ui/button";
+import { createNewApiKey } from "@/app/actions";
 
 export default function NewApp() {
     const [open, setOpen] = useState(false);
@@ -44,9 +44,7 @@ export default function NewApp() {
                         altText="Go to app"
                         onClick={() => {
                             router.push(
-                                `/dashboard/app/${encodeURIComponent(
-                                    apiKey
-                                )}/files`
+                                `/app/${encodeURIComponent(apiKey)}/files`
                             );
                         }}
                     >

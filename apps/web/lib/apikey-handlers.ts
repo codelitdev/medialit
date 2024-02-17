@@ -16,6 +16,7 @@ export async function getApiKeyByUserId(
         ipAddresses: 1,
         createdAt: 1,
         updatedAt: 1,
+        keyId: 1,
     };
 
     if (keyId) {
@@ -37,14 +38,15 @@ export async function getApiKeyByUserId(
     return result;
 }
 
-export async function getApikeyFromName(
+export async function getApikeyFromKeyId(
     userId: mongoose.Types.ObjectId,
-    name: string
+    keyId: string
 ): Promise<Apikey | null> {
     return await ApikeyModel.findOne({
-        name,
+        keyId,
         userId,
         internal: false,
+        deleted: { $ne: true },
     }).lean();
 }
 
@@ -61,11 +63,11 @@ export async function createApiKey(
 
 export async function deleteApiKey(
     userId: mongoose.Types.ObjectId,
-    name: string
+    keyId: string
 ) {
     return await ApikeyModel.updateOne(
         {
-            name,
+            keyId,
             userId,
         },
         { $set: { deleted: true } }
