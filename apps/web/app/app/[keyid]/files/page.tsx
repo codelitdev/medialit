@@ -49,7 +49,7 @@ export default async function Media({
             <div className="flex items-center justify-center gap-2">
                 <Link href={`/app/${keyid}/files?page=${Number(page) - 1}`}>
                     <Button
-                        disabled={page ? parseInt(page) <= 1 : ""}
+                        disabled={page ? parseInt(page) <= 1 : true}
                         className={
                             page
                                 ? parseInt(page) <= 1
@@ -67,7 +67,7 @@ export default async function Media({
                 </p>
                 <Link href={`/app/${keyid}/files?page=${Number(page) + 1}`}>
                     <Button
-                        disabled={page ? parseInt(page) >= totalPages : ""}
+                        disabled={page ? parseInt(page) >= totalPages : true}
                         className={
                             page
                                 ? parseInt(page) >= totalPages
