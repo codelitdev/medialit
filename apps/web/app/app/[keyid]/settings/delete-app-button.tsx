@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+// import { useFormState, useFormStatus } from "react-dom";
 import { redirect, useRouter } from "next/navigation";
-import { deleteApiKeyOfUser, editApiKeyforUser } from "@/app/dashboard/actions";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -19,88 +18,89 @@ import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { deleteApiKeyOfUser, editApiKeyforUser } from "@/app/actions";
+import { Apikey } from "@medialit/models";
 
-export default function Settings({ params }: { params: { name: string } }) {
-    const name = params.name;
-    const decodedName = decodeURI(name);
-
-    const [editApiKeyFormState, editApiKeyFormAction] = useFormState(
-        editApiKeyforUser,
-        { success: false }
-    );
+export default function DeleteAppButton({
+    apikey,
+}: {
+    apikey: Pick<Apikey, "name" | "keyId" | "key">;
+}) {
+    // const [editApiKeyFormState, editApiKeyFormAction] = useFormState(
+    //     editApiKeyforUser,
+    //     { success: false }
+    // );
 
     const { toast } = useToast();
     const router = useRouter();
 
-    const [editApiKey, setEditApiKey] = useState(decodedName);
+    // const [editApiKey, setEditApiKey] = useState(decodedName);
     const [deleteSuccess, setDeleteSuccess] = useState(false);
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
         if (deleteSuccess) {
             setOpen(false);
-            router.push("/dashboard");
+            router.push("/");
             toast({
                 title: "Deleted",
-                description: `"${decodedName}" has been deleted`,
+                description: `"${apikey.name}" has been deleted`,
             });
         }
     }, [deleteSuccess]);
 
-    useEffect(() => {
-        if (editApiKeyFormState.success) {
-            setOpen(false);
-            router.refresh();
-            toast({
-                title: "Updated",
-                description: `"${editApiKey}" has been Updated`,
-                action: (
-                    <ToastAction
-                        altText="Go to app"
-                        onClick={() => {
-                            router.push(`/dashboard/app/${editApiKey}/files`);
-                        }}
-                    >
-                        Go to app
-                    </ToastAction>
-                ),
-            });
-        }
-    }, [editApiKeyFormState.success]);
+    // useEffect(() => {
+    //     if (editApiKeyFormState.success) {
+    //         setOpen(false);
+    //         router.refresh();
+    //         toast({
+    //             title: "Updated",
+    //             description: `"${editApiKey}" has been Updated`,
+    //             action: (
+    //                 <ToastAction
+    //                     altText="Go to app"
+    //                     onClick={() => {
+    //                         router.push(`/app/${editApiKey}/files`);
+    //                     }}
+    //                 >
+    //                     Go to app
+    //                 </ToastAction>
+    //             ),
+    //         });
+    //     }
+    // }, [editApiKeyFormState.success]);
 
     return (
-        <>
-            <div className="border border-muted-foreground min-h-screen my-4 rounded p-2 md:p-2 lg:p-0">
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button className="!w-20 h-8 m-4">Delete app</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Delete app</DialogTitle>
-                        </DialogHeader>
-                        Are you sure, you want to delete &quot;{decodedName}
-                        &quot;?
-                        <DialogFooter>
-                            <DialogClose asChild>
-                                <Button className="!w-20 h-8">Cancel</Button>
-                            </DialogClose>
-                            <DialogClose asChild>
-                                <Button
-                                    className="!w-20 h-8"
-                                    onClick={() => {
-                                        deleteApiKeyOfUser(decodedName);
-                                        setDeleteSuccess(true);
-                                    }}
-                                >
-                                    Delete
-                                </Button>
-                            </DialogClose>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+        <div className="">
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button className="bg-red-600">Delete app</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Delete app</DialogTitle>
+                    </DialogHeader>
+                    Are you sure, you want to delete &quot;{apikey.name}
+                    &quot;?
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button>Cancel</Button>
+                        </DialogClose>
+                        <DialogClose asChild>
+                            <Button
+                                onClick={() => {
+                                    deleteApiKeyOfUser(apikey.keyId);
+                                    setDeleteSuccess(true);
+                                }}
+                            >
+                                Delete
+                            </Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-                <Dialog open={open} onOpenChange={setOpen}>
+            {/* <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
                         <Button className="!w-20 h-8 m-4">Edit app</Button>
                     </DialogTrigger>
@@ -161,24 +161,23 @@ export default function Settings({ params }: { params: { name: string } }) {
                             </DialogFooter>
                         </form>
                     </DialogContent>
-                </Dialog>
-            </div>
-        </>
+                </Dialog> */}
+        </div>
     );
 }
 
-function Submit({
-    children,
-    className = "",
-}: {
-    children: React.ReactNode;
-    className?: string;
-}) {
-    const status = useFormStatus();
+// function Submit({
+//     children,
+//     className = "",
+// }: {
+//     children: React.ReactNode;
+//     className?: string;
+// }) {
+//     const status = useFormStatus();
 
-    return (
-        <Button type="submit" disabled={status.pending} className={className}>
-            {children}
-        </Button>
-    );
-}
+//     return (
+//         <Button type="submit" disabled={status.pending} className={className}>
+//             {children}
+//         </Button>
+//     );
+// }

@@ -1,8 +1,6 @@
 import mongoose from "mongoose";
 import { User } from "./user";
-import ApikeySchema from "./api-key-schema";
 import { getUniqueId } from "@medialit/utils";
-import { internalApikeyName } from "./constants";
 
 const UserSchema = new mongoose.Schema<User>(
     {

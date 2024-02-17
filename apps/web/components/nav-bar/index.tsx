@@ -24,6 +24,7 @@ import { logOut } from "./action";
 import { navlinks } from "./links";
 import { getUser } from "@/app/actions";
 import { SITE_NAME } from "@/lib/constants";
+import Image from "next/image";
 
 export async function NavBar() {
     const session = await auth();
@@ -36,8 +37,14 @@ export async function NavBar() {
                     <MobileNav />
                     <Link
                         href="/"
-                        className="font-bold text-xl md:text-2xl pr-2"
+                        className="flex gap-2 items-center font-bold text-xl md:text-2xl pr-2"
                     >
+                        <Image
+                            alt={`${SITE_NAME} icon`}
+                            src="/icon.svg"
+                            height={32}
+                            width={32}
+                        />
                         {SITE_NAME}
                     </Link>
                     <ul className="hidden md:flex md:gap-4">
@@ -50,9 +57,9 @@ export async function NavBar() {
                 </div>
                 {session && session.user && (
                     <div className="flex gap-2 items-center">
-                        <Link href="/dashboard">
+                        {/* <Link href="/">
                             <Button>Dashboard</Button>
-                        </Link>
+                        </Link> */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -80,16 +87,23 @@ export async function NavBar() {
                                         <p className="text-sm text-muted-foreground font-medium truncate">
                                             {session.user?.email}
                                         </p>
-                                        <p className="text-[15px] flex gap-2 items-center text-primary">
+                                        {/* <p className="text-[15px] flex gap-2 items-center text-primary">
                                             <GearIcon />
                                             Settings
-                                        </p>
-                                        <p className="text-[15px] flex gap-2 items-center text-primary">
-                                            <BackpackIcon />
-                                            Billing
-                                        </p>
+                                        </p> */}
                                     </div>
                                 </DropdownMenuLabel>
+                                <DropdownMenuItem>
+                                    <Link
+                                        href="/account/billing"
+                                        className="w-full"
+                                    >
+                                        <div className="flex items-center gap-2 w-full">
+                                            <BackpackIcon />
+                                            Billing
+                                        </div>
+                                    </Link>
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {/* <DropdownMenuGroup>
                                     <DropdownMenuItem>

@@ -2,7 +2,7 @@
 
 import React, { ReactNode } from "react";
 import { CheckIcon } from "@radix-ui/react-icons";
-import Button from "./Button";
+import Button from "./button";
 
 const pricingPlans = [
     {
