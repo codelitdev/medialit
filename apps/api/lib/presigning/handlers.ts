@@ -29,6 +29,7 @@ export async function getPresignedUrl(
             host: req.get("Host"),
             group: req.body.group,
         });
+
         return res.status(200).json({ message: presignedUrl });
     } catch (err: any) {
         logger.error({ err }, err.message);
