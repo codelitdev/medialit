@@ -77,7 +77,13 @@ export async function getMedia({
     return response;
 }
 
-export async function getMediaCount({ apikey }: { apikey: string }) {
+export async function getMediaCount({
+    apikey,
+    internalApikey,
+}: {
+    apikey: string;
+    internalApikey: string;
+}) {
     let response: any = await fetch(`${medialitServer}/media/get/count`, {
         method: "POST",
         headers: {
@@ -85,6 +91,7 @@ export async function getMediaCount({ apikey }: { apikey: string }) {
         },
         body: JSON.stringify({
             apikey,
+            internalApikey,
         }),
     });
     response = await response.json();

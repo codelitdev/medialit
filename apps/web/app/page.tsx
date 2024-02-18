@@ -27,7 +27,7 @@ export default async function Home() {
                         >
                             <div className="flex items-center justify-center border h-[151px] w-full sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]">
                                 <Link href={`/app/${apikey.keyId}/files`}>
-                                    {apikey.name}
+                                    {apikey.name || "Untitled"}
                                 </Link>
                             </div>
                         </div>

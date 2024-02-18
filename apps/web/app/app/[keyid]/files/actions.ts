@@ -55,6 +55,13 @@ export async function getCount(keyid: string) {
         throw new Error("User not found");
     }
 
+    const internalApikey = await getInternalApikey(dbUser._id);
+
+    if (!internalApikey) {
+        console.error("Internal apikey not found for user", dbUser._id); // eslint-disable-line no-console
+        throw new Error("We messed up. Please try again later.");
+    }
+
     const apikey = await getApikeyFromKeyId(dbUser._id, keyid);
 
     if (!apikey) {
@@ -63,6 +70,7 @@ export async function getCount(keyid: string) {
 
     const mediacount = await getMediaCount({
         apikey: apikey.key,
+        internalApikey: internalApikey.key,
     });
 
     return mediacount;

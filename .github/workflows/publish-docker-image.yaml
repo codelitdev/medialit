@@ -34,14 +34,14 @@ jobs:
         with:
           images: codelit/medialit 
 
-      - name: Build and push core
-        id: docker_build_core
+      - name: Build and push API 
+        id: docker_build_api
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./Dockerfile
+          file: ./apps/api/Dockerfile
           push: true
           tags: ${{ steps.meta_core.outputs.tags }}
 
       - name: Image digest
-        run: echo ${{ steps.docker_build_backend.outputs.digest }}
+        run: echo ${{ steps.docker_build_api.outputs.digest }}

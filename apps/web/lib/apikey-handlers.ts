@@ -24,14 +24,14 @@ export async function getApiKeyByUserId(
             {
                 key: keyId,
                 userId,
-                internal: false,
+                internal: { $ne: true },
                 deleted: { $ne: true },
             },
             projections
         );
     } else {
         result = await ApikeyModel.find(
-            { userId, internal: false, deleted: { $ne: true } },
+            { userId, internal: { $ne: true }, deleted: { $ne: true } },
             projections
         );
     }
@@ -45,7 +45,7 @@ export async function getApikeyFromKeyId(
     return await ApikeyModel.findOne({
         keyId,
         userId,
-        internal: false,
+        internal: { $ne: true },
         deleted: { $ne: true },
     }).lean();
 }

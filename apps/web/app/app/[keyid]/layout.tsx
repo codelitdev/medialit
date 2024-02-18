@@ -24,7 +24,7 @@ export default async function FilesLayout({
                 <div className="text-primary font-semibold py-2">
                     <Link href="/">All apps </Link>/{" "}
                     <span className="text-muted-foreground">
-                        {apikey?.name}
+                        {apikey?.name || "Untitled"}
                     </span>
                 </div>
                 <Tabs keyid={keyid} />
