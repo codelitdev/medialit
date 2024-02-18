@@ -9,7 +9,7 @@ import {
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
-import { getMediaCount as getCount } from "./queries";
+import { getMediaCount as getCount, getTotalSpace } from "./queries";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
@@ -112,6 +112,18 @@ export async function getMediaCount(req: any, res: any) {
 
     try {
         const totalMediaFiles = await getCount({ userId, apikey });
+        return res.status(200).json({ count: totalMediaFiles });
+    } catch (err: any) {
+        return res.status(500).json(err.message);
+    }
+}
+
+export async function getTotalSpaceOccupied(req: any, res: any) {
+    const userId = req.user._id;
+    const apikey = req.apikey;
+
+    try {
+        const totalMediaFiles = await getTotalSpace({ userId, apikey });
         return res.status(200).json({ count: totalMediaFiles });
     } catch (err: any) {
         return res.status(500).json(err.message);

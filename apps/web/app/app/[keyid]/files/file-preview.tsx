@@ -105,10 +105,11 @@ export default function FilePreview({
                                 <div className="text-sm">{media.mimeType}</div>
                             </div>
                         </form>
-                        <div className="flex justify-center items-center">
+                        <div className="flex justify-center items-center max-h-[200px] overflow-y-scroll">
                             <Image
                                 alt="File preview"
                                 src={media.thumbnail}
+                                sizes="40vw"
                                 width={200}
                                 height={200}
                             />

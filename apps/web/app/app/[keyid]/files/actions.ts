@@ -63,7 +63,6 @@ export async function getCount(keyid: string) {
 
     const mediacount = await getMediaCount({
         apikey: apikey.key,
-        userId: apikey.userId,
     });
 
     return mediacount;

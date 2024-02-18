@@ -24,6 +24,43 @@ export async function getMediaCount({
     return await MediaModel.countDocuments({ apikey, userId }).lean();
 }
 
+export async function getTotalSpace({
+    userId,
+    apikey,
+}: {
+    userId: string;
+    apikey: string;
+}): Promise<number> {
+    const result = await MediaModel
+        // calculate sum of size of all media files
+        .aggregate([
+            {
+                $match: {
+                    userId,
+                    apikey,
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalSize: { $sum: "$size" },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    totalSize: 1,
+                },
+            },
+        ]);
+
+    if (result.length === 0) {
+        return 0;
+    }
+
+    return result[0].totalSize;
+}
+
 export async function getPaginatedMedia({
     userId,
     apikey,

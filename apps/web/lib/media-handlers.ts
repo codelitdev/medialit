@@ -77,13 +77,7 @@ export async function getMedia({
     return response;
 }
 
-export async function getMediaCount({
-    apikey,
-    userId,
-}: {
-    apikey: string;
-    userId: mongoose.Types.ObjectId;
-}) {
+export async function getMediaCount({ apikey }: { apikey: string }) {
     let response: any = await fetch(`${medialitServer}/media/get/count`, {
         method: "POST",
         headers: {
@@ -91,7 +85,27 @@ export async function getMediaCount({
         },
         body: JSON.stringify({
             apikey,
-            userId,
+        }),
+    });
+    response = await response.json();
+    return response;
+}
+
+export async function getMediaTotalSize({
+    apikey,
+    internalApikey,
+}: {
+    apikey: string;
+    internalApikey: string;
+}) {
+    let response: any = await fetch(`${medialitServer}/media/get/size`, {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+        },
+        body: JSON.stringify({
+            apikey,
+            internalApikey,
         }),
     });
     response = await response.json();

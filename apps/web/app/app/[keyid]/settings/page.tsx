@@ -7,6 +7,7 @@ import UpdateSettingsForm from "./update-settings-form";
 import { getApikeyUsingKeyId } from "@/app/actions";
 import DeleteAppButton from "./delete-app-button";
 import { Separator } from "@/components/ui/separator";
+import { getTotalSpaceByApikey } from "./actions";
 
 export default async function Settings({
     params,
@@ -27,8 +28,18 @@ export default async function Settings({
         return null;
     }
 
+    const totalSpaceOccupied = await getTotalSpaceByApikey(keyid);
+
     return (
-        <section className="border border-muted-foreground border-slate-200 min-h-[480px] my-4 rounded p-2 flex flex-col gap-4">
+        <section className="border border-muted-foreground border-slate-200 min-h-[480px] my-4 rounded p-4 flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+                <Label htmlFor="name" className="mb-2">
+                    Storage
+                </Label>
+                <p className="font-semibold">
+                    {(totalSpaceOccupied / 1024 / 1024).toFixed(2)} MB
+                </p>
+            </div>
             <div>
                 <Label htmlFor="apikey" className="mb-2">
                     Apikey
