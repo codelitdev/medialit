@@ -9,11 +9,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 
-export default function UpdateSettingsForm({ keyId }: { keyId: string }) {
+export default function UpdateSettingsForm({
+    keyId,
+    name,
+}: {
+    keyId: string;
+    name: string;
+}) {
     const [state, updateNameAction] = useFormState(updateAppName, {
         success: false,
     });
-    const [newName, setNewName] = useState("");
+    const [newName, setNewName] = useState(name);
     const router = useRouter();
     const { toast } = useToast();
 
