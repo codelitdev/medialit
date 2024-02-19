@@ -1,12 +1,11 @@
 import { MediaSettings } from "./model";
-import * as queries from "./queries";
+import queries from "./queries";
 
 export async function getMediaSettings(
     userId: string,
     apikey: string
 ): Promise<Omit<MediaSettings, "userId" | "apikey"> | null> {
     const mediaSettings = await queries.getMediaSettings(userId, apikey);
-
     if (!mediaSettings) {
         return {};
     }
@@ -45,3 +44,8 @@ export async function updateMediaSettings({
         thumbnailHeight,
     });
 }
+
+export default {
+    getMediaSettings,
+    updateMediaSettings,
+};

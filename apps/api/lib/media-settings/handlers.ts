@@ -2,7 +2,7 @@ import Joi from "joi";
 import { SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { updateMediaSettings } from "./queries";
-import * as mediaSettingsService from "./service";
+import mediaSettingsService from "./service";
 
 export async function updateMediaSettingsHandler(
     req: any,
@@ -52,6 +52,7 @@ export async function getMediaSettingsHandler(req: any, res: any) {
             req.user.id,
             req.apikey
         );
+
         return res.status(200).json(mediaSettings);
     } catch (err: any) {
         logger.error({ err }, err.message);
