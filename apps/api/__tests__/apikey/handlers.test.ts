@@ -1,7 +1,7 @@
 import test, { afterEach, describe, mock } from "node:test";
-import { createApikey } from "../../lib/apikey/handlers";
+import { createApikey } from "../../src/apikey/handlers";
 import assert from "node:assert";
-import queries from "../../lib/apikey/queries";
+import queries from "../../src/apikey/queries";
 
 describe("API key test suite", () => {
     afterEach(() => {
