@@ -54,7 +54,7 @@ export default async function Settings({
                     <CopyApikeyButton apikey={apikey.key} />
                 </div>
             </div>
-            <UpdateSettingsForm name={apikey.name} />
+            <UpdateSettingsForm keyId={apikey.keyId} />
             <Separator className="my-8" />
             <DeleteAppButton apikey={apikey} />
         </section>
