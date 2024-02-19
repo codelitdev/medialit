@@ -1,5 +1,4 @@
 import { Media } from "@medialit/models";
-import mongoose from "mongoose";
 
 const medialitServer = process.env.API_SERVER || "https://api.medialit.cloud";
 
@@ -40,7 +39,7 @@ export async function getPaginatedMedia({
             },
             body: JSON.stringify({
                 apikey,
-                internalApikey,
+                internalKey: internalApikey,
             }),
             credentials: "same-origin",
         }
@@ -70,7 +69,7 @@ export async function getMedia({
         },
         body: JSON.stringify({
             apikey,
-            internalApikey,
+            internalKey: internalApikey,
         }),
     });
     response = await response.json();
@@ -91,7 +90,7 @@ export async function getMediaCount({
         },
         body: JSON.stringify({
             apikey,
-            internalApikey,
+            internalKey: internalApikey,
         }),
     });
     response = await response.json();
@@ -112,7 +111,7 @@ export async function getMediaTotalSize({
         },
         body: JSON.stringify({
             apikey,
-            internalApikey,
+            internalKey: internalApikey,
         }),
     });
     response = await response.json();
@@ -137,7 +136,7 @@ export async function getPresignedUrlForUpload({
             },
             body: JSON.stringify({
                 apikey,
-                internalApikey,
+                internalKey: internalApikey,
                 group,
             }),
         }
@@ -169,7 +168,7 @@ export async function deleteMedia({
             },
             body: JSON.stringify({
                 apikey,
-                internalApikey,
+                internalKey: internalApikey,
             }),
         }
     );
