@@ -2,7 +2,7 @@ import Joi from "joi";
 import { SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { updateMediaSettings } from "./queries";
-import * as mediaSettingsService from "./service";
+import mediaSettingsService from "./service";
 
 export async function updateMediaSettingsHandler(
     req: any,
