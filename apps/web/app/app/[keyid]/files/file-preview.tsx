@@ -98,6 +98,9 @@ export default function FilePreview({
                                 <Label htmlFor="filename">Size</Label>
                                 <div className="text-sm">
                                     {(media.size / 1024 / 1024).toFixed(2)} MB
+                                    {/* {media.size >= 1024
+                                        ? `${(media.size / 1024 / 1024).toFixed(2)} MB`
+                                        : `${(media.size / 1024).toFixed(2)} KB`} */}
                                 </div>
                             </div>
                             <div className="flex justify-between items-center">
@@ -148,18 +151,18 @@ export default function FilePreview({
                                 </Label>
                                 <div className="flex gap-2">
                                     <Input
-                                        value={media.mediaId}
+                                        value={media.thumbnail}
                                         name="mediaId"
                                         disabled
                                     />
                                     <Button
                                         onClick={() => {
                                             navigator.clipboard.writeText(
-                                                media.mediaId
+                                                media.thumbnail
                                             );
                                             toast({
                                                 description:
-                                                    "Media id has been copied to the clipboard",
+                                                    "Direct link has been copied to the clipboard",
                                             });
                                         }}
                                     >
