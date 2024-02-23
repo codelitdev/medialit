@@ -29,3 +29,8 @@ export async function updateMediaSettings({
         { upsert: true }
     );
 }
+
+export default {
+    getMediaSettings,
+    updateMediaSettings,
+};

@@ -66,7 +66,7 @@ export async function uploadMedia(
         return res.status(200).json(media);
     } catch (err: any) {
         logger.error({ err }, err.message);
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -99,6 +99,7 @@ export async function getMedia(
             group,
             recordsPerPage: limit,
         });
+
         return res.status(200).json(result);
     } catch (err: any) {
         logger.error({ err }, err.message);
@@ -142,7 +143,6 @@ export async function getMediaDetails(req: any, res: any) {
         if (!media) {
             return res.status(404).json({ error: NOT_FOUND });
         }
-
         return res.status(200).json(media);
     } catch (err: any) {
         logger.error({ err }, err.message);

@@ -15,7 +15,6 @@ export async function createApikey(
 
     try {
         const apikey: Apikey = await queries.createApiKey(req.user.id, name);
-
         return res.status(200).json({
             key: apikey.key,
         });
@@ -33,15 +32,15 @@ export async function getApikey(
     const { keyId } = req.params;
 
     try {
-        const apikey = await getApiKeyByUserId(req.user.id, keyId);
+        const apikey = await queries.getApiKeyByUserId(req.user.id, keyId);
 
         if (!apikey) {
             return res.status(404).json({ error: NOT_FOUND });
         }
-        res.status(200).json(apikey);
+        return res.status(200).json(apikey);
     } catch (err: any) {
         logger.error({ err }, err.message);
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -53,10 +52,10 @@ export async function deleteApikey(
     const { keyId } = req.params;
 
     try {
-        await deleteApiKey(req.user.id, keyId);
-        res.status(200).json({ message: SUCCESS });
+        await queries.deleteApiKey(req.user.id, keyId);
+        return res.status(200).json({ message: SUCCESS });
     } catch (err: any) {
         logger.error({ err }, err.message);
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
 }
