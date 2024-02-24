@@ -9,6 +9,7 @@ import connectToDatabase from "@/lib/connect-db";
 import VerificationToken from "@/models/verification-token";
 import User from "@/models/user";
 import Apikey from "@/models/apikey";
+import { createUser } from "./lib/courselit";
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
     ...authConfig,
@@ -45,15 +46,19 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                 });
 
                 if (!user) {
-                    user = await User.create({
-                        email,
-                    });
+                    user = await User.create({ email });
                     await Apikey.create({
                         name: Constants.internalApikeyName,
                         key: getUniqueId(),
                         userId: user.id,
                         internal: true,
                     });
+                    try {
+                        await createUser({ email });
+                    } catch (err: any) {
+                        console.error("Error creating user in CourseLit"); // eslint-disable-line no-console
+                        console.error(err); // eslint-disable-line no-console
+                    }
                 }
                 return {
                     id: user.userId,
