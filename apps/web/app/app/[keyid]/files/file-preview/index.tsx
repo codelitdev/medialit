@@ -1,25 +1,19 @@
-"use client";
-
 import { Media } from "@medialit/models";
 import Image from "next/image";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
     DialogClose,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/components/ui/use-toast";
-import { useState } from "react";
+import FileInteractivity from "./file-interactivity";
 
-export default async function FilePreview({
+export default function FilePreview({
     media,
     keyid,
 }: {
@@ -29,35 +23,6 @@ export default async function FilePreview({
     };
     keyid: string;
 }) {
-    const { toast } = useToast();
-    const [fileDirectLink, setFileDirectLink] = useState();
-
-    const directLink = async () => {
-        const response = await fetch(`/app/${keyid}/files/get-media`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                mediaId: media.mediaId,
-                keyId: keyid,
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`Some error occured while fetching direct link`);
-        }
-        const data = await response.json();
-
-        if (data?.media?.file) {
-            setFileDirectLink(data.media.file);
-            navigator.clipboard.writeText(data.media.file);
-            toast({
-                description: "Direct link has been copied to the clipboard",
-            });
-        }
-    };
-
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -142,56 +107,8 @@ export default async function FilePreview({
                             />
                         </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <div>
-                            <Label htmlFor="apikey" className="mb-2">
-                                Media ID
-                            </Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    value={media.mediaId}
-                                    name="mediaId"
-                                    disabled
-                                />
-                                <Button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(
-                                            media.mediaId
-                                        );
-                                        toast({
-                                            description:
-                                                "Media id has been copied to the clipboard",
-                                        });
-                                    }}
-                                >
-                                    Copy
-                                </Button>
-                            </div>
-                        </div>
-                        {media.access === "public" && (
-                            <div>
-                                <Label htmlFor="apikey" className="mb-2">
-                                    Direct Link
-                                </Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        value={fileDirectLink}
-                                        name="file"
-                                        disabled
-                                    />
-                                    <Button onClick={directLink}>
-                                        Get direct link
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <FileInteractivity media={media} keyid={keyid} />
                 </div>
-                {/* <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="secondary">Done</Button>
-                    </DialogClose>
-                </DialogFooter> */}
             </DialogContent>
         </Dialog>
     );
