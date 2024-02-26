@@ -41,7 +41,13 @@ export default async function Media({
             <div className="border border-muted-foreground border-slate-200 min-h-[480px] my-5 rounded p-2 md:p-2 lg:p-0">
                 <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-7 md:p-5 lg:gap-3">
                     {medias.map((media: any, index: number) => (
-                        <FilePreview key={media.id} media={media} />
+                        <>
+                            <FilePreview
+                                key={media.id}
+                                media={media}
+                                keyid={keyid}
+                            />
+                        </>
                     ))}
                 </div>
             </div>

@@ -9,4 +9,5 @@ export interface Media {
     accessControl: string;
     group?: string;
     caption?: string;
+    file?: string;
 }

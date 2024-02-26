@@ -89,7 +89,7 @@ export async function getPaginatedMedia({
         caption: 1,
         group: 1,
     })
-        .sort({ _id: 1 })
+        .sort({ _id: -1 })
         .skip(page ? (page - 1) * limitWithFallback : 0)
         .limit(limitWithFallback);
 }

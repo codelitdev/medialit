@@ -17,16 +17,46 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
+import { useState } from "react";
 
-export default function FilePreview({
+export default async function FilePreview({
     media,
+    keyid,
 }: {
     media: Media & {
         thumbnail: string;
         access: "public" | "private";
     };
+    keyid: string;
 }) {
     const { toast } = useToast();
+    const [fileDirectLink, setFileDirectLink] = useState();
+
+    const directLink = async () => {
+        const response = await fetch(`/app/${keyid}/files/get-media`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                mediaId: media.mediaId,
+                keyId: keyid,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Some error occured while fetching direct link`);
+        }
+        const data = await response.json();
+
+        if (data?.media?.file) {
+            setFileDirectLink(data.media.file);
+            navigator.clipboard.writeText(data.media.file);
+            toast({
+                description: "Direct link has been copied to the clipboard",
+            });
+        }
+    };
 
     return (
         <Dialog>
@@ -87,12 +117,6 @@ export default function FilePreview({
                                     disabled={true}
                                     name="public"
                                 />
-                                {/* <Input
-                                type="text"
-                                value={media.originalFileName}
-                                disabled={true}
-                                name="filename"
-                                /> */}
                             </div>
                             <div className="flex justify-between items-center">
                                 <Label htmlFor="filename">Size</Label>
@@ -151,22 +175,12 @@ export default function FilePreview({
                                 </Label>
                                 <div className="flex gap-2">
                                     <Input
-                                        value={media.thumbnail}
-                                        name="mediaId"
+                                        value={fileDirectLink}
+                                        name="file"
                                         disabled
                                     />
-                                    <Button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(
-                                                media.thumbnail
-                                            );
-                                            toast({
-                                                description:
-                                                    "Direct link has been copied to the clipboard",
-                                            });
-                                        }}
-                                    >
-                                        Copy
+                                    <Button onClick={directLink}>
+                                        Get direct link
                                     </Button>
                                 </div>
                             </div>
