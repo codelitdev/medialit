@@ -53,7 +53,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_ECR_ACCESS_SECRET }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to Amazon ECR
+      - name: Login to AWS ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
