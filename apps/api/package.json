@@ -26,8 +26,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "nodemon lib/index.ts",
-    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts",
+    "start": "node dist/src/index.js",
     "test": "node --import tsx --test '**/*.test.ts'"
   },
   "dependencies": {

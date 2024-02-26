@@ -32,8 +32,8 @@ export default async function Media({
             : 0;
 
         totalPages === 0 ? (totalPages = 1) : totalPages;
-    } catch (error) {
-        return <div>Something went wrong</div>;
+    } catch (error: any) {
+        return <div>Something went wrong: {error.message}</div>;
     }
 
     return (

@@ -12,11 +12,11 @@ export async function updateAppName(
     formData: FormData
 ) {
     const newName = formData.get("newName") as string;
-    const name = formData.get("name") as string;
+    const keyId = formData.get("keyId") as string;
     if (!newName) {
         return { success: false, error: "Name is required" };
     }
-    if (!name) {
+    if (!keyId) {
         return { success: false, error: "Bad request" };
     }
 
@@ -36,7 +36,7 @@ export async function updateAppName(
         await ApikeyModel.updateOne(
             {
                 userId: dbUser._id,
-                name,
+                keyId,
             },
             { $set: { name: newName } }
         );

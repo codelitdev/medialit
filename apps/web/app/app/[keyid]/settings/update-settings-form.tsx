@@ -9,7 +9,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 
-export default function UpdateSettingsForm({ name }: { name: string }) {
+export default function UpdateSettingsForm({
+    keyId,
+    name,
+}: {
+    keyId: string;
+    name: string;
+}) {
     const [state, updateNameAction] = useFormState(updateAppName, {
         success: false,
     });
@@ -38,7 +44,7 @@ export default function UpdateSettingsForm({ name }: { name: string }) {
 
     return (
         <div>
-            <Label htmlFor="name" className="mb-2">
+            <Label htmlFor="newName" className="mb-2">
                 App name
             </Label>
             <form action={updateNameAction} className="flex gap-2">
@@ -47,7 +53,7 @@ export default function UpdateSettingsForm({ name }: { name: string }) {
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                 />
-                <Input name="name" value={name} type="hidden" />
+                <Input name="keyId" value={keyId} type="hidden" />
                 <Submit>Save</Submit>
             </form>
         </div>
