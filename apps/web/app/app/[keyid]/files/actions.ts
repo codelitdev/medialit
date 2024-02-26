@@ -1,7 +1,13 @@
+"use server";
+
 import connectToDatabase from "@/lib/connect-db";
 import { getUserFromSession } from "@/lib/user-handlers";
 import { getApikeyFromKeyId, getInternalApikey } from "@/lib/apikey-handlers";
-import { getPaginatedMedia, getMediaCount } from "@/lib/media-handlers";
+import {
+    getPaginatedMedia,
+    getMediaCount,
+    getMedia as getMediaFromServer,
+} from "@/lib/media-handlers";
 import { auth } from "@/auth";
 import { Media } from "@medialit/models";
 

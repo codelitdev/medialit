@@ -1,33 +1,28 @@
-"use client";
-
 import { Media } from "@medialit/models";
 import Image from "next/image";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
     DialogClose,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/components/ui/use-toast";
+import FileInteractivity from "./file-interactivity";
 
 export default function FilePreview({
     media,
+    keyid,
 }: {
     media: Media & {
         thumbnail: string;
         access: "public" | "private";
     };
+    keyid: string;
 }) {
-    const { toast } = useToast();
-
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -87,17 +82,14 @@ export default function FilePreview({
                                     disabled={true}
                                     name="public"
                                 />
-                                {/* <Input
-                                type="text"
-                                value={media.originalFileName}
-                                disabled={true}
-                                name="filename"
-                                /> */}
                             </div>
                             <div className="flex justify-between items-center">
                                 <Label htmlFor="filename">Size</Label>
                                 <div className="text-sm">
                                     {(media.size / 1024 / 1024).toFixed(2)} MB
+                                    {/* {media.size >= 1024
+                                        ? `${(media.size / 1024 / 1024).toFixed(2)} MB`
+                                        : `${(media.size / 1024).toFixed(2)} KB`} */}
                                 </div>
                             </div>
                             <div className="flex justify-between items-center">
@@ -115,66 +107,8 @@ export default function FilePreview({
                             />
                         </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <div>
-                            <Label htmlFor="apikey" className="mb-2">
-                                Media ID
-                            </Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    value={media.mediaId}
-                                    name="mediaId"
-                                    disabled
-                                />
-                                <Button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(
-                                            media.mediaId
-                                        );
-                                        toast({
-                                            description:
-                                                "Media id has been copied to the clipboard",
-                                        });
-                                    }}
-                                >
-                                    Copy
-                                </Button>
-                            </div>
-                        </div>
-                        {media.access === "public" && (
-                            <div>
-                                <Label htmlFor="apikey" className="mb-2">
-                                    Direct Link
-                                </Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        value={media.mediaId}
-                                        name="mediaId"
-                                        disabled
-                                    />
-                                    <Button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(
-                                                media.mediaId
-                                            );
-                                            toast({
-                                                description:
-                                                    "Media id has been copied to the clipboard",
-                                            });
-                                        }}
-                                    >
-                                        Copy
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <FileInteractivity media={media} keyid={keyid} />
                 </div>
-                {/* <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="secondary">Done</Button>
-                    </DialogClose>
-                </DialogFooter> */}
             </DialogContent>
         </Dialog>
     );
