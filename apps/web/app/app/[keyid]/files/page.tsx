@@ -1,10 +1,21 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getMediaFiles, getCount } from "./actions";
 import { Media } from "@medialit/models";
-import { Button } from "@/components/ui/button";
 import FilePreview from "./file-preview";
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+    DoubleArrowLeftIcon,
+    DoubleArrowRightIcon,
+} from "@radix-ui/react-icons";
 
 export default async function Media({
     params,
@@ -49,42 +60,76 @@ export default async function Media({
                     ))}
                 </div>
             </div>
-
-            <div className="flex items-center justify-center gap-2">
-                <Link href={`/app/${keyid}/files?page=${Number(page) - 1}`}>
-                    <Button
-                        disabled={page ? parseInt(page) <= 1 : true}
-                        className={
-                            page
-                                ? parseInt(page) <= 1
-                                    ? "!bg-muted-foreground"
-                                    : ""
+            <Pagination>
+                <PaginationContent>
+                    <PaginationItem>
+                        <PaginationLink
+                            href={`/app/${keyid}/files?page=${1}`}
+                            className={`
+                     ${
+                         parseInt(page) === 1
+                             ? "pointer-events-none text-slate-400"
+                             : ""
+                     }
+                 `}
+                        >
+                            <DoubleArrowLeftIcon className="h-4 w-4" />
+                        </PaginationLink>
+                    </PaginationItem>
+                    <PaginationItem
+                        className={`
+                                    ${
+                                        parseInt(page) === 1
+                                            ? "pointer-events-none text-slate-400"
+                                            : ""
+                                    }
+                                `}
+                    >
+                        <PaginationPrevious
+                            href={
+                                parseInt(page) === 1
+                                    ? `/app/${keyid}/files?page=${Number(page)}`
+                                    : `/app/${keyid}/files?page=${
+                                          Number(page) - 1
+                                      }`
+                            }
+                        />
+                    </PaginationItem>
+                    <PaginationItem className="text-sm">
+                        <span className="font-bold">{page}</span> of{" "}
+                        {totalPages} ({medias.length} Files)
+                    </PaginationItem>
+                    <PaginationItem
+                        className={`
+                                    ${
+                                        parseInt(page) === totalPages
+                                            ? "pointer-events-none text-slate-400"
+                                            : ""
+                                    }
+                                `}
+                    >
+                        <PaginationNext
+                            href={`/app/${keyid}/files?page=${
+                                Number(page) + 1
+                            }`}
+                        />
+                    </PaginationItem>
+                    <PaginationItem>
+                        <PaginationLink
+                            href={`/app/${keyid}/files?page=${totalPages}`}
+                            className={`
+                        ${
+                            parseInt(page) === totalPages
+                                ? "pointer-events-none text-slate-400"
                                 : ""
                         }
-                    >
-                        Previous
-                    </Button>
-                </Link>
-                <p>
-                    <span className="font-bold">{page}</span> of {totalPages} (
-                    {medias.length} Files)
-                </p>
-                <Link href={`/app/${keyid}/files?page=${Number(page) + 1}`}>
-                    <Button
-                        disabled={page ? parseInt(page) >= totalPages : true}
-                        className={
-                            page
-                                ? parseInt(page) >= totalPages
-                                    ? "!bg-muted-foreground"
-                                    : ""
-                                : ""
-                        }
-                    >
-                        {" "}
-                        Next{" "}
-                    </Button>
-                </Link>
-            </div>
+                    `}
+                        >
+                            <DoubleArrowRightIcon className="h-4 w-4" />
+                        </PaginationLink>
+                    </PaginationItem>
+                </PaginationContent>
+            </Pagination>
         </>
     );
 }
