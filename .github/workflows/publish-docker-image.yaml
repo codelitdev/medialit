@@ -61,7 +61,7 @@ jobs:
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ secrets.AWS_ECR_REPO }} 
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: latest 
         run: |
           docker build -f apps/web/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG 
