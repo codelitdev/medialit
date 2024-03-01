@@ -1,6 +1,6 @@
 import logger from "../services/log";
 import { getUser } from "../user/queries";
-import * as queries from "./queries";
+import queries from "./queries";
 import { PreSignedUrl } from "./model";
 import { User } from "@medialit/models";
 
@@ -70,3 +70,9 @@ export async function cleanup(userId: string, signature: string) {
     await queries.deleteBySignature(signature);
     await queries.cleanupExpiredLinks(userId);
 }
+
+export default {
+    generateSignedUrl,
+    getUserAndGroupFromPresignedUrl,
+    cleanup,
+};

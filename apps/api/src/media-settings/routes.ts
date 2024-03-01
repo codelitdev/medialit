@@ -2,7 +2,7 @@ import express from "express";
 import {
     getMediaSettingsHandler,
     updateMediaSettingsHandler,
-} from "../media-settings/handlers";
+} from "./handlers";
 import apikey from "../apikey/middleware";
 
 export default (passport: any) => {

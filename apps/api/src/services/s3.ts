@@ -32,14 +32,25 @@ export interface PresignedURLParams {
     mimetype?: string;
 }
 
-const s3Client = new S3Client({
-    region: cloudRegion,
-    endpoint: cloudEndpoint,
-    credentials: {
-        accessKeyId: cloudKey,
-        secretAccessKey: cloudSecret,
-    },
-});
+// const s3Client = new S3Client({
+//     region: cloudRegion,
+//     endpoint: cloudEndpoint,
+//     credentials: {
+//         accessKeyId: cloudKey,
+//         secretAccessKey: cloudSecret,
+//     },
+// });
+
+const s3Client = (() => {
+    return new S3Client({
+        region: cloudRegion,
+        endpoint: cloudEndpoint,
+        credentials: {
+            accessKeyId: cloudKey,
+            secretAccessKey: cloudSecret,
+        },
+    });
+})();
 
 export const putObject = async (params: UploadParams) => {
     const command = new PutObjectCommand(
@@ -75,4 +86,11 @@ export const generateSignedUrl = async ({
     });
     const url = await getSignedUrl(s3Client, command);
     return url;
+};
+
+export default {
+    putObject,
+    deleteObject,
+    getObjectTagging,
+    generateSignedUrl,
 };

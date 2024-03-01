@@ -39,7 +39,7 @@ import * as presignedUrlService from "../presigning/service";
 import getTags from "./utils/get-tags";
 import { getMainFileUrl, getThumbnailUrl } from "./utils/get-cdn-urls";
 
-const generateAndUploadThumbnail = async ({
+export const generateAndUploadThumbnail = async ({
     workingDirectory,
     key,
     mimetype,
@@ -53,8 +53,8 @@ const generateAndUploadThumbnail = async ({
     tags: string;
 }): Promise<boolean> => {
     const thumbPath = `${workingDirectory}/thumb.webp`;
-
     let isThumbGenerated = false; // to indicate if the thumbnail name is to be saved to the DB
+
     if (imagePatternIncludingGif.test(mimetype)) {
         await thumbnail.forImage(originalFilePath, thumbPath, {
             width: thumbnailWidth,

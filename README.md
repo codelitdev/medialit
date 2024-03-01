@@ -17,7 +17,7 @@ ENABLE_TRUST_PROXY=true
 In order to interact with the API, you need to have an API key. To create one, execute the following command.
 
 ```sh
-docker exec <container_id> dist/scripts/create-local-user.js
+docker exec <container_id | container_name> node /app/apps/api/dist/scripts/create-local-user.js <email>
 ```
 
 After running the above command, you will get an API key which you can use to interact with the app.
@@ -53,4 +53,10 @@ pnpm --filter=@medialit/thumbnail build
 
 ```bash
 pnpm --filter=@medialit/api dev
+```
+
+### Publishing a new version
+
+```bash
+npx changeset
 ```
