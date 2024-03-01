@@ -68,7 +68,7 @@ describe("Presigning Url test suite", () => {
 
         mock.method(queries, "createPresignedUrl").mock.mockImplementation(
             async () => {
-                throw new Error("Erron in getting presigned url");
+                throw new Error("Error in getting presigned url");
             }
         );
 
@@ -81,7 +81,7 @@ describe("Presigning Url test suite", () => {
         const response = await getPresignedUrl(req, res, () => {
             return 1;
         });
-        assert.strictEqual(response.data, "Erron in getting presigned url");
+        assert.strictEqual(response.data, "Error in getting presigned url");
         assert.strictEqual(response.code, 500);
     });
 });
