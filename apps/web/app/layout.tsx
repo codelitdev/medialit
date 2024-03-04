@@ -38,20 +38,9 @@ export default async function RootLayout({
                     posthog.init('phc_gUsiknwRdJTfxuwTvIXspsmHhg7idUnnoJ0zOHBs12d',{api_host:'https://app.posthog.com'})
                     `}
                 </Script>
-                <Script strategy="lazyOnload" id="microsoft-clarity">
-                    {`
-                    if (!window.location.host.includes('localhost')) {
-                        (function(c,l,a,r,i,t,y){
-                            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-                        })(window, document, "clarity", "script", "khzsjjff0s");
-                    }
-                    `}
-                </Script>
                 <Script strategy="lazyOnload" id="crisp-chat">
                     {`
-                    window.$crisp=[];window.CRISP_WEBSITE_ID="8048ca09-d44e-44a3-ad68-922fff5fd1fa";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();
+                   window.$crisp=[];window.CRISP_WEBSITE_ID="e987cede-c42d-4c32-8cf3-1a4a074abd73";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();
                     `}
                 </Script>
             </head>
