@@ -16,6 +16,8 @@ import {
 } from "@/lib/apikey-handlers";
 import { getUserFromSession } from "@/lib/user-handlers";
 import { Apikey } from "@medialit/models";
+import UserModel from "@/models/user";
+import User from "@medialit/models";
 
 export async function authenticate(
     prevState: Record<string, unknown>,
@@ -99,6 +101,36 @@ export async function getUser(): Promise<any | null> {
         return null;
     }
     return session.user;
+}
+
+export async function getSubscriber(): Promise<Pick<
+    // User,
+    any,
+    | "email"
+    | "userId"
+    | "email"
+    | "subscriptionEndsAfter"
+    | "subscriptionStatus"
+    | "subscribedToUpdates"
+> | null> {
+    const session: Session | null = await auth();
+    if (!session || !session.user) {
+        return null;
+    }
+
+    await connectToDatabase();
+
+    return await UserModel.findOne(
+        { email: session.user.email },
+        {
+            email: 1,
+            userId: 1,
+            subscriptionEndsAfter: 1,
+            subscriptionStatus: 1,
+            subscribedToUpdates: 1,
+            _id: 0,
+        }
+    );
 }
 
 export async function getApiKeys() {
