@@ -78,7 +78,7 @@ export default function LemonSqueezyStartSubscriptionButton({
                 if (!session) {
                     router.push("/login");
                 } else {
-                    const url = `https://${storeId}.lemonsqueezy.com/checkout/buy/${productId}?checkout[email]=${session.user?.email}&checkout[custom][subscriberId]=${userId}&embed=1`;
+                    const url = `https://${storeId}.lemonsqueezy.com/checkout/buy/${productId}?checkout[email]=${session.user?.email}&checkout[custom][userId]=${userId}&embed=1`;
                     (window as any).LemonSqueezy.Url.Open(url);
                 }
             }}

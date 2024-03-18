@@ -1,6 +1,6 @@
 import { LEMONSQUEEZY_WEBHOOK_SECRET } from "@/lib/constants";
 import UserModel from "@/models/user";
-import User from "@medialit/models";
+import { User } from "@medialit/models";
 import { cookies } from "next/headers";
 
 export async function GET() {
@@ -16,9 +16,8 @@ export async function POST(request: Request, response: Response) {
         return Response.json({ success: false });
     }
 
-    const user: any = await UserModel.findOne({
-        // userId: event.meta.custom_data.subscriberId
-        userId: event.data.id,
+    const user: User | null = await UserModel.findOne({
+        userId: event.meta.custom_data.userId,
     });
 
     if (!user) {
@@ -32,7 +31,7 @@ export async function POST(request: Request, response: Response) {
     ) {
         user.subscriptionMethod = "lemon";
         user.customerId = event.data.attributes.customer_id;
-        user.userId = event.data.id;
+        user.subscriptionId = event.data.id;
     }
     user.subscriptionStatus = getSubscripiontStatus(event);
 

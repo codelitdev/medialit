@@ -17,7 +17,7 @@ import {
 import { getUserFromSession } from "@/lib/user-handlers";
 import { Apikey } from "@medialit/models";
 import UserModel from "@/models/user";
-import User from "@medialit/models";
+import { User } from "@medialit/models";
 
 export async function authenticate(
     prevState: Record<string, unknown>,
@@ -104,14 +104,13 @@ export async function getUser(): Promise<any | null> {
 }
 
 export async function getSubscriber(): Promise<Pick<
-    // User,
-    any,
+    User,
     | "email"
+    | "active"
     | "userId"
     | "email"
     | "subscriptionEndsAfter"
     | "subscriptionStatus"
-    | "subscribedToUpdates"
 > | null> {
     const session: Session | null = await auth();
     if (!session || !session.user) {

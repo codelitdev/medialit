@@ -1,6 +1,5 @@
 import React, { ReactNode } from "react";
 import { CheckIcon } from "@radix-ui/react-icons";
-import { Button } from "@/components/ui/button";
 import {
     LEMONSQUEEZY_STORE_ID,
     LEMONSQUEEZY_PRODUCT_ID,
@@ -11,6 +10,7 @@ import ResumeSubscriptionButton from "./resume-subscription-button";
 import { auth } from "@/auth";
 import { getSubscriber } from "@/app/actions";
 import { redirect } from "next/navigation";
+import { User } from "@medialit/models";
 
 const pricingPlans = [
     {
@@ -53,7 +53,7 @@ export const PricingPane = async ({
     isSecondary = false,
 }: PricingPaneProps) => {
     const session = await auth();
-    const user: any = await getSubscriber();
+    const user: User | null = await getSubscriber();
 
     if (!user) {
         return redirect("/404");
@@ -100,7 +100,6 @@ export const PricingPane = async ({
                                           : "w-full"
                                   }
                               >
-                                  {/* {user.subscriptionStatus === "subscribed" ? "Downgrade to free" : "Current plan"} */}
                                   {user.subscriptionStatus === "not-subscribed"
                                       ? "Current plan "
                                       : "Downgrade to free"}
@@ -140,28 +139,6 @@ export const PricingPane = async ({
                     expiresAt={user.subscriptionEndsAfter}
                 />
             )}
-
-            {/* {name === "Basic" ? (
-                <Button
-                    className={
-                        isSecondary
-                            ? " w-full bg-white hover:bg-white !text-primary border border-muted-foreground mt-6 justify-center"
-                            : "w-full"
-                    }
-                >
-                    Current Plan
-                </Button>
-            ) : (
-                <Button
-                    className={
-                        isSecondary
-                            ? " w-full bg-white hover:bg-white !text-primary border border-muted-foreground mt-6 justify-center"
-                            : "w-full"
-                    }
-                >
-                    Subscribe
-                </Button>
-            )} */}
         </div>
     );
 };

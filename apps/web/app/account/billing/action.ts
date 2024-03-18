@@ -6,6 +6,7 @@ import UserModel from "@/models/user";
 import { LEMONSQUEEZY_API_KEY } from "@/lib/constants";
 import { error } from "@/utils/logger";
 import { auth } from "@/auth";
+import { User } from "@medialit/models";
 
 export async function cancelSubscription(
     prevState: Record<string, unknown>,
@@ -26,7 +27,7 @@ export async function cancelSubscription(
 
         await connectToDatabase();
 
-        const user = await UserModel.findOne({
+        const user: User | null = await UserModel.findOne({
             email: session.user.email,
         });
 
@@ -35,7 +36,7 @@ export async function cancelSubscription(
         }
 
         const response = await fetch(
-            `https://api.lemonsqueezy.com/v1/subscriptions/${user.userId}`,
+            `https://api.lemonsqueezy.com/v1/subscriptions/${user.subscriptionId}`,
             {
                 method: "DELETE",
                 headers: {
@@ -75,7 +76,7 @@ export async function resumeSubscription(
 
         await connectToDatabase();
 
-        const user = await UserModel.findOne({
+        const user: User | null = await UserModel.findOne({
             email: session.user.email,
         });
 
@@ -84,7 +85,7 @@ export async function resumeSubscription(
         }
 
         const response = await fetch(
-            `https://api.lemonsqueezy.com/v1/subscriptions/${user.userId}`,
+            `https://api.lemonsqueezy.com/v1/subscriptions/${user.subscriptionId}`,
             {
                 method: "PATCH",
                 headers: {
@@ -95,7 +96,7 @@ export async function resumeSubscription(
                 body: JSON.stringify({
                     data: {
                         type: "subscriptions",
-                        id: user.userId,
+                        id: user.subscriptionId,
                         attributes: {
                             cancelled: false,
                         },

@@ -47,14 +47,16 @@ export default function ResumeSubscriptionButton({
                 Resume subscription
             </Submit>
 
-            <p className="text-center text-sm text-slate-500">
-                Expires at{" "}
-                {new Date(expiresAt).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                })}
-            </p>
+            {currentPlan !== "Basic" && subscriptionStatus === "cancelled" && (
+                <p className="text-center text-sm text-slate-500">
+                    Expires at{" "}
+                    {new Date(expiresAt).toLocaleDateString(undefined, {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                    })}
+                </p>
+            )}
         </form>
     );
 }
@@ -73,8 +75,9 @@ function Submit({
     let className;
 
     if (currentPlan === "Basic" && subscriptionStatus === "cancelled") {
-        buttonText = "Downgrade to free";
-        className = "bg-primary hover:bg-[#333333]";
+        buttonText = "Current plan";
+        className =
+            "pointer-events-none w-full mb-6 bg-white hover:bg-white !text-muted-foreground border border-muted-foreground";
     }
 
     return (
@@ -84,7 +87,6 @@ function Submit({
             variant="secondary"
             disabled={status.pending}
         >
-            {/* {children} */}
             {buttonText}
         </Button>
     );
