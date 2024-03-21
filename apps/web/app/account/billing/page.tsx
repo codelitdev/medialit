@@ -44,7 +44,7 @@ interface PricingPaneProps {
     isSecondary?: boolean;
 }
 
-export const PricingPane = async ({
+const PricingPane = async ({
     name,
     description,
     price,

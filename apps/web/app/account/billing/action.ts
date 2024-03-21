@@ -4,9 +4,9 @@ import { Session } from "next-auth";
 import connectToDatabase from "@/lib/connect-db";
 import UserModel from "@/models/user";
 import { LEMONSQUEEZY_API_KEY } from "@/lib/constants";
-import { error } from "@/utils/logger";
 import { auth } from "@/auth";
 import { User } from "@medialit/models";
+import { error } from "@/utils/logger";
 
 export async function cancelSubscription(
     prevState: Record<string, unknown>,
