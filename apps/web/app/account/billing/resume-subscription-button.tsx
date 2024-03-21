@@ -48,7 +48,10 @@ export default function ResumeSubscriptionButton({
             </Submit>
 
             {currentPlan !== "Basic" && subscriptionStatus === "cancelled" && (
-                <p className="text-center text-sm text-slate-500">
+                <p
+                    className="text-center text-sm text-slate-500"
+                    suppressHydrationWarning={true}
+                >
                     Expires at{" "}
                     {new Date(expiresAt).toLocaleDateString(undefined, {
                         day: "numeric",
@@ -77,12 +80,12 @@ function Submit({
     if (currentPlan === "Basic" && subscriptionStatus === "cancelled") {
         buttonText = "Current plan";
         className =
-            "pointer-events-none w-full mb-6 bg-white hover:bg-white !text-muted-foreground border border-muted-foreground";
+            "pointer-events-none w-full mb-5 bg-white hover:bg-white !text-muted-foreground border border-muted-foreground";
     }
 
     return (
         <Button
-            className={`bg-red-500 hover:bg-red-700 w-full text-white mb-2 ${className}`}
+            className={`bg-red-500 hover:bg-red-700 w-full text-white mb-1 ${className}`}
             type="submit"
             variant="secondary"
             disabled={status.pending}
