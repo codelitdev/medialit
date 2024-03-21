@@ -1,7 +1,6 @@
 import { LEMONSQUEEZY_WEBHOOK_SECRET } from "@/lib/constants";
 import UserModel from "@/models/user";
 import { User } from "@medialit/models";
-import { cookies } from "next/headers";
 
 export async function GET() {
     return Response.json({ success: true });
