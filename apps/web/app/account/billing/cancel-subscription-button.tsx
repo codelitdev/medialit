@@ -79,7 +79,7 @@ export default function CancelSubscriptionButton({
                             <DialogHeader>
                                 <DialogTitle>Cancel subscription</DialogTitle>
                             </DialogHeader>
-                            Are you sure, you want to Cancel subscription?
+                            Are you sure, you want to cancel subscription?
                         </>
                     )}
 

@@ -1,4 +1,1 @@
-db.subscribers.updateMany(
-    {},
-    { $set: { subscriptionStatus: "not-subscribed" } }
-);
+db.users.updateMany({}, { $set: { subscriptionStatus: "not-subscribed" } });
