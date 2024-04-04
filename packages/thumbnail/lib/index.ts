@@ -49,14 +49,11 @@ const thumbGenerator = (
             } else {
                 input = source;
             }
-            convert = spawn("convert", [
-                input,
-                "-thumbnail",
-                `${options.width}x${options.height}${
-                    (options as ImageOptions).preserveAspectRatio ? "" : "!"
-                }`,
-                destination,
-            ]);
+            const scriptPath = path.resolve(
+                __dirname,
+                "../bin/generate-thumbnail.sh"
+            );
+            convert = spawn(scriptPath, [input, destination]);
         } else {
             convert = spawn(
                 "ffmpeg",

@@ -9,7 +9,7 @@
     "name": "The CodeLit Team",
     "email": "hi@rajatsaxena.dev"
   },
-  "homepage": "https://github.com/codelitdev/medialit",
+  "homepage": "https://github.com/codelitdev/courselit#readme",
   "license": "MIT",
   "main": "dist/index.js",
   "bin": {

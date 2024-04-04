@@ -50,6 +50,7 @@ COPY --chown=node:node --from=build /app/pnpm-lock.yaml /app/pnpm-lock.yaml
 COPY --chown=node:node --from=build /app/pnpm-workspace.yaml /app/pnpm-workspace.yaml
 COPY --chown=node:node --from=build /app/packages/thumbnail/package.json /app/packages/thumbnail/package.json
 COPY --chown=node:node --from=build /app/packages/thumbnail/dist /app/packages/thumbnail/dist  
+COPY --chown=node:node --from=build /app/packages/thumbnail/bin /app/packages/thumbnail/bin 
 COPY --chown=node:node --from=build /app/packages/images/package.json /app/packages/images/package.json
 COPY --chown=node:node --from=build /app/packages/images/dist /app/packages/images/dist
 COPY --chown=node:node --from=build /app/packages/utils/package.json /app/packages/utils/package.json

@@ -28,7 +28,7 @@ apt install imagemagick ffmpeg
 With default options
 
 ```
-const mt = require('@medialit/thumbnail')
+const mt = require('@courselit/thumbnail')
 
 mt.forImage(
   './path/to/file.png',
@@ -39,7 +39,7 @@ mt.forImage(
 With custom options
 
 ```
-const mt = require('@medialit/thumbnail')
+const mt = require('@courselit/thumbnail')
 
 mt.forImage(
   './path/to/file.png',
