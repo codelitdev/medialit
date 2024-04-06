@@ -34,6 +34,6 @@ else
 fi
 
 # Generate the thumbnail
-ffmpeg -i "$input_image" -vf "crop=${target_width}:${target_height}:0:0,scale=${target_width}:${final_height}" -frames:v 1 "$output_thumbnail"
+ffmpeg -y -i "$input_image" -vf "crop=${target_width}:${target_height},scale=${target_width}:${final_height}" -frames:v 1 "$output_thumbnail"
 
 echo "Thumbnail generated: $output_thumbnail"

@@ -33,7 +33,7 @@ We build on Linux based systems. Hence the instructions are for those system onl
 ### Install the utilities
 
 ```bash
-sudo apt install ffmpeg imagemagick webp
+sudo apt install ffmpeg webp
 ```
 
 ### Install dependencies

@@ -35,7 +35,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
 # install required softwares
-RUN apt-get update && apt-get -y install ffmpeg imagemagick webp
+RUN apt-get update && apt-get -y install ffmpeg webp
 
 # set environment
 ENV NODE_ENV production

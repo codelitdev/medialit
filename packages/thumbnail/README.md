@@ -2,7 +2,9 @@
 
 > Create thumbnails from your image and video files for your Node.js based application.
 
-For generating thumbnails, this package uses imagemagick (for images) and ffmpeg (for videos) utilities, so make sure those are installed on your machine before using this package.
+The generated thumbnails are going to be of `16:9` aspect ratio.
+
+For generating thumbnails, this package uses ffmpeg (for videos) utilities, so make sure that is installed on your machine before using this package.
 
 _Note: This module will always overwrite the thumbnail file, if already exists._
 
@@ -20,7 +22,7 @@ npm install @medialit/thumbnail
 **NOTE**: You need to have the following softwares installed on your machine to use this package. For Ubuntu, the command is listed.
 
 ```
-apt install imagemagick ffmpeg
+apt install ffmpeg
 ```
 
 ## Usage
@@ -36,22 +38,6 @@ mt.forImage(
   .then(() => console.log('Success'), err => console.error(err))
 ```
 
-With custom options
-
-```
-const mt = require('@medialit/thumbnail')
-
-mt.forImage(
-  './path/to/file.png',
-  './path/to/thumb.png',
-  {
-    width: 100,
-    height: 100,
-    preserveAspectRatio: false
-  })
-  .then(() => console.log('Success'), err => console.error(err))
-```
-
 ## API
 
 ### forImage(source, destination, [options])
@@ -64,12 +50,6 @@ An absolute or relative path to the original image.
 
 An absolute or relative path to the thumbnail folder.
 
-**options**
-
-1. width [number]: Preferred width of the thumbnail. Defaults to '100'.
-2. height [number]: Preferred height of the thumnail. Defaults to '100'.
-3. preserveAspectRatio [boolean]: If set to `false`, only then the resulting thumbnail will be of specified width x height. Otherwise the width of the resulting thumbnail would be min(width, height) and the aspect ratio will be preserved. Defaults to `true`.
-
 ### forVideo(source, destination, [options])
 
 **source**
@@ -80,7 +60,6 @@ An absolute or relative path to the original video.
 
 An absolute or relative path to the thumbnail folder.
 
-**options**
+## Debugging
 
-1. width [number]: Preferred width of the thumbnail. Defaults to '100'.
-2. height [number]: Preferred height of the thumnail. Defaults to '-1'. This default preserves the aspect ratio.
+Set the environment variable `DEBUG` to `true` to see logs.
