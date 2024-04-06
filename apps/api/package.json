@@ -1,6 +1,6 @@
 {
   "name": "@medialit/api",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "private": true,
   "description": "The service for managing uploads, users and tying everthing together",
   "author": {
