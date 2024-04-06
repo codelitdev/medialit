@@ -58,5 +58,5 @@ pnpm --filter=@medialit/api dev
 ### Publishing a new version
 
 ```bash
-npx changeset
+pnpm exec changeset
 ```
