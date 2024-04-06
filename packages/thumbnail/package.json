@@ -9,9 +9,12 @@
     "name": "The CodeLit Team",
     "email": "hi@rajatsaxena.dev"
   },
-  "homepage": "https://github.com/codelitdev/courselit#readme",
+  "homepage": "https://github.com/codelitdev/medialit",
   "license": "MIT",
   "main": "dist/index.js",
+  "bin": {
+    "generate-thumbnail": "./bin/generate-thumbnail.sh"
+  },
   "directories": {
     "lib": "lib",
     "test": "__tests__"

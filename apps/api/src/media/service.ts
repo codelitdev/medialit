@@ -56,16 +56,11 @@ const generateAndUploadThumbnail = async ({
 
     let isThumbGenerated = false; // to indicate if the thumbnail name is to be saved to the DB
     if (imagePatternIncludingGif.test(mimetype)) {
-        await thumbnail.forImage(originalFilePath, thumbPath, {
-            width: thumbnailWidth,
-        });
+        await thumbnail.forImage(originalFilePath, thumbPath);
         isThumbGenerated = true;
     }
     if (videoPattern.test(mimetype)) {
-        await thumbnail.forVideo(originalFilePath, thumbPath, {
-            width: thumbnailWidth,
-            height: thumbnailHeight,
-        });
+        await thumbnail.forVideo(originalFilePath, thumbPath);
         isThumbGenerated = true;
     }
 
