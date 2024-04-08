@@ -4,6 +4,8 @@
 input_image="$1"
 # Output thumbnail path
 output_thumbnail="$2"
+# Crop the image to 16:9 if necessary and resize to a lower resolution if height > desired_height, otherwise keep original height
+desired_height=${3:-480}
 
 # Check if input image is provided
 if [[ -z "$input_image" ]]; then
@@ -25,12 +27,12 @@ else
   target_width=$width
 fi
 
-# Crop the image to 16:9 if necessary and resize to 720p if height > 720, otherwise keep original height
-if [ $target_height -le 720 ]; then
-  final_height=$target_height
+
+if [ $target_height -le $desired_height ]; then
+    final_height=$target_height
 else
-  final_height=720
-  target_width=$((final_height * 16 / 9))
+    final_height=$desired_height
+    target_width=$((final_height * 16 / 9))
 fi
 
 # Generate the thumbnail
