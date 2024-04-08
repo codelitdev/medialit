@@ -1,5 +1,11 @@
 # @medialit/thumbnail
 
+## 0.0.27
+
+### Patch Changes
+
+-   0ecea51: Reduced the size of generated thumbnails
+
 ## 0.0.26
 
 ### Patch Changes
