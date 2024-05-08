@@ -37,7 +37,7 @@ import {
 } from "./queries";
 import * as presignedUrlService from "../presigning/service";
 import getTags from "./utils/get-tags";
-import { getMainFileUrl, getThumbnailUrl } from "./utils/get-cdn-urls";
+import { getMainFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -122,8 +122,10 @@ async function upload({
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            extension: fileExtension,
-            type: "main",
+            access: access === "public" ? "public" : "private",
+            filename: `main.${fileExtension}`,
+            // extension: fileExtension,
+            // type: "main",
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
@@ -142,7 +144,9 @@ async function upload({
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                type: "thumb",
+                access: "public",
+                filename: "thumb.webp",
+                // type: "thumb",
             }),
             tags,
         });
@@ -249,10 +253,17 @@ async function getMediaDetails({
                 ? await generateSignedUrl({
                       name: generateKey({
                           mediaId: media.mediaId,
-                          extension: path
+                          access:
+                              media.accessControl === "private"
+                                  ? "private"
+                                  : "public",
+                          filename: `main.${path
                               .extname(media.fileName)
-                              .replace(".", ""),
-                          type: "main",
+                              .replace(".", "")}`,
+                          //   extension: path
+                          //       .extname(media.fileName)
+                          //       .replace(".", ""),
+                          //   type: "main",
                       }),
                   })
                 : getMainFileUrl(media),
@@ -278,16 +289,20 @@ async function deleteMedia({
 
     const key = generateKey({
         mediaId,
-        extension: media.mimeType.split("/")[1],
-        type: "main",
+        access: media.accessControl === "private" ? "private" : "public",
+        filename: `main.${media.fileName.split(".")[1]}`,
+        // extension: media.mimeType.split("/")[1],
+        // type: "main",
     });
     await deleteObject({ Key: key });
 
     if (media.thumbnailGenerated) {
         const thumbKey = generateKey({
             mediaId,
-            extension: media.mimeType.split("/")[1],
-            type: "thumb",
+            access: "public",
+            filename: "thumb.webp",
+            // extension: media.mimeType.split("/")[1],
+            // type: "thumb",
         });
         await deleteObject({ Key: thumbKey });
     }
