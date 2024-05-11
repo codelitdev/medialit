@@ -2,6 +2,31 @@
 
 MediaLit is a Node.js based app to store, convert and optimise the media files on any AWS S3 compatible storage.
 
+## Setting up correct access on AWS S3 bucket
+
+Before you start uploading to your bucket, make sure you have set up the correct access on your S3 bucket.
+
+### 1. Without Cloudfront
+
+![BLock public access](./apps/api/assets/without-cloudfront.png)
+
+### 2. With Cloudfront
+
+![BLock public access](./apps/api/assets/with-cloudfront.png)
+
+## Using Cloudfront
+
+If you need to use a Cloudfront CDN, you can enable it in the app, by setting up the following values in your .env file.
+
+```sh
+USE_CLOUDFRONT=true
+CLOUDFRONT_ENDPOINT=CLOUDFRONT_DISTRIBUTION_NAME
+CLOUDFRONT_PRIVATE_KEY="PRIVATE_KEY"
+CLOUDFRONT_KEY_PAIR_ID=KEY_PAIR_ID
+```
+
+We assume that since you are using Cloudfront, you have locked down your bucket from public access. Therefore, all the files uploaded to the bucket will have ACL set to `private` i.e. they will require signed URLs in order to access them.
+
 ## Enable trust proxy
 
 This app is based on [Express](https://expressjs.com/) which cannot work reliably when it is behind a proxy. For example, it cannot detect if it behind a proxy.

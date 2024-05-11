@@ -5,9 +5,8 @@ import {
     tempFileDirForUploads,
     imagePattern,
     videoPattern,
-    thumbnailWidth,
-    thumbnailHeight,
     imagePatternIncludingGif,
+    USE_CLOUDFRONT,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -18,6 +17,7 @@ import {
 import type { MediaWithUserId } from "./model";
 import {
     generateSignedUrl,
+    generateCDNSignedUrl,
     putObject,
     deleteObject,
     UploadParams,
@@ -69,7 +69,7 @@ const generateAndUploadThumbnail = async ({
             Key: key,
             Body: createReadStream(thumbPath),
             ContentType: "image/webp",
-            ACL: "public-read",
+            ACL: USE_CLOUDFRONT ? "private" : "public-read",
             Tagging: tags,
         });
     }
@@ -129,7 +129,11 @@ async function upload({
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
-        ACL: access === "public" ? "public-read" : "private",
+        ACL: USE_CLOUDFRONT
+            ? "private"
+            : access === "public"
+            ? "public-read"
+            : "private",
     };
     const tags = getTags(userId, group);
     uploadParams.Tagging = tags;
@@ -242,6 +246,16 @@ async function getMediaDetails({
         return null;
     }
 
+    const key = generateKey({
+        mediaId: media.mediaId,
+        access: media.accessControl === "private" ? "private" : "public",
+        filename: `main.${path.extname(media.fileName).replace(".", "")}`,
+        //   extension: path
+        //       .extname(media.fileName)
+        //       .replace(".", ""),
+        //   type: "main",
+    });
+
     return {
         mediaId: media.mediaId,
         originalFileName: media.originalFileName,
@@ -250,22 +264,9 @@ async function getMediaDetails({
         access: media.accessControl === "private" ? "private" : "public",
         file:
             media.accessControl === "private"
-                ? await generateSignedUrl({
-                      name: generateKey({
-                          mediaId: media.mediaId,
-                          access:
-                              media.accessControl === "private"
-                                  ? "private"
-                                  : "public",
-                          filename: `main.${path
-                              .extname(media.fileName)
-                              .replace(".", "")}`,
-                          //   extension: path
-                          //       .extname(media.fileName)
-                          //       .replace(".", ""),
-                          //   type: "main",
-                      }),
-                  })
+                ? USE_CLOUDFRONT
+                    ? generateCDNSignedUrl(key)
+                    : await generateSignedUrl(key)
                 : getMainFileUrl(media),
         thumbnail: media.thumbnailGenerated
             ? getThumbnailUrl(media.mediaId)
