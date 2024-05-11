@@ -38,6 +38,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.55.0
         version: 3.454.0
+      '@aws-sdk/cloudfront-signer':
+        specifier: ^3.572.0
+        version: 3.572.0
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.55.0
         version: 3.454.0
@@ -576,6 +579,14 @@ packages:
       tslib: 2.6.2
     transitivePeerDependencies:
       - aws-crt
+    dev: false
+
+  /@aws-sdk/cloudfront-signer@3.572.0:
+    resolution: {integrity: sha512-Y7yejAD+8cR8j9rdPmJ84ZTOi1vXw2wVfTL4GRRnfuFCELCYDE7HoHm7y2715AvKMGHk8lM+me6YK89lijwTFQ==}
+    engines: {node: '>=16.0.0'}
+    dependencies:
+      '@smithy/url-parser': 2.2.0
+      tslib: 2.6.2
     dev: false
 
   /@aws-sdk/core@3.451.0:
@@ -2996,6 +3007,14 @@ packages:
       tslib: 2.6.2
     dev: false
 
+  /@smithy/querystring-parser@2.2.0:
+    resolution: {integrity: sha512-BvHCDrKfbG5Yhbpj4vsbuPV2GgcpHiAkLeIlcA1LtfpMz3jrqizP1+OguSNSj1MwBHEiN+jwNisXLGdajGDQJA==}
+    engines: {node: '>=14.0.0'}
+    dependencies:
+      '@smithy/types': 2.12.0
+      tslib: 2.6.2
+    dev: false
+
   /@smithy/service-error-classification@2.0.6:
     resolution: {integrity: sha512-fCQ36frtYra2fqY2/DV8+3/z2d0VB/1D1hXbjRcM5wkxTToxq6xHbIY/NGGY6v4carskMyG8FHACxgxturJ9Pg==}
     engines: {node: '>=14.0.0'}
@@ -3035,6 +3054,13 @@ packages:
       tslib: 2.6.2
     dev: false
 
+  /@smithy/types@2.12.0:
+    resolution: {integrity: sha512-QwYgloJ0sVNBeBuBs65cIkTbfzV/Q6ZNPCJ99EICFEdJYG50nGIY/uYXp+TbsdJReIuPr0a0kXmCvren3MbRRw==}
+    engines: {node: '>=14.0.0'}
+    dependencies:
+      tslib: 2.6.2
+    dev: false
+
   /@smithy/types@2.5.0:
     resolution: {integrity: sha512-/a31lYofrMBkJb3BuPlYJTMKDj0hUmKUP6JFZQu6YVuQVoAjubiY0A52U9S0Uysd33n/djexCUSNJ+G9bf3/aA==}
     engines: {node: '>=14.0.0'}
@@ -3047,6 +3073,14 @@ packages:
     dependencies:
       '@smithy/querystring-parser': 2.0.13
       '@smithy/types': 2.5.0
+      tslib: 2.6.2
+    dev: false
+
+  /@smithy/url-parser@2.2.0:
+    resolution: {integrity: sha512-hoA4zm61q1mNTpksiSWp2nEl1dt3j726HdRhiNgVJQMj7mLp7dprtF57mOB6JvEk/x9d2bsuL5hlqZbBuHQylQ==}
+    dependencies:
+      '@smithy/querystring-parser': 2.2.0
+      '@smithy/types': 2.12.0
       tslib: 2.6.2
     dev: false
 

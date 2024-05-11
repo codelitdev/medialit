@@ -5,9 +5,8 @@ import {
     tempFileDirForUploads,
     imagePattern,
     videoPattern,
-    thumbnailWidth,
-    thumbnailHeight,
     imagePatternIncludingGif,
+    USE_CLOUDFRONT,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -18,6 +17,7 @@ import {
 import type { MediaWithUserId } from "./model";
 import {
     generateSignedUrl,
+    generateCDNSignedUrl,
     putObject,
     deleteObject,
     UploadParams,
@@ -37,7 +37,7 @@ import {
 } from "./queries";
 import * as presignedUrlService from "../presigning/service";
 import getTags from "./utils/get-tags";
-import { getMainFileUrl, getThumbnailUrl } from "./utils/get-cdn-urls";
+import { getMainFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -69,7 +69,7 @@ const generateAndUploadThumbnail = async ({
             Key: key,
             Body: createReadStream(thumbPath),
             ContentType: "image/webp",
-            ACL: "public-read",
+            ACL: USE_CLOUDFRONT ? "private" : "public-read",
             Tagging: tags,
         });
     }
@@ -122,12 +122,16 @@ async function upload({
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            extension: fileExtension,
-            type: "main",
+            access: access === "public" ? "public" : "private",
+            filename: `main.${fileExtension}`,
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
-        ACL: access === "public" ? "public-read" : "private",
+        ACL: USE_CLOUDFRONT
+            ? "private"
+            : access === "public"
+            ? "public-read"
+            : "private",
     };
     const tags = getTags(userId, group);
     uploadParams.Tagging = tags;
@@ -142,7 +146,8 @@ async function upload({
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                type: "thumb",
+                access: "public",
+                filename: "thumb.webp",
             }),
             tags,
         });
@@ -238,6 +243,12 @@ async function getMediaDetails({
         return null;
     }
 
+    const key = generateKey({
+        mediaId: media.mediaId,
+        access: media.accessControl === "private" ? "private" : "public",
+        filename: `main.${path.extname(media.fileName).replace(".", "")}`,
+    });
+
     return {
         mediaId: media.mediaId,
         originalFileName: media.originalFileName,
@@ -246,15 +257,9 @@ async function getMediaDetails({
         access: media.accessControl === "private" ? "private" : "public",
         file:
             media.accessControl === "private"
-                ? await generateSignedUrl({
-                      name: generateKey({
-                          mediaId: media.mediaId,
-                          extension: path
-                              .extname(media.fileName)
-                              .replace(".", ""),
-                          type: "main",
-                      }),
-                  })
+                ? USE_CLOUDFRONT
+                    ? generateCDNSignedUrl(key)
+                    : await generateSignedUrl(key)
                 : getMainFileUrl(media),
         thumbnail: media.thumbnailGenerated
             ? getThumbnailUrl(media.mediaId)
@@ -278,16 +283,16 @@ async function deleteMedia({
 
     const key = generateKey({
         mediaId,
-        extension: media.mimeType.split("/")[1],
-        type: "main",
+        access: media.accessControl === "private" ? "private" : "public",
+        filename: `main.${media.fileName.split(".")[1]}`,
     });
     await deleteObject({ Key: key });
 
     if (media.thumbnailGenerated) {
         const thumbKey = generateKey({
             mediaId,
-            extension: media.mimeType.split("/")[1],
-            type: "thumb",
+            access: "public",
+            filename: "thumb.webp",
         });
         await deleteObject({ Key: thumbKey });
     }

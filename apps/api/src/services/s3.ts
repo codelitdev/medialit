@@ -1,5 +1,5 @@
 import { ReadStream } from "fs";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { getSignedUrl as getS3SignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
     S3Client,
     PutObjectCommand,
@@ -13,7 +13,12 @@ import {
     cloudSecret,
     cloudBucket,
     cloudRegion,
+    CLOUDFRONT_KEY_PAIR_ID,
+    CLOUDFRONT_PRIVATE_KEY,
+    CDN_MAX_AGE,
+    CLOUDFRONT_ENDPOINT,
 } from "../config/constants";
+import { getSignedUrl as getCfSignedUrl } from "@aws-sdk/cloudfront-signer";
 
 export interface UploadParams {
     Key: string;
@@ -65,14 +70,29 @@ export const getObjectTagging = async (params: { Key: string }) => {
     return response;
 };
 
-export const generateSignedUrl = async ({
-    name,
-    mimetype,
-}: PresignedURLParams): Promise<string> => {
+export const generateSignedUrl = async (key: string): Promise<string> => {
     const command = new GetObjectCommand({
         Bucket: cloudBucket,
-        Key: name,
+        Key: key,
     });
-    const url = await getSignedUrl(s3Client, command);
+    const url = await getS3SignedUrl(s3Client, command);
+    return url;
+};
+
+export const generateCDNSignedUrl = (key: string): string => {
+    if (
+        !CLOUDFRONT_ENDPOINT ||
+        !CLOUDFRONT_KEY_PAIR_ID ||
+        !CLOUDFRONT_PRIVATE_KEY
+    ) {
+        throw new Error("CDN configuration is missing");
+    }
+
+    const url = getCfSignedUrl({
+        url: `${CLOUDFRONT_ENDPOINT}/${key}`,
+        keyPairId: CLOUDFRONT_KEY_PAIR_ID,
+        privateKey: CLOUDFRONT_PRIVATE_KEY,
+        dateLessThan: new Date(Date.now() + CDN_MAX_AGE).toISOString(),
+    });
     return url;
 };
