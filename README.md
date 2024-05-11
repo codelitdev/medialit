@@ -27,6 +27,15 @@ CLOUDFRONT_KEY_PAIR_ID=KEY_PAIR_ID
 
 We assume that since you are using Cloudfront, you have locked down your bucket from public access. Therefore, all the files uploaded to the bucket will have ACL set to `private` i.e. they will require signed URLs in order to access them.
 
+### Generating a key pair
+
+Use the following commands to generate a key pair to be used above.
+
+```sh
+openssl genrsa -out private_key.pem 2048
+openssl rsa -pubout -in private_key.pem -out public_key.pem
+```
+
 ## Enable trust proxy
 
 This app is based on [Express](https://expressjs.com/) which cannot work reliably when it is behind a proxy. For example, it cannot detect if it behind a proxy.
