@@ -124,8 +124,6 @@ async function upload({
             mediaId: fileName.name,
             access: access === "public" ? "public" : "private",
             filename: `main.${fileExtension}`,
-            // extension: fileExtension,
-            // type: "main",
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
@@ -150,7 +148,6 @@ async function upload({
                 mediaId: fileName.name,
                 access: "public",
                 filename: "thumb.webp",
-                // type: "thumb",
             }),
             tags,
         });
@@ -250,10 +247,6 @@ async function getMediaDetails({
         mediaId: media.mediaId,
         access: media.accessControl === "private" ? "private" : "public",
         filename: `main.${path.extname(media.fileName).replace(".", "")}`,
-        //   extension: path
-        //       .extname(media.fileName)
-        //       .replace(".", ""),
-        //   type: "main",
     });
 
     return {
@@ -292,8 +285,6 @@ async function deleteMedia({
         mediaId,
         access: media.accessControl === "private" ? "private" : "public",
         filename: `main.${media.fileName.split(".")[1]}`,
-        // extension: media.mimeType.split("/")[1],
-        // type: "main",
     });
     await deleteObject({ Key: key });
 
@@ -302,8 +293,6 @@ async function deleteMedia({
             mediaId,
             access: "public",
             filename: "thumb.webp",
-            // extension: media.mimeType.split("/")[1],
-            // type: "thumb",
         });
         await deleteObject({ Key: thumbKey });
     }
