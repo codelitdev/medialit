@@ -14,7 +14,7 @@ export default function Scripts() {
         }
 
         fetchConfig();
-    });
+    }, []);
 
     if (!result) {
         return null;
