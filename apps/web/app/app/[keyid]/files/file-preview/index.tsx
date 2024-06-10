@@ -66,6 +66,17 @@ export default function FilePreview({
                             </div>
                             <div className="flex flex-col">
                                 <Label htmlFor="filename" className="mb-2">
+                                    Caption
+                                </Label>
+                                <Input
+                                    type="textarea"
+                                    value={media.caption}
+                                    disabled={true}
+                                    name="caption"
+                                />
+                            </div>
+                            <div className="flex flex-col">
+                                <Label htmlFor="filename" className="mb-2">
                                     Group
                                 </Label>
                                 <Input
