@@ -1,23 +1,10 @@
-import { getPlan } from "../plan/queries";
-import { Subscription } from "./model";
-import { getSubscription } from "./queries";
+import { getUser } from "../user/queries";
 
 export async function validateSubscription(userId: string) {
-    const subscription: Subscription | null = await getSubscription(userId);
-    const validSubscription =
-        subscription && isSubscriptionValid(subscription.endsAt);
-    if (!validSubscription) {
-        return false;
-    }
-
-    const plan = await getPlan(subscription!.planId.toString());
-    if (!plan) {
-        return false;
-    }
-
-    return true;
+    const user = await getUser(userId);
+    return user && isDateInFuture(user.subscriptionEndsAfter);
 }
 
-function isSubscriptionValid(dateStr: Date): boolean {
+function isDateInFuture(dateStr: Date): boolean {
     return new Date(dateStr).getTime() > new Date().getTime();
 }
