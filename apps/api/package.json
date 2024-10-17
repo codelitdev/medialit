@@ -2,14 +2,14 @@
   "name": "@medialit/api",
   "version": "0.0.27",
   "private": true,
-  "description": "The service for managing uploads, users and tying everthing together",
+  "description": "A better API to manage your files on AWS S3 compatible cloud storages",
   "author": {
     "name": "The CodeLit Team",
-    "email": "hi@rajatsaxena.dev"
+    "email": "hi@codelit.dev"
   },
-  "homepage": "https://github.com/codelitdev/cloud-upload-service#readme",
+  "homepage": "https://github.com/codelitdev/medialit#readme",
   "license": "AGPL-3.0-or-later",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "directories": {
     "lib": "lib",
     "test": "__tests__"
@@ -19,10 +19,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codelitdev/cloud-upload-service.git"
+    "url": "git+https://github.com/codelitdev/medialit.git"
   },
   "bugs": {
-    "url": "https://github.com/codelitdev/cloud-upload-service/issues"
+    "url": "https://github.com/codelitdev/medialit/issues"
   },
   "scripts": {
     "build": "tsc",
