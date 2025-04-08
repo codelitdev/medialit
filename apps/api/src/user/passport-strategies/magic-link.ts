@@ -27,7 +27,7 @@ export default new Strategy(
                   subject: `Sign in to ${appName}`,
                   body: emailBody,
               })
-            : console.log(`Login link: ${magiclink}`); // eslint-disable-line no-console
+            : console.log(`Login link: ${magiclink}`);
     },
     async (req: any, user: User) => {
         let dbUser: User | null = await findByEmail(user.email);
@@ -37,5 +37,5 @@ export default new Strategy(
         }
 
         return dbUser.active ? dbUser : null;
-    }
+    },
 );

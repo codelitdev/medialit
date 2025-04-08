@@ -17,13 +17,12 @@ import {
     DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 
-export default async function Media({
-    params,
-    searchParams,
-}: {
-    params: { keyid: string };
-    searchParams: { page: string };
+export default async function Media(props: {
+    params: Promise<{ keyid: string }>;
+    searchParams: Promise<{ page: string }>;
 }) {
+    const searchParams = await props.searchParams;
+    const params = await props.params;
     const session = await auth();
     if (!session) {
         redirect("/login");
@@ -42,6 +41,7 @@ export default async function Media({
             ? Math.ceil(totalMediaCount.count / Number(mediasPerPage))
             : 0;
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
         totalPages === 0 ? (totalPages = 1) : totalPages;
     } catch (error: any) {
         return <div>Something went wrong: {error.message}</div>;

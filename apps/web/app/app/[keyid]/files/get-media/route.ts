@@ -28,7 +28,7 @@ export async function POST(request: Request, response: Response) {
     const internalApikey = await getInternalApikey(dbUser._id);
 
     if (!internalApikey) {
-        console.error("Internal apikey not found for user", dbUser._id); // eslint-disable-line no-console
+        console.error("Internal apikey not found for user", dbUser._id);
         throw new Error("We messed up. Please try again later.");
     }
     const apikey = await getApikeyFromKeyId(dbUser._id, keyId);

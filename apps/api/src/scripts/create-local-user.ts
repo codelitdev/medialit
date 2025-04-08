@@ -6,7 +6,6 @@ import { Apikey } from "@medialit/models";
 const args = process.argv.slice(2);
 const email = args[0];
 if (!email) {
-    // eslint-disable-next-line
     console.error("Error: Please provide an email address to setup an account");
     process.exit(1);
 }
@@ -21,16 +20,16 @@ if (!email) {
             active: true,
             name: "Admin",
             subscriptionEndsAfter: new Date(
-                new Date().setFullYear(new Date().getFullYear() + 100)
+                new Date().setFullYear(new Date().getFullYear() + 100),
             ),
         });
 
         // Create an API key
         const apikey: Apikey = await createApiKey(user.id, "internal");
 
-        console.log(`\nSuccess! Your API key: ${apikey.key}\n`); // eslint-disable-line no-console
+        console.log(`\nSuccess! Your API key: ${apikey.key}\n`);
     } catch (e: any) {
-        console.error(e); // eslint-disable-line no-console
+        console.error(e);
     } finally {
         disconnect();
     }

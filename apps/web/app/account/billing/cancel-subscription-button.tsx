@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import { cancelSubscription } from "./action";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useActionState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import {
@@ -24,7 +24,7 @@ export default function CancelSubscriptionButton({
     subscriptionStatus: string;
     currentPlan: string;
 }) {
-    const [formState, formAction] = useFormState(cancelSubscription, {
+    const [formState, formAction] = useActionState(cancelSubscription, {
         success: false,
     });
     const { toast } = useToast();

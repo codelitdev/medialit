@@ -17,7 +17,7 @@ describe("API key test suite", () => {
                 json: (data: any) => data,
             }),
         };
-        const response = await createApikey(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await createApikey(req, res, () => {});
         assert.strictEqual(response.error, "Name is required");
     });
 
@@ -36,9 +36,9 @@ describe("API key test suite", () => {
             }),
         };
         mock.method(queries, "createApiKey").mock.mockImplementation(
-            async () => ({ key: "123" })
+            async () => ({ key: "123" }),
         );
-        const response = await createApikey(req, res, () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
+        const response = await createApikey(req, res, () => {});
         assert.strictEqual(response.key, "123");
     });
 });

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import React, { useEffect, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useState } from "react";
 import { redirect, useRouter } from "next/navigation";
 
@@ -23,9 +23,9 @@ import { createNewApiKey } from "@/app/actions";
 
 export default function NewApp() {
     const [open, setOpen] = useState(false);
-    const [apiKeyFormState, createApiKeyFormAction] = useFormState(
+    const [apiKeyFormState, createApiKeyFormAction] = useActionState(
         createNewApiKey,
-        { success: false }
+        { success: false },
     );
 
     const [apiKey, setApiKey] = useState("");
@@ -44,7 +44,7 @@ export default function NewApp() {
                         altText="Go to app"
                         onClick={() => {
                             router.push(
-                                `/app/${encodeURIComponent(apiKey)}/files`
+                                `/app/${encodeURIComponent(apiKey)}/files`,
                             );
                         }}
                     >

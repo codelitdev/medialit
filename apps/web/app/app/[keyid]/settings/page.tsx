@@ -9,13 +9,11 @@ import DeleteAppButton from "./delete-app-button";
 import { Separator } from "@/components/ui/separator";
 import { getTotalSpaceByApikey } from "./actions";
 
-export default async function Settings({
-    params,
-    searchParams,
-}: {
-    params: { keyid: string };
-    searchParams: { page: string };
+export default async function Settings(props: {
+    params: Promise<{ keyid: string }>;
+    searchParams: Promise<{ page: string }>;
 }) {
+    const params = await props.params;
     const session = await auth();
     if (!session) {
         redirect("/login");

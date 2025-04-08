@@ -15,7 +15,7 @@ const thumbGenerator = (source: string, destination: string, type: mediaType) =>
         let convert;
         const scriptPath = path.resolve(
             __dirname,
-            "../bin/generate-thumbnail.sh"
+            "../bin/generate-thumbnail.sh",
         );
         if (type === IMAGE_TYPE) {
             let input;
@@ -29,7 +29,7 @@ const thumbGenerator = (source: string, destination: string, type: mediaType) =>
             convert = spawn(
                 `ffmpeg -y -i "${source}" -vframes 1 -filter:v scale="-2:720" ${destination} && ${scriptPath} ${destination} ${destination}`,
                 [],
-                { shell: true }
+                { shell: true },
             );
             // convert = spawn(
             //     "ffmpeg",
@@ -47,7 +47,6 @@ const thumbGenerator = (source: string, destination: string, type: mediaType) =>
 
         if (process.env.DEBUG === "true") {
             convert.stderr.on("data", (data: any) => {
-                // eslint-disable-next-line no-console
                 console.error(data.toString());
             });
         }

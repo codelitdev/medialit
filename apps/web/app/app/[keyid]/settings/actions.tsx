@@ -9,7 +9,7 @@ import ApikeyModel from "@/models/apikey";
 
 export async function updateAppName(
     previousState: Record<string, unknown>,
-    formData: FormData
+    formData: FormData,
 ) {
     const newName = formData.get("newName") as string;
     const keyId = formData.get("keyId") as string;
@@ -38,7 +38,7 @@ export async function updateAppName(
                 userId: dbUser._id,
                 keyId,
             },
-            { $set: { name: newName } }
+            { $set: { name: newName } },
         );
 
         return { success: true };
@@ -63,7 +63,7 @@ export async function getTotalSpaceByApikey(keyid: string): Promise<number> {
     const internalApikey = await getInternalApikey(dbUser._id);
 
     if (!internalApikey) {
-        console.error("Internal apikey not found for user", dbUser._id); // eslint-disable-line no-console
+        console.error("Internal apikey not found for user", dbUser._id);
         throw new Error("We messed up. Please try again later.");
     }
     const apikey = await getApikeyFromKeyId(dbUser._id, keyid);
@@ -80,7 +80,7 @@ export async function getTotalSpaceByApikey(keyid: string): Promise<number> {
 
         return response.count;
     } catch (e) {
-        console.error(e); // eslint-disable-line no-console
+        console.error(e);
         return 0;
     }
 }

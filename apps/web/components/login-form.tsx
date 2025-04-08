@@ -1,20 +1,23 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import { authenticate, sendCode } from "../app/actions";
-import { useState } from "react";
+import { useState, useActionState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { redirect, useRouter } from "next/navigation";
 
 export default function LoginForm() {
-    const [codeFormState, sendCodeFormAction] = useFormState(sendCode, {
+    const [codeFormState, sendCodeFormAction] = useActionState(sendCode, {
         success: false,
     });
-    const [verifyFormState, verifyCodeFormAction] = useFormState(authenticate, {
-        success: false,
-        checked: false,
-    });
+    const [verifyFormState, verifyCodeFormAction] = useActionState(
+        authenticate,
+        {
+            success: false,
+            checked: false,
+        },
+    );
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
     const router = useRouter();

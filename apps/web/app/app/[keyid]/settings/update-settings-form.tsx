@@ -3,9 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import { updateAppName } from "./actions";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -16,7 +16,7 @@ export default function UpdateSettingsForm({
     keyId: string;
     name: string;
 }) {
-    const [state, updateNameAction] = useFormState(updateAppName, {
+    const [state, updateNameAction] = useActionState(updateAppName, {
         success: false,
     });
     const [newName, setNewName] = useState(name);

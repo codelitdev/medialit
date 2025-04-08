@@ -4,13 +4,14 @@ import Tabs from "./tabs";
 import { getApikeyUsingKeyId } from "@/app/actions";
 import { redirect } from "next/navigation";
 
-export default async function FilesLayout({
-    params,
-    children,
-}: {
-    params: { keyid: string };
+export default async function FilesLayout(props: {
+    params: Promise<{ keyid: string }>;
     children: React.ReactNode;
 }) {
+    const params = await props.params;
+
+    const { children } = props;
+
     const keyid = params.keyid;
     const apikey = await getApikeyUsingKeyId(keyid);
 

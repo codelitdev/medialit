@@ -56,8 +56,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     try {
                         await createUser({ email });
                     } catch (err: any) {
-                        console.error("Error creating user in CourseLit"); // eslint-disable-line no-console
-                        console.error(err); // eslint-disable-line no-console
+                        console.error("Error creating user in CourseLit");
+                        console.error(err);
                     }
                 }
                 return {
