@@ -11,7 +11,7 @@ import { Apikey } from "@medialit/models";
 export default async function apikey(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const reqKey = req.body.apikey;
 
@@ -26,7 +26,7 @@ export default async function apikey(
 
     if (req.body.internalKey) {
         const internalApikey: Apikey | null = await getApiKeyUsingKeyId(
-            req.body.internalKey
+            req.body.internalKey,
         );
         if (!internalApikey) {
             return res.status(401).json({ error: UNAUTHORISED });
@@ -34,7 +34,7 @@ export default async function apikey(
     }
 
     const isSubscriptionValid = await validateSubscription(
-        apiKey!.userId.toString()
+        apiKey!.userId.toString(),
     );
     if (!isSubscriptionValid) {
         return res.status(403).json({ error: SUBSCRIPTION_NOT_VALID });

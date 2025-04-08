@@ -6,7 +6,7 @@ import { Apikey } from "@medialit/models";
 export async function createApikey(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const { name } = req.body;
     if (!name) {
@@ -28,7 +28,7 @@ export async function createApikey(
 export async function getApikey(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const { keyId } = req.params;
 
@@ -48,7 +48,7 @@ export async function getApikey(
 export async function deleteApikey(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const { keyId } = req.params;
 

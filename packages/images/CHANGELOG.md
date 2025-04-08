@@ -4,4 +4,4 @@
 
 ### Patch Changes
 
--   7a07e615: Switched to PNPM
+- 7a07e615: Switched to PNPM

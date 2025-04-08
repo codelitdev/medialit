@@ -11,11 +11,10 @@ interface PresignedUrlProps {
 }
 
 export async function getUserAndGroupFromPresignedUrl(
-    signature: string
+    signature: string,
 ): Promise<PresignedUrlProps | null> {
-    const signedUrl: PreSignedUrl | null = await queries.getPresignedUrl(
-        signature
-    );
+    const signedUrl: PreSignedUrl | null =
+        await queries.getPresignedUrl(signature);
 
     if (!signedUrl) {
         return null;
@@ -53,13 +52,13 @@ export async function generateSignedUrl({
     const presignedUrl = await queries.createPresignedUrl(
         userId,
         apikey,
-        group
+        group,
     );
 
     queries.cleanupExpiredLinks(userId).catch((err: any) => {
         logger.error(
             { err },
-            `Error while cleaning up expired links for ${userId}`
+            `Error while cleaning up expired links for ${userId}`,
         );
     });
 

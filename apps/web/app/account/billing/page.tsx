@@ -83,7 +83,7 @@ const PricingPane = async ({
 
             {name === "Basic"
                 ? ["not-subscribed", "expired"].includes(
-                      user.subscriptionStatus
+                      user.subscriptionStatus,
                   ) && (
                       <>
                           {LEMONSQUEEZY_STORE_ID && LEMONSQUEEZY_PRODUCT_ID && (
@@ -108,7 +108,7 @@ const PricingPane = async ({
                       </>
                   )
                 : ["not-subscribed", "expired"].includes(
-                      user.subscriptionStatus
+                      user.subscriptionStatus,
                   ) && (
                       <>
                           {LEMONSQUEEZY_STORE_ID && LEMONSQUEEZY_PRODUCT_ID && (

@@ -4,7 +4,7 @@ import { getUniqueId } from "@medialit/utils";
 
 export async function createApiKey(
     userId: string,
-    name: string
+    name: string,
 ): Promise<Apikey> {
     return await ApikeyModel.create({
         name,
@@ -19,7 +19,7 @@ export async function getApiKeyUsingKeyId(key: string): Promise<Apikey | null> {
 
 export async function getApiKeyByUserId(
     userId: string,
-    keyId?: string
+    keyId?: string,
 ): Promise<Apikey | Apikey[] | null> {
     let result: Apikey | Apikey[] | null;
     const projections = {
@@ -38,12 +38,12 @@ export async function getApiKeyByUserId(
                 userId,
                 internal: false,
             },
-            projections
+            projections,
         );
     } else {
         result = await ApikeyModel.find(
             { userId, internal: false },
-            projections
+            projections,
         );
     }
 
@@ -52,7 +52,7 @@ export async function getApiKeyByUserId(
 
 export async function deleteApiKey(
     userId: string,
-    keyId: string
+    keyId: string,
 ): Promise<void> {
     await ApikeyModel.deleteOne({
         key: keyId,

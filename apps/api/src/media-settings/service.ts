@@ -3,7 +3,7 @@ import * as queries from "./queries";
 
 export async function getMediaSettings(
     userId: string,
-    apikey: string
+    apikey: string,
 ): Promise<Omit<MediaSettings, "userId" | "apikey"> | null> {
     const mediaSettings = await queries.getMediaSettings(userId, apikey);
 

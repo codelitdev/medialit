@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 
 export async function getApiKeyByUserId(
     userId: mongoose.Types.ObjectId,
-    keyId?: string
+    keyId?: string,
 ): Promise<Apikey | Apikey[] | null> {
     let result: Apikey | Apikey[] | null;
     const projections = {
@@ -27,12 +27,12 @@ export async function getApiKeyByUserId(
                 internal: { $ne: true },
                 deleted: { $ne: true },
             },
-            projections
+            projections,
         );
     } else {
         result = await ApikeyModel.find(
             { userId, internal: { $ne: true }, deleted: { $ne: true } },
-            projections
+            projections,
         );
     }
     return result;
@@ -40,7 +40,7 @@ export async function getApiKeyByUserId(
 
 export async function getApikeyFromKeyId(
     userId: mongoose.Types.ObjectId,
-    keyId: string
+    keyId: string,
 ): Promise<Apikey | null> {
     return await ApikeyModel.findOne({
         keyId,
@@ -52,7 +52,7 @@ export async function getApikeyFromKeyId(
 
 export async function createApiKey(
     userId: mongoose.Types.ObjectId,
-    name: string
+    name: string,
 ): Promise<Apikey> {
     return await ApikeyModel.create({
         name,
@@ -63,19 +63,19 @@ export async function createApiKey(
 
 export async function deleteApiKey(
     userId: mongoose.Types.ObjectId,
-    keyId: string
+    keyId: string,
 ) {
     return await ApikeyModel.updateOne(
         {
             keyId,
             userId,
         },
-        { $set: { deleted: true } }
+        { $set: { deleted: true } },
     );
 }
 
 export async function getInternalApikey(
-    userId: mongoose.Types.ObjectId
+    userId: mongoose.Types.ObjectId,
 ): Promise<Apikey | null> {
     return await ApikeyModel.findOne({
         userId,

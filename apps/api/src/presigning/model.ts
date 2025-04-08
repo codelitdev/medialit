@@ -29,14 +29,14 @@ const PreSignedUrlSchema = new mongoose.Schema<PreSignedUrl>(
             default: () =>
                 new Date(
                     new Date().getTime() +
-                        PRESIGNED_URL_VALIDITY_MINUTES * 60000
+                        PRESIGNED_URL_VALIDITY_MINUTES * 60000,
                 ),
         },
         group: String,
     },
     {
         timestamps: true,
-    }
+    },
 );
 
 export default mongoose.models.PreSignedUrl ||

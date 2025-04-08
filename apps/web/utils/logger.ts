@@ -4,7 +4,7 @@ import Severity from "@/models/severity";
 
 export async function error(
     message: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
 ): Promise<void> {
     await connectToDatabase();
     await Log.create({
@@ -16,7 +16,7 @@ export async function error(
 
 export async function info(
     message: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
 ): Promise<void> {
     await connectToDatabase();
     await Log.create({
@@ -28,7 +28,7 @@ export async function info(
 
 export async function warn(
     message: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
 ): Promise<void> {
     await connectToDatabase();
     await Log.create({

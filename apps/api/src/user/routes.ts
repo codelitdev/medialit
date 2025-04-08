@@ -13,7 +13,7 @@ export default (passport: any) => {
         passport.authenticate("magiclink", { action: "requestToken" }),
         (req, res) => {
             res.status(200).json({ message: SUCCESS });
-        }
+        },
     );
 
     router.get(
@@ -28,7 +28,7 @@ export default (passport: any) => {
             });
 
             return res.status(200).json({ access_token: token });
-        }
+        },
     );
 
     return router;

@@ -18,7 +18,7 @@ VerificationTokenSchema.index(
         email: 1,
         code: 1,
     },
-    { unique: true }
+    { unique: true },
 );
 
 export default mongoose.models?.VerificationToken ||

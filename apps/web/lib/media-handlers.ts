@@ -42,7 +42,7 @@ export async function getPaginatedMedia({
                 internalKey: internalApikey,
             }),
             credentials: "same-origin",
-        }
+        },
     );
     const jsonResponse = await response.json();
 
@@ -139,7 +139,7 @@ export async function getPresignedUrlForUpload({
                 internalKey: internalApikey,
                 group,
             }),
-        }
+        },
     );
     response = await response.json();
 
@@ -170,7 +170,7 @@ export async function deleteMedia({
                 apikey,
                 internalKey: internalApikey,
             }),
-        }
+        },
     );
     response = await response.json();
 

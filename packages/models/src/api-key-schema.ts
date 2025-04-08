@@ -26,7 +26,7 @@ const ApikeySchema = new mongoose.Schema<Apikey>(
     },
     {
         timestamps: true,
-    }
+    },
 );
 
 ApikeySchema.index({ name: 1, userId: 1 }, { unique: true });

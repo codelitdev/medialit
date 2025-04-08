@@ -18,9 +18,9 @@
     "prepare": "husky",
     "ci:publish": "pnpm publish -r",
     "test": "pnpm --filter=@medialit/api test",
-    "lint": "eslint --cache --quiet **/*.{ts,tsx}",
+    "lint": "eslint --cache --quiet",
     "prettier": "prettier --check **/*.{ts,tsx,js,css,md}",
-    "lint:fix": "eslint --cache --fix **/*.{ts,tsx}",
+    "lint:fix": "eslint --cache --fix",
     "prettier:fix": "prettier --write **/*.{ts,tsx,js,css,md}"
   },
   "lint-staged": {
