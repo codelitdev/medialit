@@ -8,7 +8,7 @@ export default async function SchoolDetailsLayout({
     params,
     children,
 }: {
-    params: { name: string };
+    params: Promise<{ name: string }>;
     children: ReactNode;
 }) {
     const session = await auth();

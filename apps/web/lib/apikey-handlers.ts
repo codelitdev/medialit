@@ -42,12 +42,12 @@ export async function getApikeyFromKeyId(
     userId: mongoose.Types.ObjectId,
     keyId: string,
 ): Promise<Apikey | null> {
-    return await ApikeyModel.findOne({
+    return (await ApikeyModel.findOne({
         keyId,
         userId,
         internal: { $ne: true },
         deleted: { $ne: true },
-    }).lean();
+    }).lean()) as Apikey | null;
 }
 
 export async function createApiKey(
@@ -77,10 +77,10 @@ export async function deleteApiKey(
 export async function getInternalApikey(
     userId: mongoose.Types.ObjectId,
 ): Promise<Apikey | null> {
-    return await ApikeyModel.findOne({
+    return (await ApikeyModel.findOne({
         userId,
         internal: true,
-    }).lean();
+    }).lean()) as Apikey | null;
 }
 
 export async function editApiKey({

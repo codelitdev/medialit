@@ -6,7 +6,7 @@ import { getApikeyFromKeyId, getInternalApikey } from "@/lib/apikey-handlers";
 import { getMedia as getMediaFromServer } from "@/lib/media-handlers";
 import { auth } from "@/auth";
 
-export async function POST(request: Request, response: Response) {
+export async function POST(request: Request) {
     const { mediaId, keyId } = await request.json();
 
     if (!mediaId || !keyId) {

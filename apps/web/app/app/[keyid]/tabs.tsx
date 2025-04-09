@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default async function Tabs({ keyid }: { keyid: string }) {
+export default function Tabs({ keyid }: { keyid: string }) {
     const currentPathName = usePathname();
 
     const tabs = [

@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getMediaFiles, getCount } from "./actions";
-import { Media } from "@medialit/models";
+import type { Media } from "@medialit/models";
 import FilePreview from "./file-preview";
 import {
     Pagination,
     PaginationContent,
-    PaginationEllipsis,
     PaginationItem,
     PaginationLink,
     PaginationNext,

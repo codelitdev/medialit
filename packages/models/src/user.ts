@@ -1,6 +1,7 @@
 import type { SubscriptionStatus } from "./subscription-status";
 
 export interface User {
+    id: string;
     userId: string;
     email: string;
     active: boolean;

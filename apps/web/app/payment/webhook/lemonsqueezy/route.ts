@@ -6,7 +6,7 @@ export async function GET() {
     return Response.json({ success: true });
 }
 
-export async function POST(request: Request, response: Response) {
+export async function POST(request: Request) {
     const rawBody = await request.text();
     verifySignature(rawBody, request.headers.get("X-Signature"));
 
