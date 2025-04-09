@@ -28,13 +28,15 @@ export default function FilePreview({
             <DialogTrigger asChild>
                 <div className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[148px] w-[48%] sm:h-[148px] sm:w-[148px] md:h-[148px] md:w-[148px] lg:h-[148px] lg:w-[148px]">
                     <div className="border bg-muted-foreground relative h-[148px] w-full sm:h-[148px] sm:w-[148px] md:h-[148px] md:w-[148px] lg:h-[148px] lg:w-[148px]">
-                        <Image
-                            src={media.thumbnail}
-                            alt="Media"
-                            priority={true}
-                            quality={100}
-                            fill
-                        />
+                        {media.thumbnail && (
+                            <Image
+                                src={media.thumbnail}
+                                alt="Media"
+                                priority={true}
+                                quality={100}
+                                fill
+                            />
+                        )}
                     </div>
                     <div className="p-2 absolute bottom-0 bg-white w-full">
                         <div className="text-sm truncate">

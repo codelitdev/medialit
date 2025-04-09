@@ -20,7 +20,7 @@ export default async function Home() {
             </div>
             <div className="border border-muted-foreground min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
                 <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-3 md:p-5 lg:gap-3">
-                    {apiKeys.map((apikey: any, index: number) => (
+                    {apiKeys?.map((apikey: any, index: number) => (
                         <div
                             key={apikey.keyId}
                             className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[151px] w-[48%] sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]"

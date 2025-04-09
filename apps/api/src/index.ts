@@ -9,7 +9,7 @@ import presignedUrlRoutes from "./presigning/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
 import logger from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
-import { Apikey, User } from "@medialit/models";
+import { Apikey, Constants, User } from "@medialit/models";
 import { createApiKey } from "./apikey/queries";
 import { spawn } from "child_process";
 
@@ -79,10 +79,11 @@ async function createAdminUser() {
                 ),
                 "subscribed",
             );
-            const apikey: Apikey = await createApiKey(user.id, "internal");
+            const apikey: Apikey = await createApiKey(user.id, "App 1");
             console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
             console.log(`@     API key: ${apikey.key}      @`);
             console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            await createApiKey(user.id, Constants.internalApikeyName, true);
         }
     } catch (error) {
         logger.error({ error }, "Failed to create admin user");

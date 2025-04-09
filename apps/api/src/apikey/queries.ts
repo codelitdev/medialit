@@ -5,11 +5,13 @@ import { getUniqueId } from "@medialit/utils";
 export async function createApiKey(
     userId: string,
     name: string,
+    internal?: boolean,
 ): Promise<Apikey> {
     return await ApikeyModel.create({
         name,
         key: getUniqueId(),
         userId,
+        internal: internal || false,
     });
 }
 

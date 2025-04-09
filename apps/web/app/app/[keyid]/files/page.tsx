@@ -36,6 +36,7 @@ export default async function Media(props: {
     try {
         totalMediaCount = await getCount(keyid);
         medias = await getMediaFiles(keyid, +page);
+        console.log(medias);
         totalPages = medias
             ? Math.ceil(totalMediaCount.count / Number(mediasPerPage))
             : 0;

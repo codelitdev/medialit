@@ -69,6 +69,11 @@ export async function sendCode(
         timestamp: Date.now() + 1000 * 60 * 5,
     });
 
+    if (process.env.NODE_ENV !== "production") {
+        console.log("Sending email to", email, "with code", code);
+        return { success: true };
+    }
+
     const transporter = createTransport({
         host: process.env.EMAIL_HOST,
         port: +(process.env.EMAIL_PORT || 587),
