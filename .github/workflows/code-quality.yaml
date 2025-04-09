@@ -46,10 +46,7 @@ jobs:
 
       - name: Build dependencies
         run: |
-          pnpm --filter=@medialit/utils build
-          pnpm --filter=@medialit/models build 
-          pnpm --filter=@medialit/images build
-          pnpm --filter=@medialit/thumbnail build
+          pnpm -r build
 
       - name: Run test
         run: pnpm test

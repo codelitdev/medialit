@@ -105,7 +105,7 @@ export async function getUser(): Promise<any | null> {
 
 export async function getSubscriber(): Promise<Pick<
     User,
-    | "email"
+    | "id"
     | "active"
     | "userId"
     | "email"
