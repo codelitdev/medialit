@@ -1,6 +1,6 @@
 {
   "name": "@medialit/api",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "private": true,
   "description": "A better API to manage your files on AWS S3 compatible cloud storages",
   "author": {

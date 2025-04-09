@@ -1,5 +1,11 @@
 # @medialit/thumbnail
 
+## 0.0.28
+
+### Patch Changes
+
+- 4c480c7: Eslint upgraded
+
 ## 0.0.27
 
 ### Patch Changes
