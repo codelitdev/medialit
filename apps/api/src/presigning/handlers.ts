@@ -14,7 +14,7 @@ function validatePresigningOptions(req: Request): Joi.ValidationResult {
 export async function getPresignedUrl(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const { error } = validatePresigningOptions(req);
     if (error) {

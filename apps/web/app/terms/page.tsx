@@ -36,7 +36,8 @@ export default function Terms() {
             <h2 className="text-lg font-bold">Cookies</h2>
             <p>
                 We employ the use of cookies. By accessing WebLit, you agreed to
-                use cookies in agreement with the WebLit&apos;s Privacy Policy.{" "}
+                use cookies in agreement with the WebLit&apos;s Privacy
+                Policy.{" "}
             </p>
             <p>
                 Most interactive websites use cookies to let us retrieve the

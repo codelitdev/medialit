@@ -27,7 +27,7 @@ async function updateCollection() {
             const doc = await cursor.next();
             await collection.updateOne(
                 { _id: doc._id },
-                { $set: { keyId: nanoid() } }
+                { $set: { keyId: nanoid() } },
             );
         }
     } finally {

@@ -29,7 +29,7 @@ export async function createUser({ email }: { email: string }) {
         return response;
     } else {
         throw new Error(
-            `${response.status}, ${response.statusText}, ${endPoint}`
+            `${response.status}, ${response.statusText}, ${endPoint}`,
         );
     }
 }

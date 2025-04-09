@@ -29,10 +29,12 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                 }
 
                 const { email, code }: any = parsedCredentials.data;
+                const sanitizedEmail = email.toLowerCase();
+
                 await connectToDatabase();
                 const verificationToken =
                     await VerificationToken.findOneAndDelete({
-                        email,
+                        email: sanitizedEmail,
                         code: hashCode(code),
                         timestamp: { $gt: Date.now() },
                     });
@@ -42,11 +44,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                 }
 
                 let user = await User.findOne({
-                    email,
+                    email: sanitizedEmail,
                 });
 
                 if (!user) {
-                    user = await User.create({ email });
+                    user = await User.create({ email: sanitizedEmail });
                     await Apikey.create({
                         name: Constants.internalApikeyName,
                         key: getUniqueId(),
@@ -54,15 +56,15 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         internal: true,
                     });
                     try {
-                        await createUser({ email });
+                        await createUser({ email: sanitizedEmail });
                     } catch (err: any) {
-                        console.error("Error creating user in CourseLit"); // eslint-disable-line no-console
-                        console.error(err); // eslint-disable-line no-console
+                        console.error("Error creating user in CourseLit");
+                        console.error(err);
                     }
                 }
                 return {
                     id: user.userId,
-                    email,
+                    email: sanitizedEmail,
                     name: user.name,
                 };
             },

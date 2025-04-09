@@ -33,7 +33,7 @@ const UserSchema = new mongoose.Schema<User>(
 
     {
         timestamps: true,
-    }
+    },
 );
 
 export default UserSchema;

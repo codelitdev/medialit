@@ -21,7 +21,7 @@ import { User } from "@medialit/models";
 
 export async function authenticate(
     prevState: Record<string, unknown>,
-    formData: FormData
+    formData: FormData,
 ): Promise<{
     success: boolean;
     checked: boolean;
@@ -57,7 +57,7 @@ export async function authenticate(
 
 export async function sendCode(
     prevState: Record<string, unknown>,
-    formData: FormData
+    formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
     const email = formData.get("email") as string;
     const code = generateUniquePasscode();
@@ -105,7 +105,7 @@ export async function getUser(): Promise<any | null> {
 
 export async function getSubscriber(): Promise<Pick<
     User,
-    | "email"
+    | "id"
     | "active"
     | "userId"
     | "email"
@@ -128,7 +128,7 @@ export async function getSubscriber(): Promise<Pick<
             subscriptionStatus: 1,
             subscribedToUpdates: 1,
             _id: 0,
-        }
+        },
     );
 }
 
@@ -150,7 +150,7 @@ export async function getApiKeys() {
 }
 
 export async function getApikeyUsingKeyId(
-    keyId: string
+    keyId: string,
 ): Promise<Pick<Apikey, "name" | "key" | "keyId"> | null> {
     const session = await auth();
     if (!session || !session.user) {
@@ -178,7 +178,7 @@ export async function getApikeyUsingKeyId(
 }
 
 export async function createApiKeyForUser(
-    name: string
+    name: string,
 ): Promise<{ key: string } | undefined> {
     if (!name) {
         throw new Error("Name is required");
@@ -202,7 +202,7 @@ export async function createApiKeyForUser(
 
 export async function createNewApiKey(
     prevState: Record<string, unknown>,
-    formData: FormData
+    formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
     const apikey = formData.get("apiKey") as string;
 
@@ -215,7 +215,7 @@ export async function createNewApiKey(
 }
 
 export async function deleteApiKeyOfUser(
-    keyId: string
+    keyId: string,
 ): Promise<{ success: boolean; error?: string }> {
     const session = await auth();
     if (!session || !session.user) {
@@ -239,7 +239,7 @@ export async function deleteApiKeyOfUser(
 
 export async function editApiKeyforUser(
     prevState: Record<string, unknown>,
-    formData: FormData
+    formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
     const name = formData.get("name") as string;
     const newName = formData.get("newName") as string;

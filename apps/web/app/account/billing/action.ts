@@ -10,7 +10,7 @@ import { error } from "@/utils/logger";
 
 export async function cancelSubscription(
     prevState: Record<string, unknown>,
-    formData: FormData
+    formData: FormData,
 ): Promise<{
     success: boolean;
     error?: string;
@@ -44,7 +44,7 @@ export async function cancelSubscription(
                     Accept: "application/vnd.api+json",
                     Authorization: `Bearer ${LEMONSQUEEZY_API_KEY}`,
                 },
-            }
+            },
         );
         if (response.ok) {
             const resp = await response.json();
@@ -59,7 +59,7 @@ export async function cancelSubscription(
 
 export async function resumeSubscription(
     prevState: Record<string, unknown>,
-    formData: FormData
+    formData: FormData,
 ): Promise<{
     success: boolean;
     error?: string;
@@ -102,7 +102,7 @@ export async function resumeSubscription(
                         },
                     },
                 }),
-            }
+            },
         );
         const resp = await response.json();
 

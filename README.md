@@ -46,19 +46,31 @@ Hence, we need to enable it on our own. To do that, set the following environmen
 ENABLE_TRUST_PROXY=true
 ```
 
-## Creating a local user
+## Creating a User
 
-In order to interact with the API, you need to have an API key. To create one, execute the following command.
+In order to interact with the service, you need to have a user. You can interact with the service using the user's API key.
+
+To create one, set up the following variable in your `.env` file:
 
 ```sh
-docker exec <container_id | container_name> node /app/apps/api/dist/src/scripts/create-local-user.js <email>
+EMAIL=email@yourdomain.com
 ```
 
-After running the above command, you will get an API key which you can use to interact with the app.
+When the app starts for the very first time, a user with the provided email will be generated, and their subscription will be renewed for 10 years.
 
-You can only run this script once.
+Additionally, an API key will be generated for the user and printed in the application logs. The log containing the API key will look something like the following:
 
-> CAUTION: Keep the generated API key confidential as anyone could be able to store files on your instance.
+```sh
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@     API key: testcktI8Sa71QUgYtest      @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+```
+
+> CAUTION: Keep the generated API key confidential, as anyone could use it to store files on your instance.
+
+## API documentation
+
+In order to interact with the service, you have to use the REST API. Our official Postman collection is available [here](https://www.postman.com/dark-rocket-625879/codelit/collection/5b8hfkr/medialit).
 
 ## Development
 

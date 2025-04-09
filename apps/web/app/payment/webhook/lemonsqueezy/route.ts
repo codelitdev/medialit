@@ -6,7 +6,7 @@ export async function GET() {
     return Response.json({ success: true });
 }
 
-export async function POST(request: Request, response: Response) {
+export async function POST(request: Request) {
     const rawBody = await request.text();
     verifySignature(rawBody, request.headers.get("X-Signature"));
 
@@ -25,7 +25,7 @@ export async function POST(request: Request, response: Response) {
 
     if (
         ["subscription_created", "subscription_updated"].includes(
-            event?.meta?.event_name
+            event?.meta?.event_name,
         )
     ) {
         user.subscriptionMethod = "lemon";
@@ -36,7 +36,7 @@ export async function POST(request: Request, response: Response) {
 
     if (
         ["subscription_cancelled", "subscription_expired"].includes(
-            event?.meta?.event_name
+            event?.meta?.event_name,
         )
     ) {
         user.subscriptionEndsAfter = new Date(event.data.attributes.ends_at);
@@ -87,7 +87,7 @@ function isSubscriptionEvent(event: any) {
 
 // copied from https://github.com/lmsqueezy/nextjs-billing/blob/134616a4f2210d4a89025d01867c3244c18151af/app/(app)/billing/webhook/route.js#L123C3-L134C4
 function verifySignature(body: string, xsignature: string | null) {
-    const crypto = require("crypto"); //eslint-disable-line @typescript-eslint/no-var-requires
+    const crypto = require("crypto");
 
     const secret = LEMONSQUEEZY_WEBHOOK_SECRET;
     const hmac = crypto.createHmac("sha256", secret);

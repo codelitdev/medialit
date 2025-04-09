@@ -19,7 +19,7 @@ router.use(
     fileUpload({
         useTempFiles: true,
         tempFileDir: tempFileDirForUploads,
-    })
+    }),
 );
 
 router.post(
@@ -31,13 +31,13 @@ router.post(
             presigned(
                 req as Request & { user: any; apikey: string },
                 res,
-                next
+                next,
             );
         } else {
             apikey(req, res, next);
         }
     },
-    uploadMedia
+    uploadMedia,
 );
 router.post("/get/count", apikey, getMediaCount);
 router.post("/get/size", apikey, getTotalSpaceOccupied);

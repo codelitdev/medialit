@@ -19,7 +19,7 @@ const MediaSchema = new mongoose.Schema<MediaWithUserId>(
     },
     {
         timestamps: true,
-    }
+    },
 );
 
 MediaSchema.index({

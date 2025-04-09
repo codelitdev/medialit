@@ -36,7 +36,7 @@ export default function FileInteractivity({
 
             if (!response.ok) {
                 throw new Error(
-                    `Some error occured while fetching direct link`
+                    `Some error occured while fetching direct link`,
                 );
             }
             const data = await response.json();

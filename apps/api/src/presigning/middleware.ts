@@ -5,12 +5,12 @@ import * as preSignedUrlService from "./service";
 export default async function presigned(
     req: Request & { user: any; apikey: string },
     res: Response,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const { signature } = req.query;
 
     const response = await preSignedUrlService.getUserAndGroupFromPresignedUrl(
-        signature as string
+        signature as string,
     );
     if (!response) {
         return res.status(404).json({ error: PRESIGNED_URL_INVALID });

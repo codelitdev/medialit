@@ -3,7 +3,7 @@ db.users.find().forEach(async (user) => {
     if (firstApikey) {
         await db.media.updateMany(
             { userId: user._id },
-            { $set: { apikey: firstApikey.key } }
+            { $set: { apikey: firstApikey.key } },
         );
         console.log(`Updated ${user.email} media`);
     }

@@ -4,13 +4,13 @@ import { getUniqueId } from "@medialit/utils";
 import { PRESIGNED_URL_LENGTH } from "../config/constants";
 
 export async function getPresignedUrl(
-    signature: string
+    signature: string,
 ): Promise<PreSignedUrl | null> {
     return await PreSignedUrlModel.findOne({ signature });
 }
 
 export async function deletePresignedUrl(
-    id: mongoose.Types.ObjectId
+    id: mongoose.Types.ObjectId,
 ): Promise<void> {
     await PreSignedUrlModel.deleteOne({ id });
 }
@@ -18,7 +18,7 @@ export async function deletePresignedUrl(
 export async function createPresignedUrl(
     userId: string,
     apikey: string,
-    group?: string
+    group?: string,
 ): Promise<PreSignedUrl | undefined> {
     const presignedUrl = await PreSignedUrlModel.create({
         userId,

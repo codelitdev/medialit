@@ -7,7 +7,7 @@ import * as mediaSettingsService from "./service";
 export async function updateMediaSettingsHandler(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const mediaSettingsSchema = Joi.object({
         useWebP: Joi.boolean(),
@@ -50,7 +50,7 @@ export async function getMediaSettingsHandler(req: any, res: any) {
     try {
         const mediaSettings = await mediaSettingsService.getMediaSettings(
             req.user.id,
-            req.apikey
+            req.apikey,
         );
         return res.status(200).json(mediaSettings);
     } catch (err: any) {

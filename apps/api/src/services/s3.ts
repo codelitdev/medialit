@@ -48,7 +48,7 @@ const s3Client = new S3Client({
 
 export const putObject = async (params: UploadParams) => {
     const command = new PutObjectCommand(
-        Object.assign({}, { Bucket: cloudBucket }, params)
+        Object.assign({}, { Bucket: cloudBucket }, params),
     );
     const response = await s3Client.send(command);
     return response;
@@ -56,7 +56,7 @@ export const putObject = async (params: UploadParams) => {
 
 export const deleteObject = async (params: DeleteParams) => {
     const command = new DeleteObjectCommand(
-        Object.assign({}, { Bucket: cloudBucket }, params)
+        Object.assign({}, { Bucket: cloudBucket }, params),
     );
     const response = await s3Client.send(command);
     return response;
@@ -64,7 +64,7 @@ export const deleteObject = async (params: DeleteParams) => {
 
 export const getObjectTagging = async (params: { Key: string }) => {
     const command = new GetObjectTaggingCommand(
-        Object.assign({}, { Bucket: cloudBucket }, params)
+        Object.assign({}, { Bucket: cloudBucket }, params),
     );
     const response = await s3Client.send(command);
     return response;

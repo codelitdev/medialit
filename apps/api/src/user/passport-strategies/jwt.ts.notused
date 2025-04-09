@@ -17,7 +17,7 @@ const jwtStrategyOptions: StrategyOptions = {
 export default new Strategy(jwtStrategyOptions, async function (
     _: any,
     jwtToken: { email: string },
-    done: any
+    done: any,
 ) {
     const { email } = jwtToken;
     const query = { email, active: true };

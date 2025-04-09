@@ -7,7 +7,7 @@ interface FileNameWithExtention {
 }
 
 export default function generateFileName(
-    filename: string
+    filename: string,
 ): FileNameWithExtention {
     const extention = filename.split(".");
 

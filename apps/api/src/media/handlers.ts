@@ -24,7 +24,7 @@ function validateUploadOptions(req: Request): Joi.ValidationResult {
 export async function uploadMedia(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     req.socket.setTimeout(10 * 60 * 1000);
 
@@ -73,7 +73,7 @@ export async function uploadMedia(
 export async function getMedia(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     const getMediaSchema = Joi.object({
         page: Joi.number().positive(),

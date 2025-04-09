@@ -9,25 +9,25 @@ export default (passport: any) => {
         "/create",
         passport.authenticate("jwt", { session: false }),
         subscription,
-        createApikey
+        createApikey,
     );
     router.post(
         "/get",
         passport.authenticate("jwt", { session: false }),
         subscription,
-        getApikey
+        getApikey,
     );
     router.post(
         "/get/:keyId",
         passport.authenticate("jwt", { session: false }),
         subscription,
-        getApikey
+        getApikey,
     );
     router.delete(
         "/delete/:keyId",
         passport.authenticate("jwt", { session: false }),
         subscription,
-        deleteApikey
+        deleteApikey,
     );
 
     return router;

@@ -11,7 +11,11 @@ export async function getMedia({
     apikey: string;
     mediaId: string;
 }): Promise<MediaWithUserId | null> {
-    return await MediaModel.findOne({ mediaId, apikey, userId }).lean();
+    return (await MediaModel.findOne({
+        mediaId,
+        apikey,
+        userId,
+    }).lean()) as MediaWithUserId | null;
 }
 
 export async function getMediaCount({
@@ -96,7 +100,7 @@ export async function getPaginatedMedia({
 
 export async function deleteMediaQuery(
     userId: string,
-    mediaId: string
+    mediaId: string,
 ): Promise<any> {
     return await MediaModel.deleteOne({ userId, mediaId });
 }

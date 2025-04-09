@@ -6,7 +6,7 @@ import { getApikeyFromKeyId, getInternalApikey } from "@/lib/apikey-handlers";
 import { getMedia as getMediaFromServer } from "@/lib/media-handlers";
 import { auth } from "@/auth";
 
-export async function POST(request: Request, response: Response) {
+export async function POST(request: Request) {
     const { mediaId, keyId } = await request.json();
 
     if (!mediaId || !keyId) {
@@ -28,7 +28,7 @@ export async function POST(request: Request, response: Response) {
     const internalApikey = await getInternalApikey(dbUser._id);
 
     if (!internalApikey) {
-        console.error("Internal apikey not found for user", dbUser._id); // eslint-disable-line no-console
+        console.error("Internal apikey not found for user", dbUser._id);
         throw new Error("We messed up. Please try again later.");
     }
     const apikey = await getApikeyFromKeyId(dbUser._id, keyId);

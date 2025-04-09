@@ -130,8 +130,8 @@ async function upload({
         ACL: USE_CLOUDFRONT
             ? "private"
             : access === "public"
-            ? "public-read"
-            : "private",
+              ? "public-read"
+              : "private",
     };
     const tags = getTags(userId, group);
     uploadParams.Tagging = tags;
@@ -176,7 +176,7 @@ async function upload({
         presignedUrlService.cleanup(userId, signature).catch((err: any) => {
             logger.error(
                 { err },
-                `Error in cleaning up expired links for ${userId}`
+                `Error in cleaning up expired links for ${userId}`,
             );
         });
     }
@@ -219,7 +219,7 @@ async function getPage({
                 : "",
             caption: media.caption,
             group: media.group,
-        })
+        }),
     );
 
     return mappedResult;

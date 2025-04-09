@@ -7,13 +7,13 @@ export function convertToWebp(path: string, quality = 75): Promise<void> {
             [`"${path}"`, `-o "${path}"`, `-q ${quality}`],
             {
                 shell: true,
-            }
+            },
         );
 
         process.on("exit", (code: number) => {
             if (code !== 0) {
                 reject(
-                    new Error("Error in converting the file to Webp format.")
+                    new Error("Error in converting the file to Webp format."),
                 );
             }
 

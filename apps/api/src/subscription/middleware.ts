@@ -4,7 +4,7 @@ import { validateSubscription } from "./validate-subscription";
 export default async function subscription(
     req: any,
     res: any,
-    next: (...args: any[]) => void
+    next: (...args: any[]) => void,
 ) {
     if (!req.user) {
         return res.status(401).json({ error: UNAUTHORISED });
