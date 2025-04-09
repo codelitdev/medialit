@@ -7,7 +7,7 @@ env:
   CI: true
 
 jobs:
-  publish-packages:
+  lint-format-test:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
