@@ -8,7 +8,11 @@ Before you start uploading to your bucket, make sure you have set up the correct
 
 ### 1. Without Cloudfront
 
+#### 1. Allow public access
+
 ![BLock public access](./apps/api/assets/without-cloudfront.png)
+
+#### 2. Allow ACLs
 
 ### 2. With Cloudfront
 
