@@ -3,6 +3,8 @@ import { getApiKeys } from "./actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import NewApp from "@/components/new-app-button";
+import { FolderPlus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default async function Home() {
     const session = await auth();
@@ -14,25 +16,39 @@ export default async function Home() {
 
     return (
         <>
-            <div className="flex justify-between">
+            <div className="flex justify-between mb-8">
                 <div className="text-primary text-xl font-bold">Your apps</div>
                 <NewApp />
             </div>
-            <div className="border border-muted-foreground min-h-screen my-5 rounded p-2 md:p-2 lg:p-0">
-                <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-3 md:p-5 lg:gap-3">
-                    {apiKeys?.map((apikey: any, index: number) => (
-                        <div
-                            key={apikey.keyId}
-                            className="shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative h-[151px] w-[48%] sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]"
-                        >
-                            <div className="flex items-center justify-center border h-[151px] w-full sm:h-[151px] sm:w-[175px] md:h-[151px] md:w-[218px] lg:h-[151px] lg:w-[228px]">
-                                <Link href={`/app/${apikey.keyId}/files`}>
-                                    {apikey.name || "Untitled"}
-                                </Link>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            <div className="">
+                {apiKeys?.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {apiKeys.map((apikey: any) => (
+                            <Link
+                                href={`/app/${apikey.keyId}/files`}
+                                key={apikey.keyId}
+                            >
+                                <Card className="h-[151px] hover:bg-accent transition-colors">
+                                    <CardContent className="flex items-center justify-center h-full p-6">
+                                        <span className="text-lg font-medium">
+                                            {apikey.name || "Untitled"}
+                                        </span>
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-[400px] gap-4">
+                        <FolderPlus className="w-16 h-16 text-muted-foreground" />
+                        <p className="text-muted-foreground text-lg">
+                            No apps yet
+                        </p>
+                        <p className="text-muted-foreground text-sm">
+                            Create your first app to start uploading files
+                        </p>
+                    </div>
+                )}
             </div>
         </>
     );

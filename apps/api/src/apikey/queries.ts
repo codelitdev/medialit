@@ -52,19 +52,19 @@ export async function getApiKeyByUserId(
     return result;
 }
 
-export async function deleteApiKey(
-    userId: string,
-    keyId: string,
-): Promise<void> {
-    await ApikeyModel.deleteOne({
-        key: keyId,
-        userId,
-    });
-}
+// export async function deleteApiKey(
+//     userId: string,
+//     keyId: string,
+// ): Promise<void> {
+//     await ApikeyModel.deleteOne({
+//         key: keyId,
+//         userId,
+//     });
+// }
 
 export default {
     createApiKey,
     getApiKeyUsingKeyId,
     getApiKeyByUserId,
-    deleteApiKey,
+    // deleteApiKey,
 };

@@ -1,5 +1,8 @@
 import Joi from "joi";
-import { maxFileUploadSize } from "../config/constants";
+import {
+    maxFileUploadSizeNotSubscribed,
+    maxFileUploadSizeSubscribed,
+} from "../config/constants";
 import {
     FILE_IS_REQUIRED,
     FILE_SIZE_EXCEEDED,
@@ -10,6 +13,7 @@ import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
+import { Constants } from "@medialit/models";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
@@ -19,6 +23,14 @@ function validateUploadOptions(req: Request): Joi.ValidationResult {
     });
     const { caption, access, group } = req.body;
     return uploadSchema.validate({ caption, access, group });
+}
+
+function getMaxFileUploadSize(req: any): number {
+    const isSubscribed =
+        req.user.subscriptionStatus === Constants.SubscriptionStatus.SUBSCRIBED;
+    return isSubscribed
+        ? maxFileUploadSizeSubscribed
+        : maxFileUploadSizeNotSubscribed;
 }
 
 export async function uploadMedia(
@@ -32,8 +44,11 @@ export async function uploadMedia(
         return res.status(400).json({ error: FILE_IS_REQUIRED });
     }
 
-    if (req.files.file.size > maxFileUploadSize) {
-        return res.status(400).json({ error: FILE_SIZE_EXCEEDED });
+    const allowedFileSize = getMaxFileUploadSize(req);
+    if (req.files.file.size > allowedFileSize) {
+        return res.status(400).json({
+            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${allowedFileSize} bytes`,
+        });
     }
 
     const { error } = validateUploadOptions(req);

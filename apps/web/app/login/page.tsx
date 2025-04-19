@@ -16,13 +16,13 @@ export default async function LoginPage() {
             <LoginForm />
             <p className="text-xs mb-40">
                 By signing in, you agree to our{" "}
-                <Link href="/terms">
+                <a href="https://medialit.cloud/p/terms">
                     <span className="underline">Terms</span>
-                </Link>{" "}
+                </a>{" "}
                 and{" "}
-                <Link href="/privacy">
+                <a href="https://medialit.cloud/p/privacy">
                     <span className="underline">Privacy policy</span>
-                </Link>
+                </a>
                 .
             </p>
         </div>

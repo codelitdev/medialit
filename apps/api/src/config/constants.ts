@@ -3,7 +3,14 @@ export const appName = process.env.APP_NAME || "MediaLit";
 export const jwtSecret = process.env.JWT_SECRET || "r@nd0m1e";
 export const jwtExpire = process.env.JWT_EXPIRES_IN || "1d";
 export const tempFileDirForUploads = process.env.TEMP_FILE_DIR_FOR_UPLOADS;
-export const maxFileUploadSize = process.env.MAX_UPLOAD_SIZE || 2147483648;
+export const maxFileUploadSizeSubscribed = process.env
+    .MAX_UPLOAD_SIZE_SUBSCRIBED
+    ? +process.env.MAX_UPLOAD_SIZE_SUBSCRIBED
+    : 2147483648;
+export const maxFileUploadSizeNotSubscribed = process.env
+    .MAX_UPLOAD_SIZE_NOT_SUBSCRIBED
+    ? +process.env.MAX_UPLOAD_SIZE_NOT_SUBSCRIBED
+    : 52428800;
 export const PRESIGNED_URL_VALIDITY_MINUTES = 5;
 export const PRESIGNED_URL_LENGTH = 100;
 export const MEDIA_ID_LENGTH = 40;

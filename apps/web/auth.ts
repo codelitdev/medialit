@@ -48,7 +48,17 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                 });
 
                 if (!user) {
-                    user = await User.create({ email: sanitizedEmail });
+                    user = await User.create({
+                        email: sanitizedEmail,
+                        active: true,
+                        subscriptionEndsAfter: new Date(
+                            new Date().setFullYear(
+                                new Date().getFullYear() + 100,
+                            ),
+                        ),
+                        subscriptionStatus:
+                            Constants.SubscriptionStatus.NOT_SUBSCRIBED,
+                    });
                     await Apikey.create({
                         name: Constants.internalApikeyName,
                         key: getUniqueId(),
