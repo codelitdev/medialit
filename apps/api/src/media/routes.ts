@@ -1,7 +1,10 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
-import { tempFileDirForUploads } from "../config/constants";
+import {
+    tempFileDirForUploads,
+    maxFileUploadSizeSubscribed,
+} from "../config/constants";
 import apikey from "../apikey/middleware";
 import {
     getMedia,
@@ -15,16 +18,16 @@ import presigned from "../presigning/middleware";
 
 const router = express.Router();
 
-router.use(
-    fileUpload({
-        useTempFiles: true,
-        tempFileDir: tempFileDirForUploads,
-    }),
-);
-
 router.post(
     "/create",
     cors(),
+    fileUpload({
+        useTempFiles: true,
+        tempFileDir: tempFileDirForUploads,
+        limits: {
+            fileSize: maxFileUploadSizeSubscribed,
+        },
+    }),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
         const { signature } = req.query;
         if (signature) {
