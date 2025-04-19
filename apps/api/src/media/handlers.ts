@@ -46,11 +46,9 @@ export async function uploadMedia(
 
     const allowedFileSize = getMaxFileUploadSize(req);
     if (req.files.file.size > allowedFileSize) {
-        return res
-            .status(400)
-            .json({
-                error: `${FILE_SIZE_EXCEEDED}. Allowed: ${allowedFileSize} bytes`,
-            });
+        return res.status(400).json({
+            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${allowedFileSize} bytes`,
+        });
     }
 
     const { error } = validateUploadOptions(req);
