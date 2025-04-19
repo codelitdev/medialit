@@ -37,20 +37,27 @@ export interface PresignedURLParams {
     mimetype?: string;
 }
 
-const s3Client = new S3Client({
-    region: cloudRegion,
-    endpoint: cloudEndpoint,
-    credentials: {
-        accessKeyId: cloudKey,
-        secretAccessKey: cloudSecret,
-    },
-});
+let s3Client: S3Client | null = null;
+
+const getS3Client = () => {
+    if (!s3Client) {
+        s3Client = new S3Client({
+            region: cloudRegion,
+            endpoint: cloudEndpoint,
+            credentials: {
+                accessKeyId: cloudKey,
+                secretAccessKey: cloudSecret,
+            },
+        });
+    }
+    return s3Client;
+};
 
 export const putObject = async (params: UploadParams) => {
     const command = new PutObjectCommand(
         Object.assign({}, { Bucket: cloudBucket }, params),
     );
-    const response = await s3Client.send(command);
+    const response = await getS3Client().send(command);
     return response;
 };
 
@@ -58,7 +65,7 @@ export const deleteObject = async (params: DeleteParams) => {
     const command = new DeleteObjectCommand(
         Object.assign({}, { Bucket: cloudBucket }, params),
     );
-    const response = await s3Client.send(command);
+    const response = await getS3Client().send(command);
     return response;
 };
 
@@ -66,7 +73,7 @@ export const getObjectTagging = async (params: { Key: string }) => {
     const command = new GetObjectTaggingCommand(
         Object.assign({}, { Bucket: cloudBucket }, params),
     );
-    const response = await s3Client.send(command);
+    const response = await getS3Client().send(command);
     return response;
 };
 
@@ -75,7 +82,7 @@ export const generateSignedUrl = async (key: string): Promise<string> => {
         Bucket: cloudBucket,
         Key: key,
     });
-    const url = await getS3SignedUrl(s3Client, command);
+    const url = await getS3SignedUrl(getS3Client(), command);
     return url;
 };
 

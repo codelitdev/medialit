@@ -1,6 +1,4 @@
+import { Constants } from ".";
+
 export type SubscriptionStatus =
-    | "not-subscribed"
-    | "subscribed"
-    | "cancelled"
-    | "paused"
-    | "expired";
+    (typeof Constants.SubscriptionStatus)[keyof typeof Constants.SubscriptionStatus];

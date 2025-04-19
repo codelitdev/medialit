@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import { createNewApiKey } from "@/app/actions";
 
 export default function NewApp() {

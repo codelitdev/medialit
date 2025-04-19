@@ -20,6 +20,13 @@ app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true");
 
 app.use(express.json());
 
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        status: "ok",
+        uptime: process.uptime(),
+    });
+});
+
 app.use("/settings/media", mediaSettingsRoutes(passport));
 app.use("/media/presigned", presignedUrlRoutes);
 app.use("/media", mediaRoutes);
