@@ -8,7 +8,7 @@ export interface User {
     name?: string;
     customerId?: string;
     subscriptionId?: string;
-    subscriptionEndsAfter: Date;
+    subscriptionEndsAfter?: Date;
     subscriptionMethod?: "stripe" | "lemon";
     subscriptionStatus: SubscriptionStatus;
 }

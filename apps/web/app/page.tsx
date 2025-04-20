@@ -5,6 +5,8 @@ import Link from "next/link";
 import NewApp from "@/components/new-app-button";
 import { FolderPlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { getTotalSpaceByApikey } from "./app/[keyid]/settings/actions";
 
 export default async function Home() {
     const session = await auth();
@@ -16,6 +18,26 @@ export default async function Home() {
 
     return (
         <>
+            {/* <Card>
+            <CardContent className="pt-6">
+                <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                        <Label htmlFor="name" className="mb-2">
+                            Storage
+                        </Label>
+                        <p className="font-semibold">
+                            {(storage / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min((storage / maxStorage) * 100, 100)}%` }}
+                        />
+                    </div>
+                </div>
+            </CardContent>
+        </Card> */}
             <div className="flex justify-between mb-8">
                 <div className="text-primary text-xl font-bold">Your apps</div>
                 <NewApp />

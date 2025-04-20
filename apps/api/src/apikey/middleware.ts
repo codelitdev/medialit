@@ -3,7 +3,6 @@ import {
     SUBSCRIPTION_NOT_VALID,
     UNAUTHORISED,
 } from "../config/strings";
-import { validateSubscription } from "../subscription/validate-subscription";
 import { getApiKeyUsingKeyId } from "./queries";
 import { getUser } from "../user/queries";
 import { Apikey } from "@medialit/models";
@@ -33,12 +32,12 @@ export default async function apikey(
         }
     }
 
-    const isSubscriptionValid = await validateSubscription(
-        apiKey!.userId.toString(),
-    );
-    if (!isSubscriptionValid) {
-        return res.status(403).json({ error: SUBSCRIPTION_NOT_VALID });
-    }
+    // const isSubscriptionValid = await validateSubscription(
+    //     apiKey!.userId.toString(),
+    // );
+    // if (!isSubscriptionValid) {
+    //     return res.status(403).json({ error: SUBSCRIPTION_NOT_VALID });
+    // }
 
     req.user = await getUser(apiKey!.userId.toString());
     req.apikey = apiKey.key;

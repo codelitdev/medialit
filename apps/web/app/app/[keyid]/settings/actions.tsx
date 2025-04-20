@@ -47,7 +47,9 @@ export async function updateAppName(
     }
 }
 
-export async function getTotalSpaceByApikey(keyid: string): Promise<number> {
+export async function getTotalSpaceByApikey(
+    keyid: string,
+): Promise<{ storage: number; maxStorage: number }> {
     const session = await auth();
     if (!session || !session.user) {
         throw new Error("Unauthenticated");
@@ -78,9 +80,9 @@ export async function getTotalSpaceByApikey(keyid: string): Promise<number> {
             internalApikey: internalApikey.key,
         });
 
-        return response.count;
-    } catch (e) {
+        return response;
+    } catch (e: any) {
         console.error(e);
-        return 0;
+        return { storage: 0, maxStorage: 0 };
     }
 }

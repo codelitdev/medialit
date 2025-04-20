@@ -15,6 +15,7 @@ import {
     getTotalSpaceOccupied,
 } from "./handlers";
 import presigned from "../presigning/middleware";
+import storage from "./storage-middleware";
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.post(
         tempFileDir: tempFileDirForUploads,
         limits: {
             fileSize: maxFileUploadSizeSubscribed,
+            files: 1,
         },
     }),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
@@ -40,6 +42,7 @@ router.post(
             apikey(req, res, next);
         }
     },
+    storage,
     uploadMedia,
 );
 router.post("/get/count", apikey, getMediaCount);

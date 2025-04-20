@@ -1,3 +1,10 @@
+import React from "react";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+} from "@/components/ui/breadcrumb";
 import Link from "next/link";
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
@@ -18,19 +25,23 @@ export default async function SchoolDetailsLayout({
     }
 
     return (
-        <div>
-            <div className="text-primary font-semibold py-2">
-                <Link href="/" className="hover:border-b-2 border-primary">
-                    All apps{" "}
-                </Link>
-                / <span className="text-muted-foreground">Billing</span>
-            </div>
-            <Script
-                src="https://app.lemonsqueezy.com/js/lemon.js"
-                strategy="beforeInteractive"
-                id="lemonsqueezy"
-            />
-            {children}
-        </div>
+        <>
+            <main className="mx-auto max-w-[1024px] min-h-screen">
+                <Breadcrumb className="mb-2">
+                    <BreadcrumbList>
+                        <BreadcrumbItem>
+                            <BreadcrumbLink href="/">All apps</BreadcrumbLink>
+                        </BreadcrumbItem>
+                    </BreadcrumbList>
+                </Breadcrumb>
+                <h1 className="text-2xl font-bold mb-8">Billing</h1>
+                <Script
+                    src="https://app.lemonsqueezy.com/js/lemon.js"
+                    strategy="beforeInteractive"
+                    id="lemonsqueezy"
+                />
+                {children}
+            </main>
+        </>
     );
 }

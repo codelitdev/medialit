@@ -50,7 +50,9 @@ export async function NavBar() {
                     <ul className="hidden md:flex md:gap-4">
                         {navlinks.map((link) => (
                             <li key={link.href}>
-                                <Link href={link.href}>{link.text}</Link>
+                                <Link href={link.href} target="_blank">
+                                    {link.text}
+                                </Link>
                             </li>
                         ))}
                     </ul>

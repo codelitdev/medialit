@@ -81,9 +81,9 @@ async function createAdminUser() {
             const user = await createUser(
                 email,
                 undefined,
-                new Date(
-                    new Date().setFullYear(new Date().getFullYear() + 100),
-                ),
+                // new Date(
+                //     new Date().setFullYear(new Date().getFullYear() + 100),
+                // ),
                 "subscribed",
             );
             const apikey: Apikey = await createApiKey(user.id, "App 1");

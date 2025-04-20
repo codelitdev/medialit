@@ -153,6 +153,7 @@ const PricingPane = async ({
                     <CancelSubscriptionButton
                         currentPlan={name}
                         subscriptionStatus={user.subscriptionStatus}
+                        className="w-full"
                     />
                 )}
 
@@ -161,6 +162,7 @@ const PricingPane = async ({
                         currentPlan={name}
                         subscriptionStatus={user.subscriptionStatus}
                         expiresAt={user.subscriptionEndsAfter}
+                        className="w-full"
                     />
                 )}
             </CardFooter>
@@ -171,9 +173,6 @@ const PricingPane = async ({
 const Billing = async () => {
     return (
         <section id="pricing" className="mb-2">
-            <h4 className="text-primary text-lg md:text-2xl font-bold py-2">
-                Billing
-            </h4>
             <p className="text-muted-foreground mb-4">
                 Leave all your upload woes to us! We take care of your file
                 uploads so that you focus on your users.

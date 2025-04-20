@@ -11,6 +11,14 @@ export const maxFileUploadSizeNotSubscribed = process.env
     .MAX_UPLOAD_SIZE_NOT_SUBSCRIBED
     ? +process.env.MAX_UPLOAD_SIZE_NOT_SUBSCRIBED
     : 52428800;
+export const maxStorageAllowedSubscribed = process.env
+    .MAX_STORAGE_ALLOWED_SUBSCRIBED
+    ? +process.env.MAX_STORAGE_ALLOWED_SUBSCRIBED
+    : 107374182400;
+export const maxStorageAllowedNotSubscribed = process.env
+    .MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
+    ? +process.env.MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
+    : 1073741824;
 export const PRESIGNED_URL_VALIDITY_MINUTES = 5;
 export const PRESIGNED_URL_LENGTH = 100;
 export const MEDIA_ID_LENGTH = 40;

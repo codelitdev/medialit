@@ -1,6 +1,6 @@
 import { LEMONSQUEEZY_WEBHOOK_SECRET } from "@/lib/constants";
 import UserModel from "@/models/user";
-import { User } from "@medialit/models";
+import { Constants, SubscriptionStatus, User } from "@medialit/models";
 
 export async function GET() {
     return Response.json({ success: true });
@@ -49,21 +49,21 @@ export async function POST(request: Request) {
     return Response.json({ success: true });
 }
 
-function getSubscripiontStatus(event: any) {
+function getSubscripiontStatus(event: any): SubscriptionStatus {
     switch (event?.data?.attributes?.status) {
         case "active":
         case "on_trail":
-            return "subscribed";
+            return Constants.SubscriptionStatus.SUBSCRIBED;
         case "cancelled":
-            return "cancelled";
+            return Constants.SubscriptionStatus.CANCELLED;
         case "expired":
-            return "expired";
+            return Constants.SubscriptionStatus.EXPIRED;
         case "paused":
         case "past_due":
         case "unpaid":
-            return "paused";
+            return Constants.SubscriptionStatus.PAUSED;
         default:
-            return "not-subscribed";
+            return Constants.SubscriptionStatus.NOT_SUBSCRIBED;
     }
 }
 

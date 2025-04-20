@@ -36,7 +36,6 @@ export default async function Media(props: {
     try {
         totalMediaCount = await getCount(keyid);
         medias = await getMediaFiles(keyid, +page);
-        console.log(medias);
         totalPages = medias
             ? Math.ceil(totalMediaCount.count / Number(mediasPerPage))
             : 0;
@@ -49,16 +48,10 @@ export default async function Media(props: {
 
     return (
         <>
-            <div className="border border-muted-foreground border-slate-200 min-h-[480px] my-5 rounded p-2 md:p-2 lg:p-0">
-                <div className="flex flex-wrap gap-2.5 p-1 sm:gap-3 sm:p-5 md:gap-7 md:p-5 lg:gap-3">
-                    {medias.map((media: any, index: number) => (
-                        <FilePreview
-                            key={media.id}
-                            media={media}
-                            keyid={keyid}
-                        />
-                    ))}
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 items-start mb-8">
+                {medias.map((media: any, index: number) => (
+                    <FilePreview key={media.id} media={media} keyid={keyid} />
+                ))}
             </div>
             <Pagination>
                 <PaginationContent>

@@ -11,10 +11,12 @@ export default function ResumeSubscriptionButton({
     expiresAt,
     currentPlan,
     subscriptionStatus,
+    className,
 }: {
-    expiresAt: Date;
+    expiresAt?: Date;
     currentPlan: string;
     subscriptionStatus: string;
+    className?: string;
 }) {
     const [formState, formAction] = useActionState(resumeSubscription, {
         success: false,
@@ -43,23 +45,26 @@ export default function ResumeSubscriptionButton({
             <Submit
                 currentPlan={currentPlan}
                 subscriptionStatus={subscriptionStatus}
+                className={className}
             >
                 Resume subscription
             </Submit>
 
-            {currentPlan !== "Basic" && subscriptionStatus === "cancelled" && (
-                <p
-                    className="text-center text-sm text-slate-500"
-                    suppressHydrationWarning={true}
-                >
-                    Expires at{" "}
-                    {new Date(expiresAt).toLocaleDateString(undefined, {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                    })}
-                </p>
-            )}
+            {currentPlan !== "Basic" &&
+                subscriptionStatus === "cancelled" &&
+                expiresAt && (
+                    <p
+                        className="text-center text-sm text-slate-500"
+                        suppressHydrationWarning={true}
+                    >
+                        Expires at{" "}
+                        {new Date(expiresAt).toLocaleDateString(undefined, {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                        })}
+                    </p>
+                )}
         </form>
     );
 }
@@ -68,14 +73,15 @@ function Submit({
     children,
     currentPlan,
     subscriptionStatus,
+    className,
 }: {
     children: React.ReactNode;
     currentPlan: string;
     subscriptionStatus: string;
+    className?: string;
 }) {
     const status = useFormStatus();
     let buttonText = children;
-    let className;
 
     if (currentPlan === "Basic" && subscriptionStatus === "cancelled") {
         buttonText = "Current plan";

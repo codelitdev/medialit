@@ -15,7 +15,7 @@ const UserSchema = new mongoose.Schema<User>(
         name: { type: String, required: false },
         customerId: { type: String, unique: true, sparse: true },
         subscriptionId: { type: String, unique: true, sparse: true },
-        subscriptionEndsAfter: { type: Date, required: true },
+        subscriptionEndsAfter: { type: Date },
         subscriptionMethod: { type: String, enum: ["stripe", "lemon"] },
         subscriptionStatus: {
             type: String,

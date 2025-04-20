@@ -2,6 +2,8 @@ import Joi from "joi";
 import {
     maxFileUploadSizeNotSubscribed,
     maxFileUploadSizeSubscribed,
+    maxStorageAllowedNotSubscribed,
+    maxStorageAllowedSubscribed,
 } from "../config/constants";
 import {
     FILE_IS_REQUIRED,
@@ -13,7 +15,7 @@ import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
-import { Constants } from "@medialit/models";
+import { Constants, getSubscriptionStatus } from "@medialit/models";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
@@ -26,9 +28,7 @@ function validateUploadOptions(req: Request): Joi.ValidationResult {
 }
 
 function getMaxFileUploadSize(req: any): number {
-    const isSubscribed =
-        req.user.subscriptionStatus === Constants.SubscriptionStatus.SUBSCRIBED;
-    return isSubscribed
+    return getSubscriptionStatus(req.user)
         ? maxFileUploadSizeSubscribed
         : maxFileUploadSizeNotSubscribed;
 }
@@ -138,8 +138,13 @@ export async function getTotalSpaceOccupied(req: any, res: any) {
     const apikey = req.apikey;
 
     try {
-        const totalMediaFiles = await getTotalSpace({ userId, apikey });
-        return res.status(200).json({ count: totalMediaFiles });
+        const totalSpaceOccupied = await getTotalSpace({ userId, apikey });
+        return res.status(200).json({
+            storage: totalSpaceOccupied,
+            maxStorage: getSubscriptionStatus(req.user)
+                ? maxStorageAllowedSubscribed
+                : maxStorageAllowedNotSubscribed,
+        });
     } catch (err: any) {
         return res.status(500).json(err.message);
     }

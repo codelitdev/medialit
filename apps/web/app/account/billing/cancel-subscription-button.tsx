@@ -20,9 +20,11 @@ import {
 export default function CancelSubscriptionButton({
     subscriptionStatus,
     currentPlan,
+    className,
 }: {
     subscriptionStatus: string;
     currentPlan: string;
+    className?: string;
 }) {
     const [formState, formAction] = useActionState(cancelSubscription, {
         success: false,
@@ -55,11 +57,13 @@ export default function CancelSubscriptionButton({
                 <DialogTrigger asChild>
                     {currentPlan === "Basic" &&
                     subscriptionStatus === "subscribed" ? (
-                        <Button className="bg-primary hover:bg-[#333333]">
+                        <Button className={`${className}`} variant="outline">
                             Downgrade to free
                         </Button>
                     ) : (
-                        <Button className="bg-red-600 hover:bg-red-700">
+                        <Button
+                            className={`bg-red-600 hover:bg-red-700 ${className}`}
+                        >
                             Cancel subscription
                         </Button>
                     )}

@@ -13,6 +13,7 @@ coverage
 
 # Text editors configurations
 .vscode
+.cursor
 
 # Env file
 *.env

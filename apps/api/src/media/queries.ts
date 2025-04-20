@@ -33,7 +33,7 @@ export async function getTotalSpace({
     apikey,
 }: {
     userId: string;
-    apikey: string;
+    apikey?: string;
 }): Promise<number> {
     const result = await MediaModel
         // calculate sum of size of all media files
@@ -133,3 +133,12 @@ export async function createMedia({
     });
     return media;
 }
+
+export default {
+    getMedia,
+    getMediaCount,
+    getTotalSpace,
+    getPaginatedMedia,
+    deleteMediaQuery,
+    createMedia,
+};
