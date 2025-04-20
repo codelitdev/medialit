@@ -25,7 +25,6 @@ export default async function storageValidation(
         totalSpaceOccupied + (req.files?.file as any).size >
         maxStorageAllowed
     ) {
-        console.log("totalSpaceOccupied", totalSpaceOccupied);
         return res.status(400).json({
             error: "You do not have enough storage space in your account to upload this file",
         });

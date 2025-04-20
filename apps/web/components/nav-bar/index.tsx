@@ -46,6 +46,9 @@ export async function NavBar() {
                             width={32}
                         />
                         {SITE_NAME}
+                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-sm border border-gray-300 text-gray-500 leading-none inline-flex items-center">
+                            Beta
+                        </span>
                     </Link>
                     <ul className="hidden md:flex md:gap-4">
                         {navlinks.map((link) => (
