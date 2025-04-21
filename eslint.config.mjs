@@ -14,7 +14,7 @@ export default defineConfig([
     "**/node_modules",
     "**/dist",
     "**/components/ui/**",
-    "apps/web/.next/**",
+    "**/.next/**",
     ".migrations/**",
   ]),
   { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"] },

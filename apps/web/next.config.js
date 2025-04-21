@@ -22,6 +22,11 @@ const nextConfig = {
                 protocol: "https",
                 hostname: "d27g932tzd9f7s.cloudfront.net",
             },
+            {
+                protocol: "https",
+                hostname:
+                    "local-testing-clqa-2.s3.ap-southeast-1.amazonaws.com",
+            },
         ],
     },
 };

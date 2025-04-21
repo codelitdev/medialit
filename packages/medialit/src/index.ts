@@ -89,11 +89,11 @@ export class MediaLit {
         if (options.access) formData.append("access", options.access);
         if (options.caption) formData.append("caption", options.caption);
         if (options.group) formData.append("group", options.group);
+        formData.append("apikey", this.apiKey);
 
         const response = await fetch(`${this.endpoint}/media/create`, {
             method: "POST",
             headers: {
-                apikey: this.apiKey,
                 ...formData.getHeaders(),
             },
             body: formData,
@@ -145,9 +145,11 @@ export class MediaLit {
             {
                 method: "DELETE",
                 headers: {
-                    apikey: this.apiKey,
                     "Content-Type": "application/json",
                 },
+                body: JSON.stringify({
+                    apikey: this.apiKey,
+                }),
             },
         );
 
@@ -166,9 +168,11 @@ export class MediaLit {
         const response = await fetch(`${this.endpoint}/media/get/${mediaId}`, {
             method: "POST",
             headers: {
-                apikey: this.apiKey,
                 "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+                apikey: this.apiKey,
+            }),
         });
 
         if (!response.ok) {
@@ -202,9 +206,11 @@ export class MediaLit {
             {
                 method: "POST",
                 headers: {
-                    apikey: this.apiKey,
                     "Content-Type": "application/json",
                 },
+                body: JSON.stringify({
+                    apikey: this.apiKey,
+                }),
             },
         );
 
@@ -229,11 +235,11 @@ export class MediaLit {
             {
                 method: "POST",
                 headers: {
-                    apikey: this.apiKey,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    group: options.group,
+                    apikey: this.apiKey,
+                    ...(options.group ? { group: options.group } : {}),
                 }),
             },
         );
@@ -256,9 +262,11 @@ export class MediaLit {
         const response = await fetch(`${this.endpoint}/media/get/count`, {
             method: "POST",
             headers: {
-                apikey: this.apiKey,
                 "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+                apikey: this.apiKey,
+            }),
         });
 
         if (!response.ok) {
@@ -279,9 +287,11 @@ export class MediaLit {
         const response = await fetch(`${this.endpoint}/media/get/size`, {
             method: "POST",
             headers: {
-                apikey: this.apiKey,
                 "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+                apikey: this.apiKey,
+            }),
         });
 
         if (!response.ok) {
@@ -301,9 +311,11 @@ export class MediaLit {
         const response = await fetch(`${this.endpoint}/settings/media/get`, {
             method: "POST",
             headers: {
-                apikey: this.apiKey,
                 "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+                apikey: this.apiKey,
+            }),
         });
 
         if (!response.ok) {
@@ -323,10 +335,12 @@ export class MediaLit {
         const response = await fetch(`${this.endpoint}/settings/media/create`, {
             method: "POST",
             headers: {
-                apikey: this.apiKey,
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(settings),
+            body: JSON.stringify({
+                apikey: this.apiKey,
+                ...settings,
+            }),
         });
 
         if (!response.ok) {

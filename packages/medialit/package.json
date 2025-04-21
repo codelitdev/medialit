@@ -3,9 +3,21 @@
   "version": "0.0.0",
   "description": "MediaLit Server SDK for managing media files",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "test": "node --import tsx --test '**/*.test.ts'",
     "prepublishOnly": "npm run build"
   },
@@ -22,6 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
     "tsx": "^4.19.3",
     "typescript": "^5.0.0"
   },
