@@ -1,0 +1,35 @@
+{
+  "name": "medialit",
+  "version": "0.0.0",
+  "description": "MediaLit Server SDK for managing media files",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --import tsx --test '**/*.test.ts'",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "medialit",
+    "aws s3",
+    "cloudflare r2",
+    "storage"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@10.7.1"
+}
