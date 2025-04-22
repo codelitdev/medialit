@@ -63,15 +63,15 @@ describe("MediaLit", () => {
                 apikey: mockApiKey,
             };
 
-            const fetchMock = mock.method(
-                global,
-                "fetch",
+            const fetchMock = mock.fn(
                 async () =>
                     ({
                         ok: true,
                         json: async () => mockResponse,
                     }) as Response,
             );
+
+            global.fetch = fetchMock;
 
             const result = await client.upload("/path/to/test.txt");
             assert.deepStrictEqual(result, mockResponse);
@@ -92,15 +92,15 @@ describe("MediaLit", () => {
                 apikey: mockApiKey,
             };
 
-            const fetchMock = mock.method(
-                global,
-                "fetch",
+            const fetchMock = mock.fn(
                 async () =>
                     ({
                         ok: true,
                         json: async () => mockResponse,
                     }) as Response,
             );
+
+            global.fetch = fetchMock;
 
             const result = await client.upload(buffer);
             assert.deepStrictEqual(result, mockResponse);
@@ -124,15 +124,15 @@ describe("MediaLit", () => {
                 apikey: mockApiKey,
             };
 
-            const fetchMock = mock.method(
-                global,
-                "fetch",
+            const fetchMock = mock.fn(
                 async () =>
                     ({
                         ok: true,
                         json: async () => mockResponse,
                     }) as Response,
             );
+
+            global.fetch = fetchMock;
 
             const result = await client.upload(stream);
             assert.deepStrictEqual(result, mockResponse);
@@ -156,18 +156,16 @@ describe("MediaLit", () => {
                 },
             ];
 
-            const fetchMock = mock.method(
-                global,
-                "fetch",
-                async (url: string | URL) => {
-                    assert.ok(url.toString().includes("access=public"));
-                    assert.ok(url.toString().includes("group=images"));
-                    return {
-                        ok: true,
-                        json: async () => mockResponse,
-                    } as Response;
-                },
-            );
+            const fetchMock = mock.fn(async (url: string | URL) => {
+                assert.ok(url.toString().includes("access=public"));
+                assert.ok(url.toString().includes("group=images"));
+                return {
+                    ok: true,
+                    json: async () => mockResponse,
+                } as Response;
+            });
+
+            global.fetch = fetchMock;
 
             const result = await client.list(1, 10, {
                 access: "public",
