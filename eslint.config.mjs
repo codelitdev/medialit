@@ -16,6 +16,7 @@ export default defineConfig([
     "**/components/ui/**",
     "**/.next/**",
     ".migrations/**",
+    "apps/docs/.source"
   ]),
   { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"] },
   { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], languageOptions: { globals: {...globals.browser, ...globals.node} } },
