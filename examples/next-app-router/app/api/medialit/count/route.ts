@@ -2,7 +2,7 @@ import { MediaLit } from "medialit";
 
 const client = new MediaLit();
 
-export async function GET(request: Request) {
+export async function GET() {
     try {
         const count = await client.getCount();
         return Response.json({ count });
