@@ -1,4 +1,5 @@
 import MediaUploadForm from "@/components/MediaUploadForm";
+import MediaList from "@/components/MediaList";
 
 export default function Home() {
     return (
@@ -15,10 +16,14 @@ export default function Home() {
                         <li>Automatic thumbnail generation</li>
                         <li>Media information retrieval</li>
                         <li>File deletion</li>
+                        <li>Media listing with pagination</li>
                     </ul>
                 </div>
-
                 <MediaUploadForm />
+                <div className="w-full mt-8">
+                    <h2 className="text-2xl font-bold mb-4">Uploaded Media</h2>
+                    <MediaList />
+                </div>
             </main>
         </div>
     );

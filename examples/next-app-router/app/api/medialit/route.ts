@@ -6,16 +6,23 @@ const client = new MediaLit();
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const mediaId = searchParams.get("mediaId");
-
-    if (!mediaId) {
-        return Response.json(
-            { error: "Media ID is required" },
-            { status: 400 },
-        );
-    }
+    const page = parseInt(searchParams.get("page") ?? "1");
+    const limit = parseInt(searchParams.get("limit") ?? "10");
+    const access = searchParams.get("access") as
+        | "public"
+        | "private"
+        | undefined;
+    const group = searchParams.get("group") ?? undefined;
 
     try {
-        const media = await client.get(mediaId);
+        // If mediaId is provided, return single media item
+        if (mediaId) {
+            const media = await client.get(mediaId);
+            return Response.json(media);
+        }
+
+        // Otherwise list media with pagination and filters
+        const media = await client.list(page, limit, { access, group });
         return Response.json(media);
     } catch (error) {
         if (error instanceof Error) {

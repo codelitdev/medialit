@@ -32,7 +32,7 @@ export default function MediaUploadForm() {
 
         try {
             // Get presigned URL from our API route
-            const presignedUrlResponse = await fetch("/api/media", {
+            const presignedUrlResponse = await fetch("/api/medialit", {
                 method: "POST",
             });
             const { presignedUrl, error } = await presignedUrlResponse.json();
@@ -61,7 +61,7 @@ export default function MediaUploadForm() {
 
             // Get media details after successful upload
             const mediaResponse = await fetch(
-                `/api/media?mediaId=${media.mediaId}`,
+                `/api/medialit?mediaId=${media.mediaId}`,
             );
             const mediaData = await mediaResponse.json();
 
@@ -88,7 +88,7 @@ export default function MediaUploadForm() {
 
         try {
             const response = await fetch(
-                `/api/media?mediaId=${uploadedMedia.mediaId}`,
+                `/api/medialit?mediaId=${uploadedMedia.mediaId}`,
                 {
                     method: "DELETE",
                 },
@@ -211,6 +211,8 @@ export default function MediaUploadForm() {
                         <a
                             href={uploadedMedia.file}
                             className="text-blue-500 underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
                         >
                             Direct link
                         </a>
