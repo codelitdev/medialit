@@ -48,13 +48,13 @@ jobs:
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
-        with:
-          # Automatically inject basePath in your Next.js configuration file and disable
-          # server side image optimization (https://nextjs.org/docs/api-reference/next/image#unoptimized).
-          #
-          # You may remove this line if you want to manage the configuration yourself.
-          static_site_generator: next
-          generator_config_file: apps/docs/next.config.js
+        # with:
+        #   # Automatically inject basePath in your Next.js configuration file and disable
+        #   # server side image optimization (https://nextjs.org/docs/api-reference/next/image#unoptimized).
+        #   #
+        #   # You may remove this line if you want to manage the configuration yourself.
+        #   static_site_generator: next
+        #   generator_config_file: apps/docs/next.config.js
       - name: Dump Pages configuration
         run: |
           echo PAGES_BASE_URL:  ${{ steps.pages.outputs.base_url }}
@@ -78,7 +78,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: ./apps/docs/out
 
   # Deployment job
   deploy:
