@@ -10,6 +10,5 @@ export interface Apikey {
     httpReferrers?: string[];
     ipAddresses?: string[];
     custom?: string;
-    internal?: boolean;
     deleted: boolean;
 }

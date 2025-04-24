@@ -5,13 +5,11 @@ import { getUniqueId } from "@medialit/utils";
 export async function createApiKey(
     userId: string,
     name: string,
-    internal?: boolean,
 ): Promise<Apikey> {
     return await ApikeyModel.create({
         name,
         key: getUniqueId(),
         userId,
-        internal: internal || false,
     });
 }
 
@@ -38,15 +36,11 @@ export async function getApiKeyByUserId(
             {
                 key: keyId,
                 userId,
-                internal: false,
             },
             projections,
         );
     } else {
-        result = await ApikeyModel.find(
-            { userId, internal: false },
-            projections,
-        );
+        result = await ApikeyModel.find({ userId }, projections);
     }
 
     return result;

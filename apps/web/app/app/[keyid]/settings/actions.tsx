@@ -1,11 +1,12 @@
 "use server";
 
 import { auth } from "@/auth";
-import { getApikeyFromKeyId, getInternalApikey } from "@/lib/apikey-handlers";
+import { getApikeyByUserId } from "@/lib/apikey-handlers";
 import connectToDatabase from "@/lib/connect-db";
-import { getMediaTotalSize } from "@/lib/media-handlers";
+import { getMediaLitClient } from "@/lib/get-medialit-client";
 import { getUserFromSession } from "@/lib/user-handlers";
 import ApikeyModel from "@/models/apikey";
+import { MediaStats } from "medialit";
 
 export async function updateAppName(
     previousState: Record<string, unknown>,
@@ -49,7 +50,7 @@ export async function updateAppName(
 
 export async function getTotalSpaceByApikey(
     keyid: string,
-): Promise<{ storage: number; maxStorage: number }> {
+): Promise<MediaStats> {
     const session = await auth();
     if (!session || !session.user) {
         throw new Error("Unauthenticated");
@@ -62,25 +63,19 @@ export async function getTotalSpaceByApikey(
         throw new Error("User not found");
     }
 
-    const internalApikey = await getInternalApikey(dbUser._id);
-
-    if (!internalApikey) {
-        console.error("Internal apikey not found for user", dbUser._id);
-        throw new Error("We messed up. Please try again later.");
-    }
-    const apikey = await getApikeyFromKeyId(dbUser._id, keyid);
+    const apikey = await getApikeyByUserId({
+        userId: dbUser._id,
+        keyId: keyid,
+    });
 
     if (!apikey) {
         throw new Error("Apikey not found");
     }
 
-    try {
-        const response = await getMediaTotalSize({
-            apikey: apikey.key,
-            internalApikey: internalApikey.key,
-        });
+    const client = getMediaLitClient(apikey.key);
 
-        return response;
+    try {
+        return await client.getStats();
     } catch (e: any) {
         console.error(e);
         return { storage: 0, maxStorage: 0 };

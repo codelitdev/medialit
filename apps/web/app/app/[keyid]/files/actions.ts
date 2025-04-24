@@ -2,14 +2,10 @@
 
 import connectToDatabase from "@/lib/connect-db";
 import { getUserFromSession } from "@/lib/user-handlers";
-import { getApikeyFromKeyId, getInternalApikey } from "@/lib/apikey-handlers";
-import {
-    getPaginatedMedia,
-    getMediaCount,
-    getMedia as getMediaFromServer,
-} from "@/lib/media-handlers";
+import { getApikeyByUserId } from "@/lib/apikey-handlers";
 import { auth } from "@/auth";
 import { Media } from "@medialit/models";
+import { getMediaLitClient } from "@/lib/get-medialit-client";
 
 export async function getMediaFiles(
     keyid: string,
@@ -27,25 +23,18 @@ export async function getMediaFiles(
         throw new Error("User not found");
     }
 
-    const internalApikey = await getInternalApikey(dbUser._id);
-
-    if (!internalApikey) {
-        console.error("Internal apikey not found for user", dbUser._id);
-        throw new Error("We messed up. Please try again later.");
-    }
-    const apikey = await getApikeyFromKeyId(dbUser._id, keyid);
+    const apikey = await getApikeyByUserId({
+        userId: dbUser._id,
+        keyId: keyid,
+    });
 
     if (!apikey) {
         throw new Error("Apikey not found");
     }
 
-    const media = await getPaginatedMedia({
-        apikey: apikey.key,
-        internalApikey: internalApikey.key,
-        page: page || 1,
-    });
+    const client = getMediaLitClient(apikey.key);
 
-    return media;
+    return await client.list(page || 1, 10);
 }
 
 export async function getCount(keyid: string) {
@@ -61,23 +50,16 @@ export async function getCount(keyid: string) {
         throw new Error("User not found");
     }
 
-    const internalApikey = await getInternalApikey(dbUser._id);
-
-    if (!internalApikey) {
-        console.error("Internal apikey not found for user", dbUser._id);
-        throw new Error("We messed up. Please try again later.");
-    }
-
-    const apikey = await getApikeyFromKeyId(dbUser._id, keyid);
+    const apikey = await getApikeyByUserId({
+        userId: dbUser._id,
+        keyId: keyid,
+    });
 
     if (!apikey) {
         throw new Error("Apikey not found");
     }
 
-    const mediacount = await getMediaCount({
-        apikey: apikey.key,
-        internalApikey: internalApikey.key,
-    });
+    const client = getMediaLitClient(apikey.key);
 
-    return mediacount;
+    return await client.getCount();
 }
