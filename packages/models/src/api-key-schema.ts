@@ -21,7 +21,6 @@ const ApikeySchema = new mongoose.Schema<Apikey>(
         httpReferrers: [String],
         ipAddresses: [String],
         custom: String,
-        internal: { type: Boolean, default: false },
         deleted: { type: Boolean, default: false },
     },
     {

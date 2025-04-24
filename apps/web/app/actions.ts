@@ -9,7 +9,7 @@ import connectToDatabase from "@/lib/connect-db";
 import verificationToken from "@/models/verification-token";
 import {
     createApiKey,
-    getApiKeyByUserId,
+    getApiKeysByUserId,
     deleteApiKey,
     editApiKey,
     getApikeyFromKeyId,
@@ -150,7 +150,7 @@ export async function getApiKeys() {
         return;
     }
 
-    const apikeys = await getApiKeyByUserId(dbUser._id);
+    const apikeys = await getApiKeysByUserId(dbUser._id);
     return apikeys;
 }
 

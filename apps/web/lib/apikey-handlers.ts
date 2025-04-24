@@ -3,15 +3,15 @@ import ApikeyModel from "@/models/apikey";
 import { getUniqueId } from "@medialit/utils";
 import mongoose from "mongoose";
 
-export async function getApiKeyByUserId(
+export async function getApiKeysByUserId(
     userId: mongoose.Types.ObjectId,
     keyId?: string,
-): Promise<Apikey | Apikey[] | null> {
-    let result: Apikey | Apikey[] | null;
+): Promise<Apikey[] | null> {
+    let result: Apikey[] | null;
     const projections = {
         _id: 0,
         name: 1,
-        key: 1,
+        // key: 1,
         httpReferrers: 1,
         ipAddresses: 1,
         createdAt: 1,
@@ -19,23 +19,19 @@ export async function getApiKeyByUserId(
         keyId: 1,
     };
 
+    const query: Record<string, unknown> = {
+        userId,
+        deleted: { $ne: true },
+    };
+
     if (keyId) {
-        result = await ApikeyModel.findOne(
-            {
-                key: keyId,
-                userId,
-                internal: { $ne: true },
-                deleted: { $ne: true },
-            },
-            projections,
-        );
-    } else {
-        result = await ApikeyModel.find(
-            { userId, internal: { $ne: true }, deleted: { $ne: true } },
-            projections,
-        );
+        query.keyId = keyId;
     }
-    return result;
+
+    return await ApikeyModel.find(
+        { userId, deleted: { $ne: true } },
+        projections,
+    );
 }
 
 export async function getApikeyFromKeyId(
@@ -45,7 +41,6 @@ export async function getApikeyFromKeyId(
     return (await ApikeyModel.findOne({
         keyId,
         userId,
-        internal: { $ne: true },
         deleted: { $ne: true },
     }).lean()) as Apikey | null;
 }
@@ -74,15 +69,6 @@ export async function deleteApiKey(
     );
 }
 
-export async function getInternalApikey(
-    userId: mongoose.Types.ObjectId,
-): Promise<Apikey | null> {
-    return (await ApikeyModel.findOne({
-        userId,
-        internal: true,
-    }).lean()) as Apikey | null;
-}
-
 export async function editApiKey({
     userId,
     name,
@@ -98,4 +84,19 @@ export async function editApiKey({
     });
 
     return editedApiKey;
+}
+
+export async function getApikeyByUserId({
+    userId,
+    keyId,
+}: {
+    userId: mongoose.Types.ObjectId;
+    keyId: string;
+}): Promise<Apikey | null> {
+    const apikeys = await getApiKeysByUserId(userId);
+    if (!apikeys || apikeys.length === 0 || apikeys[0].keyId !== keyId) {
+        throw new Error("Apikey not found");
+    }
+
+    return await getApikeyFromKeyId(userId, keyId);
 }

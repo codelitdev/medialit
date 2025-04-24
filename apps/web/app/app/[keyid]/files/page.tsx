@@ -38,7 +38,7 @@ export default async function Media(props: {
         totalMediaCount = await getCount(keyid);
         medias = await getMediaFiles(keyid, +page);
         totalPages = medias
-            ? Math.ceil(totalMediaCount.count / Number(mediasPerPage))
+            ? Math.ceil(totalMediaCount / Number(mediasPerPage))
             : 0;
 
         // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -80,7 +80,7 @@ export default async function Media(props: {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 items-start mb-8">
                         {medias.map((media: any, index: number) => (
                             <FilePreview
-                                key={media.id}
+                                key={media.mediaId}
                                 media={media}
                                 keyid={keyid}
                             />
@@ -123,7 +123,7 @@ export default async function Media(props: {
                             </PaginationItem>
                             <PaginationItem className="text-sm">
                                 <span className="font-bold">{page}</span> of{" "}
-                                {totalPages} ({medias.length} Files)
+                                {totalPages} ({totalMediaCount} Files)
                             </PaginationItem>
                             <PaginationItem
                                 className={`

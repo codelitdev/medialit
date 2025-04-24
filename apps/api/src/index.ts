@@ -78,19 +78,11 @@ async function createAdminUser() {
         const user: User | null = await findByEmail(email);
 
         if (!user) {
-            const user = await createUser(
-                email,
-                undefined,
-                // new Date(
-                //     new Date().setFullYear(new Date().getFullYear() + 100),
-                // ),
-                "subscribed",
-            );
+            const user = await createUser(email, undefined, "subscribed");
             const apikey: Apikey = await createApiKey(user.id, "App 1");
             console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
             console.log(`@     API key: ${apikey.key}      @`);
             console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-            await createApiKey(user.id, Constants.internalApikeyName, true);
         }
     } catch (error) {
         logger.error({ error }, "Failed to create admin user");
