@@ -1,0 +1,33 @@
+---
+title: What is MediaLit 
+description: Introducing Medialit, an easy way to add file uploads to your apps.
+icon: CircleHelp
+---
+
+We believe that adding file uploads should be a no-brainer task for developers.
+
+In reality, the process is quite complex, as devs are supposed to know storage, policies, CDNs, and firewalls in order to build a decent solution.
+
+**Hence, we built MediaLit, where everything has been configured for you. All you need is an API key and some code snippets to add file uploads to your apps.**
+
+## Philosophy
+
+**Batteries included**: In addition to file hosting, modern apps also require other niceties like image optimization, thumbnail generation, etc. So, we have bundled the transformation utilities with the storage API.
+
+**100% Self-hostable**: All parts of the ecosystem have been open-sourced. We have made sure that our docs are always updated and easy to follow. No gimmicks when it comes to being OSS.
+
+**Vendor-agnostic**: We try to stick to using S3 features that are available on most AWS S3-compatible providers. This allows you to easily move to a different vendor if you decide to do so.
+
+## Why MediaLit
+
+We designed MediaLit with simplicity in mind.
+
+Here are a few unique features:
+- A simpler API for file hosting than AWS S3.
+- Integrated CDN.
+- Automatic image optimization (configurable).
+- Automatic thumbnail generation for images and videos (configurable).
+
+### Serverless Apps
+
+MediaLit allows you to create pre-signed URLs that can be shared with serverless apps to let them upload files directly from the frontend. No more leaking keys.

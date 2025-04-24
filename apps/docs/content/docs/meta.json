@@ -1,0 +1,16 @@
+{
+  "title": "Meta",
+  "pages": [
+    "---Introduction---",
+    "quick-start",
+    "what-is-medialit",
+    "---Getting started---",
+    "next-app-router",
+    "next-pages-router",
+    "express-js",
+    "rest-api",
+    "---Resources---",
+    "self-hosting",
+    "faqs"
+  ]
+}
