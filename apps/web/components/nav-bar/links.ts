@@ -3,6 +3,6 @@ export const navlinks = [
     // { text: "Pricing", href: "/#pricing" },
     {
         text: "Docs",
-        href: "https://medialit.cloud/blog/getting-started/MRAoM_zAiywn_d4Lnqm0A",
+        href: "https://docs.medialit.cloud/quick-start",
     },
 ];
