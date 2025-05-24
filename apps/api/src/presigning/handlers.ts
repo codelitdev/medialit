@@ -2,6 +2,7 @@ import { Request } from "express";
 import Joi from "joi";
 import logger from "../services/log";
 import * as preSignedUrlService from "./service";
+import { HOSTNAME_OVERRIDE } from "../config/constants";
 
 function validatePresigningOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
@@ -26,7 +27,7 @@ export async function getPresignedUrl(
             userId: req.user.id,
             apikey: req.apikey,
             protocol: req.protocol,
-            host: req.get("Host"),
+            host: HOSTNAME_OVERRIDE || req.get("Host"),
             group: req.body.group,
         });
         return res.status(200).json({ message: presignedUrl });

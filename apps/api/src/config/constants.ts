@@ -61,3 +61,4 @@ export const CDN_MAX_AGE = process.env.CDN_MAX_AGE
     : 1000 * 60 * 60; // one hour
 
 export const ENDPOINT = USE_CLOUDFRONT ? CLOUDFRONT_ENDPOINT : S3_ENDPOINT;
+export const HOSTNAME_OVERRIDE = process.env.HOSTNAME_OVERRIDE || ""; // Useful for hosting via Docker
