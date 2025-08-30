@@ -13,6 +13,10 @@ import {
     deleteMedia,
     getMediaCount,
     getTotalSpaceOccupied,
+    initializeChunkedUpload,
+    uploadChunk,
+    completeChunkedUpload,
+    abortChunkedUpload,
 } from "./handlers";
 import presigned from "../presigning/middleware";
 import storage from "./storage-middleware";
@@ -45,6 +49,92 @@ router.post(
     storage,
     uploadMedia,
 );
+
+// Chunked upload routes
+router.post(
+    "/chunked/init",
+    cors(),
+    (req: Request, res: Response, next: (...args: any[]) => void) => {
+        const { signature } = req.query;
+        if (signature) {
+            presigned(
+                req as Request & { user: any; apikey: string },
+                res,
+                next,
+            );
+        } else {
+            apikey(req, res, next);
+        }
+    },
+    storage,
+    initializeChunkedUpload,
+);
+
+router.post(
+    "/chunked/upload/:uploadId",
+    cors(),
+    fileUpload({
+        useTempFiles: true,
+        tempFileDir: tempFileDirForUploads,
+        limits: {
+            fileSize: 10 * 1024 * 1024, // 10MB per chunk
+            files: 1,
+        },
+    }),
+    (req: Request, res: Response, next: (...args: any[]) => void) => {
+        const { signature } = req.query;
+        if (signature) {
+            presigned(
+                req as Request & { user: any; apikey: string },
+                res,
+                next,
+            );
+        } else {
+            apikey(req, res, next);
+        }
+    },
+    storage,
+    uploadChunk,
+);
+
+router.post(
+    "/chunked/complete/:uploadId",
+    cors(),
+    (req: Request, res: Response, next: (...args: any[]) => void) => {
+        const { signature } = req.query;
+        if (signature) {
+            presigned(
+                req as Request & { user: any; apikey: string },
+                res,
+                next,
+            );
+        } else {
+            apikey(req, res, next);
+        }
+    },
+    storage,
+    completeChunkedUpload,
+);
+
+router.delete(
+    "/chunked/abort/:uploadId",
+    cors(),
+    (req: Request, res: Response, next: (...args: any[]) => void) => {
+        const { signature } = req.query;
+        if (signature) {
+            presigned(
+                req as Request & { user: any; apikey: string },
+                res,
+                next,
+            );
+        } else {
+            apikey(req, res, next);
+        }
+    },
+    storage,
+    abortChunkedUpload,
+);
+
 router.post("/get/count", apikey, getMediaCount);
 router.post("/get/size", apikey, getTotalSpaceOccupied);
 router.post("/get/:mediaId", apikey, getMediaDetails);
