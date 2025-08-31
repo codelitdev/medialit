@@ -18,7 +18,7 @@ import { getMediaCount as getCount, getTotalSpace } from "./queries";
 import { Constants, getSubscriptionStatus } from "@medialit/models";
 import ChunkedUploadModel, { ChunkedUpload } from "./chunked-upload-model";
 import { getUniqueId } from "@medialit/utils";
-import { createReadStream, createWriteStream, existsSync } from "fs";
+import { createReadStream, createWriteStream, existsSync, rename } from "fs";
 import { join } from "path";
 import { tempFileDirForUploads } from "../config/constants";
 import * as presignedUrlService from "../presigning/service";
@@ -370,6 +370,10 @@ export async function completeChunkedUpload(
             size: chunkedUpload.totalSize,
             mimetype: chunkedUpload.mimeType,
             tempFilePath: finalFilePath,
+            mv: (destination: string, callback: (err?: any) => void) => {
+                // Since the file is already at finalFilePath, we need to move it to destination
+                rename(finalFilePath, destination, callback);
+            }
         };
 
         // Upload using existing service
