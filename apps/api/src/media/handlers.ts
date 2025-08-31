@@ -84,7 +84,9 @@ export async function uploadMedia(
             mediaId,
         });
 
-        return res.status(200).json(media);
+        // Filter out the 'group' field to match MediaInput GraphQL type
+        const { group: _, ...mediaResponse } = media as any;
+        return res.status(200).json(mediaResponse);
     } catch (err: any) {
         logger.error({ err }, err.message);
         res.status(500).json({ error: err.message });
@@ -411,7 +413,9 @@ export async function completeChunkedUpload(
                 });
         }
 
-        return res.status(200).json(media);
+        // Filter out the 'group' field to match MediaInput GraphQL type
+        const { group: _, ...mediaResponse } = media as any;
+        return res.status(200).json(mediaResponse);
     } catch (err: any) {
         logger.error({ err }, err.message);
         return res.status(500).json({ error: err.message });
