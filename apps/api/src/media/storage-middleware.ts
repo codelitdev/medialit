@@ -8,7 +8,9 @@ export default async function storageValidation(
     res: any,
     next: (...args: any[]) => void,
 ) {
-    if (!req.files?.file) {
+    // Check for both regular uploads (file) and chunked uploads (chunk)
+    const uploadedFile = req.files?.file || req.files?.chunk;
+    if (!uploadedFile) {
         return res.status(400).json({
             error: "No file uploaded",
         });
@@ -22,7 +24,7 @@ export default async function storageValidation(
         : maxStorageAllowedNotSubscribed;
 
     if (
-        totalSpaceOccupied + (req.files?.file as any).size >
+        totalSpaceOccupied + (uploadedFile as any).size >
         maxStorageAllowed
     ) {
         return res.status(400).json({

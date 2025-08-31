@@ -23,9 +23,16 @@ import storage from "./storage-middleware";
 
 const router = express.Router();
 
+// Enable CORS for all routes with fully permissive settings
+router.use(cors({
+    origin: "*",
+    methods: "*",
+    allowedHeaders: "*",
+    credentials: false
+}));
+
 router.post(
     "/create",
-    cors(),
     fileUpload({
         useTempFiles: true,
         tempFileDir: tempFileDirForUploads,
@@ -53,7 +60,6 @@ router.post(
 // Chunked upload routes
 router.post(
     "/chunked/init",
-    cors(),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
         const { signature } = req.query;
         if (signature) {
@@ -66,13 +72,11 @@ router.post(
             apikey(req, res, next);
         }
     },
-    storage,
     initializeChunkedUpload,
 );
 
 router.post(
     "/chunked/upload/:uploadId",
-    cors(),
     fileUpload({
         useTempFiles: true,
         tempFileDir: tempFileDirForUploads,
@@ -99,7 +103,6 @@ router.post(
 
 router.post(
     "/chunked/complete/:uploadId",
-    cors(),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
         const { signature } = req.query;
         if (signature) {
@@ -118,7 +121,6 @@ router.post(
 
 router.delete(
     "/chunked/abort/:uploadId",
-    cors(),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
         const { signature } = req.query;
         if (signature) {
