@@ -115,7 +115,6 @@ router.post(
             apikey(req, res, next);
         }
     },
-    storage,
     completeChunkedUpload,
 );
 
@@ -133,7 +132,6 @@ router.delete(
             apikey(req, res, next);
         }
     },
-    storage,
     abortChunkedUpload,
 );
 
