@@ -84,9 +84,7 @@ export async function uploadMedia(
             mediaId,
         });
 
-        // Filter out the 'group' field to match MediaInput GraphQL type
-        const { group: _, ...mediaResponse } = media as any;
-        return res.status(200).json(mediaResponse);
+        return res.status(200).json(media);
     } catch (err: any) {
         logger.error({ err }, err.message);
         res.status(500).json({ error: err.message });
