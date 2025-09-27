@@ -5,7 +5,7 @@ import {
     tempFileDirForUploads,
     imagePattern,
     videoPattern,
-    imagePatternIncludingGif,
+    imagePatternForThumbnailGeneration,
     USE_CLOUDFRONT,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
@@ -55,7 +55,7 @@ const generateAndUploadThumbnail = async ({
     const thumbPath = `${workingDirectory}/thumb.webp`;
 
     let isThumbGenerated = false; // to indicate if the thumbnail name is to be saved to the DB
-    if (imagePatternIncludingGif.test(mimetype)) {
+    if (imagePatternForThumbnailGeneration.test(mimetype)) {
         await thumbnail.forImage(originalFilePath, thumbPath);
         isThumbGenerated = true;
     }
