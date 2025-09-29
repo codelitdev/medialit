@@ -48,11 +48,13 @@ export async function generateSignedUrl({
     protocol,
     host,
     group,
-}: GenerateSignedUrlProps): Promise<string> {
+    validityMinutes,
+}: GenerateSignedUrlProps & { validityMinutes?: number }): Promise<string> {
     const presignedUrl = await queries.createPresignedUrl(
         userId,
         apikey,
         group,
+        validityMinutes,
     );
 
     queries.cleanupExpiredLinks(userId).catch((err: any) => {

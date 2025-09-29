@@ -82,7 +82,8 @@ export const generateSignedUrl = async (key: string): Promise<string> => {
         Bucket: cloudBucket,
         Key: key,
     });
-    const url = await getS3SignedUrl(getS3Client(), command);
+    // Set expiration to 3 hours (10800 seconds)
+    const url = await getS3SignedUrl(getS3Client(), command, { expiresIn: 10800 });
     return url;
 };
 

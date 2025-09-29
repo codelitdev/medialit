@@ -7,9 +7,10 @@ import { HOSTNAME_OVERRIDE } from "../config/constants";
 function validatePresigningOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
         group: Joi.string().optional(),
+        chunked: Joi.boolean().optional(),
     });
-    const { group } = req.body;
-    return uploadSchema.validate({ group });
+    const { group, chunked } = req.body;
+    return uploadSchema.validate({ group, chunked });
 }
 
 export async function getPresignedUrl(
@@ -23,12 +24,16 @@ export async function getPresignedUrl(
     }
 
     try {
+        // Use 24 hours (1440 minutes) validity for chunked uploads, default (5 minutes) for regular uploads
+        const validityMinutes = req.body.chunked ? 1440 : undefined;
+        
         const presignedUrl = await preSignedUrlService.generateSignedUrl({
             userId: req.user.id,
             apikey: req.apikey,
             protocol: req.protocol,
             host: HOSTNAME_OVERRIDE || req.get("Host"),
             group: req.body.group,
+            validityMinutes,
         });
         return res.status(200).json({ message: presignedUrl });
     } catch (err: any) {

@@ -19,7 +19,7 @@ export const maxStorageAllowedNotSubscribed = process.env
     .MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
     ? +process.env.MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
     : 1073741824;
-export const PRESIGNED_URL_VALIDITY_MINUTES = 5;
+export const PRESIGNED_URL_VALIDITY_MINUTES = 60;
 export const PRESIGNED_URL_LENGTH = 100;
 export const MEDIA_ID_LENGTH = 40;
 export const APIKEY_RESTRICTION_REFERRER = "referrer";
