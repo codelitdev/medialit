@@ -62,3 +62,11 @@ export const CDN_MAX_AGE = process.env.CDN_MAX_AGE
 
 export const ENDPOINT = USE_CLOUDFRONT ? CLOUDFRONT_ENDPOINT : S3_ENDPOINT;
 export const HOSTNAME_OVERRIDE = process.env.HOSTNAME_OVERRIDE || ""; // Useful for hosting via Docker
+
+// Tus upload config
+export const TUS_UPLOAD_EXPIRATION_HOURS = parseInt(
+    process.env.TUS_UPLOAD_EXPIRATION_HOURS || "48",
+);
+export const TUS_CHUNK_SIZE = parseInt(
+    process.env.TUS_CHUNK_SIZE || "10485760",
+); // 10MB default

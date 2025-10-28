@@ -15,6 +15,7 @@ export default async function apikey(
     const reqKey = req.body.apikey;
 
     if (!reqKey) {
+        console.log("API key missing in request");
         return res.status(400).json({ error: BAD_REQUEST });
     }
 

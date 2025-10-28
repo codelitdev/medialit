@@ -38,6 +38,8 @@
     "@medialit/models": "workspace:*",
     "@medialit/thumbnail": "workspace:*",
     "@medialit/utils": "workspace:^0.1.0",
+    "@tus/file-store": "^2.0.0",
+    "@tus/server": "^2.3.0",
     "aws-sdk": "^2.1692.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

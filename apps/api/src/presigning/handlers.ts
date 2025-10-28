@@ -36,3 +36,30 @@ export async function getPresignedUrl(
         return res.status(500).json(err.message);
     }
 }
+
+export async function getPresignedTusUrl(
+    req: any,
+    res: any,
+    next: (...args: any[]) => void,
+) {
+    const { error } = validatePresigningOptions(req);
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    try {
+        const presignedUrl = await preSignedUrlService.generateSignedUrlForTus({
+            userId: req.user.id,
+            apikey: req.apikey,
+            protocol: req.protocol,
+            host: HOSTNAME_OVERRIDE || req.get("Host"),
+            group: req.body.group,
+        });
+        // Extract signature from the URL
+        const signature = presignedUrl.split("signature=")[1];
+        return res.status(200).json({ signature });
+    } catch (err: any) {
+        logger.error({ err }, err.message);
+        return res.status(500).json(err.message);
+    }
+}
