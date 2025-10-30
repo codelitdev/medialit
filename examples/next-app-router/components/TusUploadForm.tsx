@@ -53,7 +53,7 @@ export default function TusUploadForm() {
             }
 
             // Use the endpoint directly since we're sending signature in headers
-            const uploadUrl = `${endpoint}/media/create/tus`;
+            const uploadUrl = `${endpoint}/media/create/resumable`;
 
             // Prepare metadata for tus (tus-js-client will encode values as base64)
             const metadata = {
@@ -66,9 +66,9 @@ export default function TusUploadForm() {
             // Create tus upload
             const upload = new Upload(file, {
                 endpoint: uploadUrl,
-                retryDelays: [0, 3000, 5000, 10000, 20000],
+                retryDelays: [0, 3000, 5000],
                 headers: {
-                    "X-Upload-Signature": signature,
+                    "x-medialit-signature": signature,
                 },
                 metadata,
                 onError: (error) => {

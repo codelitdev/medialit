@@ -90,5 +90,5 @@ export async function generateSignedUrlForTus({
         );
     });
 
-    return `${protocol}://${host}/media/create/tus?signature=${presignedUrl?.signature}`;
+    return `${protocol}://${host}/media/create/resumable?signature=${presignedUrl?.signature}`;
 }

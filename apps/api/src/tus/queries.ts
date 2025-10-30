@@ -25,12 +25,6 @@ export async function createTusUpload(
         isComplete: false,
         expiresAt,
     };
-    console.log(
-        "Creating TusUpload with ID:",
-        data.uploadId,
-        data,
-        tusUploadData,
-    );
     const tusUpload = await TusUploadModel.create(tusUploadData);
 
     return tusUpload;

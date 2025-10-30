@@ -1,7 +1,8 @@
 import { maxStorageAllowedNotSubscribed } from "../config/constants";
 import { maxStorageAllowedSubscribed } from "../config/constants";
-import { Constants, getSubscriptionStatus } from "@medialit/models";
+import { getSubscriptionStatus, User } from "@medialit/models";
 import mediaQueries from "./queries";
+import { NOT_ENOUGH_STORAGE } from "../config/strings";
 
 export default async function storageValidation(
     req: any,
@@ -14,21 +15,25 @@ export default async function storageValidation(
         });
     }
 
-    const totalSpaceOccupied = await mediaQueries.getTotalSpace({
-        userId: (req as any).user.id,
-    });
-    const maxStorageAllowed = getSubscriptionStatus(req.user)
-        ? maxStorageAllowedSubscribed
-        : maxStorageAllowedNotSubscribed;
-
-    if (
-        totalSpaceOccupied + (req.files?.file as any).size >
-        maxStorageAllowed
-    ) {
-        return res.status(400).json({
-            error: "You do not have enough storage space in your account to upload this file",
+    if (!(await hasEnoughStorage((req.files.file as any).size, req.user))) {
+        return res.status(403).json({
+            error: NOT_ENOUGH_STORAGE,
         });
     }
 
     next();
+}
+
+export async function hasEnoughStorage(
+    size: number,
+    user: User,
+): Promise<boolean> {
+    const totalSpaceOccupied = await mediaQueries.getTotalSpace({
+        userId: user.id,
+    });
+    const maxStorageAllowed = getSubscriptionStatus(user)
+        ? maxStorageAllowedSubscribed
+        : maxStorageAllowedNotSubscribed;
+
+    return totalSpaceOccupied + size <= maxStorageAllowed;
 }

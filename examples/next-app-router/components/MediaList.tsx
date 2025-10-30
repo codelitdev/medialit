@@ -182,12 +182,42 @@ export default function MediaList() {
 
                             <div className="aspect-video relative flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
                                 {selectedMedia.thumbnail ? (
-                                    <Image
-                                        src={selectedMedia.thumbnail}
-                                        alt={selectedMedia.originalFileName}
-                                        fill
-                                        className="object-cover rounded-lg"
-                                    />
+                                    selectedMedia.mimeType.startsWith(
+                                        "video",
+                                    ) ? (
+                                        <video
+                                            id="my-video"
+                                            controls
+                                            preload="auto"
+                                            width="640"
+                                            height="264"
+                                            poster={selectedMedia.thumbnail}
+                                            data-setup="{}"
+                                        >
+                                            <source
+                                                src={selectedMedia.file}
+                                                type="video/mp4"
+                                            />
+                                            <p className="vjs-no-js">
+                                                To view this video please enable
+                                                JavaScript, and consider
+                                                upgrading to a web browser that
+                                                <a
+                                                    href="https://videojs.com/html5-video-support/"
+                                                    target="_blank"
+                                                >
+                                                    supports HTML5 video
+                                                </a>
+                                            </p>
+                                        </video>
+                                    ) : (
+                                        <Image
+                                            src={selectedMedia.thumbnail}
+                                            alt={selectedMedia.originalFileName}
+                                            fill
+                                            className="object-cover rounded-lg"
+                                        />
+                                    )
                                 ) : (
                                     <FileTypeIcon
                                         mimeType={selectedMedia.mimeType}

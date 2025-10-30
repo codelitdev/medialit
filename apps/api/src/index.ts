@@ -33,7 +33,6 @@ app.use("/settings/media", mediaSettingsRoutes(passport));
 app.use("/media/presigned", presignedUrlRoutes);
 app.use("/media", tusRoutes);
 app.use("/media", mediaRoutes);
-// Mount TUS routes under /media so paths like /media/create/tus match correctly
 
 const port = process.env.PORT || 80;
 

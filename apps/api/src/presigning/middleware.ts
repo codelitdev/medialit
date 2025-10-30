@@ -3,11 +3,12 @@ import { PRESIGNED_URL_INVALID } from "../config/strings";
 import * as preSignedUrlService from "./service";
 
 export default async function presigned(
-    req: Request & { user: any; apikey: string },
+    req: Request & { user?: any; apikey?: string },
     res: Response,
     next: (...args: any[]) => void,
 ) {
-    const { signature } = req.query;
+    const signature =
+        req.query.signature || req.headers["x-medialit-signature"];
 
     const response = await preSignedUrlService.getUserAndGroupFromPresignedUrl(
         signature as string,
