@@ -37,8 +37,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST() {
     try {
-        const presignedUrl = await client.getPresignedUploadUrl();
-        return Response.json({ presignedUrl });
+        const signature = await client.getSignature();
+        const sp = new URLSearchParams();
+        sp.append("signature", signature);
+        return Response.json({
+            endpoint: client.endpoint,
+            signature,
+        });
     } catch (error) {
         if (error instanceof Error) {
             console.log("Error getting presigned URL:", error);

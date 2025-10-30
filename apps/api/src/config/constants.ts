@@ -67,6 +67,3 @@ export const HOSTNAME_OVERRIDE = process.env.HOSTNAME_OVERRIDE || ""; // Useful 
 export const TUS_UPLOAD_EXPIRATION_HOURS = parseInt(
     process.env.TUS_UPLOAD_EXPIRATION_HOURS || "48",
 );
-export const TUS_CHUNK_SIZE = parseInt(
-    process.env.TUS_CHUNK_SIZE || "10485760",
-); // 10MB default

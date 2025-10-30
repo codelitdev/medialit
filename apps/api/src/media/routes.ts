@@ -14,7 +14,7 @@ import {
     getMediaCount,
     getTotalSpaceOccupied,
 } from "./handlers";
-import presigned from "../presigning/middleware";
+import signatureMiddleware from "../signature/middleware";
 import storage from "./storage-middleware";
 
 const router = express.Router();
@@ -31,9 +31,12 @@ router.post(
         },
     }),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
-        const { signature } = req.query;
+        const signature =
+            req.query.signature ||
+            req.headers["x-medialit-signature"] ||
+            req.headers["X-Medialit-Signature"];
         if (signature) {
-            presigned(
+            signatureMiddleware(
                 req as Request & { user: any; apikey: string },
                 res,
                 next,

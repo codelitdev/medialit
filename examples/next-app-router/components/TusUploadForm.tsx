@@ -36,20 +36,25 @@ export default function TusUploadForm() {
         setUploadSpeed("");
 
         try {
-            // Get signature and endpoint from our API route for tus uploads
-            const signatureResponse = await fetch("/api/medialit/tus", {
+            // Get presigned URL
+            const presignedUrlResponse = await fetch("/api/medialit", {
                 method: "POST",
             });
-            const {
-                signature,
-                endpoint,
-                error: tusError,
-            } = await signatureResponse.json();
+            const { endpoint, signature, error } =
+                await presignedUrlResponse.json();
 
-            if (tusError || !signature) {
-                throw new Error(
-                    tusError || "Failed to get signature for tus upload",
-                );
+            if (error || !signature) {
+                throw new Error(error || "Failed to get signature");
+            }
+
+            // const {
+            //     signature,
+            //     endpoint,
+            //     error: tusError,
+            // } = await signatureResponse.json();
+
+            if (!signature) {
+                throw new Error("Failed to get signature from presigned URL");
             }
 
             // Use the endpoint directly since we're sending signature in headers
@@ -66,6 +71,7 @@ export default function TusUploadForm() {
             // Create tus upload
             const upload = new Upload(file, {
                 endpoint: uploadUrl,
+                chunkSize: 1024000,
                 retryDelays: [0, 3000, 5000],
                 headers: {
                     "x-medialit-signature": signature,

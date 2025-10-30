@@ -23,10 +23,11 @@ import generateFileName from "../media/utils/generate-file-name";
 import { createMedia } from "../media/queries";
 import getTags from "../media/utils/get-tags";
 import { getTusUpload, markTusUploadComplete } from "./queries";
-import * as presignedUrlService from "../presigning/service";
+import * as presignedUrlService from "../signature/service";
 import { getUser } from "../user/queries";
 import { hasEnoughStorage } from "../media/storage-middleware";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
+import { removeTusFiles } from "./utils";
 
 export default async function finalizeUpload(uploadId: string) {
     logger.info({ uploadId }, "Finalizing tus upload");
@@ -79,8 +80,6 @@ export default async function finalizeUpload(uploadId: string) {
     }
 
     const mainFilePath = `${temporaryFolderForWork}/main.${fileExtension}`;
-
-    console.log(mainFilePath, tusFilePath);
 
     //Copy file from tus store to working directory
     const tusFileContent = readFileSync(tusFilePath);
@@ -161,7 +160,7 @@ export default async function finalizeUpload(uploadId: string) {
     // Cleanup tus file
     try {
         if (existsSync(tusFilePath)) {
-            require("fs").unlinkSync(tusFilePath);
+            removeTusFiles(tempFilePath);
         }
     } catch (err) {
         logger.error({ err }, "Error cleaning up tus file");

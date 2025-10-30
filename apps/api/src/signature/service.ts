@@ -42,7 +42,7 @@ interface GenerateSignedUrlProps {
     group?: string;
 }
 
-export async function generateSignedUrl({
+export async function generateSignature({
     userId,
     apikey,
     protocol,
@@ -62,33 +62,10 @@ export async function generateSignedUrl({
         );
     });
 
-    return `${protocol}://${host}/media/create?signature=${presignedUrl?.signature}`;
+    return presignedUrl.signature;
 }
 
 export async function cleanup(userId: string, signature: string) {
     await queries.deleteBySignature(signature);
     await queries.cleanupExpiredLinks(userId);
-}
-
-export async function generateSignedUrlForTus({
-    userId,
-    apikey,
-    protocol,
-    host,
-    group,
-}: GenerateSignedUrlProps): Promise<string> {
-    const presignedUrl = await queries.createPresignedUrl(
-        userId,
-        apikey,
-        group,
-    );
-
-    queries.cleanupExpiredLinks(userId).catch((err: any) => {
-        logger.error(
-            { err },
-            `Error while cleaning up expired links for ${userId}`,
-        );
-    });
-
-    return `${protocol}://${host}/media/create/resumable?signature=${presignedUrl?.signature}`;
 }

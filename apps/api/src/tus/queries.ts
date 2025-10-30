@@ -1,3 +1,4 @@
+import { TUS_UPLOAD_EXPIRATION_HOURS } from "../config/constants";
 import logger from "../services/log";
 import TusUploadModel, { TusUpload } from "./model";
 
@@ -8,10 +9,7 @@ export async function createTusUpload(
 ): Promise<TusUploadDocument> {
     // const uploadId = new mongoose.Types.ObjectId().toString();
     const expiresAt = new Date();
-    expiresAt.setHours(
-        expiresAt.getHours() +
-            parseInt(process.env.TUS_UPLOAD_EXPIRATION_HOURS || "48"),
-    );
+    expiresAt.setHours(expiresAt.getHours() + TUS_UPLOAD_EXPIRATION_HOURS);
 
     const tusUploadData: TusUpload = {
         uploadId: data.uploadId,
@@ -36,13 +34,6 @@ export async function getTusUpload(
     return TusUploadModel.findOne({ uploadId });
 }
 
-// export async function getTusUploadBySignature(
-//     signature: string,
-// ): Promise<TusUploadDocument | null> {
-//     const TusUploadModel = getTusUploadModel();
-//     return TusUploadModel.findOne({ signature });
-// }
-
 export async function updateTusUploadOffset(
     uploadId: string,
     uploadOffset: number,
@@ -56,22 +47,6 @@ export async function markTusUploadComplete(uploadId: string): Promise<void> {
 
 export async function deleteTusUpload(uploadId: string): Promise<void> {
     await TusUploadModel.deleteOne({ uploadId });
-}
-
-export async function cleanupExpiredTusUploads(): Promise<void> {
-    try {
-        const now = new Date();
-        const result = await TusUploadModel.deleteMany({
-            expiresAt: { $lt: now },
-        });
-        if (result.deletedCount > 0) {
-            logger.info(
-                `Cleaned up ${result.deletedCount} expired tus uploads`,
-            );
-        }
-    } catch (err: any) {
-        logger.error({ err }, "Error cleaning up expired tus uploads");
-    }
 }
 
 export async function getTusUploadsByUserId(

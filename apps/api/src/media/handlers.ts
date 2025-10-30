@@ -15,7 +15,7 @@ import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
-import { Constants, getSubscriptionStatus } from "@medialit/models";
+import { getSubscriptionStatus } from "@medialit/models";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({

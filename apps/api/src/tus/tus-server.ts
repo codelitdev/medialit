@@ -1,9 +1,9 @@
-import { Server } from "@tus/server";
+import { EVENTS, Server } from "@tus/server";
 import { FileStore } from "@tus/file-store";
-import { tempFileDirForUploads, TUS_CHUNK_SIZE } from "../config/constants";
+import { tempFileDirForUploads } from "../config/constants";
 import logger from "../services/log";
 import finalizeUpload from "./finalize";
-import * as preSignedUrlService from "../presigning/service";
+import * as preSignedUrlService from "../signature/service";
 import {
     NOT_ENOUGH_STORAGE,
     PRESIGNED_URL_INVALID,
@@ -13,7 +13,7 @@ import { Apikey, User } from "@medialit/models";
 import { getApiKeyUsingKeyId } from "../apikey/queries";
 import { getUser } from "../user/queries";
 import { hasEnoughStorage } from "../media/storage-middleware";
-import { createTusUpload } from "./queries";
+import { createTusUpload, updateTusUploadOffset } from "./queries";
 
 const store = new FileStore({
     directory: `${tempFileDirForUploads}/tus-uploads`,
@@ -23,6 +23,7 @@ export const server = new Server({
     path: "/media/create/resumable",
     datastore: store,
     onIncomingRequest: async (req: any) => {
+        console.log("TUS onIncomingRequest", req.method);
         try {
             const response = await getUserAndAPIKey(req);
             if (!isUser(response)) {
@@ -31,7 +32,7 @@ export const server = new Server({
             req.user = response.user;
             req.apikey = response.apikey;
         } catch (err) {
-            logger.error({ err }, "Error creating tus upload record");
+            logger.error({ err }, "Error validating user creds");
             throw err;
         }
     },
@@ -68,16 +69,6 @@ export const server = new Server({
         return metadata;
     },
     onUploadFinish: async (req: any, upload: any) => {
-        logger.info(
-            {
-                uploadId: upload.id,
-                offset: upload.offset,
-                size: upload.size,
-                metadata: upload.metadata,
-            },
-            "Option: Tus upload finished (onUploadFinish)",
-        );
-
         try {
             console.time("finalize");
             await finalizeUpload(upload.id);
@@ -96,9 +87,16 @@ export const server = new Server({
     },
 });
 
+server.on(EVENTS.POST_RECEIVE, async (req: any, upload: any) => {
+    try {
+        await updateTusUploadOffset(upload.id, upload.offset);
+    } catch (err) {
+        logger.error({ err }, "Failed to update tus upload offset");
+    }
+});
+
 async function getUserAndAPIKey(req: any): Promise<UserWithAPIKey | TusError> {
     const signature = req.headers.get("x-medialit-signature");
-    const apikeyFromHeader = req.headers.get("x-medialit-apikey");
     let user, apikey;
     if (signature) {
         const response =
@@ -115,6 +113,7 @@ async function getUserAndAPIKey(req: any): Promise<UserWithAPIKey | TusError> {
         user = response.user;
         apikey = response.apikey;
     } else {
+        const apikeyFromHeader = req.headers.get("x-medialit-apikey");
         const apikeyFromDB: Apikey | null =
             await getApiKeyUsingKeyId(apikeyFromHeader);
         if (!apikeyFromDB) {

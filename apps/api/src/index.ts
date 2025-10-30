@@ -5,15 +5,15 @@ import express from "express";
 import connectToDatabase from "./config/db";
 import passport from "passport";
 import mediaRoutes from "./media/routes";
-import presignedUrlRoutes from "./presigning/routes";
+import signatureRoutes from "./signature/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
 import tusRoutes from "./tus/routes";
 import logger from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
-import { Apikey, Constants, User } from "@medialit/models";
+import { Apikey, User } from "@medialit/models";
 import { createApiKey } from "./apikey/queries";
 import { spawn } from "child_process";
-import { cleanupExpiredTusUploads } from "./tus/queries";
+import { Cleanup } from "./tus/cleanup";
 
 connectToDatabase();
 const app = express();
@@ -30,7 +30,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/settings/media", mediaSettingsRoutes(passport));
-app.use("/media/presigned", presignedUrlRoutes);
+app.use("/media/signature", signatureRoutes);
 app.use("/media", tusRoutes);
 app.use("/media", mediaRoutes);
 
@@ -48,10 +48,10 @@ checkDependencies().then(() => {
     // Setup background cleanup job for expired tus uploads
     setInterval(
         async () => {
-            await cleanupExpiredTusUploads();
+            await Cleanup();
         },
-        1000 * 60 * 60,
-    ); // Run every hour
+        1000 * 60 * 60, // 1 hours
+    );
 });
 
 async function checkDependencies() {

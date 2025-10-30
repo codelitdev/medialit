@@ -34,7 +34,7 @@ export type FileInput = string | Buffer | Readable;
 
 export class MediaLit {
     private apiKey: string;
-    private endpoint: string;
+    public endpoint: string;
 
     constructor(config?: MediaLitConfig) {
         this.checkBrowserEnvironment();
@@ -89,12 +89,13 @@ export class MediaLit {
         if (options.access) formData.append("access", options.access);
         if (options.caption) formData.append("caption", options.caption);
         if (options.group) formData.append("group", options.group);
-        formData.append("apikey", this.apiKey);
+        // formData.append("apikey", this.apiKey);
 
         const response = await fetch(`${this.endpoint}/media/create`, {
             method: "POST",
             headers: {
                 ...formData.getHeaders(),
+                "x-medialit-apikey": this.apiKey,
             },
             body: formData,
         });
@@ -102,33 +103,6 @@ export class MediaLit {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || "Upload failed");
-        }
-
-        return response.json();
-    }
-
-    async uploadWithPresignedUrl(
-        presignedUrl: string,
-        file: FileInput,
-        options: UploadOptions = {},
-    ): Promise<Media> {
-        this.checkBrowserEnvironment();
-        const { formData } = await this.createFormData(file);
-
-        if (options.access) formData.append("access", options.access);
-        if (options.caption) formData.append("caption", options.caption);
-        if (options.group) formData.append("group", options.group);
-
-        const response = await fetch(presignedUrl, {
-            method: "POST",
-            body: formData,
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(
-                error.message || "Upload with presigned URL failed",
-            );
         }
 
         return response.json();
@@ -146,10 +120,8 @@ export class MediaLit {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json",
+                    "x-medialit-apikey": this.apiKey,
                 },
-                body: JSON.stringify({
-                    apikey: this.apiKey,
-                }),
             },
         );
 
@@ -169,10 +141,8 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "x-medialit-apikey": this.apiKey,
             },
-            body: JSON.stringify({
-                apikey: this.apiKey,
-            }),
         });
 
         if (!response.ok) {
@@ -207,10 +177,8 @@ export class MediaLit {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "x-medialit-apikey": this.apiKey,
                 },
-                body: JSON.stringify({
-                    apikey: this.apiKey,
-                }),
             },
         );
 
@@ -222,23 +190,21 @@ export class MediaLit {
         return response.json();
     }
 
-    async getPresignedUploadUrl(
-        options: { group?: string } = {},
-    ): Promise<string> {
+    async getSignature(options: { group?: string } = {}): Promise<string> {
         this.checkBrowserEnvironment();
         if (!this.apiKey) {
             throw new Error(API_KEY_REQUIRED);
         }
 
         const response = await fetch(
-            `${this.endpoint}/media/presigned/create`,
+            `${this.endpoint}/media/signature/create`,
             {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "x-medialit-apikey": this.apiKey,
                 },
                 body: JSON.stringify({
-                    apikey: this.apiKey,
                     ...(options.group ? { group: options.group } : {}),
                 }),
             },
@@ -246,11 +212,11 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get presigned URL");
+            throw new Error(error.message || "Failed to get signature");
         }
 
         const result = await response.json();
-        return result.message;
+        return result.signature;
     }
 
     async getCount(): Promise<number> {
@@ -263,10 +229,8 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "x-medialit-apikey": this.apiKey,
             },
-            body: JSON.stringify({
-                apikey: this.apiKey,
-            }),
         });
 
         if (!response.ok) {
@@ -288,10 +252,8 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "x-medialit-apikey": this.apiKey,
             },
-            body: JSON.stringify({
-                apikey: this.apiKey,
-            }),
         });
 
         if (!response.ok) {
@@ -312,10 +274,8 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "x-medialit-apikey": this.apiKey,
             },
-            body: JSON.stringify({
-                apikey: this.apiKey,
-            }),
         });
 
         if (!response.ok) {
@@ -336,9 +296,9 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "x-medialit-apikey": this.apiKey,
             },
             body: JSON.stringify({
-                apikey: this.apiKey,
                 ...settings,
             }),
         });
@@ -348,4 +308,34 @@ export class MediaLit {
             throw new Error(error.message || "Failed to update media settings");
         }
     }
+
+    // async signedUpload(
+    //     signature: string,
+    //     file: FileInput,
+    //     options: UploadOptions = {},
+    // ): Promise<Media> {
+    //     this.checkBrowserEnvironment();
+    //     const { formData } = await this.createFormData(file);
+
+    //     if (options.access) formData.append("access", options.access);
+    //     if (options.caption) formData.append("caption", options.caption);
+    //     if (options.group) formData.append("group", options.group);
+
+    //     const response = await fetch(this.endpoint, {
+    //         method: "POST",
+    //         body: formData,
+    //         headers: {
+    //             "x-medialit-signature": signature
+    //         }
+    //     });
+
+    //     if (!response.ok) {
+    //         const error = await response.json();
+    //         throw new Error(
+    //             error.message || "Upload with signature failed",
+    //         );
+    //     }
+
+    //     return response.json();
+    // }
 }
