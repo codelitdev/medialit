@@ -19,8 +19,10 @@ export const maxStorageAllowedNotSubscribed = process.env
     .MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
     ? +process.env.MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
     : 1073741824; // 1GB
-export const PRESIGNED_URL_VALIDITY_MINUTES = 5;
-export const PRESIGNED_URL_LENGTH = 100;
+export const SIGNATURE_VALIDITY_MINUTES = +(
+    process.env.SIGNATURE_VALIDITY_MINUTES || "1440"
+); // 1 day
+export const SIGNATURE_LENGTH = 100;
 export const MEDIA_ID_LENGTH = 40;
 export const APIKEY_RESTRICTION_REFERRER = "referrer";
 export const APIKEY_RESTRICTION_IP = "ipaddress";
@@ -62,8 +64,3 @@ export const CDN_MAX_AGE = process.env.CDN_MAX_AGE
 
 export const ENDPOINT = USE_CLOUDFRONT ? CLOUDFRONT_ENDPOINT : S3_ENDPOINT;
 export const HOSTNAME_OVERRIDE = process.env.HOSTNAME_OVERRIDE || ""; // Useful for hosting via Docker
-
-// Tus upload config
-export const TUS_UPLOAD_EXPIRATION_HOURS = parseInt(
-    process.env.TUS_UPLOAD_EXPIRATION_HOURS || "48",
-);

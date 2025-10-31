@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { numberOfRecordsPerPage } from "../config/constants";
 import GetPageProps from "./GetPageProps";
 import MediaModel, { MediaWithUserId } from "./model";
@@ -32,31 +33,27 @@ export async function getTotalSpace({
     userId,
     apikey,
 }: {
-    userId: string;
+    userId: mongoose.Types.ObjectId;
     apikey?: string;
 }): Promise<number> {
-    const result = await MediaModel
-        // calculate sum of size of all media files
-        .aggregate([
-            {
-                $match: {
-                    userId,
-                    apikey,
-                },
+    const query = apikey ? { userId, apikey } : { userId };
+    const result = await MediaModel.aggregate([
+        {
+            $match: query,
+        },
+        {
+            $group: {
+                _id: null,
+                totalSize: { $sum: "$size" },
             },
-            {
-                $group: {
-                    _id: null,
-                    totalSize: { $sum: "$size" },
-                },
+        },
+        {
+            $project: {
+                _id: 0,
+                totalSize: 1,
             },
-            {
-                $project: {
-                    _id: 0,
-                    totalSize: 1,
-                },
-            },
-        ]);
+        },
+    ]);
 
     if (result.length === 0) {
         return 0;
