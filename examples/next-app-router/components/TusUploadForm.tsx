@@ -47,16 +47,6 @@ export default function TusUploadForm() {
                 throw new Error(error || "Failed to get signature");
             }
 
-            // const {
-            //     signature,
-            //     endpoint,
-            //     error: tusError,
-            // } = await signatureResponse.json();
-
-            if (!signature) {
-                throw new Error("Failed to get signature from presigned URL");
-            }
-
             // Use the endpoint directly since we're sending signature in headers
             const uploadUrl = `${endpoint}/media/create/resumable`;
 

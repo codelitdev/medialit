@@ -1,5 +1,4 @@
 import { TUS_UPLOAD_EXPIRATION_HOURS } from "../config/constants";
-import logger from "../services/log";
 import TusUploadModel, { TusUpload } from "./model";
 
 type TusUploadDocument = any;
