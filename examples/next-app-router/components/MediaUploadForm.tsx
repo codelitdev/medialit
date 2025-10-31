@@ -35,10 +35,11 @@ export default function MediaUploadForm() {
             const presignedUrlResponse = await fetch("/api/medialit", {
                 method: "POST",
             });
-            const { presignedUrl, error } = await presignedUrlResponse.json();
+            const { endpoint, signature, error } =
+                await presignedUrlResponse.json();
 
-            if (error || !presignedUrl) {
-                throw new Error(error || "Failed to get presigned URL");
+            if (error || !signature) {
+                throw new Error(error || "Failed to get signature");
             }
 
             // Create FormData and append required fields
@@ -48,8 +49,11 @@ export default function MediaUploadForm() {
             formData.append("access", isPublic ? "public" : "private");
 
             // Upload file using presigned URL
-            const uploadResponse = await fetch(presignedUrl, {
+            const uploadResponse = await fetch(`${endpoint}/media/create`, {
                 method: "POST",
+                headers: {
+                    "x-medialit-signature": signature,
+                },
                 body: formData,
             });
 

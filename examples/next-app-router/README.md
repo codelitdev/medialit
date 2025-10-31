@@ -1,11 +1,35 @@
 This is a [Next.js](https://nextjs.org) project which demonstrates the usage of `medialit` package.
 
+## Features
+
+This example app demonstrates two upload methods:
+
+1. **Standard Upload** - Traditional single-request upload, best for smaller files
+2. **TUS Resumable Upload** - Multipart resumable uploads using the TUS protocol with:
+    - Real-time upload progress tracking
+    - Automatic retry on failure
+    - Cancel upload capability
+    - Ideal for larger files and unreliable connections
+
+Additional features:
+
+- Automatic thumbnail generation
+- Media information retrieval
+- File deletion
+- Media listing with pagination
+
 ## Getting Started
 
 First, add the MediaLit API key to `.env` file in the root directory:
 
 ```env
 MEDIALIT_API_KEY=your_api_key_here
+```
+
+Optionally, if you're running a self-hosted instance, set the endpoint:
+
+```env
+MEDIALIT_ENDPOINT=http://localhost:3001
 ```
 
 Then, run the development server:

@@ -15,7 +15,8 @@ import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
-import { Constants, getSubscriptionStatus } from "@medialit/models";
+import { getSubscriptionStatus } from "@medialit/models";
+import { getSignatureFromReq } from "../signature/utils";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
@@ -69,7 +70,7 @@ export async function uploadMedia(
             access,
             caption,
             group,
-            signature: req.query.signature,
+            signature: getSignatureFromReq(req),
         });
 
         const media = await mediaService.getMediaDetails({

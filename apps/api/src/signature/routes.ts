@@ -1,8 +1,8 @@
 import express from "express";
 import apikey from "../apikey/middleware";
-import { getPresignedUrl } from "./handlers";
+import { getSignature } from "./handlers";
 
 const router = express.Router();
-router.post("/create", apikey, getPresignedUrl);
+router.post("/create", apikey, getSignature);
 
 export default router;

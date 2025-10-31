@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
 import PreSignedUrlModel, { PreSignedUrl } from "./model";
-import { getUniqueId } from "@medialit/utils";
-import { PRESIGNED_URL_LENGTH } from "../config/constants";
 
 export async function getPresignedUrl(
     signature: string,
@@ -19,7 +17,7 @@ export async function createPresignedUrl(
     userId: string,
     apikey: string,
     group?: string,
-): Promise<PreSignedUrl | undefined> {
+): Promise<PreSignedUrl> {
     const presignedUrl = await PreSignedUrlModel.create({
         userId,
         apikey,

@@ -6,19 +6,19 @@ export const tempFileDirForUploads = process.env.TEMP_FILE_DIR_FOR_UPLOADS;
 export const maxFileUploadSizeSubscribed = process.env
     .MAX_UPLOAD_SIZE_SUBSCRIBED
     ? +process.env.MAX_UPLOAD_SIZE_SUBSCRIBED
-    : 2147483648;
+    : 2147483648; // 2GB
 export const maxFileUploadSizeNotSubscribed = process.env
     .MAX_UPLOAD_SIZE_NOT_SUBSCRIBED
     ? +process.env.MAX_UPLOAD_SIZE_NOT_SUBSCRIBED
-    : 52428800;
+    : 52428800; // 50MB
 export const maxStorageAllowedSubscribed = process.env
     .MAX_STORAGE_ALLOWED_SUBSCRIBED
     ? +process.env.MAX_STORAGE_ALLOWED_SUBSCRIBED
-    : 107374182400;
+    : 107374182400; // 100GB
 export const maxStorageAllowedNotSubscribed = process.env
     .MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
     ? +process.env.MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED
-    : 1073741824;
+    : 1073741824; // 1GB
 export const PRESIGNED_URL_VALIDITY_MINUTES = 5;
 export const PRESIGNED_URL_LENGTH = 100;
 export const MEDIA_ID_LENGTH = 40;
@@ -62,3 +62,8 @@ export const CDN_MAX_AGE = process.env.CDN_MAX_AGE
 
 export const ENDPOINT = USE_CLOUDFRONT ? CLOUDFRONT_ENDPOINT : S3_ENDPOINT;
 export const HOSTNAME_OVERRIDE = process.env.HOSTNAME_OVERRIDE || ""; // Useful for hosting via Docker
+
+// Tus upload config
+export const TUS_UPLOAD_EXPIRATION_HOURS = parseInt(
+    process.env.TUS_UPLOAD_EXPIRATION_HOURS || "48",
+);

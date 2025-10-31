@@ -12,7 +12,7 @@ function validatePresigningOptions(req: Request): Joi.ValidationResult {
     return uploadSchema.validate({ group });
 }
 
-export async function getPresignedUrl(
+export async function getSignature(
     req: any,
     res: any,
     next: (...args: any[]) => void,
@@ -23,14 +23,14 @@ export async function getPresignedUrl(
     }
 
     try {
-        const presignedUrl = await preSignedUrlService.generateSignedUrl({
+        const signature = await preSignedUrlService.generateSignature({
             userId: req.user.id,
             apikey: req.apikey,
             protocol: req.protocol,
             host: HOSTNAME_OVERRIDE || req.get("Host"),
             group: req.body.group,
         });
-        return res.status(200).json({ message: presignedUrl });
+        return res.status(200).json({ signature });
     } catch (err: any) {
         logger.error({ err }, err.message);
         return res.status(500).json(err.message);

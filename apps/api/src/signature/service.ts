@@ -42,7 +42,7 @@ interface GenerateSignedUrlProps {
     group?: string;
 }
 
-export async function generateSignedUrl({
+export async function generateSignature({
     userId,
     apikey,
     protocol,
@@ -62,7 +62,7 @@ export async function generateSignedUrl({
         );
     });
 
-    return `${protocol}://${host}/media/create?signature=${presignedUrl?.signature}`;
+    return presignedUrl.signature;
 }
 
 export async function cleanup(userId: string, signature: string) {

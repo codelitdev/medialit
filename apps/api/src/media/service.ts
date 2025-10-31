@@ -35,7 +35,7 @@ import {
     getPaginatedMedia,
     createMedia,
 } from "./queries";
-import * as presignedUrlService from "../presigning/service";
+import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
 import { getMainFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 
