@@ -1,6 +1,6 @@
 {
   "name": "medialit",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "MediaLit Server SDK for managing media files",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
