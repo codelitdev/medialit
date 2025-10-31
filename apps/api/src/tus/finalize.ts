@@ -30,8 +30,6 @@ import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import { removeTusFiles } from "./utils";
 
 export default async function finalizeUpload(uploadId: string) {
-    logger.info({ uploadId }, "Finalizing tus upload");
-
     const tusUpload = await getTusUpload(uploadId);
     if (!tusUpload) {
         throw new Error(`Tus upload not found: ${uploadId}`);
@@ -165,11 +163,6 @@ export default async function finalizeUpload(uploadId: string) {
     } catch (err) {
         logger.error({ err }, "Error cleaning up tus file");
     }
-
-    logger.info(
-        { uploadId, mediaId: media.mediaId },
-        "Tus upload finalized successfully",
-    );
 
     return media.mediaId;
 }

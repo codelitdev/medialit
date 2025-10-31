@@ -7,6 +7,7 @@ import {
     maxStorageAllowedNotSubscribed,
     maxStorageAllowedSubscribed,
 } from "../../src/config/constants";
+import { NOT_ENOUGH_STORAGE } from "../../src/config/strings";
 
 describe("storageValidation middleware", () => {
     afterEach(() => {
@@ -108,11 +109,8 @@ describe("storageValidation middleware", () => {
         };
 
         const response = await storageValidation(req, res, next);
-        assert.strictEqual(response.code, 400);
-        assert.strictEqual(
-            response.data.error,
-            "You do not have enough storage space in your account to upload this file",
-        );
+        assert.strictEqual(response.code, 403);
+        assert.strictEqual(response.data.error, NOT_ENOUGH_STORAGE);
         assert.strictEqual(nextCalled, false);
     });
 
@@ -145,11 +143,8 @@ describe("storageValidation middleware", () => {
         };
 
         const response = await storageValidation(req, res, next);
-        assert.strictEqual(response.code, 400);
-        assert.strictEqual(
-            response.data.error,
-            "You do not have enough storage space in your account to upload this file",
-        );
+        assert.strictEqual(response.code, 403);
+        assert.strictEqual(response.data.error, NOT_ENOUGH_STORAGE);
         assert.strictEqual(nextCalled, false);
     });
 

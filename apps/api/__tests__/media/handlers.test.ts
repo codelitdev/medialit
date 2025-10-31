@@ -80,6 +80,7 @@ describe("Media handlers", () => {
             },
             body: {},
             query: {},
+            headers: {},
         };
 
         const res = {
@@ -97,6 +98,7 @@ describe("Media handlers", () => {
         );
 
         const response = await uploadMedia(req, res, () => {});
+        console.log("Response", response);
         assert.strictEqual(response.code, 200);
     });
 });

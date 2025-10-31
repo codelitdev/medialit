@@ -22,8 +22,8 @@ const store = new FileStore({
 export const server = new Server({
     path: "/media/create/resumable",
     datastore: store,
+    respectForwardedHeaders: true,
     onIncomingRequest: async (req: any) => {
-        console.log("TUS onIncomingRequest", req.method);
         try {
             const response = await getUserAndAPIKey(req);
             if (!isUser(response)) {
