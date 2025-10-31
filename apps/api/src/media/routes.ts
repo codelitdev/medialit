@@ -16,9 +16,11 @@ import {
 } from "./handlers";
 import signatureMiddleware from "../signature/middleware";
 import storage from "./storage-middleware";
+import { getSignatureFromReq } from "../signature/utils";
 
 const router = express.Router();
 
+router.options("/create", cors());
 router.post(
     "/create",
     cors(),
@@ -31,10 +33,7 @@ router.post(
         },
     }),
     (req: Request, res: Response, next: (...args: any[]) => void) => {
-        const signature =
-            req.query.signature ||
-            req.headers["x-medialit-signature"] ||
-            req.headers["X-Medialit-Signature"];
+        const signature = getSignatureFromReq(req);
         if (signature) {
             signatureMiddleware(
                 req as Request & { user: any; apikey: string },
