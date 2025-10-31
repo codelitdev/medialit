@@ -1,4 +1,9 @@
-import { readFileSync, createReadStream, rmdirSync, existsSync } from "fs";
+import {
+    createReadStream,
+    existsSync,
+    copyFileSync,
+    promises as fsPromises,
+} from "fs";
 import path from "path";
 import thumbnail from "@medialit/thumbnail";
 import mongoose from "mongoose";
@@ -79,9 +84,7 @@ export default async function finalizeUpload(uploadId: string) {
 
     const mainFilePath = `${temporaryFolderForWork}/main.${fileExtension}`;
 
-    //Copy file from tus store to working directory
-    const tusFileContent = readFileSync(tusFilePath);
-    require("fs").writeFileSync(mainFilePath, tusFileContent);
+    copyFileSync(tusFilePath, mainFilePath);
 
     // Apply WebP conversion if needed
     if (useWebP && imagePattern.test(metadata.mimeType)) {
@@ -124,7 +127,7 @@ export default async function finalizeUpload(uploadId: string) {
         logger.error({ err }, err.message);
     }
 
-    rmdirSync(temporaryFolderForWork, { recursive: true });
+    await fsPromises.rm(temporaryFolderForWork, { recursive: true });
 
     const mediaObject: MediaWithUserId = {
         fileName: `main.${fileExtension}`,
@@ -181,18 +184,18 @@ const generateAndUploadThumbnail = async ({
     tags: string;
 }): Promise<boolean> => {
     const thumbPath = `${workingDirectory}/thumb.webp`;
+    let isGenerated = false;
 
-    let isThumbGenerated = false;
     if (imagePatternForThumbnailGeneration.test(mimetype)) {
         await thumbnail.forImage(originalFilePath, thumbPath);
-        isThumbGenerated = true;
+        isGenerated = true;
     }
     if (videoPattern.test(mimetype)) {
         await thumbnail.forVideo(originalFilePath, thumbPath);
-        isThumbGenerated = true;
+        isGenerated = true;
     }
 
-    if (isThumbGenerated) {
+    if (isGenerated) {
         await putObject({
             Key: key,
             Body: createReadStream(thumbPath),
@@ -200,7 +203,8 @@ const generateAndUploadThumbnail = async ({
             ACL: USE_CLOUDFRONT ? "private" : "public-read",
             Tagging: tags,
         });
+        await fsPromises.rm(thumbPath);
     }
 
-    return isThumbGenerated;
+    return isGenerated;
 };

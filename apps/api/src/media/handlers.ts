@@ -1,7 +1,5 @@
 import Joi from "joi";
 import {
-    maxFileUploadSizeNotSubscribed,
-    maxFileUploadSizeSubscribed,
     maxStorageAllowedNotSubscribed,
     maxStorageAllowedSubscribed,
 } from "../config/constants";
@@ -17,6 +15,7 @@ import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
 import { getSubscriptionStatus } from "@medialit/models";
 import { getSignatureFromReq } from "../signature/utils";
+import getMaxFileUploadSize from "./utils/get-max-file-upload-size";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
     const uploadSchema = Joi.object({
@@ -26,12 +25,6 @@ function validateUploadOptions(req: Request): Joi.ValidationResult {
     });
     const { caption, access, group } = req.body;
     return uploadSchema.validate({ caption, access, group });
-}
-
-function getMaxFileUploadSize(req: any): number {
-    return getSubscriptionStatus(req.user)
-        ? maxFileUploadSizeSubscribed
-        : maxFileUploadSizeNotSubscribed;
 }
 
 export async function uploadMedia(

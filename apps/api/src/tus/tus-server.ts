@@ -5,6 +5,7 @@ import logger from "../services/log";
 import finalizeUpload from "./finalize";
 import * as preSignedUrlService from "../signature/service";
 import {
+    FILE_SIZE_EXCEEDED,
     NOT_ENOUGH_STORAGE,
     PRESIGNED_URL_INVALID,
     UNAUTHORISED,
@@ -14,6 +15,7 @@ import { getApiKeyUsingKeyId } from "../apikey/queries";
 import { getUser } from "../user/queries";
 import { hasEnoughStorage } from "../media/storage-middleware";
 import { createTusUpload, updateTusUploadOffset } from "./queries";
+import getMaxFileUploadSize from "../media/utils/get-max-file-upload-size";
 
 const store = new FileStore({
     directory: `${tempFileDirForUploads}/tus-uploads`,
@@ -41,6 +43,13 @@ export const server = new Server({
         const { user, apikey } = req;
 
         try {
+            const allowedFileSize = getMaxFileUploadSize(req);
+            if (upload.size > allowedFileSize) {
+                throw {
+                    status_code: 403,
+                    body: `${FILE_SIZE_EXCEEDED}. Allowed: ${allowedFileSize} bytes`,
+                };
+            }
             if (!(await hasEnoughStorage(upload.size, user))) {
                 throw {
                     status_code: 403,

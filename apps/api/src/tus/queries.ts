@@ -1,4 +1,4 @@
-import { TUS_UPLOAD_EXPIRATION_HOURS } from "../config/constants";
+import { SIGNATURE_VALIDITY_MINUTES } from "../config/constants";
 import TusUploadModel, { TusUpload } from "./model";
 
 type TusUploadDocument = any;
@@ -6,9 +6,9 @@ type TusUploadDocument = any;
 export async function createTusUpload(
     data: Omit<TusUpload, "uploadOffset" | "isComplete">,
 ): Promise<TusUploadDocument> {
-    // const uploadId = new mongoose.Types.ObjectId().toString();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + TUS_UPLOAD_EXPIRATION_HOURS);
+    const signatureValidityHours = SIGNATURE_VALIDITY_MINUTES / 60;
+    expiresAt.setHours(expiresAt.getHours() + signatureValidityHours);
 
     const tusUploadData: TusUpload = {
         uploadId: data.uploadId,

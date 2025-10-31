@@ -1,7 +1,10 @@
 import { SubscriptionStatus, User } from "@medialit/models";
 import UserModel from "./model";
+import mongoose from "mongoose";
 
-export async function getUser(id: string): Promise<User | null> {
+export async function getUser(
+    id: string,
+): Promise<(User & { _id: mongoose.Types.ObjectId }) | null> {
     return UserModel.findById(id);
 }
 

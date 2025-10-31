@@ -3,6 +3,7 @@ import { maxStorageAllowedSubscribed } from "../config/constants";
 import { getSubscriptionStatus, User } from "@medialit/models";
 import mediaQueries from "./queries";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
+import mongoose from "mongoose";
 
 export default async function storageValidation(
     req: any,
@@ -26,10 +27,10 @@ export default async function storageValidation(
 
 export async function hasEnoughStorage(
     size: number,
-    user: User,
+    user: User & { _id: mongoose.Types.ObjectId },
 ): Promise<boolean> {
     const totalSpaceOccupied = await mediaQueries.getTotalSpace({
-        userId: user.id,
+        userId: user._id,
     });
     const maxStorageAllowed = getSubscriptionStatus(user)
         ? maxStorageAllowedSubscribed

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import {
-    PRESIGNED_URL_LENGTH,
-    PRESIGNED_URL_VALIDITY_MINUTES,
+    SIGNATURE_LENGTH,
+    SIGNATURE_VALIDITY_MINUTES,
 } from "../config/constants";
 import { getUniqueId } from "@medialit/utils";
 
@@ -21,15 +21,14 @@ const PreSignedUrlSchema = new mongoose.Schema<PreSignedUrl>(
         signature: {
             type: String,
             required: true,
-            default: () => getUniqueId(PRESIGNED_URL_LENGTH),
+            default: () => getUniqueId(SIGNATURE_LENGTH),
         },
         validTill: {
             type: Date,
             required: true,
             default: () =>
                 new Date(
-                    new Date().getTime() +
-                        PRESIGNED_URL_VALIDITY_MINUTES * 60000,
+                    new Date().getTime() + SIGNATURE_VALIDITY_MINUTES * 60000,
                 ),
         },
         group: String,
