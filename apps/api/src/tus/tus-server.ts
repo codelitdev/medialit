@@ -16,6 +16,7 @@ import { getUser } from "../user/queries";
 import { hasEnoughStorage } from "../media/storage-middleware";
 import { createTusUpload, updateTusUploadOffset } from "./queries";
 import getMaxFileUploadSize from "../media/utils/get-max-file-upload-size";
+import mediaService from "../media/service";
 
 const store = new FileStore({
     directory: `${tempFileDirForUploads}/tus-uploads`,
@@ -25,6 +26,7 @@ export const server = new Server({
     path: "/media/create/resumable",
     datastore: store,
     respectForwardedHeaders: true,
+    exposedHeaders: ["media"],
     onIncomingRequest: async (req: any) => {
         try {
             const response = await getUserAndAPIKey(req);
@@ -80,15 +82,24 @@ export const server = new Server({
     onUploadFinish: async (req: any, upload: any) => {
         try {
             console.time("finalize");
-            await finalizeUpload(upload.id);
+            const mediaId = await finalizeUpload(upload.id);
             console.timeEnd("finalize");
-            return {};
+            const media = await mediaService.getMediaDetails({
+                userId: req.user._id,
+                apikey: req.apikey,
+                mediaId,
+            });
+            return {
+                headers: {
+                    media: JSON.stringify(media),
+                },
+            };
         } catch (err: any) {
             logger.error(
                 { err, uploadId: upload.id },
                 "Error finalizing tus upload",
             );
-            return {
+            throw {
                 status_code: 403,
                 body: err.message,
             };
