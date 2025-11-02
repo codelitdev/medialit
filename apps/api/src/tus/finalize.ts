@@ -34,7 +34,9 @@ import { hasEnoughStorage } from "../media/storage-middleware";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import { removeTusFiles } from "./utils";
 
-export default async function finalizeUpload(uploadId: string) {
+export default async function finalizeUpload(
+    uploadId: string,
+): Promise<string> {
     const tusUpload = await getTusUpload(uploadId);
     if (!tusUpload) {
         throw new Error(`Tus upload not found: ${uploadId}`);
@@ -42,7 +44,7 @@ export default async function finalizeUpload(uploadId: string) {
 
     if (tusUpload.isComplete) {
         logger.info({ uploadId }, "Upload already finalized");
-        return;
+        return "";
     }
 
     const { userId, apikey, metadata, uploadLength, tempFilePath, signature } =
