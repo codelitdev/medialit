@@ -54,7 +54,8 @@ export const PATH_PREFIX = process.env.PATH_PREFIX || "";
 export const HOUR_IN_SECONDS = 1000 * 60 * 60;
 
 // Cloudfront config
-export const USE_CLOUDFRONT = process.env.USE_CLOUDFRONT === "true";
+export const ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT =
+    process.env.ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT === "true";
 export const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID || "";
 export const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY || "";
 export const CDN_MAX_AGE = process.env.CDN_MAX_AGE

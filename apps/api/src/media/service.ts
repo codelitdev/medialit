@@ -6,7 +6,7 @@ import {
     imagePattern,
     videoPattern,
     imagePatternForThumbnailGeneration,
-    USE_CLOUDFRONT,
+    ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT,
     PATH_PREFIX,
     DISABLE_TAGGING,
 } from "../config/constants";
@@ -298,7 +298,7 @@ async function getPrivateFileUrl(media: MediaWithUserId, thumb?: boolean) {
         filename,
     });
 
-    return USE_CLOUDFRONT
+    return ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT
         ? generateCloudfrontSignedUrl(key)
         : await generateSignedUrl(key);
 }

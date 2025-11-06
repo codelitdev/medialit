@@ -23,3 +23,29 @@ Coming soon
     ]
 }
 ```
+
+## S3 Storages
+
+### AWS S3
+
+```
+CLOUD_KEY=your_aws_access_key
+CLOUD_SECRET=your_aws_secret_key
+CLOUD_BUCKET_NAME=your_bucket_name
+CLOUD_REGION=ap-southeast-1
+CDN_ENDPOINT=https://your-cloudfront-endpoint.example.com # OR https://<bucket-name>.s3.<region>.amazonaws.com
+ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT=true # If you want to access the private bucket's content via Cloudfront
+CLOUDFRONT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_CONTENTS\n-----END PRIVATE KEY-----"
+CLOUDFRONT_KEY_PAIR_ID=YOUR_KEY_PAIR_ID
+```
+
+### Cloudflare R2
+
+```
+CLOUD_KEY=your_cloudflare_r2_access_key
+CLOUD_SECRET=your_cloudflare_r2_secret_key
+CLOUD_BUCKET_NAME=your_bucket_name
+CLOUD_REGION=auto
+CLOUD_ENDPOINT=https://<your-account-id>.r2.cloudflarestorage.com
+CDN_ENDPOINT=https://<your-cdn-endpoint>.r2.dev
+```

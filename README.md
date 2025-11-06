@@ -23,7 +23,7 @@ Before you start uploading to your bucket, make sure you have set up the correct
 If you need to use a Cloudfront CDN, you can enable it in the app, by setting up the following values in your .env file.
 
 ```sh
-USE_CLOUDFRONT=true
+ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT=true
 CDN_ENDPOINT=CLOUDFRONT_DISTRIBUTION_NAME
 CLOUDFRONT_PRIVATE_KEY="PRIVATE_KEY"
 CLOUDFRONT_KEY_PAIR_ID=KEY_PAIR_ID
