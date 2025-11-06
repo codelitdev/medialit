@@ -55,27 +55,46 @@ if (process.env.EMAIL) {
     createAdminUser();
 }
 
-checkDependencies().then(() => {
-    app.listen(port, () => {
-        logger.info(`Medialit server running at ${port}`);
+checkConfig()
+    .then(checkDependencies)
+    .then(() => {
+        app.listen(port, () => {
+            logger.info(`Medialit server running at ${port}`);
+        });
+
+        // Setup background cleanup job for expired tus uploads
+        setInterval(
+            async () => {
+                await cleanupTUSUploads();
+            },
+            HOUR_IN_SECONDS, // 1 hour
+        );
+
+        // Setup background cleanup job for expired temp uploads
+        setInterval(
+            async () => {
+                await cleanupExpiredTempUploads();
+            },
+            HOUR_IN_SECONDS, // 1 hour
+        );
     });
 
-    // Setup background cleanup job for expired tus uploads
-    setInterval(
-        async () => {
-            await cleanupTUSUploads();
-        },
-        HOUR_IN_SECONDS, // 1 hour
-    );
-
-    // Setup background cleanup job for expired temp uploads
-    setInterval(
-        async () => {
-            await cleanupExpiredTempUploads();
-        },
-        HOUR_IN_SECONDS, // 1 hour
-    );
-});
+async function checkConfig() {
+    if (!process.env.DB_CONNECTION_STRING) {
+        throw new Error("DB_CONNECTION_STRING is not set");
+    }
+    if (!process.env.CLOUD_KEY || !process.env.CLOUD_SECRET) {
+        throw new Error(
+            "Cloud credentials (CLOUD_KEY and CLOUD_SECRET) are not set",
+        );
+    }
+    if (!process.env.CLOUD_BUCKET_NAME) {
+        throw new Error("Cloud bucket name (CLOUD_BUCKET_NAME) is not set");
+    }
+    if (!process.env.CLOUD_ENDPOINT && !process.env.CDN_ENDPOINT) {
+        throw new Error("Either CLOUD_ENDPOINT or CDN_ENDPOINT must be set");
+    }
+}
 
 async function checkDependencies() {
     try {

@@ -12,7 +12,6 @@ import {
     imagePattern,
     imagePatternForThumbnailGeneration,
     videoPattern,
-    USE_CLOUDFRONT,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {

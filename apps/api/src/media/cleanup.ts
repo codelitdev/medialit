@@ -1,7 +1,7 @@
 import logger from "../services/log";
 import MediaModel from "./model";
 import { deleteFolder } from "../services/s3";
-import { CLOUD_PREFIX, TEMP_MEDIA_EXPIRATION_HOURS } from "../config/constants";
+import { PATH_PREFIX, TEMP_MEDIA_EXPIRATION_HOURS } from "../config/constants";
 
 export async function cleanupExpiredTempUploads(): Promise<void> {
     const cutoff = new Date(
@@ -28,7 +28,7 @@ export async function cleanupExpiredTempUploads(): Promise<void> {
         for (const media of expired) {
             try {
                 // Delete S3 objects in tmp folder
-                const tmpPrefix = `${CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : ""}tmp/${media.mediaId}/`;
+                const tmpPrefix = `${PATH_PREFIX ? `${PATH_PREFIX}/` : ""}tmp/${media.mediaId}/`;
                 await deleteFolder(tmpPrefix);
 
                 // Delete media record

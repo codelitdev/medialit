@@ -45,25 +45,25 @@ export const mailFrom = process.env.EMAIL_FROM;
 export const mailPort = parseInt(process.env.EMAIL_PORT || "") || 587;
 
 // AWS S3 config
-export const cloudEndpoint = process.env.CLOUD_ENDPOINT || "";
+export const CLOUD_ENDPOINT = process.env.CLOUD_ENDPOINT || "";
 export const cloudRegion = process.env.CLOUD_REGION || "";
 export const cloudKey = process.env.CLOUD_KEY || "";
 export const cloudSecret = process.env.CLOUD_SECRET || "";
 export const cloudBucket = process.env.CLOUD_BUCKET_NAME || "";
-export const CLOUD_PREFIX = process.env.CLOUD_PREFIX || "";
-export const PUBLIC_ENDPOINT = process.env.PUBLIC_ENDPOINT || "";
+export const PATH_PREFIX = process.env.PATH_PREFIX || "";
 export const HOUR_IN_SECONDS = 1000 * 60 * 60;
 
 // Cloudfront config
 export const USE_CLOUDFRONT = process.env.USE_CLOUDFRONT === "true";
-export const CLOUDFRONT_ENDPOINT = process.env.CLOUDFRONT_ENDPOINT || "";
 export const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID || "";
 export const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY || "";
 export const CDN_MAX_AGE = process.env.CDN_MAX_AGE
     ? +process.env.CDN_MAX_AGE
     : HOUR_IN_SECONDS; // one hour
 
-export const ENDPOINT = USE_CLOUDFRONT ? CLOUDFRONT_ENDPOINT : PUBLIC_ENDPOINT;
+// CDN config
+export const CDN_ENDPOINT = process.env.CDN_ENDPOINT || "";
+
 export const TEMP_MEDIA_EXPIRATION_HOURS = process.env
     .TEMP_MEDIA_EXPIRATION_HOURS
     ? +process.env.TEMP_MEDIA_EXPIRATION_HOURS

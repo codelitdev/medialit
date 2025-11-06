@@ -1,4 +1,4 @@
-import { CLOUD_PREFIX } from "../../config/constants";
+import { PATH_PREFIX } from "../../config/constants";
 
 export default function generateKey({
     mediaId,
@@ -10,6 +10,6 @@ export default function generateKey({
     filename: string;
 }): string {
     return `${
-        CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : ""
+        PATH_PREFIX ? `${PATH_PREFIX}/` : ""
     }${path}/${mediaId}/${filename}`;
 }

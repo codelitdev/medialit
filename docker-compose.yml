@@ -12,13 +12,12 @@ services:
       - CLOUD_KEY=${CLOUD_KEY?'Cloud key is required'}
       - CLOUD_SECRET=${CLOUD_SECRET?'Cloud secret is required'}
       - CLOUD_BUCKET_NAME=${CLOUD_BUCKET_NAME?'Cloud bucket name is required'}
-      - CLOUD_PREFIX=${CLOUD_PREFIX?'Cloud prefix is required'}
-      - PUBLIC_ENDPOINT=${PUBLIC_ENDPOINT?'S3 endpoint is required'}
+      - PATH_PREFIX=${PATH_PREFIX?'Cloud prefix is required'}
       - TEMP_FILE_DIR_FOR_UPLOADS=${TEMP_FILE_DIR_FOR_UPLOADS?'A temporary directory for uploads transformations is required'}
       - PORT=8000
       - ENABLE_TRUST_PROXY=${ENABLE_TRUST_PROXY}
       - USE_CLOUDFRONT=${USE_CLOUDFRONT} 
-      - CLOUDFRONT_ENDPOINT=${CLOUDFRONT_ENDPOINT} 
+      - CDN_ENDPOINT=${CDN_ENDPOINT} 
       - CLOUDFRONT_KEY_PAIR_ID=${CLOUDFRONT_KEY_PAIR_ID} 
       - CLOUDFRONT_PRIVATE_KEY=${CLOUDFRONT_PRIVATE_KEY}
       - CDN_MAX_AGE=${CDN_MAX_AGE}

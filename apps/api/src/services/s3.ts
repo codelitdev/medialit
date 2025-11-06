@@ -10,7 +10,7 @@ import {
     ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import {
-    cloudEndpoint,
+    CLOUD_ENDPOINT,
     cloudKey,
     cloudSecret,
     cloudBucket,
@@ -18,7 +18,7 @@ import {
     CLOUDFRONT_KEY_PAIR_ID,
     CLOUDFRONT_PRIVATE_KEY,
     CDN_MAX_AGE,
-    CLOUDFRONT_ENDPOINT,
+    CDN_ENDPOINT,
     DISABLE_TAGGING,
 } from "../config/constants";
 import { getSignedUrl as getCfSignedUrl } from "@aws-sdk/cloudfront-signer";
@@ -55,8 +55,8 @@ export const s3ClientConfig: any = {
     },
 };
 
-if (cloudEndpoint) {
-    s3ClientConfig.endpoint = cloudEndpoint;
+if (CLOUD_ENDPOINT) {
+    s3ClientConfig.endpoint = CLOUD_ENDPOINT;
     s3ClientConfig.forcePathStyle = true;
 }
 
@@ -103,17 +103,13 @@ export const generateSignedUrl = async (key: string): Promise<string> => {
     return url;
 };
 
-export const generateCDNSignedUrl = (key: string): string => {
-    if (
-        !CLOUDFRONT_ENDPOINT ||
-        !CLOUDFRONT_KEY_PAIR_ID ||
-        !CLOUDFRONT_PRIVATE_KEY
-    ) {
+export const generateCloudfrontSignedUrl = (key: string): string => {
+    if (!CDN_ENDPOINT || !CLOUDFRONT_KEY_PAIR_ID || !CLOUDFRONT_PRIVATE_KEY) {
         throw new Error("CDN configuration is missing");
     }
 
     const url = getCfSignedUrl({
-        url: `${CLOUDFRONT_ENDPOINT}/${key}`,
+        url: `${CDN_ENDPOINT}/${key}`,
         keyPairId: CLOUDFRONT_KEY_PAIR_ID,
         privateKey: CLOUDFRONT_PRIVATE_KEY,
         dateLessThan: new Date(Date.now() + CDN_MAX_AGE).toISOString(),

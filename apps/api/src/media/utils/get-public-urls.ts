@@ -1,8 +1,9 @@
 import path from "path";
-import { ENDPOINT, CLOUD_PREFIX } from "../../config/constants";
+import { CDN_ENDPOINT, CLOUD_ENDPOINT, PATH_PREFIX } from "@/config/constants";
 import { Media } from "@medialit/models";
 
-const prefix = CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : "";
+export const ENDPOINT = CDN_ENDPOINT || CLOUD_ENDPOINT;
+const prefix = PATH_PREFIX ? `${PATH_PREFIX}/` : "";
 
 export function getMainFileUrl(media: Media) {
     return `${ENDPOINT}/${prefix}public/${media.mediaId}/main${path.extname(

@@ -7,7 +7,8 @@ import {
     videoPattern,
     imagePatternForThumbnailGeneration,
     USE_CLOUDFRONT,
-    CLOUD_PREFIX,
+    PATH_PREFIX,
+    DISABLE_TAGGING,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -17,7 +18,7 @@ import {
 } from "./utils/manage-files-on-disk";
 import {
     generateSignedUrl,
-    generateCDNSignedUrl,
+    generateCloudfrontSignedUrl,
     putObject,
     deleteObject,
     copyObject,
@@ -298,7 +299,7 @@ async function getPrivateFileUrl(media: MediaWithUserId, thumb?: boolean) {
     });
 
     return USE_CLOUDFRONT
-        ? generateCDNSignedUrl(key)
+        ? generateCloudfrontSignedUrl(key)
         : await generateSignedUrl(key);
 }
 
@@ -369,15 +370,17 @@ async function sealMedia({
         filename: `main.${fileExtension}`,
     });
     let tags: string | undefined;
-    try {
-        const taggingResponse = await getObjectTagging({ Key: tmpMainKey });
-        if (taggingResponse.TagSet && taggingResponse.TagSet.length > 0) {
-            tags = taggingResponse.TagSet.map(
-                (tag: any) => `${tag.Key}=${tag.Value}`,
-            ).join("&");
+    if (!DISABLE_TAGGING) {
+        try {
+            const taggingResponse = await getObjectTagging({ Key: tmpMainKey });
+            if (taggingResponse.TagSet && taggingResponse.TagSet.length > 0) {
+                tags = taggingResponse.TagSet.map(
+                    (tag: any) => `${tag.Key}=${tag.Value}`,
+                ).join("&");
+            }
+        } catch (err: any) {
+            logger.warn({ err }, "Failed to get tags from source object");
         }
-    } catch (err: any) {
-        logger.warn({ err }, "Failed to get tags from source object");
     }
 
     // Copy main file from tmp to final location
@@ -416,7 +419,7 @@ async function sealMedia({
     }
 
     // Delete tmp folder
-    const tmpPrefix = `${CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : ""}tmp/${mediaId}/`;
+    const tmpPrefix = `${PATH_PREFIX ? `${PATH_PREFIX}/` : ""}tmp/${mediaId}/`;
     await deleteFolder(tmpPrefix);
 
     // Update media record to remove temp flag
