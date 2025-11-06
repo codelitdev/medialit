@@ -2,14 +2,14 @@ import { CLOUD_PREFIX } from "../../config/constants";
 
 export default function generateKey({
     mediaId,
-    access,
+    path,
     filename,
 }: {
     mediaId: string;
-    access: "private" | "public";
+    path: "tmp" | "private" | "public";
     filename: string;
 }): string {
     return `${
         CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : ""
-    }${access}/${mediaId}/${filename}`;
+    }${path}/${mediaId}/${filename}`;
 }

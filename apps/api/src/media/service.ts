@@ -7,6 +7,7 @@ import {
     videoPattern,
     imagePatternForThumbnailGeneration,
     USE_CLOUDFRONT,
+    CLOUD_PREFIX,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -14,14 +15,15 @@ import {
     createFolders,
     moveFile,
 } from "./utils/manage-files-on-disk";
-import type { MediaWithUserId } from "./model";
 import {
     generateSignedUrl,
     generateCDNSignedUrl,
     putObject,
     deleteObject,
+    copyObject,
+    deleteFolder,
+    getObjectTagging,
     UploadParams,
-    getObjectTagging as objectTagging,
 } from "../services/s3";
 import logger from "../services/log";
 import generateKey from "./utils/generate-key";
@@ -35,9 +37,11 @@ import {
     getPaginatedMedia,
     createMedia,
 } from "./queries";
+import MediaModel from "./model";
 import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
 import { getMainFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
+import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -69,7 +73,6 @@ const generateAndUploadThumbnail = async ({
             Key: key,
             Body: createReadStream(thumbPath),
             ContentType: "image/webp",
-            ACL: USE_CLOUDFRONT ? "private" : "public-read",
             Tagging: tags,
         });
     }
@@ -122,16 +125,11 @@ async function upload({
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            access: access === "public" ? "public" : "private",
+            path: "tmp",
             filename: `main.${fileExtension}`,
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
-        ACL: USE_CLOUDFRONT
-            ? "private"
-            : access === "public"
-              ? "public-read"
-              : "private",
     };
     const tags = getTags(userId, group);
     uploadParams.Tagging = tags;
@@ -146,7 +144,7 @@ async function upload({
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                access: "public",
+                path: "tmp",
                 filename: "thumb.webp",
             }),
             tags,
@@ -167,8 +165,12 @@ async function upload({
         size: file.size,
         thumbnailGenerated: isThumbGenerated,
         caption,
-        accessControl: access === "public" ? "public-read" : "private",
+        accessControl:
+            access === Constants.AccessControl.PUBLIC
+                ? Constants.AccessControl.PUBLIC
+                : Constants.AccessControl.PRIVATE,
         group,
+        temp: true,
     };
     const media = await createMedia(mediaObject);
 
@@ -185,9 +187,9 @@ async function upload({
 }
 
 type MappedMedia = Partial<
-    Omit<Omit<MediaWithUserId, "accessControl">, "thumbnailGenerated">
+    Omit<Omit<MediaWithUserId, "accessControl" | "temp">, "thumbnailGenerated">
 > & {
-    access: "private" | "public";
+    access: AccessControl;
     thumbnail: string;
 };
 
@@ -208,12 +210,15 @@ async function getPage({
         recordsPerPage,
     });
     const mappedResult = result.map(
-        (media: MediaWithUserId): MappedMedia => ({
+        (media): MappedMedia => ({
             mediaId: media.mediaId,
             originalFileName: media.originalFileName,
             mimeType: media.mimeType,
             size: media.size,
-            access: media.accessControl === "private" ? "private" : "public",
+            access:
+                media.accessControl === Constants.AccessControl.PRIVATE
+                    ? Constants.AccessControl.PRIVATE
+                    : Constants.AccessControl.PUBLIC,
             thumbnail: media.thumbnailGenerated
                 ? getThumbnailUrl(media.mediaId)
                 : "",
@@ -243,30 +248,58 @@ async function getMediaDetails({
         return null;
     }
 
-    const key = generateKey({
-        mediaId: media.mediaId,
-        access: media.accessControl === "private" ? "private" : "public",
-        filename: `main.${path.extname(media.fileName).replace(".", "")}`,
-    });
+    // const key = generateKey({
+    //     mediaId: media.mediaId,
+    //     path: media.temp
+    //         ? "tmp"
+    //         : media.accessControl === Constants.AccessControl.PRIVATE
+    //           ? Constants.AccessControl.PRIVATE
+    //           : Constants.AccessControl.PUBLIC,
+    //     filename: `main.${path.extname(media.fileName).replace(".", "")}`,
+    // });
 
     return {
         mediaId: media.mediaId,
         originalFileName: media.originalFileName,
         mimeType: media.mimeType,
         size: media.size,
-        access: media.accessControl === "private" ? "private" : "public",
+        access:
+            media.accessControl === Constants.AccessControl.PRIVATE
+                ? Constants.AccessControl.PRIVATE
+                : Constants.AccessControl.PUBLIC,
         file:
-            media.accessControl === "private"
-                ? USE_CLOUDFRONT
-                    ? generateCDNSignedUrl(key)
-                    : await generateSignedUrl(key)
+            media.accessControl === Constants.AccessControl.PRIVATE ||
+            media.temp
+                ? await getPrivateFileUrl(media)
                 : getMainFileUrl(media),
         thumbnail: media.thumbnailGenerated
-            ? getThumbnailUrl(media.mediaId)
+            ? media.temp
+                ? await getPrivateFileUrl(media, true)
+                : getThumbnailUrl(media.mediaId)
             : "",
         caption: media.caption,
         group: media.group,
     };
+}
+
+async function getPrivateFileUrl(media: MediaWithUserId, thumb?: boolean) {
+    const filename = thumb
+        ? "thumb.webp"
+        : `main.${path.extname(media.fileName).replace(".", "")}`;
+
+    const key = generateKey({
+        mediaId: media.mediaId,
+        path: media.temp
+            ? "tmp"
+            : media.accessControl === Constants.AccessControl.PRIVATE
+              ? Constants.AccessControl.PRIVATE
+              : Constants.AccessControl.PUBLIC,
+        filename,
+    });
+
+    return USE_CLOUDFRONT
+        ? generateCDNSignedUrl(key)
+        : await generateSignedUrl(key);
 }
 
 async function deleteMedia({
@@ -283,7 +316,11 @@ async function deleteMedia({
 
     const key = generateKey({
         mediaId,
-        access: media.accessControl === "private" ? "private" : "public",
+        path: media.temp
+            ? "tmp"
+            : media.accessControl === Constants.AccessControl.PRIVATE
+              ? Constants.AccessControl.PRIVATE
+              : Constants.AccessControl.PUBLIC,
         filename: `main.${media.fileName.split(".")[1]}`,
     });
     await deleteObject({ Key: key });
@@ -291,7 +328,7 @@ async function deleteMedia({
     if (media.thumbnailGenerated) {
         const thumbKey = generateKey({
             mediaId,
-            access: "public",
+            path: media.temp ? "tmp" : Constants.AccessControl.PUBLIC,
             filename: "thumb.webp",
         });
         await deleteObject({ Key: thumbKey });
@@ -300,9 +337,106 @@ async function deleteMedia({
     await deleteMediaQuery(userId, mediaId);
 }
 
+async function sealMedia({
+    userId,
+    apikey,
+    mediaId,
+}: {
+    userId: string;
+    apikey: string;
+    mediaId: string;
+}): Promise<MediaWithUserId> {
+    const media = await getMedia({ userId, apikey, mediaId });
+    if (!media) {
+        throw new Error("Media not found");
+    }
+
+    if (!media.temp) {
+        throw new Error("Media is already sealed");
+    }
+
+    // Determine final access path
+    const finalAccess =
+        media.accessControl === Constants.AccessControl.PUBLIC
+            ? Constants.AccessControl.PUBLIC
+            : Constants.AccessControl.PRIVATE;
+    const fileExtension = path.extname(media.fileName).replace(".", "");
+
+    // Get tags from source object
+    const tmpMainKey = generateKey({
+        mediaId,
+        path: "tmp",
+        filename: `main.${fileExtension}`,
+    });
+    let tags: string | undefined;
+    try {
+        const taggingResponse = await getObjectTagging({ Key: tmpMainKey });
+        if (taggingResponse.TagSet && taggingResponse.TagSet.length > 0) {
+            tags = taggingResponse.TagSet.map(
+                (tag: any) => `${tag.Key}=${tag.Value}`,
+            ).join("&");
+        }
+    } catch (err: any) {
+        logger.warn({ err }, "Failed to get tags from source object");
+    }
+
+    // Copy main file from tmp to final location
+    const finalMainKey = generateKey({
+        mediaId,
+        path: finalAccess,
+        filename: `main.${fileExtension}`,
+    });
+
+    await copyObject({
+        sourceKey: tmpMainKey,
+        destinationKey: finalMainKey,
+        ContentType: media.mimeType,
+        Tagging: tags,
+    });
+
+    // Copy thumbnail from tmp to public location (if exists)
+    if (media.thumbnailGenerated) {
+        const tmpThumbKey = generateKey({
+            mediaId,
+            path: "tmp",
+            filename: "thumb.webp",
+        });
+        const finalThumbKey = generateKey({
+            mediaId,
+            path: Constants.AccessControl.PUBLIC,
+            filename: "thumb.webp",
+        });
+
+        await copyObject({
+            sourceKey: tmpThumbKey,
+            destinationKey: finalThumbKey,
+            ContentType: "image/webp",
+            Tagging: tags,
+        });
+    }
+
+    // Delete tmp folder
+    const tmpPrefix = `${CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : ""}tmp/${mediaId}/`;
+    await deleteFolder(tmpPrefix);
+
+    // Update media record to remove temp flag
+    await MediaModel.updateOne(
+        { mediaId, userId, apikey },
+        { $unset: { temp: "" } },
+    );
+
+    // Fetch and return the updated media
+    const updatedMedia = await getMedia({ userId, apikey, mediaId });
+    if (!updatedMedia) {
+        throw new Error("Failed to retrieve updated media");
+    }
+    return updatedMedia;
+}
+
 export default {
     upload,
     getPage,
     getMediaDetails,
     deleteMedia,
+    sealMedia,
 };

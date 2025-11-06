@@ -6,3 +6,7 @@ export const SubscriptionStatus = {
     PAUSED: "paused",
     EXPIRED: "expired",
 } as const;
+export const AccessControl = {
+    PRIVATE: "private",
+    PUBLIC: "public",
+} as const;

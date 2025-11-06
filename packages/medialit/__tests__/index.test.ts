@@ -1,8 +1,8 @@
 import { describe, test, mock, beforeEach } from "node:test";
 import assert from "node:assert";
 import { MediaLit } from "../src";
-import { Media } from "../src/media";
 import { Readable } from "stream";
+import { Media } from "@medialit/models";
 
 describe("MediaLit", () => {
     const mockApiKey = "test-api-key";

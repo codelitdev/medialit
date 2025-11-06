@@ -37,16 +37,12 @@ export async function getUserAndGroupFromPresignedUrl(
 interface GenerateSignedUrlProps {
     userId: string;
     apikey: string;
-    protocol: string;
-    host: string;
     group?: string;
 }
 
 export async function generateSignature({
     userId,
     apikey,
-    protocol,
-    host,
     group,
 }: GenerateSignedUrlProps): Promise<string> {
     const presignedUrl = await queries.createPresignedUrl(

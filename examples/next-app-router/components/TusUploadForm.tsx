@@ -81,7 +81,6 @@ export default function TusUploadForm() {
                     setUploadProgress(percentage);
                 },
                 onSuccess: async () => {
-                    console.log("Upload finished!");
                     setUploading(false);
                     setUploadProgress(100);
 

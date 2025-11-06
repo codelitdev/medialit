@@ -6,6 +6,8 @@ import {
     DeleteObjectCommand,
     GetObjectCommand,
     GetObjectTaggingCommand,
+    CopyObjectCommand,
+    ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import {
     cloudEndpoint,
@@ -17,6 +19,7 @@ import {
     CLOUDFRONT_PRIVATE_KEY,
     CDN_MAX_AGE,
     CLOUDFRONT_ENDPOINT,
+    DISABLE_TAGGING,
 } from "../config/constants";
 import { getSignedUrl as getCfSignedUrl } from "@aws-sdk/cloudfront-signer";
 
@@ -24,12 +27,18 @@ export interface UploadParams {
     Key: string;
     Body: ReadStream;
     ContentType: string;
-    ACL: "private" | "public-read";
     Tagging?: string;
 }
 
 export interface DeleteParams {
     Key: string;
+}
+
+export interface CopyParams {
+    sourceKey: string;
+    destinationKey: string;
+    ContentType?: string;
+    Tagging?: string;
 }
 
 export interface PresignedURLParams {
@@ -38,22 +47,30 @@ export interface PresignedURLParams {
 }
 
 let s3Client: S3Client | null = null;
+export const s3ClientConfig: any = {
+    region: cloudRegion,
+    credentials: {
+        accessKeyId: cloudKey,
+        secretAccessKey: cloudSecret,
+    },
+};
+
+if (cloudEndpoint) {
+    s3ClientConfig.endpoint = cloudEndpoint;
+    s3ClientConfig.forcePathStyle = true;
+}
 
 const getS3Client = () => {
     if (!s3Client) {
-        s3Client = new S3Client({
-            region: cloudRegion,
-            endpoint: cloudEndpoint,
-            credentials: {
-                accessKeyId: cloudKey,
-                secretAccessKey: cloudSecret,
-            },
-        });
+        s3Client = new S3Client(s3ClientConfig);
     }
     return s3Client;
 };
 
 export const putObject = async (params: UploadParams) => {
+    if (DISABLE_TAGGING) {
+        delete params.Tagging;
+    }
     const command = new PutObjectCommand(
         Object.assign({}, { Bucket: cloudBucket }, params),
     );
@@ -102,4 +119,41 @@ export const generateCDNSignedUrl = (key: string): string => {
         dateLessThan: new Date(Date.now() + CDN_MAX_AGE).toISOString(),
     });
     return url;
+};
+
+export const copyObject = async (params: CopyParams) => {
+    const copySource = `${cloudBucket}/${params.sourceKey}`;
+    const command = new CopyObjectCommand({
+        Bucket: cloudBucket,
+        CopySource: copySource,
+        Key: params.destinationKey,
+        ContentType: params.ContentType,
+        Tagging: params.Tagging,
+    });
+    const response = await getS3Client().send(command);
+    return response;
+};
+
+export const deleteFolder = async (prefix: string): Promise<void> => {
+    const client = getS3Client();
+    let continuationToken: string | undefined;
+
+    do {
+        const command = new ListObjectsV2Command({
+            Bucket: cloudBucket,
+            Prefix: prefix,
+            ContinuationToken: continuationToken,
+        });
+
+        const response = await client.send(command);
+
+        if (response.Contents && response.Contents.length > 0) {
+            const deletePromises = response.Contents.map((object: any) =>
+                deleteObject({ Key: object.Key! }),
+            );
+            await Promise.all(deletePromises);
+        }
+
+        continuationToken = response.NextContinuationToken;
+    } while (continuationToken);
 };

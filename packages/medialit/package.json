@@ -30,7 +30,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "form-data": "^4.0.0"
+    "form-data": "^4.0.0",
+    "@medialit/models": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

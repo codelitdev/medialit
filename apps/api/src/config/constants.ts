@@ -51,7 +51,8 @@ export const cloudKey = process.env.CLOUD_KEY || "";
 export const cloudSecret = process.env.CLOUD_SECRET || "";
 export const cloudBucket = process.env.CLOUD_BUCKET_NAME || "";
 export const CLOUD_PREFIX = process.env.CLOUD_PREFIX || "";
-export const S3_ENDPOINT = process.env.S3_ENDPOINT || "";
+export const PUBLIC_ENDPOINT = process.env.PUBLIC_ENDPOINT || "";
+export const HOUR_IN_SECONDS = 1000 * 60 * 60;
 
 // Cloudfront config
 export const USE_CLOUDFRONT = process.env.USE_CLOUDFRONT === "true";
@@ -60,7 +61,11 @@ export const CLOUDFRONT_KEY_PAIR_ID = process.env.CLOUDFRONT_KEY_PAIR_ID || "";
 export const CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY || "";
 export const CDN_MAX_AGE = process.env.CDN_MAX_AGE
     ? +process.env.CDN_MAX_AGE
-    : 1000 * 60 * 60; // one hour
+    : HOUR_IN_SECONDS; // one hour
 
-export const ENDPOINT = USE_CLOUDFRONT ? CLOUDFRONT_ENDPOINT : S3_ENDPOINT;
-export const HOSTNAME_OVERRIDE = process.env.HOSTNAME_OVERRIDE || ""; // Useful for hosting via Docker
+export const ENDPOINT = USE_CLOUDFRONT ? CLOUDFRONT_ENDPOINT : PUBLIC_ENDPOINT;
+export const TEMP_MEDIA_EXPIRATION_HOURS = process.env
+    .TEMP_MEDIA_EXPIRATION_HOURS
+    ? +process.env.TEMP_MEDIA_EXPIRATION_HOURS
+    : 24; // 24 hours
+export const DISABLE_TAGGING = process.env.DISABLE_TAGGING === "true";

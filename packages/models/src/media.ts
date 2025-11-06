@@ -1,3 +1,5 @@
+import { AccessControl } from "./access-control";
+
 export interface Media {
     fileName: string;
     mediaId: string;
@@ -6,8 +8,9 @@ export interface Media {
     mimeType: string;
     size: number;
     thumbnailGenerated: boolean;
-    accessControl: string;
+    accessControl: AccessControl;
     group?: string;
     caption?: string;
     file?: string;
+    temp?: boolean;
 }

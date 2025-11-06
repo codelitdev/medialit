@@ -1,4 +1,4 @@
-import { Media } from "./media";
+import { Media } from "@medialit/models";
 import { createReadStream } from "fs";
 import { Readable } from "stream";
 
