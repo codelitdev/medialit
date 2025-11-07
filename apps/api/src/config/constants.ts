@@ -46,10 +46,12 @@ export const mailPort = parseInt(process.env.EMAIL_PORT || "") || 587;
 
 // AWS S3 config
 export const CLOUD_ENDPOINT = process.env.CLOUD_ENDPOINT || "";
+export const CLOUD_ENDPOINT_PUBLIC = process.env.CLOUD_ENDPOINT_PUBLIC || "";
 export const cloudRegion = process.env.CLOUD_REGION || "";
 export const cloudKey = process.env.CLOUD_KEY || "";
 export const cloudSecret = process.env.CLOUD_SECRET || "";
 export const cloudBucket = process.env.CLOUD_BUCKET_NAME || "";
+export const cloudPublicBucket = process.env.CLOUD_PUBLIC_BUCKET_NAME || "";
 export const PATH_PREFIX = process.env.PATH_PREFIX || "";
 export const HOUR_IN_SECONDS = 1000 * 60 * 60;
 

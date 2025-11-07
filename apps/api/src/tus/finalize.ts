@@ -12,6 +12,7 @@ import {
     imagePattern,
     imagePatternForThumbnailGeneration,
     videoPattern,
+    cloudBucket,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -21,7 +22,7 @@ import {
 import { Constants, type MediaWithUserId } from "@medialit/models";
 import { putObject, UploadParams } from "../services/s3";
 import logger from "../services/log";
-import generateKey from "../media/utils/generate-key";
+import generateKey, { PATH_KEY } from "../media/utils/generate-key";
 import { getMediaSettings } from "../media-settings/queries";
 import generateFileName from "../media/utils/generate-file-name";
 import { createMedia } from "../media/queries";
@@ -95,11 +96,12 @@ export default async function finalizeUpload(
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            path: "tmp",
+            path: PATH_KEY.PRIVATE,
             filename: `main.${fileExtension}`,
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
+        Bucket: cloudBucket,
     };
     const tags = getTags(userId, metadata.group);
     uploadParams.Tagging = tags;
@@ -114,10 +116,11 @@ export default async function finalizeUpload(
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                path: "tmp",
+                path: PATH_KEY.PRIVATE,
                 filename: "thumb.webp",
             }),
             tags,
+            bucket: cloudBucket,
         });
     } catch (err: any) {
         logger.error({ err }, err.message);
@@ -177,12 +180,14 @@ const generateAndUploadThumbnail = async ({
     mimetype,
     originalFilePath,
     tags,
+    bucket,
 }: {
     workingDirectory: string;
     key: string;
     mimetype: string;
     originalFilePath: string;
     tags: string;
+    bucket?: string;
 }): Promise<boolean> => {
     const thumbPath = `${workingDirectory}/thumb.webp`;
     let isGenerated = false;
@@ -202,6 +207,7 @@ const generateAndUploadThumbnail = async ({
             Body: createReadStream(thumbPath),
             ContentType: "image/webp",
             Tagging: tags,
+            Bucket: bucket || cloudBucket,
         });
         await fsPromises.rm(thumbPath);
     }

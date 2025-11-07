@@ -88,11 +88,21 @@ async function checkConfig() {
             "Cloud credentials (CLOUD_KEY and CLOUD_SECRET) are not set",
         );
     }
-    if (!process.env.CLOUD_BUCKET_NAME) {
-        throw new Error("Cloud bucket name (CLOUD_BUCKET_NAME) is not set");
+    if (
+        !process.env.CLOUD_BUCKET_NAME ||
+        !process.env.CLOUD_PUBLIC_BUCKET_NAME
+    ) {
+        throw new Error(
+            "Cloud bucket name (CLOUD_BUCKET_NAME and CLOUD_PUBLIC_BUCKET_NAME) are not set",
+        );
     }
-    if (!process.env.CLOUD_ENDPOINT && !process.env.CDN_ENDPOINT) {
-        throw new Error("Either CLOUD_ENDPOINT or CDN_ENDPOINT must be set");
+    if (
+        !process.env.CDN_ENDPOINT &&
+        (!process.env.CLOUD_ENDPOINT || !process.env.CLOUD_ENDPOINT_PUBLIC)
+    ) {
+        throw new Error(
+            "If CDN_ENDPOINT is not set, both CLOUD_ENDPOINT and CLOUD_ENDPOINT_PUBLIC must be provided",
+        );
     }
 }
 
