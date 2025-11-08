@@ -23,7 +23,8 @@
     "lint": "eslint --cache --quiet",
     "prettier": "prettier --check **/*.{ts,tsx,js,css,md}",
     "lint:fix": "eslint --cache --fix",
-    "prettier:fix": "prettier --write **/*.{ts,tsx,js,css,md}"
+    "prettier:fix": "prettier --write **/*.{ts,tsx,js,css,md}",
+    "release": "./release.sh"
   },
   "lint-staged": {
     "*.{ts,tsx}": "eslint --cache --fix **/*.{ts,tsx}",
