@@ -35,6 +35,7 @@ export const server = new Server({
             }
             req.user = response.user;
             req.apikey = response.apikey;
+            req.group = response.group;
         } catch (err) {
             logger.error({ err }, "Error validating user creds");
             throw err;
@@ -42,7 +43,7 @@ export const server = new Server({
     },
     onUploadCreate: async (req: any, upload: any) => {
         const metadata = upload.metadata;
-        const { user, apikey } = req;
+        const { user, apikey, group } = req;
 
         try {
             const allowedFileSize = getMaxFileUploadSize(req);
@@ -69,7 +70,7 @@ export const server = new Server({
                     mimeType: metadata.mimeType || "application/octet-stream",
                     accessControl: metadata.access,
                     caption: metadata.caption,
-                    group: metadata.group || (req.body?.group as string),
+                    group: metadata.group || group,
                 },
                 tempFilePath: upload.id,
             });
@@ -117,7 +118,7 @@ server.on(EVENTS.POST_RECEIVE, async (req: any, upload: any) => {
 
 async function getUserAndAPIKey(req: any): Promise<UserWithAPIKey | TusError> {
     const signature = req.headers.get("x-medialit-signature");
-    let user, apikey;
+    let user, apikey, group;
     if (signature) {
         const response =
             await preSignedUrlService.getUserAndGroupFromPresignedUrl(
@@ -132,6 +133,7 @@ async function getUserAndAPIKey(req: any): Promise<UserWithAPIKey | TusError> {
 
         user = response.user;
         apikey = response.apikey;
+        group = response.group;
     } else {
         const apikeyFromHeader = req.headers.get("x-medialit-apikey");
         const apikeyFromDB: Apikey | null =
@@ -152,12 +154,13 @@ async function getUserAndAPIKey(req: any): Promise<UserWithAPIKey | TusError> {
         apikey = apikeyFromHeader;
     }
 
-    return { user, apikey };
+    return { user, apikey, group };
 }
 
 interface UserWithAPIKey {
     user: User;
     apikey: string;
+    group?: string;
 }
 
 interface TusError {
