@@ -12,10 +12,8 @@ import Script from "next/script";
 import { auth } from "@/auth";
 
 export default async function SchoolDetailsLayout({
-    params,
     children,
 }: {
-    params: Promise<{ name: string }>;
     children: ReactNode;
 }) {
     const session = await auth();
