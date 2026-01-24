@@ -22,6 +22,14 @@ const nextConfig = {
                 protocol: "https",
                 hostname: "d27g932tzd9f7s.cloudfront.net",
             },
+            {
+                protocol: "https",
+                hostname: "cdn.medialit.clqa.online",
+            },
+            {
+                protocol: "https",
+                hostname: "cdn.medialit.cloud",
+            },
         ],
     },
 };

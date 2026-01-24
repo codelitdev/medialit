@@ -1,0 +1,19 @@
+{
+    "name": "@medialit/scripts",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "migrate:dual_bucket_architecture": "ts-node src/migrate-to-dual-buckets.ts"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.0.0",
+        "@medialit/models": "workspace:*",
+        "dotenv": "^16.0.0",
+        "mongoose": "^8.0.0"
+    },
+    "devDependencies": {
+        "ts-node": "^10.9.1",
+        "typescript": "^5.0.0",
+        "@types/node": "^20.0.0"
+    }
+}

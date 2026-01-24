@@ -22,7 +22,7 @@ import {
 import { Constants, type MediaWithUserId } from "@medialit/models";
 import { putObject, UploadParams } from "../services/s3";
 import logger from "../services/log";
-import generateKey, { PATH_KEY } from "../media/utils/generate-key";
+import generateKey from "../media/utils/generate-key";
 import { getMediaSettings } from "../media-settings/queries";
 import generateFileName from "../media/utils/generate-file-name";
 import { createMedia } from "../media/queries";
@@ -96,7 +96,7 @@ export default async function finalizeUpload(
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            path: PATH_KEY.PRIVATE,
+            path: Constants.PathKey.PRIVATE,
             filename: `main.${fileExtension}`,
         }),
         Body: createReadStream(mainFilePath),
@@ -116,7 +116,7 @@ export default async function finalizeUpload(
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                path: PATH_KEY.PRIVATE,
+                path: Constants.PathKey.PRIVATE,
                 filename: "thumb.webp",
             }),
             tags,

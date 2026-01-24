@@ -1,7 +1,6 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { Constants, Media } from "@medialit/models";
-import { PATH_KEY } from "@/media/utils/generate-key";
 
 // Helper to clear module cache and re-import
 const clearModuleCache = () => {
@@ -61,7 +60,7 @@ describe("get-public-urls", () => {
         clearModuleCache();
     });
 
-    describe("getMainFileUrl", () => {
+    describe("getPublicFileUrl", () => {
         test("should use CDN_ENDPOINT when provided (takes precedence)", () => {
             process.env.CDN_ENDPOINT = "https://cdn.example.com";
             process.env.CLOUD_ENDPOINT = "https://private.s3.amazonaws.com";
@@ -70,16 +69,18 @@ describe("get-public-urls", () => {
             process.env.PATH_PREFIX = "";
             clearModuleCache();
 
-            const { getMainFileUrl } = require("@/media/utils/get-public-urls");
+            const {
+                getPublicFileUrl,
+            } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PUBLIC,
                 fileName: "main.jpg",
             });
 
-            const url = getMainFileUrl(media);
+            const url = getPublicFileUrl(media);
             assert.strictEqual(
                 url,
-                `https://cdn.example.com/${PATH_KEY.PUBLIC}/test-media-id-123/main.jpg`,
+                `https://cdn.example.com/${Constants.PathKey.PUBLIC}/test-media-id-123/main.jpg`,
             );
         });
 
@@ -91,16 +92,18 @@ describe("get-public-urls", () => {
             process.env.PATH_PREFIX = "";
             clearModuleCache();
 
-            const { getMainFileUrl } = require("@/media/utils/get-public-urls");
+            const {
+                getPublicFileUrl,
+            } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PUBLIC,
                 fileName: "main.png",
             });
 
-            const url = getMainFileUrl(media);
+            const url = getPublicFileUrl(media);
             assert.strictEqual(
                 url,
-                `https://public.s3.amazonaws.com/${PATH_KEY.PUBLIC}/test-media-id-123/main.png`,
+                `https://public.s3.amazonaws.com/${Constants.PathKey.PUBLIC}/test-media-id-123/main.png`,
             );
         });
 
@@ -111,16 +114,18 @@ describe("get-public-urls", () => {
             process.env.PATH_PREFIX = "";
             clearModuleCache();
 
-            const { getMainFileUrl } = require("@/media/utils/get-public-urls");
+            const {
+                getPublicFileUrl,
+            } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PUBLIC,
                 fileName: "main.webp",
             });
 
-            const url = getMainFileUrl(media);
+            const url = getPublicFileUrl(media);
             assert.strictEqual(
                 url,
-                `https://private.s3.amazonaws.com/${PATH_KEY.PUBLIC}/test-media-id-123/main.webp`,
+                `https://private.s3.amazonaws.com/${Constants.PathKey.PUBLIC}/test-media-id-123/main.webp`,
             );
         });
 
@@ -132,16 +137,18 @@ describe("get-public-urls", () => {
             process.env.PATH_PREFIX = "";
             clearModuleCache();
 
-            const { getMainFileUrl } = require("@/media/utils/get-public-urls");
+            const {
+                getPublicFileUrl,
+            } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PRIVATE,
                 fileName: "main.jpg",
             });
 
-            const url = getMainFileUrl(media);
+            const url = getPublicFileUrl(media);
             assert.strictEqual(
                 url,
-                `https://private.s3.amazonaws.com/${PATH_KEY.PUBLIC}/test-media-id-123/main.jpg`,
+                `https://private.s3.amazonaws.com/${Constants.PathKey.PUBLIC}/test-media-id-123/main.jpg`,
             );
         });
 
@@ -150,16 +157,18 @@ describe("get-public-urls", () => {
             process.env.PATH_PREFIX = "tenant-123";
             clearModuleCache();
 
-            const { getMainFileUrl } = require("@/media/utils/get-public-urls");
+            const {
+                getPublicFileUrl,
+            } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PUBLIC,
                 fileName: "main.jpg",
             });
 
-            const url = getMainFileUrl(media);
+            const url = getPublicFileUrl(media);
             assert.strictEqual(
                 url,
-                `https://cdn.example.com/tenant-123/${PATH_KEY.PUBLIC}/test-media-id-123/main.jpg`,
+                `https://cdn.example.com/tenant-123/${Constants.PathKey.PUBLIC}/test-media-id-123/main.jpg`,
             );
         });
     });
@@ -181,7 +190,7 @@ describe("get-public-urls", () => {
             const url = getThumbnailUrl(media);
             assert.strictEqual(
                 url,
-                `https://cdn.example.com/${PATH_KEY.PUBLIC}/test-media-id-123/thumb.webp`,
+                `https://cdn.example.com/${Constants.PathKey.PUBLIC}/test-media-id-123/thumb.webp`,
             );
         });
 
@@ -201,7 +210,7 @@ describe("get-public-urls", () => {
             const url = getThumbnailUrl(media);
             assert.strictEqual(
                 url,
-                `https://public.s3.amazonaws.com/${PATH_KEY.PUBLIC}/test-media-id-123/thumb.webp`,
+                `https://public.s3.amazonaws.com/${Constants.PathKey.PUBLIC}/test-media-id-123/thumb.webp`,
             );
         });
 
@@ -221,7 +230,7 @@ describe("get-public-urls", () => {
             const url = getThumbnailUrl(media);
             assert.strictEqual(
                 url,
-                `https://public.s3.amazonaws.com/${PATH_KEY.PUBLIC}/test-media-id-123/thumb.webp`,
+                `https://public.s3.amazonaws.com/${Constants.PathKey.PUBLIC}/test-media-id-123/thumb.webp`,
             );
         });
 
@@ -238,7 +247,7 @@ describe("get-public-urls", () => {
             const url = getThumbnailUrl(media);
             assert.strictEqual(
                 url,
-                `https://cdn.example.com/tenant-456/${PATH_KEY.PUBLIC}/test-media-id-123/thumb.webp`,
+                `https://cdn.example.com/tenant-456/${Constants.PathKey.PUBLIC}/test-media-id-123/thumb.webp`,
             );
         });
     });
@@ -254,23 +263,23 @@ describe("get-public-urls", () => {
             clearModuleCache();
 
             const {
-                getMainFileUrl,
+                getPublicFileUrl,
                 getThumbnailUrl,
             } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PUBLIC,
             });
 
-            const mainUrl = getMainFileUrl(media);
+            const mainUrl = getPublicFileUrl(media);
             const thumbUrl = getThumbnailUrl(media);
 
             assert.strictEqual(
                 mainUrl,
-                `https://public.r2.cloudflarestorage.com/${PATH_KEY.PUBLIC}/test-media-id-123/main.jpg`,
+                `https://public.r2.cloudflarestorage.com/${Constants.PathKey.PUBLIC}/test-media-id-123/main.jpg`,
             );
             assert.strictEqual(
                 thumbUrl,
-                `https://public.r2.cloudflarestorage.com/${PATH_KEY.PUBLIC}/test-media-id-123/thumb.webp`,
+                `https://public.r2.cloudflarestorage.com/${Constants.PathKey.PUBLIC}/test-media-id-123/thumb.webp`,
             );
         });
 
@@ -284,24 +293,24 @@ describe("get-public-urls", () => {
             clearModuleCache();
 
             const {
-                getMainFileUrl,
+                getPublicFileUrl,
                 getThumbnailUrl,
             } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PUBLIC,
             });
 
-            const mainUrl = getMainFileUrl(media);
+            const mainUrl = getPublicFileUrl(media);
             const thumbUrl = getThumbnailUrl(media);
 
             // CDN should take precedence
             assert.strictEqual(
                 mainUrl,
-                `https://cdn.medialit.cloud/${PATH_KEY.PUBLIC}/test-media-id-123/main.jpg`,
+                `https://cdn.medialit.cloud/${Constants.PathKey.PUBLIC}/test-media-id-123/main.jpg`,
             );
             assert.strictEqual(
                 thumbUrl,
-                `https://cdn.medialit.cloud/${PATH_KEY.PUBLIC}/test-media-id-123/thumb.webp`,
+                `https://cdn.medialit.cloud/${Constants.PathKey.PUBLIC}/test-media-id-123/thumb.webp`,
             );
         });
 
@@ -314,25 +323,25 @@ describe("get-public-urls", () => {
             clearModuleCache();
 
             const {
-                getMainFileUrl,
+                getPublicFileUrl,
                 getThumbnailUrl,
             } = require("@/media/utils/get-public-urls");
             const media = createMockMedia({
                 accessControl: Constants.AccessControl.PUBLIC,
             });
 
-            const mainUrl = getMainFileUrl(media);
+            const mainUrl = getPublicFileUrl(media);
             const thumbUrl = getThumbnailUrl(media);
 
             // Main files use CLOUD_ENDPOINT_PUBLIC for public media
             assert.strictEqual(
                 mainUrl,
-                `https://public.s3.amazonaws.com/${PATH_KEY.PUBLIC}/test-media-id-123/main.jpg`,
+                `https://public.s3.amazonaws.com/${Constants.PathKey.PUBLIC}/test-media-id-123/main.jpg`,
             );
             // Thumbnails always use CLOUD_ENDPOINT_PUBLIC
             assert.strictEqual(
                 thumbUrl,
-                `https://public.s3.amazonaws.com/${PATH_KEY.PUBLIC}/test-media-id-123/thumb.webp`,
+                `https://public.s3.amazonaws.com/${Constants.PathKey.PUBLIC}/test-media-id-123/thumb.webp`,
             );
         });
     });

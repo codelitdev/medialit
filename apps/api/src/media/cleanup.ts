@@ -6,7 +6,7 @@ import {
     TEMP_MEDIA_EXPIRATION_HOURS,
     cloudBucket,
 } from "../config/constants";
-import { PATH_KEY } from "./utils/generate-key";
+import { Constants } from "@medialit/models";
 
 export async function cleanupExpiredTempUploads(): Promise<void> {
     const cutoff = new Date(
@@ -33,7 +33,7 @@ export async function cleanupExpiredTempUploads(): Promise<void> {
         for (const media of expired) {
             try {
                 // Delete S3 objects from private bucket (using private path prefix)
-                const tmpPrefix = `${PATH_PREFIX ? `${PATH_PREFIX}/` : ""}${PATH_KEY.PRIVATE}/${media.mediaId}/`;
+                const tmpPrefix = `${PATH_PREFIX ? `${PATH_PREFIX}/` : ""}${Constants.PathKey.PRIVATE}/${media.mediaId}/`;
                 await deleteFolder(tmpPrefix, cloudBucket);
 
                 // Delete media record

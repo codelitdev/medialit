@@ -1,1 +1,4 @@
-// TODO: rename "public-read" to "public"
+db.media.updateMany(
+    { accessControl: "public-read" },
+    { $set: { accessControl: "public" } },
+);

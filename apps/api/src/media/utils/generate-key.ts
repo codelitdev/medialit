@@ -1,11 +1,5 @@
+import { PathKey } from "@medialit/models";
 import { PATH_PREFIX } from "../../config/constants";
-
-export const PATH_KEY = {
-    PRIVATE: "i",
-    PUBLIC: "p",
-} as const;
-
-type PathKey = (typeof PATH_KEY)[keyof typeof PATH_KEY];
 
 export default function generateKey({
     mediaId,

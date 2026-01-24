@@ -27,7 +27,7 @@ import {
     UploadParams,
 } from "../services/s3";
 import logger from "../services/log";
-import generateKey, { PATH_KEY } from "./utils/generate-key";
+import generateKey from "./utils/generate-key";
 import { getMediaSettings } from "../media-settings/queries";
 import generateFileName from "./utils/generate-file-name";
 import mongoose from "mongoose";
@@ -41,7 +41,7 @@ import {
 import MediaModel from "./model";
 import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
-import { getMainFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
+import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
 
 const generateAndUploadThumbnail = async ({
@@ -129,7 +129,7 @@ async function upload({
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            path: PATH_KEY.PRIVATE,
+            path: Constants.PathKey.PRIVATE,
             filename: `main.${fileExtension}`,
         }),
         Body: createReadStream(mainFilePath),
@@ -149,7 +149,7 @@ async function upload({
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                path: PATH_KEY.PRIVATE,
+                path: Constants.PathKey.PRIVATE,
                 filename: "thumb.webp",
             }),
             tags,
@@ -259,7 +259,7 @@ async function getMediaDetails({
         fileUrl = await getPrivateFileUrl(media);
     } else {
         // Public sealed files: use direct URL from public bucket
-        fileUrl = getMainFileUrl(media);
+        fileUrl = getPublicFileUrl(media);
     }
 
     // Determine thumbnail URL
@@ -297,7 +297,7 @@ async function getPrivateFileUrl(media: MediaWithUserId, thumb?: boolean) {
 
     const key = generateKey({
         mediaId: media.mediaId,
-        path: PATH_KEY.PRIVATE,
+        path: Constants.PathKey.PRIVATE,
         filename,
     });
 
@@ -329,8 +329,8 @@ async function deleteMedia({
 
     const mainPath =
         media.temp || media.accessControl === Constants.AccessControl.PRIVATE
-            ? PATH_KEY.PRIVATE
-            : PATH_KEY.PUBLIC;
+            ? Constants.PathKey.PRIVATE
+            : Constants.PathKey.PUBLIC;
 
     const fileExtension = path.extname(media.fileName).replace(".", "");
     const key = generateKey({
@@ -343,7 +343,9 @@ async function deleteMedia({
     if (media.thumbnailGenerated) {
         // Thumbnails are in public bucket if sealed, private bucket if temp
         const thumbBucket = media.temp ? cloudBucket : cloudPublicBucket;
-        const thumbPath = media.temp ? PATH_KEY.PRIVATE : PATH_KEY.PUBLIC;
+        const thumbPath = media.temp
+            ? Constants.PathKey.PRIVATE
+            : Constants.PathKey.PUBLIC;
         const thumbKey = generateKey({
             mediaId,
             path: thumbPath,
@@ -378,7 +380,7 @@ async function sealMedia({
     // Get tags from source object (in private bucket)
     const tmpMainKey = generateKey({
         mediaId,
-        path: PATH_KEY.PRIVATE,
+        path: Constants.PathKey.PRIVATE,
         filename: `main.${fileExtension}`,
     });
     let tags: string | undefined;
@@ -405,7 +407,7 @@ async function sealMedia({
     if (isPublic) {
         const finalMainKey = generateKey({
             mediaId,
-            path: PATH_KEY.PUBLIC,
+            path: Constants.PathKey.PUBLIC,
             filename: `main.${fileExtension}`,
         });
 
@@ -423,12 +425,12 @@ async function sealMedia({
     if (media.thumbnailGenerated) {
         const tmpThumbKey = generateKey({
             mediaId,
-            path: PATH_KEY.PRIVATE,
+            path: Constants.PathKey.PRIVATE,
             filename: "thumb.webp",
         });
         const finalThumbKey = generateKey({
             mediaId,
-            path: PATH_KEY.PUBLIC,
+            path: Constants.PathKey.PUBLIC,
             filename: "thumb.webp",
         });
 

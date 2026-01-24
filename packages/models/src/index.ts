@@ -10,3 +10,4 @@ export type { MediaWithUserId } from "./media-schema";
 export type { SubscriptionStatus } from "./subscription-status";
 export * from "./utils";
 export * from "./access-control";
+export * from "./path-key";
