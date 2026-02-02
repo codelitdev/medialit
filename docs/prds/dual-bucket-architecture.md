@@ -105,7 +105,7 @@ s3://public-bucket/
 - `CLOUD_REGION` - Region (if applicable)
 - `CLOUD_KEY` - Access key ID
 - `CLOUD_SECRET` - Secret access key
-- `CLOUD_PREFIX` - Optional prefix (if needed for multi-tenant)
+- `PATH_PREFIX` - Optional prefix (if needed for multi-tenant)
 
 **Note**: Both buckets MUST use the same credentials and endpoint. Different credentials/endpoints per bucket are out of scope for v1.
 
@@ -130,7 +130,7 @@ s3://public-bucket/
 **Implementation:**
 
 - `putObject()` uses `CLOUD_BUCKET_NAME`
-- Key generation: `{CLOUD_PREFIX}/{mediaId}/main.{ext}` (if prefix exists)
+- Key generation: `{PATH_PREFIX}/{mediaId}/main.{ext}` (if prefix exists)
 
 ---
 
@@ -164,8 +164,8 @@ s3://public-bucket/
 
 **Key Generation:**
 
-- Source: `{CLOUD_PREFIX}/{mediaId}/main.{ext}` in private bucket
-- Destination: `{CLOUD_PREFIX}/{mediaId}/main.{ext}` in public bucket (for public) or same private bucket (for private)
+- Source: `{PATH_PREFIX}/{mediaId}/main.{ext}` in private bucket
+- Destination: `{PATH_PREFIX}/{mediaId}/main.{ext}` in public bucket (for public) or same private bucket (for private)
 
 ---
 
@@ -184,7 +184,7 @@ s3://public-bucket/
 **Implementation:**
 
 - `deleteFolder()` operates on private bucket only
-- Prefix: `{CLOUD_PREFIX}/{mediaId}/` (if prefix exists)
+- Prefix: `{PATH_PREFIX}/{mediaId}/` (if prefix exists)
 
 ---
 
@@ -196,7 +196,7 @@ s3://public-bucket/
 
 - Source: Private bucket
 - Method: Generate signed URL using S3 presigner or CDN signer
-- Key: `{CLOUD_PREFIX}/{mediaId}/main.{ext}` or `{CLOUD_PREFIX}/{mediaId}/thumb.webp`
+- Key: `{PATH_PREFIX}/{mediaId}/main.{ext}` or `{PATH_PREFIX}/{mediaId}/thumb.webp`
 
 **Implementation:**
 
@@ -215,13 +215,13 @@ const url = await getS3SignedUrl(s3Client, command);
 
 - Source: Public bucket
 - Method: Direct HTTP URL or CDN URL
-- Key: `{CLOUD_PREFIX}/{mediaId}/main.{ext}` or `{CLOUD_PREFIX}/{mediaId}/thumb.webp`
+- Key: `{PATH_PREFIX}/{mediaId}/main.{ext}` or `{PATH_PREFIX}/{mediaId}/thumb.webp`
 
 **Implementation:**
 
 ```typescript
 // For public bucket
-const url = `${PUBLIC_ENDPOINT}/${key}`; // or `${CLOUDFRONT_ENDPOINT}/${key}`
+const url = `${PUBLIC_ENDPOINT}/${key}`; // or `${CDN_ENDPOINT}/${key}`
 ```
 
 ---

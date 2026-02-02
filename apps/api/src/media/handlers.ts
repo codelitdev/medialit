@@ -75,7 +75,7 @@ export async function uploadMedia(
         return res.status(200).json(media);
     } catch (err: any) {
         logger.error({ err }, err.message);
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -111,7 +111,7 @@ export async function getMedia(
         return res.status(200).json(result);
     } catch (err: any) {
         logger.error({ err }, err.message);
-        return res.status(500).json(err.message);
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -123,7 +123,7 @@ export async function getMediaCount(req: any, res: any) {
         const totalMediaFiles = await getCount({ userId, apikey });
         return res.status(200).json({ count: totalMediaFiles });
     } catch (err: any) {
-        return res.status(500).json(err.message);
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -140,7 +140,7 @@ export async function getTotalSpaceOccupied(req: any, res: any) {
                 : maxStorageAllowedNotSubscribed,
         });
     } catch (err: any) {
-        return res.status(500).json(err.message);
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -160,7 +160,7 @@ export async function getMediaDetails(req: any, res: any) {
         return res.status(200).json(media);
     } catch (err: any) {
         logger.error({ err }, err.message);
-        return res.status(500).json(err.message);
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -177,7 +177,7 @@ export async function deleteMedia(req: any, res: any) {
         return res.status(200).json({ message: SUCCESS });
     } catch (err: any) {
         logger.error({ err }, err.message);
-        return res.status(500).json(err.message);
+        return res.status(500).json({ error: err.message });
     }
 }
 
@@ -199,12 +199,15 @@ export async function sealMedia(req: any, res: any) {
 
         return res.status(200).json(mediaDetails);
     } catch (err: any) {
-        logger.error({ err }, err.message);
         const statusCode =
-            err.message === "Media not found" ||
-            err.message === "Media is already sealed"
+            err.message === "Media not found"
                 ? 404
-                : 500;
+                : err.message === "Media is already sealed"
+                  ? 409
+                  : 500;
+        if (statusCode === 500) {
+            logger.error({ err }, err.message);
+        }
         return res.status(statusCode).json({ error: err.message });
     }
 }

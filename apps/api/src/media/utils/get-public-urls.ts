@@ -4,7 +4,7 @@ import {
     CLOUD_ENDPOINT,
     PATH_PREFIX,
     CLOUD_ENDPOINT_PUBLIC,
-} from "@/config/constants";
+} from "../../config/constants";
 import { Constants, Media } from "@medialit/models";
 
 const prefix = PATH_PREFIX ? `${PATH_PREFIX}/` : "";

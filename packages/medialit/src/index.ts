@@ -95,7 +95,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Upload failed");
+            throw new Error(error.error || "Upload failed");
         }
 
         return response.json();
@@ -115,7 +115,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Deletion failed");
+            throw new Error(error.error || "Deletion failed");
         }
     }
 
@@ -130,7 +130,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to seal media");
+            throw new Error(error.error || "Failed to seal media");
         }
 
         return response.json();
@@ -147,7 +147,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get media");
+            throw new Error(error.error || "Failed to get media");
         }
 
         return response.json();
@@ -179,7 +179,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to list media");
+            throw new Error(error.error || "Failed to list media");
         }
 
         return response.json();
@@ -220,7 +220,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get count");
+            throw new Error(error.error || "Failed to get count");
         }
 
         const result = await response.json();
@@ -238,7 +238,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get stats");
+            throw new Error(error.error || "Failed to get stats");
         }
 
         return response.json();

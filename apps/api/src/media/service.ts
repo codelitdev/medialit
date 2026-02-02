@@ -372,7 +372,7 @@ async function sealMedia({
     }
 
     if (!media.temp) {
-        throw new Error("Media is already sealed");
+        return media;
     }
 
     const fileExtension = path.extname(media.fileName).replace(".", "");
