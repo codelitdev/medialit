@@ -29,6 +29,10 @@
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codelitdev/medialit"
+  },
   "dependencies": {
     "form-data": "^4.0.0"
   },

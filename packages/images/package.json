@@ -7,7 +7,7 @@
     "utilities"
   ],
   "author": "Rajat Saxena <hi@rajatsaxena.dev>",
-  "homepage": "https://github.com/codelitdev/cloud-upload-service#readme",
+  "homepage": "https://github.com/codelitdev/medialit#readme",
   "license": "MIT",
   "main": "dist/index.js",
   "directories": {
@@ -22,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codelitdev/cloud-upload-service.git"
+    "url": "https://github.com/codelitdev/medialit"
   },
   "scripts": {
     "test": "echo \"Error: run tests from root\" && exit 1",
@@ -30,7 +30,7 @@
     "prepublishOnly": "pnpm build"
   },
   "bugs": {
-    "url": "https://github.com/codelitdev/cloud-upload-service/issues"
+    "url": "https://github.com/codelitdev/medialit/issues"
   },
   "devDependencies": {
     "@types/node": "^20.8.7",

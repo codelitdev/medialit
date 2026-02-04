@@ -10,6 +10,10 @@
     "email": "hi@rajatsaxena.dev"
   },
   "homepage": "https://github.com/codelitdev/medialit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codelitdev/medialit"
+  },
   "license": "MIT",
   "main": "dist/index.js",
   "bin": {
