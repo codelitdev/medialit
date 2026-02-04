@@ -1,5 +1,11 @@
 # medialit
 
+## 0.2.0
+
+### Minor Changes
+
+- 2e18d2b: Uploads are temporary by default
+
 ## 0.1.0
 
 ### Minor Changes
