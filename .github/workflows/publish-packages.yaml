@@ -36,12 +36,12 @@ jobs:
         run: |
           npm i pnpm@latest -g
 
-      - name: Authenticate with Registry
-        run: |
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
-          npm whoami
-        env:
-          NPM_TOKEN: ${{ secrets.NPM }}
+      # - name: Authenticate with Registry
+      #   run: |
+      #     echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+      #     npm whoami
+      #   env:
+      #     NPM_TOKEN: ${{ secrets.NPM }}
 
       - name: Install dependencies
         run: pnpm install 
