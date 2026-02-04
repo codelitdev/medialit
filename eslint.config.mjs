@@ -17,7 +17,8 @@ export default defineConfig([
     "**/.next/**",
     ".migrations/**",
     "apps/docs/.source",
-    "apps/docs/out/**"
+    "apps/docs/out/**",
+    "**/next-env.d.ts"
   ]),
   { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"] },
   { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], languageOptions: { globals: { ...globals.browser, ...globals.node } } },
