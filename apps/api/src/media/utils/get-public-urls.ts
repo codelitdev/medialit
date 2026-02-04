@@ -1,15 +1,26 @@
 import path from "path";
-import { ENDPOINT, CLOUD_PREFIX } from "../../config/constants";
-import { Media } from "@medialit/models";
+import {
+    CDN_ENDPOINT,
+    CLOUD_ENDPOINT,
+    PATH_PREFIX,
+    CLOUD_ENDPOINT_PUBLIC,
+} from "../../config/constants";
+import { Constants, Media } from "@medialit/models";
 
-const prefix = CLOUD_PREFIX ? `${CLOUD_PREFIX}/` : "";
+const prefix = PATH_PREFIX ? `${PATH_PREFIX}/` : "";
 
-export function getMainFileUrl(media: Media) {
-    return `${ENDPOINT}/${prefix}public/${media.mediaId}/main${path.extname(
+export function getPublicFileUrl(media: Media) {
+    const ENDPOINT =
+        CDN_ENDPOINT ||
+        (media.accessControl === Constants.AccessControl.PUBLIC
+            ? CLOUD_ENDPOINT_PUBLIC || CLOUD_ENDPOINT
+            : CLOUD_ENDPOINT);
+    return `${ENDPOINT}/${prefix}${Constants.PathKey.PUBLIC}/${media.mediaId}/main${path.extname(
         media.fileName,
     )}`;
 }
 
-export function getThumbnailUrl(mediaId: string) {
-    return `${ENDPOINT}/${prefix}public/${mediaId}/thumb.webp`;
+export function getThumbnailUrl(media: Media) {
+    const ENDPOINT = CDN_ENDPOINT || CLOUD_ENDPOINT_PUBLIC;
+    return `${ENDPOINT}/${prefix}${Constants.PathKey.PUBLIC}/${media.mediaId}/thumb.webp`;
 }

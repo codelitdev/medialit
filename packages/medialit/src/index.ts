@@ -1,4 +1,4 @@
-import { Media } from "./media";
+import type { Media } from "./types";
 import { createReadStream } from "fs";
 import { Readable } from "stream";
 
@@ -58,7 +58,6 @@ export class MediaLit {
     private async createFormData(
         file: FileInput,
     ): Promise<{ formData: any; filename: string }> {
-        this.checkBrowserEnvironment();
         const FormData = (await import("form-data")).default;
         const formData = new FormData();
 
@@ -79,17 +78,11 @@ export class MediaLit {
     }
 
     async upload(file: FileInput, options: UploadOptions = {}): Promise<Media> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const { formData } = await this.createFormData(file);
 
         if (options.access) formData.append("access", options.access);
         if (options.caption) formData.append("caption", options.caption);
         if (options.group) formData.append("group", options.group);
-        // formData.append("apikey", this.apiKey);
 
         const response = await fetch(`${this.endpoint}/media/create`, {
             method: "POST",
@@ -102,18 +95,13 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Upload failed");
+            throw new Error(error.error || "Upload failed");
         }
 
         return response.json();
     }
 
     async delete(mediaId: string): Promise<void> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const response = await fetch(
             `${this.endpoint}/media/delete/${mediaId}`,
             {
@@ -127,16 +115,28 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Deletion failed");
+            throw new Error(error.error || "Deletion failed");
         }
     }
 
-    async get(mediaId: string): Promise<Media> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
+    async seal(mediaId: string): Promise<Media> {
+        const response = await fetch(`${this.endpoint}/media/seal/${mediaId}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-medialit-apikey": this.apiKey,
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || "Failed to seal media");
         }
 
+        return response.json();
+    }
+
+    async get(mediaId: string): Promise<Media> {
         const response = await fetch(`${this.endpoint}/media/get/${mediaId}`, {
             method: "POST",
             headers: {
@@ -147,7 +147,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get media");
+            throw new Error(error.error || "Failed to get media");
         }
 
         return response.json();
@@ -158,11 +158,6 @@ export class MediaLit {
         limit: number = 10,
         filters: { access?: "private" | "public"; group?: string } = {},
     ): Promise<Media[]> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const params = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
@@ -184,18 +179,13 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to list media");
+            throw new Error(error.error || "Failed to list media");
         }
 
         return response.json();
     }
 
     async getSignature(options: { group?: string } = {}): Promise<string> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const response = await fetch(
             `${this.endpoint}/media/signature/create`,
             {
@@ -220,11 +210,6 @@ export class MediaLit {
     }
 
     async getCount(): Promise<number> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const response = await fetch(`${this.endpoint}/media/get/count`, {
             method: "POST",
             headers: {
@@ -235,7 +220,7 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get count");
+            throw new Error(error.error || "Failed to get count");
         }
 
         const result = await response.json();
@@ -243,11 +228,6 @@ export class MediaLit {
     }
 
     async getStats(): Promise<MediaStats> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const response = await fetch(`${this.endpoint}/media/get/size`, {
             method: "POST",
             headers: {
@@ -258,18 +238,13 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get stats");
+            throw new Error(error.error || "Failed to get stats");
         }
 
         return response.json();
     }
 
     async getSettings(): Promise<MediaSettings> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const response = await fetch(`${this.endpoint}/settings/media/get`, {
             method: "POST",
             headers: {
@@ -287,11 +262,6 @@ export class MediaLit {
     }
 
     async updateSettings(settings: MediaSettings): Promise<void> {
-        this.checkBrowserEnvironment();
-        if (!this.apiKey) {
-            throw new Error(API_KEY_REQUIRED);
-        }
-
         const response = await fetch(`${this.endpoint}/settings/media/create`, {
             method: "POST",
             headers: {
@@ -308,34 +278,6 @@ export class MediaLit {
             throw new Error(error.message || "Failed to update media settings");
         }
     }
-
-    // async signedUpload(
-    //     signature: string,
-    //     file: FileInput,
-    //     options: UploadOptions = {},
-    // ): Promise<Media> {
-    //     this.checkBrowserEnvironment();
-    //     const { formData } = await this.createFormData(file);
-
-    //     if (options.access) formData.append("access", options.access);
-    //     if (options.caption) formData.append("caption", options.caption);
-    //     if (options.group) formData.append("group", options.group);
-
-    //     const response = await fetch(this.endpoint, {
-    //         method: "POST",
-    //         body: formData,
-    //         headers: {
-    //             "x-medialit-signature": signature
-    //         }
-    //     });
-
-    //     if (!response.ok) {
-    //         const error = await response.json();
-    //         throw new Error(
-    //             error.message || "Upload with signature failed",
-    //         );
-    //     }
-
-    //     return response.json();
-    // }
 }
+
+export type { Media } from "./types";

@@ -1,7 +1,8 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { numberOfRecordsPerPage } from "../config/constants";
 import GetPageProps from "./GetPageProps";
-import MediaModel, { MediaWithUserId } from "./model";
+import MediaModel from "./model";
+import { Constants, type MediaWithUserId } from "@medialit/models";
 
 export async function getMedia({
     userId,
@@ -16,6 +17,7 @@ export async function getMedia({
         mediaId,
         apikey,
         userId,
+        // temp: { $ne: true },
     }).lean()) as MediaWithUserId | null;
 }
 
@@ -26,7 +28,11 @@ export async function getMediaCount({
     userId: string;
     apikey: string;
 }): Promise<number> {
-    return await MediaModel.countDocuments({ apikey, userId }).lean();
+    return await MediaModel.countDocuments({
+        apikey,
+        userId,
+        temp: { $ne: true },
+    }).lean();
 }
 
 export async function getTotalSpace({
@@ -36,7 +42,9 @@ export async function getTotalSpace({
     userId: mongoose.Types.ObjectId;
     apikey?: string;
 }): Promise<number> {
-    const query = apikey ? { userId, apikey } : { userId };
+    const query = apikey
+        ? { userId, apikey, temp: { $ne: true } }
+        : { userId, temp: { $ne: true } };
     const result = await MediaModel.aggregate([
         {
             $match: query,
@@ -70,9 +78,16 @@ export async function getPaginatedMedia({
     group,
     recordsPerPage,
 }: GetPageProps): Promise<MediaWithUserId[]> {
-    const query: Partial<MediaWithUserId> = { userId, apikey };
+    const query: FilterQuery<MediaWithUserId> = {
+        userId,
+        apikey,
+        temp: { $ne: true },
+    };
     if (access) {
-        query.accessControl = access === "private" ? "private" : "public-read";
+        query.accessControl =
+            access === Constants.AccessControl.PRIVATE
+                ? Constants.AccessControl.PRIVATE
+                : Constants.AccessControl.PUBLIC;
     }
     if (group) {
         query.group = group;
@@ -102,32 +117,10 @@ export async function deleteMediaQuery(
     return await MediaModel.deleteOne({ userId, mediaId });
 }
 
-export async function createMedia({
-    fileName,
-    mediaId,
-    userId,
-    apikey,
-    originalFileName,
-    mimeType,
-    size,
-    thumbnailGenerated,
-    caption,
-    accessControl,
-    group,
-}: MediaWithUserId): Promise<MediaWithUserId> {
-    const media: MediaWithUserId = await MediaModel.create({
-        fileName,
-        mediaId,
-        userId,
-        apikey,
-        originalFileName,
-        mimeType,
-        size,
-        thumbnailGenerated,
-        caption,
-        accessControl,
-        group,
-    });
+export async function createMedia(
+    mediaData: MediaWithUserId,
+): Promise<MediaWithUserId> {
+    const media: MediaWithUserId = await MediaModel.create(mediaData);
     return media;
 }
 

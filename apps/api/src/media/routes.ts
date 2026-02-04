@@ -11,6 +11,7 @@ import {
     getMediaDetails,
     uploadMedia,
     deleteMedia,
+    sealMedia,
     getMediaCount,
     getTotalSpaceOccupied,
 } from "./handlers";
@@ -51,6 +52,7 @@ router.post("/get/count", apikey, getMediaCount);
 router.post("/get/size", apikey, getTotalSpaceOccupied);
 router.post("/get/:mediaId", apikey, getMediaDetails);
 router.post("/get", apikey, getMedia);
+router.post("/seal/:mediaId", apikey, sealMedia);
 router.delete("/delete/:mediaId", apikey, deleteMedia);
 
 export default router;

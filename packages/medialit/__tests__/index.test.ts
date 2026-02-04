@@ -1,8 +1,8 @@
 import { describe, test, mock, beforeEach } from "node:test";
 import assert from "node:assert";
 import { MediaLit } from "../src";
-import { Media } from "../src/media";
 import { Readable } from "stream";
+import { Media } from "@medialit/models";
 
 describe("MediaLit", () => {
     const mockApiKey = "test-api-key";
@@ -174,32 +174,5 @@ describe("MediaLit", () => {
             assert.deepStrictEqual(result, mockResponse);
             assert.strictEqual(fetchMock.mock.calls.length, 1);
         });
-    });
-
-    describe("other methods", () => {
-        test("should throw error in browser environment", async () => {
-            const client = new MediaLit({ apiKey: mockApiKey });
-            mockBrowserGlobals();
-
-            const methods = [
-                () => client.delete("test-id"),
-                () => client.get("test-id"),
-                () => client.list(),
-                () => client.getStats(),
-                () => client.getSettings(),
-                () => client.updateSettings({ useWebP: true }),
-            ];
-
-            for (const method of methods) {
-                await assert.rejects(
-                    method,
-                    /MediaLit SDK is only meant to be used in a server-side Node.js environment/,
-                );
-            }
-
-            cleanupBrowserGlobals();
-        });
-
-        // ... existing tests for other methods ...
     });
 });

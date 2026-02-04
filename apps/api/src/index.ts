@@ -13,7 +13,9 @@ import { createUser, findByEmail } from "./user/queries";
 import { Apikey, User } from "@medialit/models";
 import { createApiKey } from "./apikey/queries";
 import { spawn } from "child_process";
-import { Cleanup } from "./tus/cleanup";
+import { cleanupTUSUploads } from "./tus/cleanup";
+import { cleanupExpiredTempUploads } from "./media/cleanup";
+import { HOUR_IN_SECONDS } from "./config/constants";
 
 connectToDatabase();
 const app = express();
@@ -34,25 +36,75 @@ app.use("/media/signature", signatureRoutes);
 app.use("/media", tusRoutes);
 app.use("/media", mediaRoutes);
 
+app.get("/cleanup/temp", async (req, res) => {
+    await cleanupExpiredTempUploads();
+    res.status(200).json({
+        message: "Expired temp uploads cleaned up",
+    });
+});
+app.get("/cleanup/tus", async (req, res) => {
+    await cleanupTUSUploads();
+    res.status(200).json({
+        message: "Expired tus uploads cleaned up",
+    });
+});
+
 const port = process.env.PORT || 80;
 
 if (process.env.EMAIL) {
     createAdminUser();
 }
 
-checkDependencies().then(() => {
-    app.listen(port, () => {
-        logger.info(`Medialit server running at ${port}`);
+checkConfig()
+    .then(checkDependencies)
+    .then(() => {
+        app.listen(port, () => {
+            logger.info(`Medialit server running at ${port}`);
+        });
+
+        // Setup background cleanup job for expired tus uploads
+        setInterval(
+            async () => {
+                await cleanupTUSUploads();
+            },
+            HOUR_IN_SECONDS, // 1 hour
+        );
+
+        // Setup background cleanup job for expired temp uploads
+        setInterval(
+            async () => {
+                await cleanupExpiredTempUploads();
+            },
+            HOUR_IN_SECONDS, // 1 hour
+        );
     });
 
-    // Setup background cleanup job for expired tus uploads
-    setInterval(
-        async () => {
-            await Cleanup();
-        },
-        1000 * 60 * 60, // 1 hours
-    );
-});
+async function checkConfig() {
+    if (!process.env.DB_CONNECTION_STRING) {
+        throw new Error("DB_CONNECTION_STRING is not set");
+    }
+    if (!process.env.CLOUD_KEY || !process.env.CLOUD_SECRET) {
+        throw new Error(
+            "Cloud credentials (CLOUD_KEY and CLOUD_SECRET) are not set",
+        );
+    }
+    if (
+        !process.env.CLOUD_BUCKET_NAME ||
+        !process.env.CLOUD_PUBLIC_BUCKET_NAME
+    ) {
+        throw new Error(
+            "Cloud bucket name (CLOUD_BUCKET_NAME and CLOUD_PUBLIC_BUCKET_NAME) are not set",
+        );
+    }
+    if (
+        !process.env.CDN_ENDPOINT &&
+        (!process.env.CLOUD_ENDPOINT || !process.env.CLOUD_ENDPOINT_PUBLIC)
+    ) {
+        throw new Error(
+            "If CDN_ENDPOINT is not set, both CLOUD_ENDPOINT and CLOUD_ENDPOINT_PUBLIC must be provided",
+        );
+    }
+}
 
 async function checkDependencies() {
     try {

@@ -12,14 +12,14 @@ import {
     imagePattern,
     imagePatternForThumbnailGeneration,
     videoPattern,
-    USE_CLOUDFRONT,
+    cloudBucket,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
     foldersExist,
     createFolders,
 } from "../media/utils/manage-files-on-disk";
-import type { MediaWithUserId } from "../media/model";
+import { Constants, type MediaWithUserId } from "@medialit/models";
 import { putObject, UploadParams } from "../services/s3";
 import logger from "../services/log";
 import generateKey from "../media/utils/generate-key";
@@ -96,16 +96,12 @@ export default async function finalizeUpload(
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            access: metadata.accessControl === "public" ? "public" : "private",
+            path: Constants.PathKey.PRIVATE,
             filename: `main.${fileExtension}`,
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
-        ACL: USE_CLOUDFRONT
-            ? "private"
-            : metadata.accessControl === "public"
-              ? "public-read"
-              : "private",
+        Bucket: cloudBucket,
     };
     const tags = getTags(userId, metadata.group);
     uploadParams.Tagging = tags;
@@ -120,10 +116,11 @@ export default async function finalizeUpload(
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                access: "public",
+                path: Constants.PathKey.PRIVATE,
                 filename: "thumb.webp",
             }),
             tags,
+            bucket: cloudBucket,
         });
     } catch (err: any) {
         logger.error({ err }, err.message);
@@ -131,7 +128,7 @@ export default async function finalizeUpload(
 
     await fsPromises.rm(temporaryFolderForWork, { recursive: true });
 
-    const mediaObject: MediaWithUserId = {
+    const mediaObject = {
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
         userId: new mongoose.Types.ObjectId(userId),
@@ -141,10 +138,15 @@ export default async function finalizeUpload(
         size: uploadLength,
         thumbnailGenerated: isThumbGenerated,
         caption: metadata.caption,
+        // accessControl:
+        //     metadata.accessControl === "public" ? "public-read" : "private",
         accessControl:
-            metadata.accessControl === "public" ? "public-read" : "private",
+            metadata.accessControl === Constants.AccessControl.PUBLIC
+                ? Constants.AccessControl.PUBLIC
+                : Constants.AccessControl.PRIVATE,
         group: metadata.group,
-    };
+        temp: true,
+    } as MediaWithUserId;
     const media = await createMedia(mediaObject);
 
     // Mark upload as complete
@@ -178,12 +180,14 @@ const generateAndUploadThumbnail = async ({
     mimetype,
     originalFilePath,
     tags,
+    bucket,
 }: {
     workingDirectory: string;
     key: string;
     mimetype: string;
     originalFilePath: string;
     tags: string;
+    bucket?: string;
 }): Promise<boolean> => {
     const thumbPath = `${workingDirectory}/thumb.webp`;
     let isGenerated = false;
@@ -202,8 +206,8 @@ const generateAndUploadThumbnail = async ({
             Key: key,
             Body: createReadStream(thumbPath),
             ContentType: "image/webp",
-            ACL: USE_CLOUDFRONT ? "private" : "public-read",
             Tagging: tags,
+            Bucket: bucket || cloudBucket,
         });
         await fsPromises.rm(thumbPath);
     }

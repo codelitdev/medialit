@@ -6,7 +6,10 @@ import {
     imagePattern,
     videoPattern,
     imagePatternForThumbnailGeneration,
-    USE_CLOUDFRONT,
+    ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT,
+    DISABLE_TAGGING,
+    cloudBucket,
+    cloudPublicBucket,
 } from "../config/constants";
 import imageUtils from "@medialit/images";
 import {
@@ -14,14 +17,14 @@ import {
     createFolders,
     moveFile,
 } from "./utils/manage-files-on-disk";
-import type { MediaWithUserId } from "./model";
 import {
     generateSignedUrl,
-    generateCDNSignedUrl,
+    generateCloudfrontSignedUrl,
     putObject,
     deleteObject,
+    copyObject,
+    getObjectTagging,
     UploadParams,
-    getObjectTagging as objectTagging,
 } from "../services/s3";
 import logger from "../services/log";
 import generateKey from "./utils/generate-key";
@@ -35,9 +38,11 @@ import {
     getPaginatedMedia,
     createMedia,
 } from "./queries";
+import MediaModel from "./model";
 import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
-import { getMainFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
+import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
+import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -45,12 +50,14 @@ const generateAndUploadThumbnail = async ({
     mimetype,
     originalFilePath,
     tags,
+    bucket,
 }: {
     workingDirectory: string;
     key: string;
     mimetype: string;
     originalFilePath: string;
     tags: string;
+    bucket?: string;
 }): Promise<boolean> => {
     const thumbPath = `${workingDirectory}/thumb.webp`;
 
@@ -69,8 +76,8 @@ const generateAndUploadThumbnail = async ({
             Key: key,
             Body: createReadStream(thumbPath),
             ContentType: "image/webp",
-            ACL: USE_CLOUDFRONT ? "private" : "public-read",
             Tagging: tags,
+            Bucket: bucket || cloudBucket,
         });
     }
 
@@ -122,16 +129,12 @@ async function upload({
     const uploadParams: UploadParams = {
         Key: generateKey({
             mediaId: fileName.name,
-            access: access === "public" ? "public" : "private",
+            path: Constants.PathKey.PRIVATE,
             filename: `main.${fileExtension}`,
         }),
         Body: createReadStream(mainFilePath),
         ContentType: mimeType,
-        ACL: USE_CLOUDFRONT
-            ? "private"
-            : access === "public"
-              ? "public-read"
-              : "private",
+        Bucket: cloudBucket,
     };
     const tags = getTags(userId, group);
     uploadParams.Tagging = tags;
@@ -146,10 +149,11 @@ async function upload({
             originalFilePath: mainFilePath,
             key: generateKey({
                 mediaId: fileName.name,
-                access: "public",
+                path: Constants.PathKey.PRIVATE,
                 filename: "thumb.webp",
             }),
             tags,
+            bucket: cloudBucket,
         });
     } catch (err: any) {
         logger.error({ err }, err.message);
@@ -167,8 +171,12 @@ async function upload({
         size: file.size,
         thumbnailGenerated: isThumbGenerated,
         caption,
-        accessControl: access === "public" ? "public-read" : "private",
+        accessControl:
+            access === Constants.AccessControl.PUBLIC
+                ? Constants.AccessControl.PUBLIC
+                : Constants.AccessControl.PRIVATE,
         group,
+        temp: true,
     };
     const media = await createMedia(mediaObject);
 
@@ -185,9 +193,9 @@ async function upload({
 }
 
 type MappedMedia = Partial<
-    Omit<Omit<MediaWithUserId, "accessControl">, "thumbnailGenerated">
+    Omit<Omit<MediaWithUserId, "accessControl" | "temp">, "thumbnailGenerated">
 > & {
-    access: "private" | "public";
+    access: AccessControl;
     thumbnail: string;
 };
 
@@ -208,15 +216,16 @@ async function getPage({
         recordsPerPage,
     });
     const mappedResult = result.map(
-        (media: MediaWithUserId): MappedMedia => ({
+        (media): MappedMedia => ({
             mediaId: media.mediaId,
             originalFileName: media.originalFileName,
             mimeType: media.mimeType,
             size: media.size,
-            access: media.accessControl === "private" ? "private" : "public",
-            thumbnail: media.thumbnailGenerated
-                ? getThumbnailUrl(media.mediaId)
-                : "",
+            access:
+                media.accessControl === Constants.AccessControl.PRIVATE
+                    ? Constants.AccessControl.PRIVATE
+                    : Constants.AccessControl.PUBLIC,
+            thumbnail: media.thumbnailGenerated ? getThumbnailUrl(media) : "",
             caption: media.caption,
             group: media.group,
         }),
@@ -243,30 +252,61 @@ async function getMediaDetails({
         return null;
     }
 
-    const key = generateKey({
-        mediaId: media.mediaId,
-        access: media.accessControl === "private" ? "private" : "public",
-        filename: `main.${path.extname(media.fileName).replace(".", "")}`,
-    });
+    // Determine file URL based on access control and temp status
+    let fileUrl: string;
+    if (media.temp || media.accessControl === Constants.AccessControl.PRIVATE) {
+        // Temp or private files: use signed URL from private bucket
+        fileUrl = await getPrivateFileUrl(media);
+    } else {
+        // Public sealed files: use direct URL from public bucket
+        fileUrl = getPublicFileUrl(media);
+    }
+
+    // Determine thumbnail URL
+    let thumbnailUrl = "";
+    if (media.thumbnailGenerated) {
+        if (media.temp) {
+            // Temp thumbnail: use signed URL from private bucket
+            thumbnailUrl = await getPrivateFileUrl(media, true);
+        } else {
+            // Sealed thumbnail: use direct URL from public bucket
+            thumbnailUrl = getThumbnailUrl(media);
+        }
+    }
 
     return {
         mediaId: media.mediaId,
         originalFileName: media.originalFileName,
         mimeType: media.mimeType,
         size: media.size,
-        access: media.accessControl === "private" ? "private" : "public",
-        file:
-            media.accessControl === "private"
-                ? USE_CLOUDFRONT
-                    ? generateCDNSignedUrl(key)
-                    : await generateSignedUrl(key)
-                : getMainFileUrl(media),
-        thumbnail: media.thumbnailGenerated
-            ? getThumbnailUrl(media.mediaId)
-            : "",
+        access:
+            media.accessControl === Constants.AccessControl.PRIVATE
+                ? Constants.AccessControl.PRIVATE
+                : Constants.AccessControl.PUBLIC,
+        file: fileUrl,
+        thumbnail: thumbnailUrl,
         caption: media.caption,
         group: media.group,
     };
+}
+
+async function getPrivateFileUrl(media: MediaWithUserId, thumb?: boolean) {
+    const filename = thumb
+        ? "thumb.webp"
+        : `main.${path.extname(media.fileName).replace(".", "")}`;
+
+    const key = generateKey({
+        mediaId: media.mediaId,
+        path: Constants.PathKey.PRIVATE,
+        filename,
+    });
+
+    // Private files are always in private bucket
+    const bucket = cloudBucket;
+
+    return ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT
+        ? generateCloudfrontSignedUrl(key)
+        : await generateSignedUrl(key, bucket);
 }
 
 async function deleteMedia({
@@ -281,23 +321,155 @@ async function deleteMedia({
     const media = await getMedia({ userId, apikey, mediaId });
     if (!media) return;
 
+    // Determine which bucket the main file is in
+    const mainBucket =
+        media.temp || media.accessControl === Constants.AccessControl.PRIVATE
+            ? cloudBucket
+            : cloudPublicBucket;
+
+    const mainPath =
+        media.temp || media.accessControl === Constants.AccessControl.PRIVATE
+            ? Constants.PathKey.PRIVATE
+            : Constants.PathKey.PUBLIC;
+
+    const fileExtension = path.extname(media.fileName).replace(".", "");
     const key = generateKey({
         mediaId,
-        access: media.accessControl === "private" ? "private" : "public",
-        filename: `main.${media.fileName.split(".")[1]}`,
+        path: mainPath,
+        filename: `main.${fileExtension}`,
     });
-    await deleteObject({ Key: key });
+    await deleteObject({ Key: key, Bucket: mainBucket });
 
     if (media.thumbnailGenerated) {
+        // Thumbnails are in public bucket if sealed, private bucket if temp
+        const thumbBucket = media.temp ? cloudBucket : cloudPublicBucket;
+        const thumbPath = media.temp
+            ? Constants.PathKey.PRIVATE
+            : Constants.PathKey.PUBLIC;
         const thumbKey = generateKey({
             mediaId,
-            access: "public",
+            path: thumbPath,
             filename: "thumb.webp",
         });
-        await deleteObject({ Key: thumbKey });
+        await deleteObject({ Key: thumbKey, Bucket: thumbBucket });
     }
 
     await deleteMediaQuery(userId, mediaId);
+}
+
+async function sealMedia({
+    userId,
+    apikey,
+    mediaId,
+}: {
+    userId: string;
+    apikey: string;
+    mediaId: string;
+}): Promise<MediaWithUserId> {
+    const media = await getMedia({ userId, apikey, mediaId });
+    if (!media) {
+        throw new Error("Media not found");
+    }
+
+    if (!media.temp) {
+        return media;
+    }
+
+    const fileExtension = path.extname(media.fileName).replace(".", "");
+
+    // Get tags from source object (in private bucket)
+    const tmpMainKey = generateKey({
+        mediaId,
+        path: Constants.PathKey.PRIVATE,
+        filename: `main.${fileExtension}`,
+    });
+    let tags: string | undefined;
+    if (!DISABLE_TAGGING) {
+        try {
+            const taggingResponse = await getObjectTagging({
+                Key: tmpMainKey,
+                Bucket: cloudBucket,
+            });
+            if (taggingResponse.TagSet && taggingResponse.TagSet.length > 0) {
+                tags = taggingResponse.TagSet.map(
+                    (tag: any) => `${tag.Key}=${tag.Value}`,
+                ).join("&");
+            }
+        } catch (err: any) {
+            logger.warn({ err }, "Failed to get tags from source object");
+        }
+    }
+
+    // Determine destination bucket for main file
+    const isPublic = media.accessControl === Constants.AccessControl.PUBLIC;
+
+    // Copy main file from private bucket to public bucket (only if public)
+    if (isPublic) {
+        const finalMainKey = generateKey({
+            mediaId,
+            path: Constants.PathKey.PUBLIC,
+            filename: `main.${fileExtension}`,
+        });
+
+        await copyObject({
+            sourceKey: tmpMainKey,
+            sourceBucket: cloudBucket,
+            destinationKey: finalMainKey,
+            destinationBucket: cloudPublicBucket,
+            ContentType: media.mimeType,
+            Tagging: tags,
+        });
+    }
+
+    // Copy thumbnail from private bucket to public bucket (if exists)
+    if (media.thumbnailGenerated) {
+        const tmpThumbKey = generateKey({
+            mediaId,
+            path: Constants.PathKey.PRIVATE,
+            filename: "thumb.webp",
+        });
+        const finalThumbKey = generateKey({
+            mediaId,
+            path: Constants.PathKey.PUBLIC,
+            filename: "thumb.webp",
+        });
+
+        await copyObject({
+            sourceKey: tmpThumbKey,
+            sourceBucket: cloudBucket,
+            destinationKey: finalThumbKey,
+            destinationBucket: cloudPublicBucket,
+            ContentType: "image/webp",
+            Tagging: tags,
+        });
+
+        // Delete thumbnail from private bucket (it's now in public bucket)
+        await deleteObject({
+            Key: tmpThumbKey,
+            Bucket: cloudBucket,
+        });
+    }
+
+    // Delete main file from private bucket only if it was copied to public bucket
+    if (isPublic) {
+        await deleteObject({
+            Key: tmpMainKey,
+            Bucket: cloudBucket,
+        });
+    }
+
+    // Update media record to remove temp flag
+    await MediaModel.updateOne(
+        { mediaId, userId, apikey },
+        { $unset: { temp: "" } },
+    );
+
+    // Fetch and return the updated media
+    const updatedMedia = await getMedia({ userId, apikey, mediaId });
+    if (!updatedMedia) {
+        throw new Error("Failed to retrieve updated media");
+    }
+    return updatedMedia;
 }
 
 export default {
@@ -305,4 +477,5 @@ export default {
     getPage,
     getMediaDetails,
     deleteMedia,
+    sealMedia,
 };

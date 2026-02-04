@@ -1,0 +1,49 @@
+---
+title: Migrate to dual bucket architecture
+description: Learn how to migrate from single bucket to dual bucket architecture
+---
+
+In order to make MediaLit truly vendor agnostic, we decided to move from a single bucket architecture to a dual bucket architecture. 
+
+This is based on our years of learning from running MediaLit in production and all the community feedback we have received over the years.
+
+## Why dual bucket architecture?
+
+This makes the architecture portable across cloud providers. We discovered that providers like Backblaze B2 does not support hosting both private and public files in the same bucket.
+
+## How to migrate to dual bucket architecture?
+
+1. Create new buckets as detailed in [Self hosting](/self-hosting) section.
+
+2. Copy data from the old bucket to the new bucket. To do this, you will have to checkout MediaLit's Git [repo](https://github.com/codelitdev/medialit), then do the following in the terminal
+
+```sh
+cd <medialit-repo>
+pnpm i
+pnpm --filter @medialit/scripts migrate:dual_bucket_architecture --dry-run # To see the changes without actually performing those
+pnpm --filter @medialit/scripts migrate:dual_bucket_architecture
+``` 
+3. Upgrade the MediaLit DB by running the following migration, by logging into your MediaLit's database and copy pasting the content of the file.
+
+`.migrations/00005-migrate-to-dual-bucket-architecture`
+
+4. Update .env file for the MediaLit API container.
+
+```sh
+CLOUD_BUCKET_NAME=your-private-bucket
+CLOUD_PUBLIC_BUCKET_NAME=your-public-bucket
+PATH_PREFIX=bucket-folder-to-place-the-files-in # This is optional
+CDN_ENDPOINT=endpoint
+
+# Optional, if using Cloudfront
+ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT=true
+CLOUDFRONT_KEY_PAIR_ID=key
+CLOUDFRONT_PRIVATE_KEY=priv-key
+```
+
+5. Re-deploy the MediaLit API container.
+```
+docker compose pull
+docker compose down
+docker compose up -d
+```
