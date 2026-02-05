@@ -1,8 +1,4 @@
 {
-  "ts-node": {
-    "files": true,
-    "require": ["tsconfig-paths/register"]
-  },
   "compilerOptions": {
     "outDir": "dist",
     "target": "es5",
@@ -11,9 +7,12 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-        "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   }
 }

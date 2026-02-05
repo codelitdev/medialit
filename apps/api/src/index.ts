@@ -12,6 +12,9 @@ import logger from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
 import { Apikey, User } from "@medialit/models";
 import { createApiKey } from "./apikey/queries";
+import swaggerUi from "swagger-ui-express";
+import swaggerOutput from "./swagger_output.json";
+
 import { spawn } from "child_process";
 import { cleanupTUSUploads } from "./tus/cleanup";
 import { cleanupExpiredTempUploads } from "./media/cleanup";
@@ -24,30 +27,115 @@ app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true");
 
 app.use(express.json());
 
-app.get("/health", (req, res) => {
-    res.status(200).json({
-        status: "ok",
-        uptime: process.uptime(),
-    });
-});
+app.get(
+    "/health",
+    /* 
+        #swagger.summary = 'Status of the server', 
+        #swagger.description = 'Returns the status of the server and uptime'
+        #swagger.responses[200] = {
+            description: "OK",
+            content: {
+                "application/json": {
+                    schema: {
+                        type: "object",
+                        properties: {
+                            status: {
+                                type: "string",
+                                example: "ok",
+                            },
+                            uptime: {
+                                type: "number",
+                                example: 12.345,
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    */
+    (req, res) => {
+        res.status(200).json({
+            status: "ok",
+            uptime: process.uptime(),
+        });
+    },
+);
+
+app.get(
+    "/openapi.json",
+    /* #swagger.ignore = true */
+    (req, res) => {
+        res.json(swaggerOutput);
+    },
+);
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerOutput));
 
 app.use("/settings/media", mediaSettingsRoutes(passport));
 app.use("/media/signature", signatureRoutes);
 app.use("/media", tusRoutes);
 app.use("/media", mediaRoutes);
 
-app.get("/cleanup/temp", async (req, res) => {
-    await cleanupExpiredTempUploads();
-    res.status(200).json({
-        message: "Expired temp uploads cleaned up",
-    });
-});
-app.get("/cleanup/tus", async (req, res) => {
-    await cleanupTUSUploads();
-    res.status(200).json({
-        message: "Expired tus uploads cleaned up",
-    });
-});
+app.get(
+    "/cleanup/temp",
+    /* 
+        #swagger.tags = ['Cleanup']
+        #swagger.summary = 'Cleanup expired temp uploads'
+        #swagger.description = 'Cleanup expired temp uploads'
+        #swagger.responses[200] = {
+            description: "OK",
+            content: {
+                "application/json": {
+                    schema: {
+                        type: "object",
+                        properties: {
+                            message: {
+                                type: "string",
+                                example: "Expired temp uploads cleaned up",
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    */
+    async (req, res) => {
+        await cleanupExpiredTempUploads();
+        res.status(200).json({
+            message: "Expired temp uploads cleaned up",
+        });
+    },
+);
+app.get(
+    "/cleanup/tus",
+    /* 
+        #swagger.tags = ['Cleanup']
+        #swagger.summary = 'Cleanup expired tus uploads'
+        #swagger.description = 'Cleanup expired tus uploads'
+        #swagger.responses[200] = {
+            description: "OK",
+            content: {
+                "application/json": {
+                    schema: {
+                        type: "object",
+                        properties: {
+                            message: {
+                                type: "string",
+                                example: "Expired tus uploads cleaned up",
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    */
+    async (req, res) => {
+        await cleanupTUSUploads();
+        res.status(200).json({
+            message: "Expired tus uploads cleaned up",
+        });
+    },
+);
 
 const port = process.env.PORT || 80;
 

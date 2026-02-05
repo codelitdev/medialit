@@ -16,15 +16,11 @@ import { getMediaCount as getCount, getTotalSpace } from "./queries";
 import { getSubscriptionStatus } from "@medialit/models";
 import { getSignatureFromReq } from "../signature/utils";
 import getMaxFileUploadSize from "./utils/get-max-file-upload-size";
+import { getMediaSchema, uploadMediaSchema } from "./schemas";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
-    const uploadSchema = Joi.object({
-        caption: Joi.string().optional().allow(""),
-        access: Joi.string().valid("public", "private").optional(),
-        group: Joi.string().optional(),
-    });
     const { caption, access, group } = req.body;
-    return uploadSchema.validate({ caption, access, group });
+    return uploadMediaSchema.validate({ caption, access, group });
 }
 
 export async function uploadMedia(
@@ -84,13 +80,6 @@ export async function getMedia(
     res: any,
     next: (...args: any[]) => void,
 ) {
-    const getMediaSchema = Joi.object({
-        page: Joi.number().positive(),
-        limit: Joi.number().positive(),
-        access: Joi.string().valid("public", "private"),
-        group: Joi.string(),
-    });
-
     const { page, limit, access, group } = req.query;
 
     const { error } = getMediaSchema.validate({ page, limit, access, group });

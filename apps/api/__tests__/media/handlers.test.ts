@@ -94,7 +94,17 @@ describe("Media handlers", () => {
         );
 
         mock.method(mediaService, "getMediaDetails").mock.mockImplementation(
-            async () => ({ id: "test-media-id" }),
+            async () => ({
+                mediaId: "test-media-id",
+                originalFileName: "test.jpg",
+                mimeType: "image/jpeg",
+                size: 1024,
+                access: "private",
+                file: "http://example.com/file.jpg",
+                thumbnail: "http://example.com/thumb.jpg",
+                caption: "test caption",
+                group: "default",
+            }),
         );
 
         const response = await uploadMedia(req, res, () => {});

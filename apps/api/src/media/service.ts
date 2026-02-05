@@ -43,6 +43,7 @@ import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
+import { MediaResponse } from "./schemas";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -242,7 +243,7 @@ async function getMediaDetails({
     userId: string;
     apikey: string;
     mediaId: string;
-}): Promise<Record<string, unknown> | null> {
+}): Promise<MediaResponse | null> {
     const media: MediaWithUserId | null = await getMedia({
         userId,
         apikey,

@@ -1,21 +1,21 @@
-import { MediaSettings } from "./model";
 import * as queries from "./queries";
+import { MediaSettingsResponse } from "./schemas";
 
 export async function getMediaSettings(
     userId: string,
     apikey: string,
-): Promise<Omit<MediaSettings, "userId" | "apikey"> | null> {
+): Promise<MediaSettingsResponse | null> {
     const mediaSettings = await queries.getMediaSettings(userId, apikey);
 
     if (!mediaSettings) {
-        return {};
+        return null; // Return null if not found to match the type
     }
 
     return {
-        useWebP: mediaSettings.useWebP,
-        webpOutputQuality: mediaSettings.webpOutputQuality,
-        thumbnailHeight: mediaSettings.thumbnailHeight,
-        thumbnailWidth: mediaSettings.thumbnailWidth,
+        useWebP: mediaSettings.useWebP || false,
+        webpOutputQuality: mediaSettings.webpOutputQuality || 0,
+        thumbnailHeight: mediaSettings.thumbnailHeight || 0,
+        thumbnailWidth: mediaSettings.thumbnailWidth || 0,
     };
 }
 

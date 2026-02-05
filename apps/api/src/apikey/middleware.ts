@@ -13,7 +13,7 @@ export default async function apikey(
 
     if (!reqKey) {
         logger.error({}, "API key is missing");
-        return res.status(400).json({ error: BAD_REQUEST });
+        return res.status(401).json({ error: UNAUTHORISED });
     }
 
     const apiKey: Apikey | null = await getApiKeyUsingKeyId(reqKey);
