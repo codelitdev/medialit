@@ -80,7 +80,9 @@ export async function getMedia(
     res: any,
     next: (...args: any[]) => void,
 ) {
-    const { page, limit, access, group } = req.query;
+    const filters =
+        req.body && Object.keys(req.body).length > 0 ? req.body : req.query;
+    const { page, limit, access, group } = filters;
 
     const { error } = getMediaSchema.validate({ page, limit, access, group });
 

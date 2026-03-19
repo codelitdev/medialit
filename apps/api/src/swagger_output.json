@@ -1,9 +1,18 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.0.3",
   "info": {
     "title": "Medialit API",
     "description": "Easy file uploads for serverless apps",
-    "version": "0.3.0"
+    "version": "0.3.0",
+    "termsOfService": "https://medialit.cloud/p/terms",
+    "contact": {
+      "name": "Medialit Support",
+      "url": "https://medialit.cloud"
+    },
+    "license": {
+      "name": "AGPL-3.0",
+      "url": "https://www.gnu.org/licenses/agpl-3.0.en.html"
+    }
   },
   "servers": [
     {
@@ -21,6 +30,16 @@
           "default": "api.medialit.cloud"
         }
       }
+    }
+  ],
+  "tags": [
+    {
+      "name": "Media",
+      "description": "Upload, list, and manage media resources."
+    },
+    {
+      "name": "Settings",
+      "description": "Manage media processing configuration."
     }
   ],
   "paths": {
@@ -49,61 +68,9 @@
               }
             }
           }
-        }
-      }
-    },
-    "/cleanup/temp": {
-      "get": {
-        "tags": [
-          "Cleanup"
-        ],
-        "summary": "Cleanup expired temp uploads",
-        "description": "Cleanup expired temp uploads",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Expired temp uploads cleaned up"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/cleanup/tus": {
-      "get": {
-        "tags": [
-          "Cleanup"
-        ],
-        "summary": "Cleanup expired tus uploads",
-        "description": "Cleanup expired tus uploads",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Expired tus uploads cleaned up"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        },
+        "operationId": "getHealth",
+        "security": []
       }
     },
     "/settings/media/create": {
@@ -130,8 +97,44 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -148,7 +151,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "updateMediaSettings"
       }
     },
     "/settings/media/get": {
@@ -170,17 +174,38 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "operationId": "getMediaSettings"
       }
     },
     "/media/signature/create": {
@@ -201,15 +226,52 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "operationId": "createUploadSignature"
       }
     },
     "/media/create": {
@@ -218,7 +280,7 @@
           "Media"
         ],
         "summary": "Upload Media",
-        "description": "Upload a new media file. Requires an API key in the `x-medialit-apikey` header or a signature in the `x-medialit-signature` header.",
+        "description": "Upload a new media file. Use API key auth from Authorize (`x-medialit-apikey`) or pass `x-medialit-signature` for this endpoint only.",
         "parameters": [
           {
             "name": "x-medialit-signature",
@@ -242,10 +304,56 @@
             }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Bad Request"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invalid signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Invalid signature"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -254,6 +362,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -276,11 +385,15 @@
                   "group": {
                     "type": "string"
                   }
-                }
+                },
+                "required": [
+                  "file"
+                ]
               }
             }
           }
-        }
+        },
+        "operationId": "uploadMedia"
       }
     },
     "/media/get/count": {
@@ -302,17 +415,38 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "operationId": "getMediaCount"
       }
     },
     "/media/get/size": {
@@ -334,17 +468,38 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "operationId": "getMediaSize"
       }
     },
     "/media/get/{mediaId}": {
@@ -359,7 +514,6 @@
             "name": "mediaId",
             "in": "path",
             "required": true,
-            "type": "string",
             "description": "ID of the media file",
             "schema": {
               "type": "string"
@@ -378,17 +532,51 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Media not found"
+            "description": "Media not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "operationId": "getMediaDetails"
       }
     },
     "/media/get": {
@@ -397,16 +585,7 @@
           "Media"
         ],
         "summary": "List Media",
-        "description": "List all media files. POST is used to support authenticated requests and complex filters.",
-        "parameters": [
-          {
-            "name": "filters",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/GetMediaQuery"
-            }
-          }
-        ],
+        "description": "List media files filtered by optional query payload.",
         "responses": {
           "200": {
             "description": "List retrieved successfully",
@@ -421,15 +600,62 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetMediaQuery"
+              }
+            }
+          }
+        },
+        "operationId": "listMedia"
       }
     },
     "/media/seal/{mediaId}": {
@@ -444,7 +670,6 @@
             "name": "mediaId",
             "in": "path",
             "required": true,
-            "type": "string",
             "description": "ID of the media file",
             "schema": {
               "type": "string"
@@ -463,14 +688,51 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Media not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "operationId": "sealMedia"
       }
     },
     "/media/delete/{mediaId}": {
@@ -485,7 +747,6 @@
             "name": "mediaId",
             "in": "path",
             "required": true,
-            "type": "string",
             "description": "ID of the media file",
             "schema": {
               "type": "string"
@@ -510,20 +771,38 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
-          },
-          "404": {
-            "description": "Media not found"
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "apiKeyAuth": []
           }
-        ]
+        ],
+        "operationId": "deleteMedia"
       }
     }
   },
@@ -719,6 +998,19 @@
         "required": [
           "storage",
           "maxStorage"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Unauthorized"
+          }
+        },
+        "required": [
+          "error"
         ],
         "additionalProperties": false
       }

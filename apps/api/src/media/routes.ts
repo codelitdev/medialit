@@ -26,7 +26,7 @@ router.post(
     /* 
         #swagger.tags = ['Media']
         #swagger.summary = 'Upload Media'
-        #swagger.description = 'Upload a new media file. Requires an API key in the `x-medialit-apikey` header or a signature in the `x-medialit-signature` header.'
+        #swagger.description = 'Upload a new media file. Use API key auth from Authorize (`x-medialit-apikey`) or pass `x-medialit-signature` for this endpoint only.'
         #swagger.security = [{ "apiKeyAuth": [] }]
         #swagger.parameters['x-medialit-signature'] = {
             in: 'header',
@@ -35,6 +35,7 @@ router.post(
             required: false
         }
         #swagger.requestBody = {
+            required: true,
             content: {
                 "multipart/form-data": {
                     schema: {
@@ -44,7 +45,8 @@ router.post(
                             caption: { type: "string" },
                             access: { type: "string", enum: ["public", "private"] },
                             group: { type: "string" }
-                        }
+                        },
+                        required: ["file"]
                     }
                 }
             }
@@ -59,6 +61,16 @@ router.post(
         }
         #swagger.responses[400] = { description: 'Bad Request' }
         #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[404] = {
+            description: 'Invalid signature',
+            content: {
+                "application/json": {
+                    schema: { $ref: '#/components/schemas/ErrorResponse' },
+                    example: { error: 'Invalid signature' }
+                }
+            }
+        }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     cors(),
     fileUpload({
@@ -150,6 +162,7 @@ router.post(
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
         #swagger.responses[404] = { description: 'Media not found' }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     apikey,
     getMediaDetails,
@@ -159,12 +172,15 @@ router.post(
     /* 
         #swagger.tags = ['Media']
         #swagger.summary = 'List Media'
-        #swagger.description = 'List all media files. POST is used to support authenticated requests and complex filters.'
+        #swagger.description = 'List media files filtered by optional query payload.'
         #swagger.security = [{ "apiKeyAuth": [] }]
-        #swagger.parameters['query'] = {
-            in: 'query',
-            name: 'filters',
-            schema: { $ref: '#/components/schemas/GetMediaQuery' }
+        #swagger.requestBody = {
+            required: false,
+            content: {
+                "application/json": {
+                    schema: { $ref: '#/components/schemas/GetMediaQuery' }
+                }
+            }
         }
         #swagger.responses[200] = {
             description: 'List retrieved successfully',
@@ -177,7 +193,9 @@ router.post(
                 }
             }
         } 
+        #swagger.responses[400] = { description: 'Bad Request' }
         #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     apikey,
     getMedia,
@@ -204,6 +222,8 @@ router.post(
             }
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[404] = { description: 'Media not found' }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     apikey,
     sealMedia,
@@ -235,7 +255,7 @@ router.delete(
             }
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
-        #swagger.responses[404] = { description: 'Media not found' }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     apikey,
     deleteMedia,

@@ -69,7 +69,20 @@ app.get(
     },
 );
 
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerOutput));
+app.use(
+    "/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerOutput, {
+        explorer: true,
+        swaggerOptions: {
+            persistAuthorization: true,
+            displayRequestDuration: true,
+            docExpansion: "none",
+            defaultModelsExpandDepth: -1,
+            validatorUrl: null,
+        },
+    }),
+);
 
 app.use("/settings/media", mediaSettingsRoutes(passport));
 app.use("/media/signature", signatureRoutes);
@@ -78,27 +91,7 @@ app.use("/media", mediaRoutes);
 
 app.get(
     "/cleanup/temp",
-    /* 
-        #swagger.tags = ['Cleanup']
-        #swagger.summary = 'Cleanup expired temp uploads'
-        #swagger.description = 'Cleanup expired temp uploads'
-        #swagger.responses[200] = {
-            description: "OK",
-            content: {
-                "application/json": {
-                    schema: {
-                        type: "object",
-                        properties: {
-                            message: {
-                                type: "string",
-                                example: "Expired temp uploads cleaned up",
-                            },
-                        },
-                    },
-                },
-            },
-        }
-    */
+    /* #swagger.ignore = true */
     async (req, res) => {
         await cleanupExpiredTempUploads();
         res.status(200).json({
@@ -108,27 +101,7 @@ app.get(
 );
 app.get(
     "/cleanup/tus",
-    /* 
-        #swagger.tags = ['Cleanup']
-        #swagger.summary = 'Cleanup expired tus uploads'
-        #swagger.description = 'Cleanup expired tus uploads'
-        #swagger.responses[200] = {
-            description: "OK",
-            content: {
-                "application/json": {
-                    schema: {
-                        type: "object",
-                        properties: {
-                            message: {
-                                type: "string",
-                                example: "Expired tus uploads cleaned up",
-                            },
-                        },
-                    },
-                },
-            },
-        }
-    */
+    /* #swagger.ignore = true */
     async (req, res) => {
         await cleanupTUSUploads();
         res.status(200).json({
