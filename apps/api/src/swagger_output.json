@@ -857,8 +857,7 @@
           "mimeType",
           "size",
           "access",
-          "file",
-          "thumbnail"
+          "file"
         ],
         "additionalProperties": false
       },

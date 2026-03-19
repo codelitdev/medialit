@@ -1,21 +1,31 @@
 import * as queries from "./queries";
 import { MediaSettingsResponse } from "./schemas";
+import {
+    thumbnailHeight as defaultThumbnailHeight,
+    thumbnailWidth as defaultThumbnailWidth,
+} from "../config/constants";
 
 export async function getMediaSettings(
     userId: string,
     apikey: string,
-): Promise<MediaSettingsResponse | null> {
+): Promise<MediaSettingsResponse> {
     const mediaSettings = await queries.getMediaSettings(userId, apikey);
 
     if (!mediaSettings) {
-        return null; // Return null if not found to match the type
+        return {
+            useWebP: false,
+            webpOutputQuality: 0,
+            thumbnailHeight: defaultThumbnailHeight,
+            thumbnailWidth: defaultThumbnailWidth,
+        };
     }
 
     return {
         useWebP: mediaSettings.useWebP || false,
         webpOutputQuality: mediaSettings.webpOutputQuality || 0,
-        thumbnailHeight: mediaSettings.thumbnailHeight || 0,
-        thumbnailWidth: mediaSettings.thumbnailWidth || 0,
+        thumbnailHeight:
+            mediaSettings.thumbnailHeight || defaultThumbnailHeight,
+        thumbnailWidth: mediaSettings.thumbnailWidth || defaultThumbnailWidth,
     };
 }
 

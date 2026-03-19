@@ -33,7 +33,7 @@ export const mediaResponseSchema = Joi.object<MediaResponse>({
     size: Joi.number().required(),
     access: Joi.string().valid("public", "private").required(),
     file: Joi.string().uri().required(),
-    thumbnail: Joi.string().uri().required(),
+    thumbnail: Joi.string().uri().optional(),
     caption: Joi.string().optional().allow(""),
     group: Joi.string().optional(),
 });

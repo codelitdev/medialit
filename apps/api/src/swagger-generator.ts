@@ -147,10 +147,6 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
                 });
             }
 
-            if (apiPath === "/media/create" && method === "post") {
-                operation.security = [{ apiKeyAuth: [] }];
-            }
-
             if (apiPath === "/health" && method === "get") {
                 operation.security = [];
             }
