@@ -359,6 +359,9 @@
         "security": [
           {
             "apiKeyAuth": []
+          },
+          {
+            "signatureAuth": []
           }
         ],
         "requestBody": {
@@ -812,6 +815,11 @@
         "type": "apiKey",
         "in": "header",
         "name": "x-medialit-apikey"
+      },
+      "signatureAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-medialit-signature"
       }
     },
     "schemas": {

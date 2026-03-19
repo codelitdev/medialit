@@ -64,6 +64,11 @@ const doc = {
                 in: "header",
                 name: "x-medialit-apikey",
             },
+            signatureAuth: {
+                type: "apiKey",
+                in: "header",
+                name: "x-medialit-signature",
+            },
         },
         schemas: {}, // Leave empty for autogen, verify later
     },

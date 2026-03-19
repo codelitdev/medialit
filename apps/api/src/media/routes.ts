@@ -27,7 +27,7 @@ router.post(
         #swagger.tags = ['Media']
         #swagger.summary = 'Upload Media'
         #swagger.description = 'Upload a new media file. Use API key auth from Authorize (`x-medialit-apikey`) or pass `x-medialit-signature` for this endpoint only.'
-        #swagger.security = [{ "apiKeyAuth": [] }]
+        #swagger.security = [{ "apiKeyAuth": [] }, { "signatureAuth": [] }]
         #swagger.parameters['x-medialit-signature'] = {
             in: 'header',
             description: 'Upload Signature for secure client-side uploads',
