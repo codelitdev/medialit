@@ -25,10 +25,12 @@
     "url": "https://github.com/codelitdev/medialit/issues"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "nodemon src/index.ts",
+    "build": "pnpm run swagger:generate && tsc",
+    "swagger:generate": "node --import tsx src/swagger-generator.ts",
+    "dev": "pnpm run swagger:generate && nodemon --exec 'node --env-file=.env --import tsx' src/index.ts",
     "start": "node dist/src/index.js",
-    "test": "node --import tsx --test '**/*.test.ts'"
+    "test": "node --import tsx --test '**/*.test.ts'",
+    "test:fuzz": "uvx schemathesis run http://127.0.0.1:8000/openapi.json"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",
@@ -46,25 +48,28 @@
     "express": "^4.2.0",
     "express-fileupload": "^1.5.2",
     "joi": "^17.6.0",
+    "joi-to-swagger": "^6.2.0",
     "mongoose": "^8.19.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
-    "pino": "^10.1.0"
+    "pino": "^10.1.0",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.12",
     "@types/express": "^4.17.20",
     "@types/express-fileupload": "^1.2.2",
+    "@types/joi": "^17.2.3",
     "@types/mongoose": "^5.11.97",
     "@types/node": "^22.14.1",
     "@types/passport": "^1.0.7",
     "@types/passport-jwt": "^3.0.6",
+    "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "^5.17.0",
     "@typescript-eslint/parser": "^5.17.0",
     "eslint": "^8.12.0",
     "nodemon": "^3.1.10",
-    "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0",
+    "swagger-autogen": "^2.23.7",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

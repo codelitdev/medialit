@@ -1,21 +1,31 @@
-import { MediaSettings } from "./model";
 import * as queries from "./queries";
+import { MediaSettingsResponse } from "./schemas";
+import {
+    thumbnailHeight as defaultThumbnailHeight,
+    thumbnailWidth as defaultThumbnailWidth,
+} from "../config/constants";
 
 export async function getMediaSettings(
     userId: string,
     apikey: string,
-): Promise<Omit<MediaSettings, "userId" | "apikey"> | null> {
+): Promise<MediaSettingsResponse> {
     const mediaSettings = await queries.getMediaSettings(userId, apikey);
 
     if (!mediaSettings) {
-        return {};
+        return {
+            useWebP: false,
+            webpOutputQuality: 0,
+            thumbnailHeight: defaultThumbnailHeight,
+            thumbnailWidth: defaultThumbnailWidth,
+        };
     }
 
     return {
-        useWebP: mediaSettings.useWebP,
-        webpOutputQuality: mediaSettings.webpOutputQuality,
-        thumbnailHeight: mediaSettings.thumbnailHeight,
-        thumbnailWidth: mediaSettings.thumbnailWidth,
+        useWebP: mediaSettings.useWebP || false,
+        webpOutputQuality: mediaSettings.webpOutputQuality || 0,
+        thumbnailHeight:
+            mediaSettings.thumbnailHeight || defaultThumbnailHeight,
+        thumbnailWidth: mediaSettings.thumbnailWidth || defaultThumbnailWidth,
     };
 }
 

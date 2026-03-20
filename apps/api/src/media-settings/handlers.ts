@@ -1,21 +1,15 @@
-import Joi from "joi";
 import { SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { updateMediaSettings } from "./queries";
 import * as mediaSettingsService from "./service";
+
+import { mediaSettingsSchema } from "./schemas";
 
 export async function updateMediaSettingsHandler(
     req: any,
     res: any,
     next: (...args: any[]) => void,
 ) {
-    const mediaSettingsSchema = Joi.object({
-        useWebP: Joi.boolean(),
-        webpOutputQuality: Joi.number().min(0).max(100),
-        thumbnailWidth: Joi.number().positive(),
-        thumbnailHeight: Joi.number().positive(),
-    });
-
     const { useWebP, webpOutputQuality, thumbnailWidth, thumbnailHeight } =
         req.body;
 

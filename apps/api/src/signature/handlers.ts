@@ -30,6 +30,6 @@ export async function getSignature(
         return res.status(200).json({ signature });
     } catch (err: any) {
         logger.error({ err }, err.message);
-        return res.status(500).json(err.message);
+        return res.status(500).json({ error: err.message });
     }
 }

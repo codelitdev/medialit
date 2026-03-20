@@ -4,6 +4,10 @@ import GetPageProps from "./GetPageProps";
 import MediaModel from "./model";
 import { Constants, type MediaWithUserId } from "@medialit/models";
 
+function escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function getMedia({
     userId,
     apikey,
@@ -89,8 +93,8 @@ export async function getPaginatedMedia({
                 ? Constants.AccessControl.PRIVATE
                 : Constants.AccessControl.PUBLIC;
     }
-    if (group) {
-        query.group = group;
+    if (typeof group === "string" && group.trim().length > 0) {
+        query.group = { $regex: `^${escapeRegex(group.trim())}` };
     }
     const limitWithFallback = recordsPerPage || numberOfRecordsPerPage;
 
