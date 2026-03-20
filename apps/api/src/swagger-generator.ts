@@ -7,6 +7,7 @@ import {
     uploadMediaSchema,
     getMediaSchema,
     mediaResponseSchema,
+    mediaListItemResponseSchema,
     mediaCountResponseSchema,
     mediaSizeResponseSchema,
 } from "./media/schemas";
@@ -107,6 +108,7 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
     content.components.schemas = {
         ...content.components.schemas,
         Media: joiToSwagger(mediaResponseSchema).swagger,
+        MediaListItem: joiToSwagger(mediaListItemResponseSchema).swagger,
         MediaSettings: joiToSwagger(mediaSettingsResponseSchema).swagger,
         MediaSettingsPayload: joiToSwagger(mediaSettingsSchema).swagger,
         UploadMediaPayload: joiToSwagger(uploadMediaSchema).swagger,
@@ -164,6 +166,20 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
                         "application/json": {
                             schema: {
                                 $ref: "#/components/schemas/GetMediaQuery",
+                            },
+                        },
+                    },
+                };
+                operation.responses = operation.responses || {};
+                operation.responses["200"] = {
+                    description: "List retrieved successfully",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "array",
+                                items: {
+                                    $ref: "#/components/schemas/MediaListItem",
+                                },
                             },
                         },
                     },

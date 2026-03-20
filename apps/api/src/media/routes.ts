@@ -188,7 +188,7 @@ router.post(
                 "application/json": {
                     schema: {
                         type: "array",
-                        items: { $ref: '#/components/schemas/Media' }
+                        items: { $ref: '#/components/schemas/MediaListItem' }
                     }
                 }
             }

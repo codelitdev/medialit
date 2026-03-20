@@ -597,7 +597,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Media"
+                    "$ref": "#/components/schemas/MediaListItem"
                   }
                 }
               }
@@ -866,6 +866,48 @@
           "size",
           "access",
           "file"
+        ],
+        "additionalProperties": false
+      },
+      "MediaListItem": {
+        "type": "object",
+        "properties": {
+          "mediaId": {
+            "type": "string"
+          },
+          "originalFileName": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number",
+            "format": "float"
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "public",
+              "private"
+            ]
+          },
+          "thumbnail": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mediaId",
+          "originalFileName",
+          "mimeType",
+          "size",
+          "access"
         ],
         "additionalProperties": false
       },
