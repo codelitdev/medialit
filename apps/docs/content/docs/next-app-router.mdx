@@ -3,4 +3,247 @@ title: Nextjs App Router
 description: Integrate MediaLit with Nextjs App Router
 ---
 
-Coming soon
+This guide mirrors our working demo in [examples/next-app-router](https://github.com/codelitdev/medialit/tree/main/examples/next-app-router) and uses the `medialit` package.
+
+## 1. Install dependencies
+
+```bash
+pnpm add medialit tus-js-client
+```
+
+## 2. Add environment variables
+
+```bash
+MEDIALIT_API_KEY=your_api_key_here
+# Optional for self-hosted MediaLit
+MEDIALIT_ENDPOINT=http://localhost:3001
+```
+
+## 3. Create API routes (server-side only)
+
+Create `app/api/medialit/route.ts`:
+
+```ts
+import { NextRequest } from "next/server";
+import { MediaLit } from "medialit";
+
+const client = new MediaLit();
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const mediaId = searchParams.get("mediaId");
+  const page = Number.parseInt(searchParams.get("page") ?? "1");
+  const limit = Number.parseInt(searchParams.get("limit") ?? "10");
+  const access = searchParams.get("access") as "public" | "private" | undefined;
+  const group = searchParams.get("group") ?? undefined;
+
+  try {
+    if (mediaId) {
+      const media = await client.get(mediaId);
+      return Response.json(media);
+    }
+
+    const media = await client.list(page, limit, { access, group });
+    return Response.json(media);
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST() {
+  try {
+    const signature = await client.getSignature();
+
+    return Response.json({
+      endpoint: client.endpoint,
+      signature,
+    });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const mediaId = request.nextUrl.searchParams.get("mediaId");
+
+  if (!mediaId) {
+    return Response.json({ error: "Media ID is required" }, { status: 400 });
+  }
+
+  try {
+    await client.delete(mediaId);
+    return Response.json({ success: true });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const mediaId = request.nextUrl.searchParams.get("mediaId");
+
+  if (!mediaId) {
+    return Response.json({ error: "Media ID is required" }, { status: 400 });
+  }
+
+  try {
+    const media = await client.seal(mediaId);
+    return Response.json(media);
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+```
+
+Create `app/api/medialit/[id]/route.ts`:
+
+```ts
+import { MediaLit } from "medialit";
+
+const client = new MediaLit();
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const media = await client.get(id);
+    return Response.json(media);
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+```
+
+Create `app/api/medialit/count/route.ts`:
+
+```ts
+import { MediaLit } from "medialit";
+
+const client = new MediaLit();
+
+export async function GET() {
+  try {
+    const count = await client.getCount();
+    return Response.json({ count });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+```
+
+## 4. Client upload + seal (standard upload)
+
+In a client component, request signature from your route, then upload to MediaLit directly:
+
+```ts
+const presigned = await fetch("/api/medialit", { method: "POST" });
+const { endpoint, signature } = await presigned.json();
+
+const formData = new FormData();
+formData.append("file", file);
+formData.append("caption", caption);
+formData.append("access", isPublic ? "public" : "private");
+
+await fetch(`${endpoint}/media/create`, {
+  method: "POST",
+  headers: {
+    "x-medialit-signature": signature,
+  },
+  body: formData,
+});
+```
+
+After upload, resolve media details and seal the file:
+
+```ts
+const uploadResponse = await fetch(`${endpoint}/media/create`, {
+  method: "POST",
+  headers: {
+    "x-medialit-signature": signature,
+  },
+  body: formData,
+});
+const uploaded = await uploadResponse.json();
+
+const mediaResponse = await fetch(`/api/medialit?mediaId=${uploaded.mediaId}`);
+const media = await mediaResponse.json();
+
+await fetch(`/api/medialit?mediaId=${media.mediaId}`, {
+  method: "PATCH",
+});
+
+window.dispatchEvent(new Event("medialit:refresh"));
+```
+
+## 5. TUS resumable upload (with seal)
+
+```ts
+import { Upload } from "tus-js-client";
+
+const { endpoint, signature } = await (await fetch("/api/medialit", {
+  method: "POST",
+})).json();
+
+const upload = new Upload(file, {
+  endpoint: `${endpoint}/media/create/resumable`,
+  chunkSize: 1024000,
+  retryDelays: [0, 3000, 5000],
+  headers: { "x-medialit-signature": signature },
+  metadata: {
+    fileName: file.name,
+    mimeType: file.type,
+    access: "private",
+    caption: "",
+  },
+  onAfterResponse: (_req, res) => {
+    const mediaHeader = res.getHeader("media");
+    if (mediaHeader) {
+      const media = JSON.parse(mediaHeader);
+      // Keep media.mediaId for sealing.
+    }
+  },
+});
+
+upload.start();
+```
+
+When upload completes, seal the returned `mediaId`:
+
+```ts
+await fetch(`/api/medialit?mediaId=${media.mediaId}`, {
+  method: "PATCH",
+});
+window.dispatchEvent(new Event("medialit:refresh"));
+```
+
+## 6. Run
+
+```bash
+pnpm dev
+```
+
+## 7. Important note
+
+Both upload methods should seal files before considering upload complete in UI.  
+Unsealed files are temporary and may not appear in normal list/get results.
+
+If you want the full working UI (standard upload + TUS upload + listing + seal flow), use `examples/next-app-router` as reference directly.

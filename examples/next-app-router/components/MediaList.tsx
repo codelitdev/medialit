@@ -51,6 +51,7 @@ export default function MediaList() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
     const itemsPerPage = 10;
 
     useEffect(() => {
@@ -80,7 +81,13 @@ export default function MediaList() {
         };
 
         fetchMedia();
-    }, [page]);
+    }, [page, refreshKey]);
+
+    useEffect(() => {
+        const onRefresh = () => setRefreshKey((prev) => prev + 1);
+        window.addEventListener("medialit:refresh", onRefresh);
+        return () => window.removeEventListener("medialit:refresh", onRefresh);
+    }, []);
 
     const handleMediaClick = async (mediaId: string) => {
         try {

@@ -11,11 +11,7 @@ import { redirect } from "next/navigation";
 import Script from "next/script";
 import { auth } from "@/auth";
 
-export default async function SchoolDetailsLayout({
-    children,
-}: {
-    children: ReactNode;
-}) {
+const SchoolDetailsLayout = async ({ children }: { children: ReactNode }) => {
     const session = await auth();
 
     if (!session) {
@@ -42,4 +38,6 @@ export default async function SchoolDetailsLayout({
             </main>
         </>
     );
-}
+};
+
+export default SchoolDetailsLayout as any;

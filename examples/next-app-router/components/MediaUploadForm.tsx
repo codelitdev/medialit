@@ -22,6 +22,7 @@ export default function MediaUploadForm() {
     const [error, setError] = useState<string>("");
     const [caption, setCaption] = useState("");
     const [isPublic, setIsPublic] = useState(false);
+    const [isSealed, setIsSealed] = useState(false);
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,6 +30,7 @@ export default function MediaUploadForm() {
 
         setUploading(true);
         setError("");
+        setIsSealed(false);
 
         try {
             // Get presigned URL from our API route
@@ -71,6 +73,7 @@ export default function MediaUploadForm() {
 
             if (mediaResponse.ok) {
                 setUploadedMedia(mediaData);
+                setIsSealed(false);
             } else {
                 throw new Error(
                     mediaData.error || "Failed to get media details",
@@ -87,27 +90,28 @@ export default function MediaUploadForm() {
         }
     };
 
-    const handleDelete = async () => {
+    const handleSeal = async () => {
         if (!uploadedMedia?.mediaId) return;
 
         try {
             const response = await fetch(
                 `/api/medialit?mediaId=${uploadedMedia.mediaId}`,
                 {
-                    method: "DELETE",
+                    method: "PATCH",
                 },
             );
             const data = await response.json();
 
             if (response.ok) {
-                setUploadedMedia(null);
-                setFile(null);
+                setUploadedMedia(data);
+                setIsSealed(true);
+                window.dispatchEvent(new Event("medialit:refresh"));
             } else {
-                throw new Error(data.error || "Failed to delete file");
+                throw new Error(data.error || "Failed to seal file");
             }
         } catch (err) {
             setError(
-                err instanceof Error ? err.message : "Failed to delete file",
+                err instanceof Error ? err.message : "Failed to seal file",
             );
         }
     };
@@ -222,12 +226,14 @@ export default function MediaUploadForm() {
                         </a>
                     </div>
 
-                    <button
-                        onClick={handleDelete}
-                        className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
-                    >
-                        Delete File
-                    </button>
+                    {!isSealed ? (
+                        <button
+                            onClick={handleSeal}
+                            className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700"
+                        >
+                            Seal File
+                        </button>
+                    ) : null}
                 </div>
             )}
         </div>

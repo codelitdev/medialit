@@ -1,0 +1,16 @@
+{
+  "name": "@example/express",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env server.js",
+    "start": "node --env-file=.env server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "medialit": "^0.2.0",
+    "multer": "^1.4.5-lts.2"
+  }
+}
