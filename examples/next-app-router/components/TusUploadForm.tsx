@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { Upload } from "tus-js-client";
 
 interface Media {
@@ -24,7 +25,10 @@ export default function TusUploadForm() {
     const [isPublic, setIsPublic] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadSpeed, setUploadSpeed] = useState("");
+    const [sealing, setSealing] = useState(false);
+    const [isSealed, setIsSealed] = useState(false);
     const uploadRef = useRef<Upload>(null);
+    const uploadedMediaFromHeaderRef = useRef<Media | null>(null);
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -34,6 +38,8 @@ export default function TusUploadForm() {
         setError("");
         setUploadProgress(0);
         setUploadSpeed("");
+        setIsSealed(false);
+        uploadedMediaFromHeaderRef.current = null;
 
         try {
             // Get presigned URL
@@ -67,6 +73,20 @@ export default function TusUploadForm() {
                     "x-medialit-signature": signature,
                 },
                 metadata,
+                onAfterResponse: (_req, res) => {
+                    const mediaHeader = res.getHeader("media");
+                    if (!mediaHeader) return;
+
+                    try {
+                        const parsed = JSON.parse(mediaHeader);
+                        if (parsed?.mediaId) {
+                            uploadedMediaFromHeaderRef.current =
+                                parsed as Media;
+                        }
+                    } catch {
+                        // no-op: fallback flow below will handle missing/invalid header
+                    }
+                },
                 onError: (error) => {
                     console.error("Tus upload error:", error);
                     setError(
@@ -83,24 +103,70 @@ export default function TusUploadForm() {
                 onSuccess: async () => {
                     setUploading(false);
                     setUploadProgress(100);
+                    // Prefer the finalized media object returned by backend in TUS response headers.
+                    if (uploadedMediaFromHeaderRef.current?.mediaId) {
+                        setUploadedMedia(uploadedMediaFromHeaderRef.current);
+                        setIsSealed(false);
+                    } else {
+                        const uploadUrl = upload.url;
+                        const mediaId = uploadUrl?.split("/").pop();
 
-                    // Show success message - user can see the uploaded file in the media list below
-                    setUploadedMedia({
-                        mediaId: "uploaded",
-                        originalFileName: file.name,
-                        mimeType: file.type,
-                        size: file.size,
-                        access: isPublic ? "public" : "private",
-                        file: "",
-                        caption: caption || "",
-                        thumbnail: "",
-                    });
+                        // Fallback: attempt to resolve by id (may fail if id is not mediaId).
+                        if (mediaId) {
+                            try {
+                                const mediaResponse = await fetch(
+                                    `/api/medialit?mediaId=${mediaId}`,
+                                );
+                                const mediaData = await mediaResponse.json();
+
+                                if (mediaResponse.ok) {
+                                    setUploadedMedia(mediaData);
+                                    setIsSealed(false);
+                                } else {
+                                    setUploadedMedia({
+                                        mediaId,
+                                        originalFileName: file.name,
+                                        mimeType: file.type,
+                                        size: file.size,
+                                        access: isPublic ? "public" : "private",
+                                        file: "",
+                                        caption: caption || "",
+                                        thumbnail: "",
+                                    });
+                                    setIsSealed(false);
+                                }
+                            } catch {
+                                setUploadedMedia({
+                                    mediaId,
+                                    originalFileName: file.name,
+                                    mimeType: file.type,
+                                    size: file.size,
+                                    access: isPublic ? "public" : "private",
+                                    file: "",
+                                    caption: caption || "",
+                                    thumbnail: "",
+                                });
+                                setIsSealed(false);
+                            }
+                        } else {
+                            setUploadedMedia({
+                                mediaId: "",
+                                originalFileName: file.name,
+                                mimeType: file.type,
+                                size: file.size,
+                                access: isPublic ? "public" : "private",
+                                file: "",
+                                caption: caption || "",
+                                thumbnail: "",
+                            });
+                            setIsSealed(false);
+                        }
+                    }
 
                     // Reset form after 3 seconds
                     setTimeout(() => {
                         setFile(null);
                         setCaption("");
-                        setUploadedMedia(null);
                     }, 3000);
                 },
             });
@@ -123,6 +189,39 @@ export default function TusUploadForm() {
             uploadRef.current = null;
             setUploading(false);
             setUploadProgress(0);
+        }
+    };
+
+    const handleSeal = async () => {
+        if (!uploadedMedia?.mediaId) {
+            setError("Unable to resolve media ID for sealing.");
+            return;
+        }
+
+        setSealing(true);
+        setError("");
+        try {
+            const response = await fetch(
+                `/api/medialit?mediaId=${uploadedMedia.mediaId}`,
+                {
+                    method: "PATCH",
+                },
+            );
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to seal file");
+            }
+
+            setUploadedMedia(data);
+            setIsSealed(true);
+            window.dispatchEvent(new Event("medialit:refresh"));
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : "Failed to seal file",
+            );
+        } finally {
+            setSealing(false);
         }
     };
 
@@ -217,12 +316,28 @@ export default function TusUploadForm() {
             )}
 
             {uploadedMedia && (
-                <div className="mt-6 p-4 border rounded-md space-y-4 bg-green-50 border-green-200">
-                    <h3 className="text-lg font-semibold text-green-800">
-                        ✅ Upload Complete!
+                <div className="mt-6 p-4 border rounded-md space-y-4">
+                    <h3 className="text-lg font-semibold">
+                        Uploaded File Details
                     </h3>
 
-                    <div className="space-y-2 text-green-700">
+                    {uploadedMedia.file && (
+                        <div className="aspect-video relative overflow-hidden rounded-md">
+                            <Image
+                                src={uploadedMedia.file}
+                                alt={uploadedMedia.originalFileName}
+                                width={400}
+                                height={300}
+                                className="object-cover"
+                            />
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        <p>
+                            <span className="font-medium">Media ID:</span>{" "}
+                            {uploadedMedia.mediaId || "Pending"}
+                        </p>
                         <p>
                             <span className="font-medium">File name:</span>{" "}
                             {uploadedMedia.originalFileName}
@@ -239,19 +354,31 @@ export default function TusUploadForm() {
                             <span className="font-medium">Access:</span>{" "}
                             {uploadedMedia.access}
                         </p>
-                        {uploadedMedia.caption && (
-                            <p>
-                                <span className="font-medium">Caption:</span>{" "}
-                                {uploadedMedia.caption}
-                            </p>
-                        )}
+                        <p>
+                            <span className="font-medium">Caption:</span>{" "}
+                            {uploadedMedia.caption}
+                        </p>
+                        {uploadedMedia.file ? (
+                            <a
+                                href={uploadedMedia.file}
+                                className="text-blue-500 underline"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Direct link
+                            </a>
+                        ) : null}
                     </div>
 
-                    <p className="text-sm text-green-600">
-                        Your file has been uploaded successfully! Check the
-                        media list below to see it with all details including
-                        the thumbnail.
-                    </p>
+                    {!isSealed ? (
+                        <button
+                            onClick={handleSeal}
+                            disabled={sealing || !uploadedMedia.mediaId}
+                            className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                            {sealing ? "Sealing..." : "Seal File"}
+                        </button>
+                    ) : null}
                 </div>
             )}
         </div>

@@ -80,3 +80,28 @@ export async function DELETE(request: NextRequest) {
         );
     }
 }
+
+export async function PATCH(request: NextRequest) {
+    const searchParams = request.nextUrl.searchParams;
+    const mediaId = searchParams.get("mediaId");
+
+    if (!mediaId) {
+        return Response.json(
+            { error: "Media ID is required" },
+            { status: 400 },
+        );
+    }
+
+    try {
+        const media = await client.seal(mediaId);
+        return Response.json(media);
+    } catch (error) {
+        if (error instanceof Error) {
+            return Response.json({ error: error.message }, { status: 500 });
+        }
+        return Response.json(
+            { error: "An unknown error occurred" },
+            { status: 500 },
+        );
+    }
+}
