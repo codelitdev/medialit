@@ -42,7 +42,9 @@ export default async function Page(props: {
     }
 
     const MDXContent = page.data.body;
-    const markdownUrl = `${page.url === "/" ? "/index" : page.url}.mdx`;
+    const markdownPath =
+        page.url === "/" ? "index" : page.url.replace(/^\//, "");
+    const markdownUrl = `/llms.mdx/${markdownPath}`;
     const githubBaseUrl =
         process.env.NEXT_PUBLIC_DOCS_GITHUB_BASE_URL ||
         "https://github.com/codelitdev/medialit/blob/main/apps/docs/content/docs";

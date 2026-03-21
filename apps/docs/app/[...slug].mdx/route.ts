@@ -4,12 +4,19 @@ import { getLLMText } from "@/lib/get-llm-text";
 export const revalidate = false;
 
 export async function GET(
-    req: Request,
-    _ctx: { params: Promise<Record<string, string | string[]>> },
+    _req: Request,
+    {
+        params,
+    }: {
+        params: Promise<{ slug?: string | string[] } | undefined>;
+    },
 ) {
-    const pathname = new URL(req.url).pathname;
-    const relative = pathname.replace(/^\/+/, "").replace(/\.mdx$/, "");
-    const slug = relative.length > 0 ? relative.split("/") : [];
+    const rawSlug = (await params)?.slug;
+    const slug = Array.isArray(rawSlug)
+        ? rawSlug
+        : typeof rawSlug === "string"
+          ? [rawSlug]
+          : ["index"];
     const normalizedSlug =
         slug.length === 1 && slug[0] === "index" ? undefined : slug;
     const page = source.getPage(normalizedSlug);
