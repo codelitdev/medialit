@@ -49,7 +49,7 @@ jobs:
 
       - name: Build dependencies
         run: |
-          NODE_OPTIONS="--max-old-space-size=8192" pnpm -r build
+          pnpm -r build
 
       - name: Run test
         run: pnpm test
