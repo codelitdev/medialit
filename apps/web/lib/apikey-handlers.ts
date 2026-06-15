@@ -14,6 +14,7 @@ export async function getApiKeysByUserId(
         // key: 1,
         httpReferrers: 1,
         ipAddresses: 1,
+        default: 1,
         createdAt: 1,
         updatedAt: 1,
         keyId: 1,
@@ -57,6 +58,10 @@ export async function deleteApiKey(
     userId: mongoose.Types.ObjectId,
     keyId: string,
 ) {
+    const key = await ApikeyModel.findOne({ keyId, userId });
+    if (key && key.default) {
+        throw new Error("Default API key cannot be deleted");
+    }
     return await ApikeyModel.updateOne(
         {
             keyId,

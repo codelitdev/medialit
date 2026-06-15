@@ -20,8 +20,8 @@ const ApikeySchema = new mongoose.Schema<Apikey>(
         },
         httpReferrers: [String],
         ipAddresses: [String],
-        custom: String,
         deleted: { type: Boolean, default: false },
+        default: { type: Boolean, default: false },
     },
     {
         timestamps: true,
@@ -29,5 +29,12 @@ const ApikeySchema = new mongoose.Schema<Apikey>(
 );
 
 ApikeySchema.index({ name: 1, userId: 1 }, { unique: true });
+ApikeySchema.index(
+    { userId: 1, default: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { default: true, deleted: false },
+    },
+);
 
 export default ApikeySchema;

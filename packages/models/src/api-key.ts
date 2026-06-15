@@ -9,6 +9,6 @@ export interface Apikey {
     restriction?: APIKEY_RESTRICTION;
     httpReferrers?: string[];
     ipAddresses?: string[];
-    custom?: string;
+    default: boolean;
     deleted: boolean;
 }

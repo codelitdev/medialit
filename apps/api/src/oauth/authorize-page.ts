@@ -281,7 +281,7 @@ export function authorizePage(pendingId: string, clientId: string): string {
       </div>
       
       <div class="back-link">
-        <a href="http://localhost:3000">&larr; Back to home</a>
+        <a href="${process.env.WEB_CLIENT || "http://localhost:3000"}">&larr; Back to home</a>
       </div>
     </div>
   </div>

@@ -34,11 +34,17 @@ export async function mcpAuth(
             req.userId = userId;
             req.clientId = claims.clientId;
             req.scopes = claims.scopes;
-            // Look up the user's first API key so tool handlers can use it
+            // Look up the user's default API key first, falling back to the first available key
             try {
                 const keys = await getApiKeyByUserId(userId);
-                const firstKey = Array.isArray(keys) ? keys[0] : keys;
-                if (firstKey) req.apikey = (firstKey as any).key;
+                let selectedKey: any = null;
+                if (Array.isArray(keys)) {
+                    selectedKey =
+                        keys.find((k: any) => k.default === true) || keys[0];
+                } else {
+                    selectedKey = keys;
+                }
+                if (selectedKey) req.apikey = selectedKey.key;
             } catch {
                 // continue without apikey — tool handlers will return Unauthorized
             }

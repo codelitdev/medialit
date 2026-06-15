@@ -1,6 +1,7 @@
 import { SubscriptionStatus, User } from "@medialit/models";
 import UserModel from "./model";
 import mongoose from "mongoose";
+import { createApiKey } from "../apikey/queries";
 
 export async function getUser(
     id: string,
@@ -19,10 +20,19 @@ export async function createUser(
     name?: string,
     subscriptionStatus?: SubscriptionStatus,
 ): Promise<User> {
-    return await UserModel.create({
+    const user = await UserModel.create({
         email,
         active: true,
         name,
         subscriptionStatus,
     });
+
+    // Automatically create a default API key for the new user
+    await createApiKey(
+        String(user.id || (user as any)._id),
+        "Default App",
+        true,
+    );
+
+    return user;
 }

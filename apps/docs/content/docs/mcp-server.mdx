@@ -28,24 +28,11 @@ Connecting with OAuth is straightforward:
 
 Once approved, you are logged in and the client will automatically handle connection keys in the background.
 
-#### Manual Token Setup (For Local Clients)
-If your client (like Claude Desktop) doesn't support automatic browser login, you can sign in to your dashboard to retrieve an access token, then add it to your configuration:
+<Callout type="info" title="Default App Mapping">
+  When connecting via OAuth 2.0, the MCP server automatically associates the session with your **Default API Key**. Consequently, any files uploaded or managed via the MCP tools will be routed and stored under your **Default App**.
+</Callout>
 
-```json
-{
-  "mcpServers": {
-    "medialit": {
-      "command": "curl",
-      "args": [
-        "-X", "POST",
-        "-H", "Content-Type: application/json",
-        "-H", "Authorization: Bearer YOUR_LOGGED_IN_TOKEN",
-        "https://api.medialit.cloud/mcp"
-      ]
-    }
-  }
-}
-```
+
 
 ### 2. API Key Setup (Alternative)
 
@@ -56,19 +43,40 @@ Add the following config to your client:
 - **Value:** `YOUR_API_KEY`
 
 **Claude Desktop Configuration (`claude_desktop_config.json`):**
+
+Since Claude Desktop communicates via standard input/output (stdio), you must use a proxy/bridge tool like `mcp-remote` to connect to the remote Streamable HTTP server:
+
 ```json
 {
   "mcpServers": {
     "medialit": {
-      "command": "curl",
+      "command": "npx",
       "args": [
-        "-X", "POST",
-        "-H", "Content-Type: application/json",
-        "-H", "x-medialit-apikey: YOUR_API_KEY",
-        "https://api.medialit.cloud/mcp"
-      ]
+        "mcp-remote",
+        "https://api.medialit.cloud/mcp",
+        "--header",
+        "x-medialit-apikey: ${API_KEY}"
+      ],
+      "env": {
+        "API_KEY": "YOUR_API_KEY"
+      }
     }
   }
+}
+```
+
+**VS Code configuration (`mcp.json`):**
+```
+{
+    "servers": {
+        "medialit": {
+            "type": "http",
+            "url": "https://api.medialit.cloud/mcp",
+            "headers": {
+                "x-medialit-apikey": "YOUR_API_KEY"
+            }
+        }
+    }
 }
 ```
 

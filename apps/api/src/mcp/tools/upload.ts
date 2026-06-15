@@ -59,7 +59,7 @@ export function registerUploadTool(server: McpServer): void {
         "upload_media",
         {
             description:
-                "Upload a file to MediaLit storage from base64-encoded content.",
+                "Upload a file to MediaLit storage from base64-encoded content. The upload is temporary until sealed.",
             inputSchema: {
                 fileBase64: z
                     .string()

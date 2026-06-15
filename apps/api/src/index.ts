@@ -11,7 +11,7 @@ import tusRoutes from "./tus/routes";
 import logger from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
 import { Apikey, User } from "@medialit/models";
-import { createApiKey } from "./apikey/queries";
+import { createApiKey, getApiKeyByUserId } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";
 import { mcpAuth } from "./mcp/auth-middleware";
@@ -308,8 +308,9 @@ async function createAdminUser() {
 
         if (!user) {
             const user = await createUser(email, undefined, "subscribed");
-            const apikey: Apikey = await createApiKey(user.id, "App 1");
-            logger.info({ apiKey: apikey.key }, "Admin user created");
+            const keys = await getApiKeyByUserId(user.id);
+            const firstKey = Array.isArray(keys) ? keys[0] : keys;
+            logger.info({ apiKey: firstKey?.key }, "Admin user created");
         }
     } catch (error) {
         logger.error({ error }, "Failed to create admin user");

@@ -6,6 +6,7 @@ import NewApp from "@/components/new-app-button";
 import { FolderPlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { getTotalSpaceByApikey } from "./app/[keyid]/settings/actions";
 
 export default async function Home() {
@@ -50,11 +51,19 @@ export default async function Home() {
                                 href={`/app/${apikey.keyId}/files`}
                                 key={apikey.keyId}
                             >
-                                <Card className="h-[151px] hover:bg-accent transition-colors">
+                                <Card className="h-[151px] hover:bg-accent transition-colors relative">
                                     <CardContent className="flex items-center justify-center h-full p-6">
                                         <span className="text-lg font-medium">
                                             {apikey.name || "Untitled"}
                                         </span>
+                                        {apikey.default && (
+                                            <Badge
+                                                className="absolute top-3 right-3"
+                                                variant="secondary"
+                                            >
+                                                Default
+                                            </Badge>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </Link>

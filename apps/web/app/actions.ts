@@ -1,3 +1,5 @@
+"use server";
+
 import { auth, Session } from "@/auth";
 import connectToDatabase from "@/lib/connect-db";
 import {
@@ -68,7 +70,7 @@ export async function getApiKeys() {
 
 export async function getApikeyUsingKeyId(
     keyId: string,
-): Promise<Pick<Apikey, "name" | "key" | "keyId"> | null> {
+): Promise<Pick<Apikey, "name" | "key" | "keyId" | "default"> | null> {
     const session = await auth();
     if (!session || !session.user) {
         throw new Error("Unauthenticated");
@@ -91,6 +93,7 @@ export async function getApikeyUsingKeyId(
         keyId: apikey.keyId,
         name: apikey.name,
         key: apikey.key,
+        default: apikey.default,
     };
 }
 
@@ -144,6 +147,16 @@ export async function deleteApiKeyOfUser(
     const dbUser = await getUserFromSession(session);
     if (!dbUser) {
         return { success: false, error: "Invalid User" };
+    }
+
+    const apikey = await getApikeyFromKeyId(dbUser._id, keyId);
+
+    if (!apikey) {
+        return { success: false, error: "Apikey not found" };
+    }
+
+    if (apikey.default) {
+        return { success: false, error: "Default Apikey cannot be deleted" };
     }
 
     try {
