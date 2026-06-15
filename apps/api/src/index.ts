@@ -2,6 +2,7 @@ import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
 import express from "express";
+import rateLimit from "express-rate-limit";
 import connectToDatabase from "./config/db";
 import passport from "passport";
 import mediaRoutes from "./media/routes";
@@ -11,7 +12,7 @@ import tusRoutes from "./tus/routes";
 import logger from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
 import { Apikey, User } from "@medialit/models";
-import { createApiKey, getApiKeyByUserId } from "./apikey/queries";
+import { getApiKeyByUserId } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";
 import { mcpAuth } from "./mcp/auth-middleware";
@@ -115,6 +116,17 @@ app.get(
     },
 );
 
+const mcpLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: "too_many_requests",
+        error_description: "Too many requests.",
+    },
+});
+
 // Active MCP sessions: sessionId → transport
 const mcpSessions = new Map<string, StreamableHTTPServerTransport>();
 
@@ -138,7 +150,7 @@ const mcpCors = (req: any, res: any, next: any) => {
 app.use(["/.well-known", "/oauth"], mcpCors);
 app.use(oauthRouter);
 
-app.post("/mcp", mcpCors, mcpAuth, async (req: any, res: any) => {
+app.post("/mcp", mcpCors, mcpLimiter, mcpAuth, async (req: any, res: any) => {
     // The MCP SDK (via @hono/node-server) reads rawHeaders to build the Web Standard
     // Request, so we must patch both req.headers AND req.rawHeaders.
     // The SDK requires Accept to include BOTH application/json and text/event-stream.

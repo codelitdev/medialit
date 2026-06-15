@@ -1,14 +1,5 @@
 import { Response as ExpressRes } from "express";
 
-function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#x27;");
-}
-
 export function authorizePage(pendingId: string, clientId: string): string {
     return `<!DOCTYPE html>
 <html lang="en">

@@ -121,14 +121,40 @@ function loadDynamicClients(): void {
 }
 loadDynamicClients();
 
+function sanitizeDcrClient(client: DynamicClient): DynamicClient {
+    return {
+        clientId: client.clientId,
+        clientIdIssuedAt: client.clientIdIssuedAt,
+        redirectUris: client.redirectUris.filter((u: string) => {
+            try {
+                new URL(u);
+                return true;
+            } catch {
+                return false;
+            }
+        }),
+        grantTypes:
+            client.grantTypes?.filter((g: string) =>
+                [
+                    "authorization_code",
+                    "refresh_token",
+                    "client_credentials",
+                ].includes(g),
+            ) || [],
+        tokenEndpointAuthMethod:
+            client.tokenEndpointAuthMethod === "none" ? "none" : "none",
+    };
+}
+
 // Save DCR clients to disk
 function persistDynamicClients(): void {
     try {
         const dir = path.dirname(DCR_PERSIST_PATH);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        const arr = Array.from(dynamicClients.values());
-        // codeql[js/network-data-written-to-file]
-        fs.writeFileSync(DCR_PERSIST_PATH, JSON.stringify(arr, null, 2), {
+        const sanitized = Array.from(dynamicClients.values()).map(
+            sanitizeDcrClient,
+        );
+        fs.writeFileSync(DCR_PERSIST_PATH, JSON.stringify(sanitized, null, 2), {
             mode: 0o600,
         });
     } catch (err: any) {

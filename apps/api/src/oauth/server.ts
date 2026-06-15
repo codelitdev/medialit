@@ -112,6 +112,17 @@ const tokenLimiter = rateLimit({
     },
 });
 
+const revokeLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: "too_many_requests",
+        error_description: "Too many requests.",
+    },
+});
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -512,14 +523,24 @@ oauthRouter.post(
 
 oauthRouter.get("/oauth/userinfo", async (req: ExpressReq, res: ExpressRes) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        const authParsed = z
+            .object({
+                authorization: z
+                    .string()
+                    .regex(
+                        /^Bearer\s+.+$/,
+                        "Missing or invalid authorization header.",
+                    ),
+            })
+            .safeParse({ authorization: req.headers.authorization });
+
+        if (!authParsed.success) {
             return res.status(401).json({
                 error: "invalid_token",
-                error_description: "Missing or invalid authorization header.",
+                error_description: authParsed.error.errors[0].message,
             });
         }
-        const token = authHeader.substring(7);
+        const token = authParsed.data.authorization.substring(7);
         const payload = verifyAccessToken(token);
         if (!payload) {
             return res.status(401).json({
@@ -550,7 +571,7 @@ oauthRouter.get("/oauth/userinfo", async (req: ExpressReq, res: ExpressRes) => {
 
 // --- Revoke endpoint -------------------------------------------------------
 
-oauthRouter.post("/oauth/revoke", async (req: ExpressReq, res: ExpressRes) => {
+oauthRouter.post("/oauth/revoke", revokeLimiter, async (req: ExpressReq, res: ExpressRes) => {
     try {
         const { token } = req.body || {};
         if (token) {
