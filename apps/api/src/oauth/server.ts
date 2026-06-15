@@ -6,7 +6,8 @@ import OAuth2Server from "@node-oauth/oauth2-server";
 import { oauthModel, registerClient } from "./model";
 import type { DcrRequest, DcrResponse } from "./model";
 import { authorizePage, errorPage } from "./authorize-page";
-import { findByEmail, createUser } from "../user/queries";
+import { findByEmail, createUser, getUser } from "../user/queries";
+import { verifyAccessToken } from "./jwt";
 import logger from "../services/log";
 
 // ---------------------------------------------------------------------------
@@ -307,10 +308,10 @@ oauthRouter.post(
                             html: `<p>Enter this code to authorize MediaLit access:</p><h2>${otp}</h2>`,
                         });
                     }
-                } catch (_mailErr) {
-                    logger.warn(
-                        { email },
-                        "Failed to send OTP email — code still logged",
+                } catch (mailErr: any) {
+                    logger.error(
+                        { email, error: mailErr.message },
+                        "Failed to send OTP email",
                     );
                 }
             }
@@ -506,6 +507,46 @@ oauthRouter.post(
         }
     },
 );
+
+// --- UserInfo endpoint -----------------------------------------------------
+
+oauthRouter.get("/oauth/userinfo", async (req: ExpressReq, res: ExpressRes) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                error: "invalid_token",
+                error_description: "Missing or invalid authorization header.",
+            });
+        }
+        const token = authHeader.substring(7);
+        const payload = verifyAccessToken(token);
+        if (!payload) {
+            return res.status(401).json({
+                error: "invalid_token",
+                error_description: "Access token is invalid or expired.",
+            });
+        }
+        const user = await getUser(payload.sub);
+        if (!user) {
+            return res.status(401).json({
+                error: "invalid_token",
+                error_description: "User not found.",
+            });
+        }
+        res.json({
+            sub: String(user._id || user.id),
+            email: user.email,
+            name: user.name || "",
+        });
+    } catch (err: any) {
+        logger.error({ error: err.message }, "UserInfo endpoint error");
+        res.status(500).json({
+            error: "server_error",
+            error_description: "An unexpected error occurred.",
+        });
+    }
+});
 
 // --- Revoke endpoint -------------------------------------------------------
 

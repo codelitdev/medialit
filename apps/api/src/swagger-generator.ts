@@ -140,6 +140,7 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         delete content.paths["/oauth/token"];
         delete content.paths["/oauth/revoke"];
         delete content.paths["/oauth/register"];
+        delete content.paths["/oauth/userinfo"];
     }
 
     Object.entries(content.paths || {}).forEach(([apiPath, pathItem]: any) => {

@@ -42,3 +42,4 @@ dist
 # Agent skills (clone manually from https://github.com/addyosmani/agent-skills)
 .agent-skills/
 .claude/
+.agents/

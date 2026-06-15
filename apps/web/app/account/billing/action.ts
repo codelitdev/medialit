@@ -1,6 +1,6 @@
 "use server";
 
-import { Session } from "next-auth";
+import { Session } from "@/auth";
 import connectToDatabase from "@/lib/connect-db";
 import UserModel from "@/models/user";
 import { LEMONSQUEEZY_API_KEY } from "@/lib/constants";

@@ -77,24 +77,11 @@ setInterval(
 );
 
 // ---------------------------------------------------------------------------
-// Static (pre-registered) clients
-// ---------------------------------------------------------------------------
-
 const STATIC_CLIENTS: Record<string, { redirectUris: string[] }> = {
-    chatgpt: {
-        redirectUris: [
-            "https://chatgpt.com/aip/mcp/oauth/callback",
-            "https://chatgpt.com/aip/mcp/oauth/callback/dev",
-        ],
-    },
-    "mcp-inspector": {
-        redirectUris: [
-            "http://localhost:6274/oauth/callback/debug",
-            "http://127.0.0.1:6274/oauth/callback/debug",
-        ],
-    },
     "web-client": {
-        redirectUris: ["http://localhost:3000/api/auth/callback/medialit"],
+        redirectUris: [
+            `${process.env.WEB_CLIENT || "http://localhost:3000"}/api/auth/callback/medialit`,
+        ].filter((uri): uri is string => !!uri),
     },
     "mobile-app": {
         redirectUris: ["medialit://oauth/callback"],

@@ -19,8 +19,8 @@ COPY apps/web/lib ./apps/web/lib
 COPY apps/web/models ./apps/web/models
 COPY apps/web/public ./apps/web/public
 COPY apps/web/utils ./apps/web/utils
-COPY apps/web/auth.config.ts ./apps/web/auth.config.ts
 COPY apps/web/auth.ts ./apps/web/auth.ts
+COPY apps/web/middleware.ts ./apps/web/middleware.ts
 COPY apps/web/components.json ./apps/web/components.json
 COPY apps/web/next.config.js ./apps/web/next.config.js
 COPY apps/web/postcss.config.js ./apps/web/postcss.config.js

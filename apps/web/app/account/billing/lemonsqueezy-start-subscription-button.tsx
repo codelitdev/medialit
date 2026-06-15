@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { useRouter } from "next/navigation";
-import { Session } from "next-auth";
+import { Session } from "@/auth";
 import { useToast } from "../../../components/ui/use-toast";
 
 export default function LemonSqueezyStartSubscriptionButton({

@@ -9,6 +9,8 @@
     "express-js",
     "---API Endpoints---",
     "api",
+    "---MCP Server---",
+    "mcp-server",
     "---Resources---",
     "self-hosting",
     "migrate-to-dual-bucket-architecture",

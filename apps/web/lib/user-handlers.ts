@@ -1,16 +1,15 @@
 import UserModel from "@/models/user";
 import { User } from "@medialit/models";
 import mongoose from "mongoose";
-import { Session } from "next-auth";
 
 type UserWithId = User & { _id: mongoose.Types.ObjectId };
 
 export async function getUserFromSession(
-    session: Session,
+    session: { user?: { email?: string | null } } | null,
 ): Promise<UserWithId | null> {
-    const { user } = session;
+    if (!session || !session.user || !session.user.email) return null;
     const dbUser: UserWithId | null = (await UserModel.findOne<UserWithId>({
-        email: user!.email,
+        email: session.user.email,
     }).lean()) as UserWithId | null;
 
     return dbUser;

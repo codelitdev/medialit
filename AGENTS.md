@@ -4,14 +4,13 @@ This project uses [agent-skills](https://github.com/addyosmani/agent-skills) —
 
 ## Setup
 
-Clone agent-skills into the project root (not tracked in git):
+Clone agent-skills into the `.agents` folder in the project root (not tracked in git):
 
 ```bash
-git clone https://github.com/addyosmani/agent-skills.git .agent-skills
-mkdir -p .claude/commands && cp .agent-skills/.claude/commands/*.md .claude/commands/
+git clone https://github.com/addyosmani/agent-skills.git .agents/agent-skills
 ```
 
-Skills are loaded from `.agent-skills/skills/<name>/SKILL.md`. The full collection of 24 skills covers the entire development lifecycle.
+Skills are loaded from `.agents/agent-skills/skills/<name>/SKILL.md`. The full collection of 24 skills covers the entire development lifecycle.
 
 ## Project Overview
 
