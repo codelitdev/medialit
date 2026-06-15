@@ -1,0 +1,348 @@
+[
+  {
+    "clientId": "6eeec19d-7cb3-4480-9736-6308731a8c74",
+    "clientIdIssuedAt": 1781419262,
+    "redirectUris": [
+      "https://chatgpt.com/connector/oauth/test123"
+    ],
+    "grantTypes": [
+      "authorization_code"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "261c6445-73da-418d-b995-51ca462567f2",
+    "clientIdIssuedAt": 1781421747,
+    "redirectUris": [
+      "https://chatgpt.com/connector/oauth/znydwjnzL6M0"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "e2f0c439-e0b6-4d8a-af08-39e1f53c3d5e",
+    "clientIdIssuedAt": 1781436210,
+    "redirectUris": [
+      "http://localhost:3000/callback"
+    ],
+    "grantTypes": [
+      "authorization_code"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "071c6ce1-bea8-4a0b-b9a2-0b83fa4dc4c8",
+    "clientIdIssuedAt": 1781438207,
+    "redirectUris": [
+      "https://claude.ai/api/mcp/auth_callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "ce47a539-8a0a-492f-b243-be8340b6a4a2",
+    "clientIdIssuedAt": 1781438672,
+    "redirectUris": [
+      "https://claude.ai/api/mcp/auth_callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "863b49b7-9eb5-4fb3-8659-9c3eae00ebad",
+    "clientIdIssuedAt": 1781438760,
+    "redirectUris": [
+      "https://claude.ai/api/mcp/auth_callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "568f72c8-8885-47f1-bc85-10a1c06d8f2c",
+    "clientIdIssuedAt": 1781439855,
+    "redirectUris": [
+      "http://127.0.0.1:45007/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "121ac0ff-dfc1-468d-b9a4-ae24400d0556",
+    "clientIdIssuedAt": 1781440128,
+    "redirectUris": [
+      "http://127.0.0.1:48653/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "4b322c82-453d-4e41-a2e9-1cecb989801c",
+    "clientIdIssuedAt": 1781440351,
+    "redirectUris": [
+      "http://127.0.0.1:32787/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "d57379c7-aed4-4274-8849-1adcb5fa7b03",
+    "clientIdIssuedAt": 1781440465,
+    "redirectUris": [
+      "http://127.0.0.1:54387/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "10ac910c-aa4e-458e-8fee-dafd271071e3",
+    "clientIdIssuedAt": 1781440614,
+    "redirectUris": [
+      "http://127.0.0.1:48577/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "679ce6ec-6e46-4a0f-b423-a85d7e422745",
+    "clientIdIssuedAt": 1781440681,
+    "redirectUris": [
+      "http://127.0.0.1:40789/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "b9054030-0f77-42d8-a6aa-b91773277420",
+    "clientIdIssuedAt": 1781440762,
+    "redirectUris": [
+      "http://127.0.0.1:39001/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "7efec75b-0d8c-4de2-83d3-bb23d7729441",
+    "clientIdIssuedAt": 1781440864,
+    "redirectUris": [
+      "http://127.0.0.1:58181/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "3cd9ff24-8506-4f54-9619-aec2ec362322",
+    "clientIdIssuedAt": 1781441426,
+    "redirectUris": [
+      "http://127.0.0.1:47785/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "5427bf0f-a875-4dec-8f7b-baa705259c45",
+    "clientIdIssuedAt": 1781441628,
+    "redirectUris": [
+      "http://127.0.0.1:42439/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "dcacf11a-6061-41dc-ac38-89e2ada7a595",
+    "clientIdIssuedAt": 1781441930,
+    "redirectUris": [
+      "http://127.0.0.1:48199/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "66b6fd28-2253-4f0d-aae8-e633a56b359b",
+    "clientIdIssuedAt": 1781442161,
+    "redirectUris": [
+      "http://127.0.0.1:40153/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "d62c89d1-6a0b-4e7a-9464-aff3ac19f4ba",
+    "clientIdIssuedAt": 1781442347,
+    "redirectUris": [
+      "http://127.0.0.1:42225/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "859bb35e-a914-4170-b7f9-01138b34739f",
+    "clientIdIssuedAt": 1781442543,
+    "redirectUris": [
+      "http://127.0.0.1:36519/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "9cc3613c-ac78-4b2a-8a6d-ae3bb45315e8",
+    "clientIdIssuedAt": 1781442618,
+    "redirectUris": [
+      "http://127.0.0.1:36607/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "8c341f1c-3bfe-470c-ab41-5bbf97284ae9",
+    "clientIdIssuedAt": 1781442822,
+    "redirectUris": [
+      "http://127.0.0.1:53775/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "5506d5b3-41f4-4369-bb76-4316001a83ae",
+    "clientIdIssuedAt": 1781446374,
+    "redirectUris": [
+      "http://127.0.0.1:54203/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "6457df0a-16ca-4cab-a98b-e00c3a4ed636",
+    "clientIdIssuedAt": 1781446417,
+    "redirectUris": [
+      "http://127.0.0.1:59325/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "3c2ffd58-b1b9-4283-a8f3-1d0b638663ec",
+    "clientIdIssuedAt": 1781446538,
+    "redirectUris": [
+      "http://127.0.0.1:42727/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "a3b4a586-d6e2-4429-bd29-14b4adebd7dc",
+    "clientIdIssuedAt": 1781446622,
+    "redirectUris": [
+      "http://127.0.0.1:59843/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "ea12413c-3b79-42fa-b57d-9c8a6947f66a",
+    "clientIdIssuedAt": 1781448013,
+    "redirectUris": [
+      "http://127.0.0.1:55561/callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "acf5b20d-2c56-4fd9-ae76-f628b1283f06",
+    "clientIdIssuedAt": 1781448093,
+    "redirectUris": [
+      "https://claude.ai/api/mcp/auth_callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  },
+  {
+    "clientId": "6f0c0cdb-c732-4ae7-81b2-bd30830f7644",
+    "clientIdIssuedAt": 1781505468,
+    "redirectUris": [
+      "https://claude.ai/api/mcp/auth_callback"
+    ],
+    "grantTypes": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "tokenEndpointAuthMethod": "none"
+  }
+]

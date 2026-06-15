@@ -123,6 +123,17 @@ const revokeLimiter = rateLimit({
     },
 });
 
+const userinfoLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: "too_many_requests",
+        error_description: "Too many requests.",
+    },
+});
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -521,72 +532,80 @@ oauthRouter.post(
 
 // --- UserInfo endpoint -----------------------------------------------------
 
-oauthRouter.get("/oauth/userinfo", async (req: ExpressReq, res: ExpressRes) => {
-    try {
-        const authParsed = z
-            .object({
-                authorization: z
-                    .string()
-                    .regex(
-                        /^Bearer\s+.+$/,
-                        "Missing or invalid authorization header.",
-                    ),
-            })
-            .safeParse({ authorization: req.headers.authorization });
+oauthRouter.get(
+    "/oauth/userinfo",
+    userinfoLimiter,
+    async (req: ExpressReq, res: ExpressRes) => {
+        try {
+            const authParsed = z
+                .object({
+                    authorization: z
+                        .string()
+                        .regex(
+                            /^Bearer\s+.+$/,
+                            "Missing or invalid authorization header.",
+                        ),
+                })
+                .safeParse({ authorization: req.headers.authorization });
 
-        if (!authParsed.success) {
-            return res.status(401).json({
-                error: "invalid_token",
-                error_description: authParsed.error.errors[0].message,
+            if (!authParsed.success) {
+                return res.status(401).json({
+                    error: "invalid_token",
+                    error_description: authParsed.error.errors[0].message,
+                });
+            }
+            const token = authParsed.data.authorization.substring(7);
+            const payload = verifyAccessToken(token);
+            if (!payload) {
+                return res.status(401).json({
+                    error: "invalid_token",
+                    error_description: "Access token is invalid or expired.",
+                });
+            }
+            const user = await getUser(payload.sub);
+            if (!user) {
+                return res.status(401).json({
+                    error: "invalid_token",
+                    error_description: "User not found.",
+                });
+            }
+            res.json({
+                sub: String(user._id || user.id),
+                email: user.email,
+                name: user.name || "",
+            });
+        } catch (err: any) {
+            logger.error({ error: err.message }, "UserInfo endpoint error");
+            res.status(500).json({
+                error: "server_error",
+                error_description: "An unexpected error occurred.",
             });
         }
-        const token = authParsed.data.authorization.substring(7);
-        const payload = verifyAccessToken(token);
-        if (!payload) {
-            return res.status(401).json({
-                error: "invalid_token",
-                error_description: "Access token is invalid or expired.",
-            });
-        }
-        const user = await getUser(payload.sub);
-        if (!user) {
-            return res.status(401).json({
-                error: "invalid_token",
-                error_description: "User not found.",
-            });
-        }
-        res.json({
-            sub: String(user._id || user.id),
-            email: user.email,
-            name: user.name || "",
-        });
-    } catch (err: any) {
-        logger.error({ error: err.message }, "UserInfo endpoint error");
-        res.status(500).json({
-            error: "server_error",
-            error_description: "An unexpected error occurred.",
-        });
-    }
-});
+    },
+);
 
 // --- Revoke endpoint -------------------------------------------------------
 
-oauthRouter.post("/oauth/revoke", revokeLimiter, async (req: ExpressReq, res: ExpressRes) => {
-    try {
-        const { token } = req.body || {};
-        if (token) {
-            // Try to revoke the token
-            const refreshToken = await oauthModel.getRefreshToken(token);
-            if (refreshToken) {
-                await oauthModel.revokeToken(refreshToken);
+oauthRouter.post(
+    "/oauth/revoke",
+    revokeLimiter,
+    async (req: ExpressReq, res: ExpressRes) => {
+        try {
+            const { token } = req.body || {};
+            if (token) {
+                // Try to revoke the token
+                const refreshToken = await oauthModel.getRefreshToken(token);
+                if (refreshToken) {
+                    await oauthModel.revokeToken(refreshToken);
+                }
             }
+            // Always return 200 per RFC 7009
+            res.status(200).json({});
+        } catch {
+            res.status(200).json({});
         }
-        // Always return 200 per RFC 7009
-        res.status(200).json({});
-    } catch {
-        res.status(200).json({});
-    }
-});
+    },
+);
 
 // --- DCR endpoint (RFC 7591) -----------------------------------------------
 

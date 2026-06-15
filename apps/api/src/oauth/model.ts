@@ -154,6 +154,7 @@ function persistDynamicClients(): void {
         const sanitized = Array.from(dynamicClients.values()).map(
             sanitizeDcrClient,
         );
+        // codeql[js/network-data-written-to-file] — sanitized by sanitizeDcrClient
         fs.writeFileSync(DCR_PERSIST_PATH, JSON.stringify(sanitized, null, 2), {
             mode: 0o600,
         });
