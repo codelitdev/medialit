@@ -14,11 +14,15 @@ import { Apikey, User } from "@medialit/models";
 import { createApiKey } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";
+import { mcpAuth } from "./mcp/auth-middleware";
+import { oauthRouter } from "./oauth/server";
 
 import { spawn } from "child_process";
 import { cleanupTUSUploads } from "./tus/cleanup";
 import { cleanupExpiredTempUploads } from "./media/cleanup";
 import { HOUR_IN_SECONDS } from "./config/constants";
+import { createMCPSession } from "./mcp/server";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 connectToDatabase();
 const app = express();
@@ -26,6 +30,7 @@ const app = express();
 app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true");
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 app.get(
     "/health",
@@ -110,6 +115,97 @@ app.get(
     },
 );
 
+// Active MCP sessions: sessionId → transport
+const mcpSessions = new Map<string, StreamableHTTPServerTransport>();
+
+// CORS middleware for MCP and OAuth endpoints
+const mcpCors = (req: any, res: any, next: any) => {
+    const origin = req.headers.origin || "*";
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, x-medialit-apikey, Authorization",
+    );
+    res.header("Access-Control-Expose-Headers", "Mcp-Session-Id");
+    if (req.method === "OPTIONS") {
+        return res.status(204).end();
+    }
+    next();
+};
+
+// OAuth endpoints + CORS (no auth required — these are the auth flow itself)
+app.use(["/.well-known", "/oauth"], mcpCors);
+app.use(oauthRouter);
+
+app.post("/mcp", mcpCors, mcpAuth, async (req: any, res: any) => {
+    // The MCP SDK (via @hono/node-server) reads rawHeaders to build the Web Standard
+    // Request, so we must patch both req.headers AND req.rawHeaders.
+    // The SDK requires Accept to include BOTH application/json and text/event-stream.
+    const accept = req.headers.accept || "";
+    const needsJson = !accept.includes("application/json");
+    const needsSSE = !accept.includes("text/event-stream");
+    if (needsJson || needsSSE) {
+        const additions: string[] = [];
+        if (needsJson) additions.push("application/json");
+        if (needsSSE) additions.push("text/event-stream");
+        const newAccept = accept
+            ? `${accept}, ${additions.join(", ")}`
+            : additions.join(", ");
+        req.headers.accept = newAccept;
+        // Patch rawHeaders (used by @hono/node-server to build the Web Standard Request)
+        const rawHeaders: string[] = req.rawHeaders;
+        let found = false;
+        for (let i = 0; i < rawHeaders.length; i += 2) {
+            if (rawHeaders[i].toLowerCase() === "accept") {
+                rawHeaders[i + 1] = newAccept;
+                found = true;
+                break;
+            }
+        }
+        if (!found) rawHeaders.push("Accept", newAccept);
+    }
+
+    const auth = {
+        token: req.apikey || "",
+        clientId: String(req.userId || req.user?._id || req.user?.id || ""),
+        scopes: [] as string[],
+    };
+
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+    if (sessionId) {
+        // Route to an existing session
+        const transport = mcpSessions.get(sessionId);
+        if (!transport) {
+            return res.status(404).json({
+                jsonrpc: "2.0",
+                error: { code: -32001, message: "Session not found" },
+                id: null,
+            });
+        }
+        await transport.handleRequest(
+            Object.assign(req, { auth }),
+            res,
+            req.body,
+        );
+    } else {
+        // New session — create a dedicated transport + server pair
+        const transport = createMCPSession(
+            (id) => mcpSessions.set(id, transport),
+            (id) => mcpSessions.delete(id),
+        );
+        await transport.handleRequest(
+            Object.assign(req, { auth }),
+            res,
+            req.body,
+        );
+    }
+});
+
+// CORS preflight for ChatGPT/web-based MCP clients
+app.options("/mcp", mcpCors);
+
 const port = process.env.PORT || 80;
 
 if (process.env.EMAIL) {
@@ -165,6 +261,15 @@ async function checkConfig() {
             "If CDN_ENDPOINT is not set, both CLOUD_ENDPOINT and CLOUD_ENDPOINT_PUBLIC must be provided",
         );
     }
+    if (
+        !process.env.OAUTH_SIGNING_KEY ||
+        Buffer.byteLength(process.env.OAUTH_SIGNING_KEY, "utf8") < 32
+    ) {
+        throw new Error(
+            "OAUTH_SIGNING_KEY is required and must be at least 32 bytes (256 bits). " +
+                "Generate one with: openssl rand -base64 48",
+        );
+    }
 }
 
 async function checkDependencies() {
@@ -204,9 +309,7 @@ async function createAdminUser() {
         if (!user) {
             const user = await createUser(email, undefined, "subscribed");
             const apikey: Apikey = await createApiKey(user.id, "App 1");
-            console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-            console.log(`@     API key: ${apikey.key}      @`);
-            console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            logger.info({ apiKey: apikey.key }, "Admin user created");
         }
     } catch (error) {
         logger.error({ error }, "Failed to create admin user");

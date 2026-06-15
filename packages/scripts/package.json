@@ -9,7 +9,7 @@
         "@aws-sdk/client-s3": "^3.0.0",
         "@medialit/models": "workspace:*",
         "dotenv": "^16.0.0",
-        "mongoose": "^8.0.0"
+        "mongoose": "^8.19.3"
     },
     "devDependencies": {
         "ts-node": "^10.9.1",

@@ -14,14 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: '21'
+          node-version: '22'
 
       - name: Configure CI Git User
         run: |
@@ -36,7 +36,7 @@ jobs:
 
       - name: Install pnpm 
         run: |
-          npm i pnpm@latest -g
+          npm i pnpm@10.7.1 -g
 
       - name: Install dependencies
         run: pnpm install 
@@ -49,7 +49,7 @@ jobs:
 
       - name: Build dependencies
         run: |
-          pnpm -r build
+          NODE_OPTIONS="--max-old-space-size=8192" pnpm -r build
 
       - name: Run test
         run: pnpm test

@@ -38,3 +38,7 @@ dist
 
 # IDE files
 .rgignore
+
+# Agent skills (clone manually from https://github.com/addyosmani/agent-skills)
+.agent-skills/
+.claude/

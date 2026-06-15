@@ -35,6 +35,7 @@ import GetPageProps from "./GetPageProps";
 import {
     deleteMediaQuery,
     getMedia,
+    getMediaCount,
     getPaginatedMedia,
     createMedia,
 } from "./queries";
@@ -233,6 +234,20 @@ async function getPage({
     );
 
     return mappedResult;
+}
+
+async function getMediaCountWithFilter({
+    userId,
+    apikey,
+    access,
+    group,
+}: GetPageProps): Promise<number> {
+    return await getMediaCount({
+        userId: String(userId),
+        apikey,
+        access,
+        group,
+    });
 }
 
 async function getMediaDetails({
@@ -476,6 +491,7 @@ async function sealMedia({
 export default {
     upload,
     getPage,
+    getMediaCount: getMediaCountWithFilter,
     getMediaDetails,
     deleteMedia,
     sealMedia,
