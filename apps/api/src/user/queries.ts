@@ -30,7 +30,7 @@ export async function createUser(
     // Automatically create a default API key for the new user
     await createApiKey(
         String(user.id || (user as any)._id),
-        "Default App",
+        process.env.DEFAULT_APP_NAME || "My Store",
         true,
     );
 
