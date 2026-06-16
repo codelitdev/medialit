@@ -14,7 +14,7 @@ export default (passport: any) => {
             #swagger.tags = ['Settings']
             #swagger.summary = 'Update Media Settings'
             #swagger.description = 'Update configuration for media processing.'
-            #swagger.security = [{ "apiKeyAuth": [] }]
+            #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
             #swagger.requestBody = {
                 required: true,
                 content: {
@@ -50,7 +50,7 @@ export default (passport: any) => {
             #swagger.tags = ['Settings']
             #swagger.summary = 'Get Media Settings'
             #swagger.description = 'Retrieve current media processing configuration.'
-            #swagger.security = [{ "apiKeyAuth": [] }]
+            #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
             #swagger.responses[200] = {
                 description: 'Settings retrieved successfully',
                 content: {

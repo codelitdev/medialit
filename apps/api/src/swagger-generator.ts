@@ -65,6 +65,11 @@ const doc = {
                 in: "header",
                 name: "x-medialit-apikey",
             },
+            bearerAuth: {
+                type: "http",
+                scheme: "bearer",
+                bearerFormat: "JWT",
+            },
             signatureAuth: {
                 type: "apiKey",
                 in: "header",

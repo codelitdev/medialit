@@ -2,6 +2,12 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+    ACCESS_TOKEN_COOKIE,
+    REFRESH_TOKEN_COOKIE,
+    USER_COOKIE,
+    revokeRefreshToken,
+} from "@/lib/oauth-session";
 
 export interface SessionUser {
     id: string;
@@ -16,8 +22,8 @@ export interface Session {
 
 export async function auth(): Promise<Session | null> {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("session_access_token")?.value;
-    const userJson = cookieStore.get("session_user")?.value;
+    const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
+    const userJson = cookieStore.get(USER_COOKIE)?.value;
 
     if (!accessToken || !userJson) {
         return null;
@@ -36,7 +42,9 @@ export async function auth(): Promise<Session | null> {
 
 export async function signOut() {
     const cookieStore = await cookies();
-    cookieStore.delete("session_access_token");
-    cookieStore.delete("session_user");
+    await revokeRefreshToken(cookieStore.get(REFRESH_TOKEN_COOKIE)?.value);
+    cookieStore.delete(ACCESS_TOKEN_COOKIE);
+    cookieStore.delete(REFRESH_TOKEN_COOKIE);
+    cookieStore.delete(USER_COOKIE);
     redirect("/login");
 }

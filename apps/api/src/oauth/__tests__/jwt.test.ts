@@ -3,11 +3,9 @@ import assert from "node:assert/strict";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
-// We must set OAUTH_SIGNING_KEY BEFORE importing jwt.ts (it reads at module load)
 const TEST_KEY = crypto.randomBytes(32).toString("hex");
 process.env["OAUTH_SIGNING_KEY"] = TEST_KEY;
 
-// Wrap dynamic import in an async IIFE so this works under CJS
 let signAccessToken: any,
     signRefreshToken: any,
     verifyAccessToken: any,
@@ -24,14 +22,38 @@ async function waitForImport() {
     while (!signAccessToken) await new Promise((r) => setTimeout(r, 10));
 }
 
-// -- round trip -----------------------------------------------------------
-
 test("signAccessToken -> verifyAccessToken round trip", async () => {
     await waitForImport();
     const token = signAccessToken("user-1", "client-1", ["read", "write"]);
     const payload = verifyAccessToken(token);
     assert.equal(payload?.sub, "user-1");
     assert.equal(payload?.cid, "client-1");
+    assert.deepEqual(payload?.scope, ["read", "write"]);
+    assert.equal(typeof payload?.exp, "number");
+});
+
+test("access token stores scope as an OAuth space-delimited string", async () => {
+    await waitForImport();
+    const token = signAccessToken("user-1", "client-1", ["read", "write"]);
+    const decoded = jwt.decode(token) as any;
+
+    assert.equal(decoded.scope, "read write");
+});
+
+test("verifyAccessToken accepts legacy array scope tokens", async () => {
+    await waitForImport();
+    const token = jwt.sign(
+        {
+            sub: "user-1",
+            cid: "client-1",
+            typ: "access",
+            scope: ["read", "write"],
+        },
+        TEST_KEY,
+        { algorithm: "HS256" },
+    );
+
+    const payload = verifyAccessToken(token);
     assert.deepEqual(payload?.scope, ["read", "write"]);
 });
 
@@ -42,9 +64,8 @@ test("signRefreshToken -> verifyRefreshToken round trip (jti present)", async ()
     assert.equal(payload?.sub, "user-1");
     assert.equal(payload?.cid, "client-1");
     assert.ok(payload?.jti, "refresh tokens must have a jti");
+    assert.equal(typeof payload?.exp, "number");
 });
-
-// -- type mismatch -------------------------------------------------------
 
 test("access token rejected as refresh token", async () => {
     await waitForImport();
@@ -57,8 +78,6 @@ test("refresh token rejected as access token", async () => {
     const refresh = signRefreshToken("user-1", "client-1");
     assert.equal(verifyAccessToken(refresh), null);
 });
-
-// -- tampered / wrong-key token ------------------------------------------
 
 test("token signed with a different key is rejected", async () => {
     await waitForImport();
@@ -77,8 +96,6 @@ test("garbage token is rejected", async () => {
     assert.equal(verifyAccessToken(""), null);
 });
 
-// -- expired token -------------------------------------------------------
-
 test("expired access token is rejected", async () => {
     await waitForImport();
     const expired = jwt.sign({ cid: "client-1", typ: "access" }, TEST_KEY, {
@@ -88,14 +105,3 @@ test("expired access token is rejected", async () => {
     });
     assert.equal(verifyAccessToken(expired), null);
 });
-
-// -- key rotation --------------------------------------------------------
-//
-// Note: testing key rotation end-to-end in-process is not possible because
-// jwt.ts reads OAUTH_SIGNING_KEY at module-load time and freezes it in the
-// KEYS array. To test rotation, a separate test process (or a different
-// file that imports jwt.ts with a pre-set comma-separated env var) is
-// required. The rotation behavior is exercised in production by setting
-// OAUTH_SIGNING_KEY="new,old" at server start. The verifyToken loop
-// itself is exercised by the "token signed with a different key" test
-// above (it tries every key in VERIFY_KEYS and rejects if none match).

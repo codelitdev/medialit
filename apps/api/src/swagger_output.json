@@ -139,6 +139,9 @@
         },
         "security": [
           {
+            "bearerAuth": []
+          },
+          {
             "apiKeyAuth": []
           }
         ],
@@ -201,6 +204,9 @@
           }
         },
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "apiKeyAuth": []
           }
@@ -268,6 +274,9 @@
         },
         "security": [
           {
+            "bearerAuth": []
+          },
+          {
             "apiKeyAuth": []
           }
         ],
@@ -280,7 +289,7 @@
           "Media"
         ],
         "summary": "Upload Media",
-        "description": "Upload a new media file. Use API key auth from Authorize (`x-medialit-apikey`) or pass `x-medialit-signature` for this endpoint only.",
+        "description": "Upload a new media file. Use OAuth Bearer auth, API key auth from Authorize (`x-medialit-apikey`), or pass `x-medialit-signature` for this endpoint only.",
         "parameters": [
           {
             "name": "x-medialit-signature",
@@ -357,6 +366,9 @@
           }
         },
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "apiKeyAuth": []
           },
@@ -446,6 +458,9 @@
         },
         "security": [
           {
+            "bearerAuth": []
+          },
+          {
             "apiKeyAuth": []
           }
         ],
@@ -498,6 +513,9 @@
           }
         },
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "apiKeyAuth": []
           }
@@ -576,6 +594,9 @@
         },
         "security": [
           {
+            "bearerAuth": []
+          },
+          {
             "apiKeyAuth": []
           }
         ],
@@ -644,6 +665,9 @@
           }
         },
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "apiKeyAuth": []
           }
@@ -732,6 +756,9 @@
         },
         "security": [
           {
+            "bearerAuth": []
+          },
+          {
             "apiKeyAuth": []
           }
         ],
@@ -802,6 +829,9 @@
         },
         "security": [
           {
+            "bearerAuth": []
+          },
+          {
             "apiKeyAuth": []
           }
         ],
@@ -815,6 +845,11 @@
         "type": "apiKey",
         "in": "header",
         "name": "x-medialit-apikey"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       },
       "signatureAuth": {
         "type": "apiKey",

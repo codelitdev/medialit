@@ -10,7 +10,7 @@ We will replace NextAuth completely in `apps/web` with a custom PKCE-based OAuth
 
 - Replace NextAuth exports with:
     - `auth()`: Reads `session_user` and `session_access_token` cookies. Returns `{ user, accessToken }` or null.
-    - `signOut()`: Triggers a redirect to `/api/auth/signout`.
+    - `signOut()`: Revokes `session_refresh_token`, clears session cookies, and redirects to `/login`.
 
 #### [DELETE] [auth.config.ts](file:///home/rajat/dev/proj/medialit/apps/web/auth.config.ts)
 
@@ -20,6 +20,9 @@ We will replace NextAuth completely in `apps/web` with a custom PKCE-based OAuth
 
 - Implement custom routing protection:
     - Check if `session_access_token` cookie exists.
+    - If the access token is missing, expired, or near expiry while a refresh token exists, use `session_refresh_token` to call `/oauth/token` with `grant_type=refresh_token`.
+    - Store the rotated `access_token` and `refresh_token` cookies returned by the OAuth server.
+    - If refresh fails, clear local session cookies and redirect to `/login`.
     - If not, redirect unauthenticated users to `/login`.
     - Exclude `/login`, `/api/auth/callback/medialit`, `/api/auth/signout`, and static assets from routing protection.
 
@@ -38,13 +41,14 @@ We will replace NextAuth completely in `apps/web` with a custom PKCE-based OAuth
     - Retrieve `oauth_code_verifier` from cookies.
     - Perform token exchange at `${process.env.API_SERVER}/oauth/token`.
     - Retrieve user profile at `${process.env.API_SERVER}/oauth/userinfo`.
-    - Save `session_access_token` and `session_user` in secure HTTP-only cookies.
+    - Save `session_access_token`, `session_refresh_token`, and `session_user` in secure HTTP-only cookies.
     - Redirect to `/`.
 
 #### [NEW] [route.ts](file:///home/rajat/dev/proj/medialit/apps/web/app/api/auth/signout/route.ts)
 
 - Create signout endpoint:
-    - Clear `session_access_token` and `session_user` cookies.
+    - Revoke `session_refresh_token` via `${process.env.API_SERVER}/oauth/revoke`.
+    - Clear `session_access_token`, `session_refresh_token`, and `session_user` cookies.
     - Redirect to `/login`.
 
 #### [MODIFY] [auth-button.tsx](file:///home/rajat/dev/proj/medialit/apps/web/components/auth-button.tsx)
@@ -62,5 +66,6 @@ We will replace NextAuth completely in `apps/web` with a custom PKCE-based OAuth
 - Unauthenticated access redirects to `/login`.
 - Verify the API's styled authorization screen is presented.
 - Entering OTP redirects back to `/` with cookies set.
+- Near-expired access tokens are refreshed and refresh-token rotation updates both token cookies.
 - Deleting cookies triggers redirect back to `/login`.
-- Clicking Sign out clears cookies and redirects to `/login`.
+- Clicking Sign out revokes the refresh token, clears cookies, and redirects to `/login`.

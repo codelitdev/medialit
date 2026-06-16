@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import {
+    ACCESS_TOKEN_COOKIE,
+    DEFAULT_ACCESS_TOKEN_MAX_AGE_SECONDS,
+    REFRESH_TOKEN_COOKIE,
+    REFRESH_TOKEN_MAX_AGE_SECONDS,
+    USER_COOKIE,
+    tokenCookieOptions,
+} from "@/lib/oauth-session";
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -18,7 +26,6 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${origin}/api/auth/callback/medialit`;
 
     try {
-        // 1. Exchange authorization code for token
         const tokenResponse = await fetch(
             `${process.env.API_SERVER}/oauth/token`,
             {
@@ -44,14 +51,14 @@ export async function GET(request: NextRequest) {
 
         const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
+        const refreshToken = tokenData.refresh_token;
 
-        if (!accessToken) {
-            return new NextResponse("No access token returned", {
+        if (!accessToken || !refreshToken) {
+            return new NextResponse("No access or refresh token returned", {
                 status: 400,
             });
         }
 
-        // 2. Fetch UserInfo
         const userinfoResponse = await fetch(
             `${process.env.API_SERVER}/oauth/userinfo`,
             {
@@ -68,16 +75,22 @@ export async function GET(request: NextRequest) {
 
         const userData = await userinfoResponse.json();
 
-        // 3. Set cookies and redirect
-        cookieStore.set("session_access_token", accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-        });
+        cookieStore.set(
+            ACCESS_TOKEN_COOKIE,
+            accessToken,
+            tokenCookieOptions(
+                Number(tokenData.expires_in) ||
+                    DEFAULT_ACCESS_TOKEN_MAX_AGE_SECONDS,
+            ),
+        );
+        cookieStore.set(
+            REFRESH_TOKEN_COOKIE,
+            refreshToken,
+            tokenCookieOptions(REFRESH_TOKEN_MAX_AGE_SECONDS),
+        );
 
         cookieStore.set(
-            "session_user",
+            USER_COOKIE,
             JSON.stringify({
                 id: userData.sub,
                 email: userData.email,

@@ -17,8 +17,9 @@
 > **Resolution (now in code):** access and refresh tokens are **stateless
 > HS256-signed JWTs** (`src/oauth/jwt.ts`), self-contained and verifiable without
 > any state lookup. `src/oauth/model.ts` no longer keeps token `Map`s — only an
-> in-memory auth-code `Map` (5-min TTL) and a refresh-token `jti` deny-list for
-> explicit `/oauth/revoke`. See §6.7 for the full design.
+> in-memory auth-code `Map` (5-min TTL). Refresh-token revocation is persisted
+> in MongoDB so explicit `/oauth/revoke` survives redeploys. See §6.7 for the
+> full design.
 
 ## 1. Objective
 
@@ -144,7 +145,6 @@ apps/api/src/
 ├── mcp/
 │   ├── server.ts           ← Creates McpServer with StreamableHTTPTransport,
 │   │                          imports + registers all tools
-│   ├── auth-middleware.ts  ← Unified auth: Bearer token OR x-medialit-apikey
 │   └── tools/
 │       ├── media.ts        ← list_media, get_media, get_media_count,
 │       │                      get_media_size, delete_media, seal_media
@@ -161,12 +161,17 @@ apps/api/src/
 │   └── middleware.ts       ← Express middleware for Bearer token
 │                              introspection on any route
 │
+├── auth/
+│   ├── resolve-auth.ts     ← Shared resolver: Bearer token OR
+│   │                          x-medialit-apikey
+│   └── middleware.ts       ← Shared REST/MCP auth middleware factory
+│
 └── (rest of API structure)
 ```
 
 The OAuth module is a **standalone generic OAuth 2.0 Authorization Server** — it has no dependency on MCP. Any consumer (MCP tools, web frontend API routes, mobile app backends) can import `oauth/middleware.ts` to validate Bearer tokens or call `oauth/model.ts` directly for token introspection.
 
-The MCP-specific auth middleware (`mcp/auth-middleware.ts`) imports from the oauth module to validate Bearer tokens — it is a consumer of the generic OAuth server, not part of it.
+The shared auth middleware (`auth/middleware.ts`) imports from the oauth module to validate Bearer tokens and exposes REST and MCP adapters — it is a consumer of the generic OAuth server, not part of it.
 
 ## 4. Dependencies
 
@@ -243,7 +248,7 @@ The tool decodes the base64 string into a `Buffer`, writes it to a temp file in 
 The authentication system has two independent mechanisms that can be used together or separately:
 
 - **OAuth 2.0 Authorization Code + PKCE** — A generic, standalone OAuth 2.0 Authorization Server module at `src/oauth/`. Used by ChatGPT MCP connectors, the web frontend (`apps/web`), and future mobile apps.
-- **API Key (legacy)** — The existing `x-medialit-apikey` header auth, used by CLI/agent clients (Claude Code, Cursor). Remains in `src/mcp/auth-middleware.ts`.
+- **API Key (legacy)** — The existing `x-medialit-apikey` header auth, used by CLI/agent clients (Claude Code, Cursor). Handled by the shared auth resolver in `src/auth/resolve-auth.ts`.
 
 Both mechanisms resolve to the same internal `userId` before tools execute.
 
@@ -282,9 +287,11 @@ src/oauth/
 
 The `src/oauth/` module is mounted at `/oauth/*` (plus the `/.well-known` discovery endpoint) in `src/index.ts`. No MCP-specific `/mcp/authorize` / `/mcp/token` / `/mcp/revoke` aliases exist — they were considered for backward compat but never needed, since MCP clients discover the `/oauth/*` endpoints via `/.well-known/oauth-authorization-server`.
 
-### 6.2 API Key Auth (MCP-specific, legacy)
+`/oauth/register` is public for MCP client compatibility, but is rate-limited and accepts only public PKCE clients. Registered redirect URIs must be HTTPS, except localhost or loopback development URLs, and must not contain fragments or credentials.
 
-Unchanged from the original design. Used by Claude Code, Cursor, and any programmatic client that can set custom HTTP headers. Defined in `src/mcp/auth-middleware.ts`.
+### 6.2 API Key Auth (legacy)
+
+Unchanged from the original design. Used by Claude Code, Cursor, and any programmatic client that can set custom HTTP headers. Defined in `src/auth/resolve-auth.ts` and exposed through the shared middleware factory in `src/auth/middleware.ts`.
 
 | Header              | Value       | Validated against                                   |
 | ------------------- | ----------- | --------------------------------------------------- |
@@ -315,7 +322,7 @@ The authorization endpoint is split into two stages. Our code owns the user-iden
 **Stage 1 — User login (our code):**
 
 1. Client redirects to `GET /oauth/authorize?response_type=code&client_id=...&redirect_uri=...&code_challenge=...&code_challenge_method=S256&state=...`
-2. Server validates `client_id` and `redirect_uri` against registered clients
+2. Server validates `client_id` and exact `redirect_uri` against registered clients
 3. Server stashes the full query string (including PKCE parameters) in a short-lived session (TTL: 10 minutes)
 4. Server renders an HTML login page — user enters their email address
 5. Server sends an OTP/magic link email
@@ -337,7 +344,7 @@ The authorization endpoint is split into two stages. Our code owns the user-iden
 2. Client initiates OAuth flow via the authorization page, user authenticates with OTP
 3. Client receives authorization code and exchanges it at `POST /oauth/token` for an access token
 4. Client sends the access token as `Authorization: Bearer *** on every MCP request (`POST /mcp`)
-5. The MCP auth middleware (`src/mcp/auth-middleware.ts`) validates the token by calling `oauth/middleware.ts`'s `validateBearerToken()`
+5. The MCP auth middleware exported from `src/auth/middleware.ts` validates the token through `src/auth/resolve-auth.ts`, which calls `oauth/middleware.ts`'s `validateBearerToken()`
 
 #### 6.5.2 Web Frontend (`apps/web`)
 
@@ -385,7 +392,7 @@ export async function validateBearerToken(
 }
 ```
 
-This is used by `src/mcp/auth-middleware.ts` (for MCP requests) and can be used by any other consumer (web API routes, mobile app backends, etc.).
+This is used by `src/auth/resolve-auth.ts` for REST and MCP requests and can be used by any other consumer (web API routes, mobile app backends, etc.).
 
 ### 6.7 OAuth Model & Server Configuration — **REVISED 2026-06-14**
 
@@ -406,11 +413,11 @@ Tokens were **opaque random hex strings** (`crypto.randomBytes(32).toString("hex
 
 Replace the in-memory access-token store with **HMAC-SHA-256 (HS256) JSON Web Tokens** that are self-contained and verifiable without any state lookup. The server signs them once at issuance and verifies the signature on every request. No Map. No restart invalidation.
 
-| Store              | Pre-revision                        | Post-revision                                                                                                       |
-| ------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Auth codes**     | In-memory `Map` (5 min TTL)         | **In-memory `Map` (5 min TTL)** — unchanged. Codes are single-use and short-lived; restart loss is acceptable.      |
-| **Access tokens**  | In-memory `Map` (opaque random hex) | **Signed JWT, HS256** (stateless, verified via `jsonwebtoken`)                                                      |
-| **Refresh tokens** | In-memory `Map` (opaque random hex) | **Signed JWT, HS256, type=`refresh`** — verifiable on its own; optional in-memory deny-list for explicit revocation |
+| Store              | Pre-revision                        | Post-revision                                                                                                             |
+| ------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Auth codes**     | In-memory `Map` (5 min TTL)         | **In-memory `Map` (5 min TTL)** — unchanged. Codes are single-use and short-lived; restart loss is acceptable.            |
+| **Access tokens**  | In-memory `Map` (opaque random hex) | **Signed JWT, HS256** (stateless, verified via `jsonwebtoken`)                                                            |
+| **Refresh tokens** | In-memory `Map` (opaque random hex) | **Signed JWT, HS256, type=`refresh`** — verifiable on its own; persistent MongoDB `jti` deny-list for explicit revocation |
 
 **Why HS256 (symmetric) and not RS256/ES256 (asymmetric)?** MediaLit's OAuth is a single-tenant system — the same server that signs a token is the only server that verifies it. HS256 is simpler, faster, smaller, and has no key-distribution problem. Asymmetric keys only matter in multi-tenant/federated setups where a resource server needs to verify tokens without holding the signing key.
 
@@ -474,7 +481,7 @@ const KEYS = (process.env.OAUTH_SIGNING_KEY || "")
 const SIGNING_KEY = KEYS[0]; // first key signs new tokens
 const VERIFY_KEYS = KEYS; // all keys accepted for verification (rotation)
 
-const ACCESS_TOKEN_TTL = Number(process.env.MCP_TOKEN_TTL_SECONDS) || 3600;
+const ACCESS_TOKEN_TTL = Number(process.env.TOKEN_TTL_SECONDS) || 900;
 const REFRESH_TOKEN_TTL = 60 * 60 * 24 * 30; // 30 days
 
 export function signAccessToken(
@@ -549,13 +556,12 @@ The model's responsibilities shrink dramatically — it no longer needs to store
 - Authorization code storage (short-lived, in-memory is fine) — **unchanged**
 - PKCE verification — handled by the library, not the model
 - Token **issuance** — now just signs JWTs and returns them to the library
-- Token **revocation** — only refresh tokens are tracked in a deny-list (for explicit `/oauth/revoke` support); access tokens expire naturally
+- Token **revocation** — only refresh tokens are tracked in a persisted MongoDB deny-list (for explicit `/oauth/revoke` support); access tokens expire naturally
 
 ```typescript
 // src/oauth/model.ts (AFTER)
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./jwt";
-
-const refreshTokenDenylist = new Set<string>(); // jti values that have been revoked
+import OauthRevokedToken from "./revoked-token-model";
 
 export const oauthModel: OAuth2Server.AuthorizationCodeModel = {
     // ... getClient, saveAuthorizationCode, getAuthorizationCode, revokeAuthorizationCode
@@ -570,13 +576,9 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel = {
 
         return {
             accessToken,
-            accessTokenExpiresAt: new Date(
-                Date.now() + ACCESS_TOKEN_TTL * 1000,
-            ),
+            accessTokenExpiresAt: token.accessTokenExpiresAt,
             refreshToken,
-            refreshTokenExpiresAt: new Date(
-                Date.now() + REFRESH_TOKEN_TTL * 1000,
-            ),
+            refreshTokenExpiresAt: token.refreshTokenExpiresAt,
             scope: token.scope,
             client: { id: clientId },
             user: { id: userId },
@@ -599,7 +601,12 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel = {
     async getRefreshToken(refreshToken) {
         const payload = verifyRefreshToken(refreshToken);
         if (!payload) return null;
-        if (payload.jti && refreshTokenDenylist.has(payload.jti)) return null;
+        if (
+            payload.jti &&
+            (await OauthRevokedToken.findOne({ jti: payload.jti }).lean())
+        ) {
+            return null;
+        }
         return {
             refreshToken,
             refreshTokenExpiresAt: new Date(payload.exp * 1000),
@@ -611,7 +618,22 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel = {
 
     async revokeToken(token: StoredRefreshToken) {
         const payload = verifyRefreshToken(token.refreshToken);
-        if (payload?.jti) refreshTokenDenylist.add(payload.jti);
+        if (payload?.jti) {
+            await OauthRevokedToken.updateOne(
+                { jti: payload.jti },
+                {
+                    $setOnInsert: {
+                        jti: payload.jti,
+                        tokenType: "refresh_token",
+                        userId: payload.sub,
+                        clientId: payload.cid,
+                        expiresAt: token.refreshTokenExpiresAt,
+                        revokedAt: new Date(),
+                    },
+                },
+                { upsert: true },
+            );
+        }
         return true;
     },
 };
@@ -625,7 +647,7 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel = {
 | Server restart, valid refresh token       | ❌ Rejected (`invalid_grant`)                               | ✅ Still valid (signature + `exp` + not in deny-list)          |
 | Server restart, valid auth code           | ❌ Rejected (but it was already expired after 5 min anyway) | ❌ Rejected (same) — acceptable                                |
 | Token `exp` reached                       | ❌ Rejected (sweep in 5 min)                                | ✅ Rejected immediately (verified at use)                      |
-| Explicit `/oauth/revoke` of refresh token | ✅ Denied                                                   | ✅ Denied via deny-list (`jti`)                                |
+| Explicit `/oauth/revoke` of refresh token | ✅ Denied                                                   | ✅ Denied via persisted deny-list (`jti`)                      |
 | Explicit `/oauth/revoke` of access token  | ⚠️ Best-effort only                                         | ⚠️ Still best-effort (JWT is stateless) — documented in §6.7.7 |
 | Two API instances behind a load balancer  | ❌ Tokens don't transfer between instances                  | ✅ Any instance can verify any token (stateless)               |
 | Compromised signing key                   | ❌ Attacker can mint tokens indefinitely                    | ✅ Rotate `OAUTH_SIGNING_KEY`; old tokens expire naturally     |
@@ -633,13 +655,13 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel = {
 
 #### 6.7.7 Access-token revocation: known limitation
 
-JWT access tokens **cannot be selectively revoked before their `exp`**. The `/oauth/revoke` endpoint can deny-list a refresh token (via its `jti`), but revoking an access token before it naturally expires is not possible without a per-token server-side lookup — which is the in-memory store problem this revision is solving.
+JWT access tokens **cannot be selectively revoked before their `exp`**. The `/oauth/revoke` endpoint can deny-list a refresh token (via its `jti`), but revoking an access token before it naturally expires is not possible without a per-token server-side lookup — which is the token-store problem this revision is avoiding for normal API requests.
 
 This is an accepted, industry-standard trade-off. The mitigations are:
 
-- Access tokens are short-lived (1 hour default).
+- Access tokens are short-lived (15 minutes by default).
 - Logout (`/oauth/revoke`) always revokes the refresh token, so the next refresh fails — the client must re-authorize.
-- Stolen access tokens are only useful for the remaining 1 hour. After that, the attacker needs the refresh token (which has been revoked).
+- Stolen access tokens are only useful for the remaining token lifetime. After that, the attacker needs the refresh token (which has been revoked).
 - Clients can be told to drop their cached access token on logout, which closes the window further.
 
 If a need arises to revoke access tokens in real time (e.g. compliance "right to be forgotten"), the path is: add a `jti` to every access token and a Redis-backed deny-list to the `verifyAccessToken` helper. This is a future enhancement, not in scope for this revision.
@@ -649,23 +671,23 @@ If a need arises to revoke access tokens in real time (e.g. compliance "right to
 While we're in the file, fix the following pre-existing issues:
 
 1. **Refresh tokens must be rotated on use.** Set `alwaysIssueNewRefreshToken: true` on the `OAuth2Server` (already done in current code — confirm).
-2. **The `pendingAuths` Map is the only thing the OTP flow depends on, and that's fine** — the OTP itself is the proof of user identity and is already short-lived. No persistence needed.
+2. **Pending OAuth/OTP sessions are persisted to MongoDB** — the `oauthpendingauths` collection stores the short-lived authorization-page state with a TTL index, so the flow works across API restarts and multiple API instances.
 3. **Authorization code storage remains in-memory** — codes are 5-minute, single-use, and there's nothing of value to persist.
-4. **The `MCP_TOKEN_TTL_SECONDS` env var is the source of truth for access-token lifetime.** No new env var is needed for the refresh-token lifetime (it's hard-coded to 30 days; if we need to make it configurable later, that's a separate change).
+4. **The `TOKEN_TTL_SECONDS` env var is the source of truth for access-token lifetime.** No new env var is needed for the refresh-token lifetime (it's hard-coded to 30 days; if we need to make it configurable later, that's a separate change).
 
-#### 6.7.9 Migration Plan (additive — no DB schema change)
+#### 6.7.9 Migration Plan (additive)
 
-| Step | What                                                                                                                                                                                                                                    | Impact                                                                                                                                                                                                            |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Add `OAUTH_SIGNING_KEY` to `.env` (generate with `openssl rand -base64 48`)                                                                                                                                                             | New env var; no functional change yet                                                                                                                                                                             |
-| 2    | Add boot-time validation in `src/index.ts` `checkConfig()`                                                                                                                                                                              | Server refuses to start without the key — fail-fast                                                                                                                                                               |
-| 3    | Create `src/oauth/jwt.ts` with `signAccessToken` / `signRefreshToken` / `verifyToken` helpers                                                                                                                                           | New file, no behavior change                                                                                                                                                                                      |
-| 4    | Refactor `src/oauth/model.ts`: remove `accessTokens` and `refreshTokens` Maps; rewire `saveToken` / `getAccessToken` / `getRefreshToken` / `revokeToken` to use the JWT helpers; add `refreshTokenDenylist` Set for explicit revocation | **All existing tokens are invalidated** at the moment of deploy — clients must re-authorize once. This is the same one-time pain as the current restart behavior, except it happens exactly once and never again. |
-| 5    | Add unit tests for `jwt.ts` (sign/verify/exp/type-mismatch/wrong-key/deny-list)                                                                                                                                                         | Required for any change that touches crypto                                                                                                                                                                       |
-| 6    | Verify the existing `validateBearerToken` contract in `oauth/middleware.ts` still returns the same shape it used to (userId). Document the new return type `{ userId, clientId, scopes }`.                                              | Callers in `mcp/auth-middleware.ts` should pick up `clientId` and `scopes` opportunistically (no breaking change — they previously ignored them)                                                                  |
-| 7    | Update `.env.example` with the new variable and a doc comment on how to generate it                                                                                                                                                     | Docs only                                                                                                                                                                                                         |
+| Step | What                                                                                                                                                                                                                                            | Impact                                                                                                                                                                                                            |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Add `OAUTH_SIGNING_KEY` to `.env` (generate with `openssl rand -base64 48`)                                                                                                                                                                     | New env var; no functional change yet                                                                                                                                                                             |
+| 2    | Add boot-time validation in `src/index.ts` `checkConfig()`                                                                                                                                                                                      | Server refuses to start without the key — fail-fast                                                                                                                                                               |
+| 3    | Create `src/oauth/jwt.ts` with `signAccessToken` / `signRefreshToken` / `verifyToken` helpers                                                                                                                                                   | New file, no behavior change                                                                                                                                                                                      |
+| 4    | Refactor `src/oauth/model.ts`: remove `accessTokens` and `refreshTokens` Maps; rewire `saveToken` / `getAccessToken` / `getRefreshToken` / `revokeToken` to use the JWT helpers; persist revoked refresh-token JTIs in MongoDB with a TTL index | **All existing tokens are invalidated** at the moment of deploy — clients must re-authorize once. This is the same one-time pain as the current restart behavior, except it happens exactly once and never again. |
+| 5    | Add unit tests for `jwt.ts` (sign/verify/exp/type-mismatch/wrong-key/deny-list)                                                                                                                                                                 | Required for any change that touches crypto                                                                                                                                                                       |
+| 6    | Verify the existing `validateBearerToken` contract in `oauth/middleware.ts` still returns the same shape it used to (userId). Document the new return type `{ userId, clientId, scopes }`.                                                      | The shared auth middleware should pick up `clientId` and `scopes` opportunistically for MCP requests (no breaking change — REST callers ignore them)                                                              |
+| 7    | Update `.env.example` with the new variable and a doc comment on how to generate it                                                                                                                                                             | Docs only                                                                                                                                                                                                         |
 
-**No DCR client data is affected** — the dynamic-client registration store is already persisted to `data/dcr-clients.json` and is independent of the token store.
+**No DCR client data is affected** — dynamic-client registrations are persisted to the MongoDB `oauthclients` collection and are independent of the token store.
 
 #### 6.7.10 Configuration (post-revision)
 
@@ -675,7 +697,7 @@ const oauth = new OAuth2Server({
     model: oauthModel,
     allowEmptyState: true,
     allowExtendedTokenAttributes: true,
-    accessTokenLifetime: Number(process.env.MCP_TOKEN_TTL_SECONDS) || 3600,
+    accessTokenLifetime: Number(process.env.TOKEN_TTL_SECONDS) || 900,
     refreshTokenLifetime: 60 * 60 * 24 * 30, // 30 days
     authorizationCodeLifetime: 5 * 60,
     requireClientAuthentication: {
@@ -686,12 +708,13 @@ const oauth = new OAuth2Server({
 });
 ```
 
-| Store                   | Value                                                                              | Lifetime                                          | Survives restart?     |
-| ----------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------- |
-| Auth code               | `{ userId, redirectUri, codeChallenge, codeChallengeMethod }`                      | 5 minutes                                         | ❌ (acceptable)       |
-| Access token            | Signed JWT, stateless verification                                                 | 1 hour (configurable via `MCP_TOKEN_TTL_SECONDS`) | ✅                    |
-| Refresh token           | Signed JWT, optional `jti` deny-list                                               | 30 days                                           | ✅ (deny-list resets) |
-| DCR client registration | `{ clientId, redirectUris, grantTypes, ... }` persisted to `data/dcr-clients.json` | Indefinite                                        | ✅ (already worked)   |
+| Store                   | Value                                                                                         | Lifetime                                          | Survives restart? |
+| ----------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------- |
+| Auth code               | `{ userId, redirectUri, codeChallenge, codeChallengeMethod }`                                 | 5 minutes                                         | ❌ (acceptable)   |
+| Pending OAuth/OTP state | `{ pendingId, clientId, redirectUri, otpHash, ... }` persisted to MongoDB `oauthpendingauths` | 10 minutes                                        | ✅                |
+| Access token            | Signed JWT, stateless verification                                                            | 15 minutes (configurable via `TOKEN_TTL_SECONDS`) | ✅                |
+| Refresh token           | Signed JWT, persisted `jti` deny-list in MongoDB `oauthrevokedtokens`                         | 30 days                                           | ✅                |
+| DCR client registration | `{ clientId, redirectUris, grantTypes, ... }` persisted to MongoDB `oauthclients`             | Indefinite                                        | ✅                |
 
 ### 6.8 Migration Plan (overall, unchanged from before)
 
@@ -716,12 +739,12 @@ Steps:
 1. Install `@modelcontextprotocol/sdk`
 2. Create `server.ts` — `new McpServer({ name: "medialit", version: "1.0.0" })` with `StreamableHTTPServerTransport`
 3. Register read-only tools: `list_media`, `get_media`, `get_media_count`, `get_media_size`, `get_media_settings` (note: the `health_check` tool that shipped in the original rollout was removed in the Phase 3.5 cleanup — server reachability is now verified by the existing `/health` REST endpoint)
-4. Create `auth-middleware.ts` with API key path only (OAuth path stubbed)
+4. Create `auth/middleware.ts` with API key path only (OAuth path stubbed)
 5. Mount in `apps/api/src/index.ts`:
 
     ```typescript
     import { MCPServer } from "./mcp/server";
-    import { mcpAuth } from "./mcp/auth-middleware";
+    import { mcpAuth } from "./auth/middleware";
 
     const mcpServer = new MCPServer();
     app.post("/mcp", mcpAuth, (req, res) =>
@@ -757,13 +780,13 @@ Steps:
 
 8. Install `@node-oauth/oauth2-server`
 9. Create `src/oauth/` module:
-    - `model.ts` — `AuthorizationCodeModel` backed by three in-memory `Map` instances (auth codes, access tokens, refresh tokens) with a TTL sweep + DCR persistence to `data/dcr-clients.json`
+    - `model.ts` — `AuthorizationCodeModel` backed by in-memory authorization-code storage, stateless JWT access/refresh tokens, and DCR persistence in MongoDB `oauthclients`
     - `server.ts` — create the `OAuth2Server` instance with `requirePKCE: true`, `allowEmptyState: true`, `allowExtendedTokenAttributes: true`; register static MCP clients + first-party web/mobile clients; export Express router for `/.well-known/oauth-authorization-server`, `GET /oauth/authorize`, `POST /oauth/token`, `POST /oauth/revoke`, `POST /oauth/register`
     - `authorize-page.ts` — extract the inline HTML into a templated module
     - `middleware.ts` — generic `validateBearerToken()` for any Express route
 10. Build the Stage 1 authorization handler — email input → OTP send → OTP verify → call library's `authorize()` middleware with resolved user
 11. Mount the OAuth router at `/oauth/*` in `index.ts` (before `mcpAuth` middleware, no auth required), with legacy `/mcp/*` aliases for backward compat
-12. Wire the `Authorization: Bearer` path into `mcp/auth-middleware.ts` using `oauth/model.ts`
+12. Wire the `Authorization: Bearer` path into `auth/middleware.ts` using `auth/resolve-auth.ts`
 13. Update `mcp/oauth-server.ts` and `mcp/oauth-model.ts` to re-export from `src/oauth/` (backward compat)
 14. Test the full flow using MCP Inspector OAuth mode
 15. Connect ChatGPT MCP connector and verify end-to-end
@@ -783,12 +806,12 @@ Steps:
     - Remove `accessTokens` and `refreshTokens` `Map` instances
     - `saveToken` — sign access+refresh JWTs, return them with correct `accessTokenExpiresAt` / `refreshTokenExpiresAt`
     - `getAccessToken` — verify JWT, return synthetic `StoredAccessToken` shape
-    - `getRefreshToken` — verify JWT, check deny-list, return synthetic `StoredRefreshToken` shape
-    - `revokeToken` — add `jti` to the in-memory `refreshTokenDenylist` Set
+    - `getRefreshToken` — verify JWT, check persisted deny-list, return synthetic `StoredRefreshToken` shape
+    - `revokeToken` — persist `jti` in MongoDB `oauthrevokedtokens`
     - Keep `authorizationCodes` Map and `setInterval` sweep unchanged
 20. Update `src/oauth/middleware.ts` to use the new `verifyAccessToken` helper, return `{ userId, clientId, scopes }`
-21. Update `src/mcp/auth-middleware.ts` to consume the new richer return type (pick up `clientId` and `scopes` opportunistically — no breaking change)
-22. Add unit tests in `apps/api/src/oauth/__tests__/jwt.test.ts` covering: sign/verify round-trip, expired token, wrong key, type mismatch, key rotation, deny-list
+21. Update `src/auth/middleware.ts` to consume the new richer return type (pick up `clientId` and `scopes` opportunistically for MCP mode — no breaking change)
+22. Add unit tests in `apps/api/src/oauth/__tests__/jwt.test.ts` covering: sign/verify round-trip, expired token, wrong key, type mismatch, key rotation; add model tests for persisted refresh-token revocation
 23. Update `.env.example` with `OAUTH_SIGNING_KEY=<value>` and a doc comment
 24. End-to-end smoke test: `hermes mcp login` → get a token → restart the server → confirm the same token still works on the next `tools/list` call
 
@@ -803,7 +826,7 @@ Steps:
 25. Add Zod input schema validation to all tools
 26. Create `__tests__/mcp/` with unit tests for tool schemas and OAuth model methods
 27. Audit error messages — `isError: true` with actionable text on all tool failures
-28. Add `MCP_TOKEN_TTL_SECONDS` to `.env.example`
+28. Add `TOKEN_TTL_SECONDS` to `.env.example`
 
 **Deliverables:** Test suite, validation, production-ready error handling.
 
@@ -862,7 +885,7 @@ In `apps/api/src/index.ts`, add after existing route registrations:
 
 ```typescript
 import { createMCPSession } from "./mcp/server";
-import { mcpAuth } from "./mcp/auth-middleware";
+import { mcpAuth } from "./auth/middleware";
 import { oauthRouter } from "./oauth/server";
 
 // OAuth endpoints (no auth middleware — these are part of the auth flow)
@@ -903,7 +926,7 @@ ChatGPT MCP connectors require OAuth 2.0 — API keys are not supported. Use the
 6. Complete login — you are redirected back to ChatGPT with an authorization code
 7. ChatGPT exchanges the code at `POST /oauth/token` for an access token
 8. All subsequent MCP requests use `Authorization: Bearer ***`
-9. Tokens expire after 1 hour; ChatGPT automatically refreshes using the refresh token
+9. Access tokens expire after 15 minutes by default; ChatGPT automatically refreshes using the refresh token
 
 No API key is needed for this flow.
 
@@ -980,8 +1003,10 @@ await client.connect(transport);
 - **Rate limiting:** Per-key and per-token rate limiting for MCP endpoint
 - **Logging:** Structured MCP request logging (separate from REST logs for observability)
 - **Access-token revocation (real-time):** Add a `jti` to every access token and a Redis-backed deny-list for `verifyAccessToken`. Solves the "right to be forgotten" / stolen-token case. Deferred from this revision per §6.7.7.
+- **Configured OAuth issuer:** Use an explicit `OAUTH_ISSUER` / `API_SERVER` value for authorization-server metadata instead of deriving issuer URLs from `Host` / `X-Forwarded-Host` headers.
+- **JWT issuer/audience claims:** Add and validate `iss` and `aud` claims on OAuth access and refresh tokens.
 - **Asymmetric keys (RS256/ES256):** Switch from HS256 to RS256/ES256 when we need a separate resource server (e.g. a CDN edge worker) to verify tokens without holding the signing key
 - **Dynamic client registration (already done):** RFC 7591 endpoint so third-party apps can register without a code change
-- **Scopes:** Fine-grained OAuth scopes (`mcp:read`, `mcp:write`) to allow read-only OAuth clients
+- **Scopes:** Fine-grained OAuth scopes (`mcp:read`, `mcp:write`) to allow read-only OAuth clients. Current OAuth access is effectively full account access.
 - **Versioned transport:** Support multiple protocol versions if MCP spec evolves
 - **Auto-seal on upload:** Add an optional `seal: true` parameter to `upload_media` that atomically uploads and seals in a single call. Useful for simple agents that don't need the draft/temp stage. The default (no `seal` arg) must remain the current two-step flow to preserve parity with the REST API.

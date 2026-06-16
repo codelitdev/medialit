@@ -8,7 +8,6 @@ import {
     type MediaWithUserId,
 } from "@medialit/models";
 
-// removed: was `export interface CountMediaFilter` — never referenced anywhere
 export function buildMediaCountQuery({
     userId,
     apikey,

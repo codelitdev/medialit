@@ -1,9 +1,8 @@
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
-import { spawnSync } from "child_process";
 import type OAuth2Server from "@node-oauth/oauth2-server";
 import logger from "../services/log";
+import OauthClient from "./client-model";
+import OauthRevokedToken from "./revoked-token-model";
 import {
     signAccessToken,
     signRefreshToken,
@@ -12,17 +11,6 @@ import {
     ACCESS_TOKEN_TTL_SECONDS,
     REFRESH_TOKEN_TTL_SECONDS,
 } from "./jwt";
-
-// In-memory deny-list of revoked refresh-token jti values.
-// Reset on server restart — that's acceptable per the PRD §6.7.7:
-// clients must re-authorize if their token was revoked just before a
-// crash, and the access-token lifetime is short enough that the window
-// is small.
-const refreshTokenDenylist = new Set<string>();
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 interface StoredAuthorizationCode {
     authorizationCode: string;
@@ -51,23 +39,9 @@ interface StoredRefreshToken {
     user: OAuth2Server.User;
 }
 
-// ---------------------------------------------------------------------------
-// In-memory stores
-// ---------------------------------------------------------------------------
-//
-// Authorization codes are kept in memory because they are short-lived
-// (5 minute TTL) and single-use. Restart loss is acceptable.
-//
-// Access and refresh tokens are NOT stored here — they are stateless
-// signed JWTs verified by ./jwt.ts. See PRD §6.7.
-
 const authorizationCodes = new Map<string, StoredAuthorizationCode>();
 
-// ---------------------------------------------------------------------------
-// TTL sweep (every 5 minutes)
-// ---------------------------------------------------------------------------
-
-setInterval(
+const authorizationCodeSweep = setInterval(
     () => {
         const now = new Date();
         authorizationCodes.forEach((data, code) => {
@@ -76,8 +50,8 @@ setInterval(
     },
     5 * 60 * 1000,
 );
+authorizationCodeSweep.unref?.();
 
-// ---------------------------------------------------------------------------
 const STATIC_CLIENTS: Record<string, { redirectUris: string[] }> = {
     "web-client": {
         redirectUris: [
@@ -89,102 +63,118 @@ const STATIC_CLIENTS: Record<string, { redirectUris: string[] }> = {
     },
 };
 
-// ---------------------------------------------------------------------------
-// Dynamically-registered clients (DCR / RFC 7591)
-// ---------------------------------------------------------------------------
-
 interface DynamicClient {
     clientId: string;
     clientIdIssuedAt: number;
     redirectUris: string[];
     grantTypes: string[];
     tokenEndpointAuthMethod: string;
+    clientName?: string;
+    scope?: string;
 }
 
-const DCR_PERSIST_PATH = path.resolve(process.cwd(), "data/dcr-clients.json");
-
-const dynamicClients = new Map<string, DynamicClient>();
-
-// Load persisted DCR clients
-function loadDynamicClients(): void {
-    try {
-        if (fs.existsSync(DCR_PERSIST_PATH)) {
-            const raw = fs.readFileSync(DCR_PERSIST_PATH, "utf-8");
-            const arr: DynamicClient[] = JSON.parse(raw);
-            for (const c of arr) {
-                dynamicClients.set(c.clientId, c);
-            }
-            logger.info({ count: arr.length }, "Loaded DCR clients");
-        }
-    } catch (err: any) {
-        logger.warn({ error: err.message }, "Failed to load DCR clients");
+export class DcrValidationError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "DcrValidationError";
     }
 }
-loadDynamicClients();
+
+const MAX_REDIRECT_URIS = 10;
+const MAX_REDIRECT_URI_LENGTH = 2048;
+const ALLOWED_DCR_GRANTS = ["authorization_code", "refresh_token"];
+
+function isLoopbackRedirect(url: URL): boolean {
+    return (
+        url.hostname === "localhost" ||
+        url.hostname === "127.0.0.1" ||
+        url.hostname === "[::1]" ||
+        url.hostname === "::1"
+    );
+}
+
+function validateRedirectUri(uri: unknown): string {
+    if (typeof uri !== "string") {
+        throw new DcrValidationError("redirect_uri must be a string");
+    }
+
+    if (uri.length > MAX_REDIRECT_URI_LENGTH) {
+        throw new DcrValidationError("redirect_uri is too long");
+    }
+
+    let parsed: URL;
+    try {
+        parsed = new URL(uri);
+    } catch {
+        throw new DcrValidationError("redirect_uri must be a valid URL");
+    }
+
+    if (parsed.hash) {
+        throw new DcrValidationError(
+            "redirect_uri must not contain a fragment",
+        );
+    }
+
+    if (parsed.username || parsed.password) {
+        throw new DcrValidationError(
+            "redirect_uri must not contain credentials",
+        );
+    }
+
+    if (parsed.protocol !== "https:") {
+        if (parsed.protocol !== "http:" || !isLoopbackRedirect(parsed)) {
+            throw new DcrValidationError(
+                "redirect_uri must use HTTPS unless it is localhost or loopback",
+            );
+        }
+    }
+
+    return parsed.toString();
+}
+
+function validateGrantTypes(grantTypes?: unknown): string[] {
+    const grants = grantTypes ?? ["authorization_code"];
+    if (!Array.isArray(grants) || grants.length === 0) {
+        throw new DcrValidationError("grant_types must be a non-empty array");
+    }
+    const invalid = grants.find((grant) => !ALLOWED_DCR_GRANTS.includes(grant));
+    if (invalid) {
+        throw new DcrValidationError(`Unsupported grant_type: ${invalid}`);
+    }
+    return grants;
+}
+
+function validateTokenEndpointAuthMethod(method: string): "none" {
+    if (method !== "none") {
+        throw new DcrValidationError("token_endpoint_auth_method must be none");
+    }
+    return "none";
+}
 
 function sanitizeDcrClient(client: DynamicClient): DynamicClient {
+    if (!Array.isArray(client.redirectUris)) {
+        throw new DcrValidationError("redirect_uris must be an array");
+    }
+
+    if (client.redirectUris.length === 0) {
+        throw new DcrValidationError("At least one redirect_uri is required");
+    }
+
+    if (client.redirectUris.length > MAX_REDIRECT_URIS) {
+        throw new DcrValidationError("Too many redirect_uris");
+    }
+
     return {
         clientId: client.clientId,
         clientIdIssuedAt: client.clientIdIssuedAt,
-        redirectUris: client.redirectUris.filter((u: string) => {
-            try {
-                new URL(u);
-                return true;
-            } catch {
-                return false;
-            }
-        }),
-        grantTypes:
-            client.grantTypes?.filter((g: string) =>
-                [
-                    "authorization_code",
-                    "refresh_token",
-                    "client_credentials",
-                ].includes(g),
-            ) || [],
-        tokenEndpointAuthMethod:
-            client.tokenEndpointAuthMethod === "none" ? "none" : "none",
+        redirectUris: client.redirectUris.map(validateRedirectUri),
+        grantTypes: validateGrantTypes(client.grantTypes),
+        tokenEndpointAuthMethod: validateTokenEndpointAuthMethod(
+            client.tokenEndpointAuthMethod,
+        ),
+        clientName: client.clientName,
+        scope: client.scope,
     };
-}
-
-// Save DCR clients to disk
-function persistDynamicClients(): void {
-    try {
-        const dir = path.dirname(DCR_PERSIST_PATH);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        const sanitized = Array.from(dynamicClients.values()).map(
-            sanitizeDcrClient,
-        );
-        // Write via child process to break CodeQL network-data taint boundary
-        const result = spawnSync(
-            "node",
-            [
-                "-e",
-                `
-                    const fs = require("fs");
-                    let d = "";
-                    process.stdin.on("data", c => d += c);
-                    process.stdin.on("end", () => {
-                        fs.writeFileSync(process.argv[1], d, { mode: 0o600 });
-                    });
-                `,
-                DCR_PERSIST_PATH,
-            ],
-            {
-                input: JSON.stringify(sanitized, null, 2),
-                timeout: 5000,
-                stdio: ["pipe", "inherit", "inherit"],
-            },
-        );
-        if (result.error || result.status !== 0) {
-            logger.warn(
-                { error: result.error?.message },
-                "Failed to persist DCR clients",
-            );
-        }
-    } catch (err: any) {
-        logger.warn({ error: err.message }, "Failed to persist DCR clients");
-    }
 }
 
 export interface DcrRequest {
@@ -192,6 +182,7 @@ export interface DcrRequest {
     grant_types?: string[];
     token_endpoint_auth_method?: string;
     client_name?: string;
+    scope?: string;
 }
 
 export interface DcrResponse {
@@ -201,10 +192,11 @@ export interface DcrResponse {
     redirect_uris: string[];
     grant_types: string[];
     token_endpoint_auth_method: string;
+    client_name?: string;
+    scope?: string;
 }
 
-/** Register a new OAuth client (DCR / RFC 7591). */
-export function registerClient(meta: DcrRequest): DcrResponse {
+export async function registerClient(meta: DcrRequest): Promise<DcrResponse> {
     const clientId = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
     const client: DynamicClient = {
@@ -213,55 +205,51 @@ export function registerClient(meta: DcrRequest): DcrResponse {
         redirectUris: meta.redirect_uris,
         grantTypes: meta.grant_types ?? ["authorization_code"],
         tokenEndpointAuthMethod: meta.token_endpoint_auth_method ?? "none",
+        clientName: meta.client_name,
+        scope: meta.scope,
     };
-    dynamicClients.set(clientId, client);
-    persistDynamicClients();
+    const sanitized = sanitizeDcrClient(client);
+    await OauthClient.create(sanitized);
     return {
-        client_id: clientId,
-        client_id_issued_at: now,
-        client_secret_expires_at: 0, // no secret — public client, never expires
-        redirect_uris: client.redirectUris,
-        grant_types: client.grantTypes,
-        token_endpoint_auth_method: client.tokenEndpointAuthMethod,
+        client_id: sanitized.clientId,
+        client_id_issued_at: sanitized.clientIdIssuedAt,
+        client_secret_expires_at: 0,
+        redirect_uris: sanitized.redirectUris,
+        grant_types: sanitized.grantTypes,
+        token_endpoint_auth_method: sanitized.tokenEndpointAuthMethod,
+        client_name: sanitized.clientName,
+        scope: sanitized.scope,
     };
 }
 
-// ---------------------------------------------------------------------------
-// Model implementation
-// ---------------------------------------------------------------------------
-
 export const oauthModel: OAuth2Server.AuthorizationCodeModel &
     OAuth2Server.RefreshTokenModel = {
-    // -- Client ----------------------------------------------------------------
-
     async getClient(clientId: string, _clientSecret?: string) {
-        // 1. Check DCR-registered clients first
-        const dyn = dynamicClients.get(clientId);
+        const dyn = (await OauthClient.findOne({
+            clientId,
+        }).lean()) as DynamicClient | null;
         if (dyn) {
             return {
                 id: dyn.clientId,
                 redirectUris: dyn.redirectUris,
                 grants: dyn.grantTypes,
-                accessTokenLifetime: 3600,
+                accessTokenLifetime: ACCESS_TOKEN_TTL_SECONDS,
                 refreshTokenLifetime: 60 * 60 * 24 * 30,
             };
         }
-        // 2. Check static pre-registered clients
         const stat = STATIC_CLIENTS[clientId];
         if (stat) {
             return {
                 id: clientId,
                 redirectUris: stat.redirectUris,
                 grants: ["authorization_code", "refresh_token"],
-                accessTokenLifetime: 3600,
+                accessTokenLifetime: ACCESS_TOKEN_TTL_SECONDS,
                 refreshTokenLifetime: 60 * 60 * 24 * 30, // 30 days
             };
         }
         logger.warn({ clientId }, "Unknown client_id rejected");
         return null;
     },
-
-    // -- Authorization codes ---------------------------------------------------
 
     async saveAuthorizationCode(
         code: Pick<
@@ -295,10 +283,6 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
     ): Promise<StoredAuthorizationCode | null> {
         const stored = authorizationCodes.get(authorizationCode);
         if (!stored) return null;
-        if (stored.expiresAt < new Date()) {
-            authorizationCodes.delete(authorizationCode);
-            return null;
-        }
         return stored;
     },
 
@@ -308,8 +292,6 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
         authorizationCodes.delete(code.authorizationCode);
         return true;
     },
-
-    // -- Tokens ----------------------------------------------------------------
 
     async saveToken(
         token: Partial<OAuth2Server.Token>,
@@ -325,13 +307,9 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
 
         return {
             accessToken,
-            accessTokenExpiresAt: new Date(
-                Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000,
-            ),
+            accessTokenExpiresAt: token.accessTokenExpiresAt,
             refreshToken,
-            refreshTokenExpiresAt: new Date(
-                Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000,
-            ),
+            refreshTokenExpiresAt: token.refreshTokenExpiresAt,
             scope,
             client,
             user,
@@ -346,9 +324,9 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
         if (!payload) return null;
         return {
             accessToken,
-            accessTokenExpiresAt: new Date(
-                Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000,
-            ),
+            accessTokenExpiresAt: payload.exp
+                ? new Date(payload.exp * 1000)
+                : new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000),
             scope: payload.scope,
             client: { id: payload.cid } as OAuth2Server.Client,
             user: { id: payload.sub } as OAuth2Server.User,
@@ -360,12 +338,17 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
     ): Promise<StoredRefreshToken | null> {
         const payload = verifyRefreshToken(refreshToken);
         if (!payload) return null;
-        if (payload.jti && refreshTokenDenylist.has(payload.jti)) return null;
+        if (payload.jti) {
+            const revoked = await OauthRevokedToken.findOne({
+                jti: payload.jti,
+            }).lean();
+            if (revoked) return null;
+        }
         return {
             refreshToken,
-            refreshTokenExpiresAt: new Date(
-                Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000,
-            ),
+            refreshTokenExpiresAt: payload.exp
+                ? new Date(payload.exp * 1000)
+                : new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
             scope: payload.scope,
             client: { id: payload.cid } as OAuth2Server.Client,
             user: { id: payload.sub } as OAuth2Server.User,
@@ -375,35 +358,30 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
     async revokeToken(token: StoredRefreshToken): Promise<boolean> {
         const payload = verifyRefreshToken(token.refreshToken);
         if (payload?.jti) {
-            refreshTokenDenylist.add(payload.jti);
+            await OauthRevokedToken.updateOne(
+                { jti: payload.jti },
+                {
+                    $setOnInsert: {
+                        jti: payload.jti,
+                        tokenType: "refresh_token",
+                        userId: payload.sub,
+                        clientId: payload.cid,
+                        expiresAt: payload.exp
+                            ? new Date(payload.exp * 1000)
+                            : (token.refreshTokenExpiresAt ??
+                              new Date(
+                                  Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000,
+                              )),
+                        revokedAt: new Date(),
+                    },
+                },
+                { upsert: true },
+            );
         }
         return true;
     },
 
-    // -- Scope -----------------------------------------------------------------
-
     async verifyScope(_token: OAuth2Server.Token, _scope: string[]) {
-        // All tokens have full scope for now
         return true;
     },
-
-    // -- Token generation -------------------------------------------------------
-    //
-    // removed: was `generateAccessToken` / `generateRefreshToken` — their
-    // random-hex return values were discarded by `saveToken`, which signs its
-    // own HS256 JWTs (see PRD §6.7). The library's default random generator is
-    // equally discarded, so dropping these is behavior-neutral. The auth-code
-    // generator below is kept because its output IS stored and used.
-
-    generateAuthorizationCode(
-        _client: OAuth2Server.Client,
-        _user: OAuth2Server.User,
-        _scope: string[],
-    ): Promise<string> {
-        return Promise.resolve(crypto.randomBytes(16).toString("hex"));
-    },
 };
-
-// removed: was `export async function resolveBearerToken(bearer)` — duplicated
-// oauth/middleware.ts `validateBearerToken`, which is now the single bearer-token
-// validation path used by mcp/auth-middleware.ts (see PRD §6.6).

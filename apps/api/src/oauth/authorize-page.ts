@@ -21,8 +21,7 @@ export function authorizePage(pendingId: string, clientId: string): string {
     width: 100%;
     min-height: 100vh;
   }
-  
-  /* Left Pane Styles */
+
   .left-pane {
     flex: 1;
     background: #111111;
@@ -102,8 +101,6 @@ export function authorizePage(pendingId: string, clientId: string): string {
     margin-top: auto;
     padding-top: 40px;
   }
-
-  /* Right Pane Styles */
   .right-pane {
     flex: 1;
     display: flex;

@@ -15,7 +15,7 @@ import { Apikey, User } from "@medialit/models";
 import { getApiKeyByUserId } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";
-import { mcpAuth } from "./mcp/auth-middleware";
+import { mcpAuth } from "./auth/middleware";
 import { oauthRouter } from "./oauth/server";
 
 import { spawn } from "child_process";
