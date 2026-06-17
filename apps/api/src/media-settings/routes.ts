@@ -4,6 +4,7 @@ import {
     updateMediaSettingsHandler,
 } from "./handlers";
 import apikey from "../apikey/middleware";
+import { authenticatedApiLimiter } from "../auth/limiters";
 
 export default (passport: any) => {
     const router = express.Router();
@@ -40,6 +41,7 @@ export default (passport: any) => {
             #swagger.responses[401] = { description: 'Unauthorized' }
             #swagger.responses[500] = { description: 'Internal Server Error' }
         */
+        authenticatedApiLimiter,
         apikey,
         updateMediaSettingsHandler,
     );
@@ -62,6 +64,7 @@ export default (passport: any) => {
             #swagger.responses[401] = { description: 'Unauthorized' }
             #swagger.responses[500] = { description: 'Internal Server Error' }
         */
+        authenticatedApiLimiter,
         apikey,
         getMediaSettingsHandler,
     );

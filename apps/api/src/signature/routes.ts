@@ -1,6 +1,7 @@
 import express from "express";
 import apikey from "../apikey/middleware";
 import { getSignature } from "./handlers";
+import { authenticatedApiLimiter } from "../auth/limiters";
 
 const router = express.Router();
 router.post(
@@ -24,6 +25,7 @@ router.post(
         #swagger.responses[401] = { description: 'Unauthorized' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     getSignature,
 );

@@ -18,6 +18,7 @@ import {
 import signatureMiddleware from "../signature/middleware";
 import storage from "./storage-middleware";
 import { getSignatureFromReq } from "../signature/utils";
+import { authenticatedApiLimiter } from "../auth/limiters";
 
 const router = express.Router();
 
@@ -73,6 +74,7 @@ router.post(
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     cors(),
+    authenticatedApiLimiter,
     fileUpload({
         useTempFiles: true,
         tempFileDir: tempFileDirForUploads,
@@ -116,6 +118,7 @@ router.post(
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
     */
+    authenticatedApiLimiter,
     apikey,
     getMediaCount,
 );
@@ -136,6 +139,7 @@ router.post(
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
     */
+    authenticatedApiLimiter,
     apikey,
     getTotalSpaceOccupied,
 );
@@ -164,6 +168,7 @@ router.post(
         #swagger.responses[404] = { description: 'Media not found' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     getMediaDetails,
 );
@@ -197,6 +202,7 @@ router.post(
         #swagger.responses[401] = { description: 'Unauthorized' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     getMedia,
 );
@@ -225,6 +231,7 @@ router.post(
         #swagger.responses[404] = { description: 'Media not found' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     sealMedia,
 );
@@ -257,6 +264,7 @@ router.delete(
         #swagger.responses[401] = { description: 'Unauthorized' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     deleteMedia,
 );
