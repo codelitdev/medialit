@@ -28,7 +28,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 connectToDatabase();
 const app = express();
 
-app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true");
+app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
