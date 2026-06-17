@@ -268,6 +268,12 @@ async function getMediaDetails({
         return null;
     }
 
+    return await getMediaResponse(media);
+}
+
+async function getMediaResponse(
+    media: MediaWithUserId,
+): Promise<MediaResponse> {
     // Determine file URL based on access control and temp status
     let fileUrl: string;
     if (media.temp || media.accessControl === Constants.AccessControl.PRIVATE) {
@@ -381,14 +387,14 @@ async function sealMedia({
     userId: string;
     apikey: string;
     mediaId: string;
-}): Promise<MediaWithUserId> {
+}): Promise<MediaResponse> {
     const media = await getMedia({ userId, apikey, mediaId });
     if (!media) {
         throw new Error("Media not found");
     }
 
     if (!media.temp) {
-        return media;
+        return await getMediaResponse(media);
     }
 
     const fileExtension = path.extname(media.fileName).replace(".", "");
@@ -485,7 +491,7 @@ async function sealMedia({
     if (!updatedMedia) {
         throw new Error("Failed to retrieve updated media");
     }
-    return updatedMedia;
+    return await getMediaResponse(updatedMedia);
 }
 
 export default {

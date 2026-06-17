@@ -2,26 +2,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { getMediaSettings } from "../../media-settings/service";
 import { updateMediaSettings } from "../../media-settings/queries";
-
-const AUTH_ERROR = {
-    content: [
-        {
-            type: "text" as const,
-            text: "Authentication required: valid API credentials were not provided.",
-        },
-    ],
-    isError: true,
-};
-
-const INTERNAL_ERROR = {
-    content: [
-        {
-            type: "text" as const,
-            text: "An error occurred while processing your request.",
-        },
-    ],
-    isError: true,
-};
+import { SUCCESS } from "../../config/strings";
+import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
+import { mediaSettingsSchema, successMessageSchema } from "./schemas";
 
 export function registerSettingsTools(server: McpServer): void {
     // get_media_settings
@@ -30,10 +13,12 @@ export function registerSettingsTools(server: McpServer): void {
         {
             description:
                 "Returns the current image processing configuration for the account, including WebP conversion settings and thumbnail dimensions.",
-            outputSchema: z.object({}).passthrough(),
+            outputSchema: mediaSettingsSchema,
             annotations: {
                 readOnlyHint: true,
                 idempotentHint: true,
+                openWorldHint: false,
+                destructiveHint: false,
             },
         },
         async (extra: any) => {
@@ -80,18 +65,21 @@ export function registerSettingsTools(server: McpServer): void {
                 thumbnailWidth: z
                     .number()
                     .int()
+                    .positive()
                     .optional()
                     .describe("Generated thumbnail width in pixels"),
                 thumbnailHeight: z
                     .number()
                     .int()
+                    .positive()
                     .optional()
                     .describe("Generated thumbnail height in pixels"),
             },
-            outputSchema: z.object({}).passthrough(),
+            outputSchema: successMessageSchema,
             annotations: {
+                readOnlyHint: false,
                 destructiveHint: true,
-                openWorldHint: true,
+                openWorldHint: false,
             },
         },
         async (args: any, extra: any) => {
@@ -109,11 +97,15 @@ export function registerSettingsTools(server: McpServer): void {
                     thumbnailWidth: args.thumbnailWidth,
                     thumbnailHeight: args.thumbnailHeight,
                 });
+                const response = { message: SUCCESS };
                 return {
                     content: [
-                        { type: "text" as const, text: "Settings updated" },
+                        {
+                            type: "text" as const,
+                            text: JSON.stringify(response),
+                        },
                     ],
-                    structuredContent: { updated: true },
+                    structuredContent: response,
                 };
             } catch {
                 return INTERNAL_ERROR;

@@ -4,10 +4,14 @@ import assert from "node:assert";
 import storageValidation from "../../src/media/storage-middleware";
 import mediaQueries from "../../src/media/queries";
 import {
+    maxFileUploadSizeNotSubscribed,
     maxStorageAllowedNotSubscribed,
     maxStorageAllowedSubscribed,
 } from "../../src/config/constants";
-import { NOT_ENOUGH_STORAGE } from "../../src/config/strings";
+import {
+    FILE_SIZE_EXCEEDED,
+    NOT_ENOUGH_STORAGE,
+} from "../../src/config/strings";
 
 describe("storageValidation middleware", () => {
     afterEach(() => {
@@ -111,6 +115,39 @@ describe("storageValidation middleware", () => {
         const response = await storageValidation(req, res, next);
         assert.strictEqual(response.code, 403);
         assert.strictEqual(response.data.error, NOT_ENOUGH_STORAGE);
+        assert.strictEqual(nextCalled, false);
+    });
+
+    test("should reject upload when file exceeds upload size limit", async () => {
+        const req = {
+            user: {
+                id: "test-user-id",
+                subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
+            },
+            files: {
+                file: {
+                    size: maxFileUploadSizeNotSubscribed + 1,
+                },
+            },
+        };
+
+        const res = {
+            status: (code: number) => ({
+                json: (data: any) => ({ code, data }),
+            }),
+        };
+
+        let nextCalled = false;
+        const next = () => {
+            nextCalled = true;
+        };
+
+        const response = await storageValidation(req, res, next);
+        assert.strictEqual(response.code, 400);
+        assert.strictEqual(
+            response.data.error,
+            `${FILE_SIZE_EXCEEDED}. Allowed: ${maxFileUploadSizeNotSubscribed} bytes`,
+        );
         assert.strictEqual(nextCalled, false);
     });
 

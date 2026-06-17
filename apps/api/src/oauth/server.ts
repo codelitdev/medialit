@@ -143,6 +143,7 @@ oauthRouter.get(
 
 oauthRouter.post(
     "/oauth/authorize/send-otp",
+    verifyOtpLimiter,
     async (req: ExpressReq, res: ExpressRes) => {
         try {
             const { pendingId, email } = req.body || {};

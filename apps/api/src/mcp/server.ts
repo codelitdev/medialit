@@ -29,10 +29,10 @@ export function createMCPSession(
         onsessionclosed,
     });
     const server = new McpServer({
-        name: "medialit",
+        name: "MediaLit",
         version: "1.0.0",
         description:
-            "MediaLit MCP server — manage media files, storage, and upload settings for a MediaLit account. Supports listing, inspecting, deleting, and sealing media items, querying storage usage, generating upload signatures, and configuring image processing settings.",
+            "MediaLit MCP server — manage media files, storage, and upload settings for a MediaLit account. Supports listing, inspecting, deleting, and sealing media items, querying storage usage, generating upload signatures, and configuring media processing settings.",
     });
     registerAllTools(server);
     server.connect(transport);

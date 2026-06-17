@@ -4,28 +4,21 @@ import { writeFile, mkdir, copyFile, mkdtemp, rm } from "fs/promises";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import mediaService from "../../media/service";
+import { validateUploadConstraints } from "../../media/storage-middleware";
+import { AUTH_ERROR } from "./responses";
+import { mediaSchema } from "./schemas";
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-
-const AUTH_ERROR = {
-    content: [
-        {
-            type: "text" as const,
-            text: "Authentication required: valid API credentials were not provided.",
-        },
-    ],
-    isError: true,
-};
-
-const SIZE_ERROR = {
-    content: [
-        {
-            type: "text" as const,
-            text: "File exceeds maximum size of 10MB.",
-        },
-    ],
-    isError: true,
-};
+function toolError(text: string) {
+    return {
+        content: [
+            {
+                type: "text" as const,
+                text,
+            },
+        ],
+        isError: true,
+    };
+}
 
 const BASE64_ERROR = {
     content: [
@@ -86,87 +79,97 @@ export function registerUploadTool(server: McpServer): void {
                     .optional()
                     .describe("Group label for organizing files"),
             },
-            outputSchema: z.object({ mediaId: z.string() }),
+            outputSchema: mediaSchema,
             annotations: {
-                destructiveHint: true,
+                readOnlyHint: false,
+                destructiveHint: false,
                 openWorldHint: true,
             },
         },
-        async (args: any, extra: any) => {
-            const userId = extra?.authInfo?.clientId;
-            const apikey = extra?.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
-
-            // Validate base64
-            if (!isValidBase64(args.fileBase64)) {
-                return BASE64_ERROR;
-            }
-
-            let buffer: Buffer;
-            try {
-                buffer = Buffer.from(args.fileBase64, "base64");
-                // Check that the decode actually consumed content and
-                // that we didn't silently produce an empty buffer from garbage
-                if (buffer.length === 0) {
-                    return BASE64_ERROR;
-                }
-            } catch {
-                return BASE64_ERROR;
-            }
-
-            // Enforce size limit
-            if (buffer.length > MAX_FILE_SIZE_BYTES) {
-                return SIZE_ERROR;
-            }
-
-            const tempDir = await mkdtemp(
-                path.join(os.tmpdir(), "mcp-upload-"),
-            );
-            const tempPath = path.join(tempDir, args.fileName);
-
-            try {
-                await writeFile(tempPath, buffer);
-
-                const uploadedFile = {
-                    name: args.fileName,
-                    mimetype: args.mimeType,
-                    size: buffer.length,
-                    tempFilePath: tempPath,
-                    mv: (destPath: string, callback: (err?: any) => void) => {
-                        mkdir(path.dirname(destPath), { recursive: true })
-                            .then(() => copyFile(tempPath, destPath))
-                            .then(() => callback(null))
-                            .catch((err) => callback(err));
-                    },
-                };
-
-                const mediaId = await mediaService.upload({
-                    userId,
-                    apikey,
-                    file: uploadedFile,
-                    access: args.access || "private",
-                    caption: args.caption || "",
-                    group: args.group,
-                });
-
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: JSON.stringify({ mediaId }),
-                        },
-                    ],
-                    structuredContent: { mediaId },
-                };
-            } catch (err) {
-                return UPLOAD_ERROR;
-            } finally {
-                rm(tempDir, { recursive: true, force: true }).catch(() => {
-                    // Ignore cleanup errors
-                });
-            }
-        },
+        handleUploadMediaTool,
     );
+}
+
+export async function handleUploadMediaTool(args: any, extra: any) {
+    const userId = extra?.authInfo?.clientId;
+    const apikey = extra?.authInfo?.token;
+    const user = extra?.authInfo?.user;
+    if (!userId || !apikey || !user) {
+        return AUTH_ERROR;
+    }
+
+    // Validate base64
+    if (!isValidBase64(args.fileBase64)) {
+        return BASE64_ERROR;
+    }
+
+    let buffer: Buffer;
+    try {
+        buffer = Buffer.from(args.fileBase64, "base64");
+        // Check that the decode actually consumed content and
+        // that we didn't silently produce an empty buffer from garbage
+        if (buffer.length === 0) {
+            return BASE64_ERROR;
+        }
+    } catch {
+        return BASE64_ERROR;
+    }
+
+    const validation = await validateUploadConstraints({
+        size: buffer.length,
+        user,
+    });
+    if (!validation.valid) {
+        return toolError(validation.error);
+    }
+
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "mcp-upload-"));
+    const tempPath = path.join(tempDir, args.fileName);
+
+    try {
+        await writeFile(tempPath, buffer);
+
+        const uploadedFile = {
+            name: args.fileName,
+            mimetype: args.mimeType,
+            size: buffer.length,
+            tempFilePath: tempPath,
+            mv: (destPath: string, callback: (err?: any) => void) => {
+                mkdir(path.dirname(destPath), { recursive: true })
+                    .then(() => copyFile(tempPath, destPath))
+                    .then(() => callback(null))
+                    .catch((err) => callback(err));
+            },
+        };
+
+        const mediaId = await mediaService.upload({
+            userId,
+            apikey,
+            file: uploadedFile,
+            access: args.access || "private",
+            caption: args.caption || "",
+            group: args.group,
+        });
+        const media = await mediaService.getMediaDetails({
+            userId,
+            apikey,
+            mediaId,
+        });
+
+        return {
+            content: [
+                {
+                    type: "text" as const,
+                    text: JSON.stringify(media),
+                },
+            ],
+            structuredContent: media as any,
+        };
+    } catch (err) {
+        return UPLOAD_ERROR;
+    } finally {
+        rm(tempDir, { recursive: true, force: true }).catch(() => {
+            // Ignore cleanup errors
+        });
+    }
 }

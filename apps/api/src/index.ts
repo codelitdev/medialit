@@ -181,6 +181,7 @@ app.post("/mcp", mcpCors, mcpLimiter, mcpAuth, async (req: any, res: any) => {
     const auth = {
         token: req.apikey || "",
         clientId: String(req.userId || req.user?._id || req.user?.id || ""),
+        user: req.user,
         scopes: [] as string[],
     };
 

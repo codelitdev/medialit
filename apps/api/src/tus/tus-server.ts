@@ -4,18 +4,12 @@ import { tempFileDirForUploads } from "../config/constants";
 import logger from "../services/log";
 import finalizeUpload from "./finalize";
 import * as preSignedUrlService from "../signature/service";
-import {
-    FILE_SIZE_EXCEEDED,
-    NOT_ENOUGH_STORAGE,
-    PRESIGNED_URL_INVALID,
-    UNAUTHORISED,
-} from "../config/strings";
+import { PRESIGNED_URL_INVALID, UNAUTHORISED } from "../config/strings";
 import { Apikey, User } from "@medialit/models";
 import { getApiKeyUsingKeyId } from "../apikey/queries";
 import { getUser } from "../user/queries";
-import { hasEnoughStorage } from "../media/storage-middleware";
+import { validateUploadConstraints } from "../media/storage-middleware";
 import { createTusUpload, updateTusUploadOffset } from "./queries";
-import getMaxFileUploadSize from "../media/utils/get-max-file-upload-size";
 import mediaService from "../media/service";
 
 const store = new FileStore({
@@ -41,45 +35,7 @@ export const server = new Server({
             throw err;
         }
     },
-    onUploadCreate: async (req: any, upload: any) => {
-        const metadata = upload.metadata;
-        const { user, apikey, group } = req;
-
-        try {
-            const allowedFileSize = getMaxFileUploadSize(req);
-            if (upload.size > allowedFileSize) {
-                throw {
-                    status_code: 403,
-                    body: `${FILE_SIZE_EXCEEDED}. Allowed: ${allowedFileSize} bytes`,
-                };
-            }
-            if (!(await hasEnoughStorage(upload.size, user))) {
-                throw {
-                    status_code: 403,
-                    body: NOT_ENOUGH_STORAGE,
-                };
-            }
-
-            await createTusUpload({
-                uploadId: upload.id,
-                userId: user.id,
-                apikey: apikey!,
-                uploadLength: upload.size,
-                metadata: {
-                    fileName: metadata.fileName || "unknown",
-                    mimeType: metadata.mimeType || "application/octet-stream",
-                    accessControl: metadata.access,
-                    caption: metadata.caption,
-                    group: metadata.group || group,
-                },
-                tempFilePath: upload.id,
-            });
-        } catch (err: any) {
-            logger.error({ err }, "Error creating tus upload record");
-            throw err;
-        }
-        return metadata;
-    },
+    onUploadCreate: handleTusUploadCreate,
     onUploadFinish: async (req: any, upload: any) => {
         try {
             console.time("finalize");
@@ -107,6 +63,43 @@ export const server = new Server({
         }
     },
 });
+
+export async function handleTusUploadCreate(req: any, upload: any) {
+    const metadata = upload.metadata;
+    const { user, apikey, group } = req;
+
+    try {
+        const validation = await validateUploadConstraints({
+            size: upload.size,
+            user,
+        });
+        if (!validation.valid) {
+            throw {
+                status_code: 403,
+                body: validation.error,
+            };
+        }
+
+        await createTusUpload({
+            uploadId: upload.id,
+            userId: user.id,
+            apikey: apikey!,
+            uploadLength: upload.size,
+            metadata: {
+                fileName: metadata.fileName || "unknown",
+                mimeType: metadata.mimeType || "application/octet-stream",
+                accessControl: metadata.access,
+                caption: metadata.caption,
+                group: metadata.group || group,
+            },
+            tempFilePath: upload.id,
+        });
+    } catch (err: any) {
+        logger.error({ err }, "Error creating tus upload record");
+        throw err;
+    }
+    return metadata;
+}
 
 server.on(EVENTS.POST_RECEIVE, async (req: any, upload: any) => {
     try {

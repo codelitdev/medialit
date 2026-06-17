@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { generateSignature } from "../../signature/service";
+import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
+import { signatureSchema } from "./schemas";
 
 export function registerSignatureTool(server: McpServer): void {
     server.registerTool(
@@ -16,26 +18,19 @@ export function registerSignatureTool(server: McpServer): void {
                         "Optional group label to associate with the uploaded file",
                     ),
             },
-            outputSchema: z.object({ signature: z.any() }).passthrough(),
+            outputSchema: signatureSchema,
             annotations: {
-                readOnlyHint: true,
+                readOnlyHint: false,
                 idempotentHint: true,
-                openWorldHint: true,
+                openWorldHint: false,
+                destructiveHint: false,
             },
         },
         async (args: any, extra: any) => {
             const userId = extra.authInfo?.clientId;
             const apikey = extra.authInfo?.token;
             if (!userId || !apikey) {
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: "Authentication required: valid API credentials were not provided.",
-                        },
-                    ],
-                    isError: true,
-                };
+                return AUTH_ERROR;
             }
             try {
                 const signature = await generateSignature({
@@ -53,15 +48,7 @@ export function registerSignatureTool(server: McpServer): void {
                     structuredContent: { signature } as Record<string, unknown>,
                 };
             } catch {
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: "An error occurred while processing your request.",
-                        },
-                    ],
-                    isError: true,
-                };
+                return INTERNAL_ERROR;
             }
         },
     );
