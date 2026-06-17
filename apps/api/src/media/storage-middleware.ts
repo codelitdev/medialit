@@ -2,8 +2,18 @@ import { maxStorageAllowedNotSubscribed } from "../config/constants";
 import { maxStorageAllowedSubscribed } from "../config/constants";
 import { getSubscriptionStatus, User } from "@medialit/models";
 import mediaQueries from "./queries";
-import { NOT_ENOUGH_STORAGE } from "../config/strings";
+import { FILE_SIZE_EXCEEDED, NOT_ENOUGH_STORAGE } from "../config/strings";
 import mongoose from "mongoose";
+import getMaxFileUploadSize from "./utils/get-max-file-upload-size";
+
+export type UploadValidationResult =
+    | { valid: true }
+    | {
+          valid: false;
+          reason: "file_size_exceeded" | "not_enough_storage";
+          error: string;
+          allowedFileSize?: number;
+      };
 
 export default async function storageValidation(
     req: any,
@@ -16,13 +26,46 @@ export default async function storageValidation(
         });
     }
 
-    if (!(await hasEnoughStorage((req.files.file as any).size, req.user))) {
-        return res.status(403).json({
-            error: NOT_ENOUGH_STORAGE,
+    const validation = await validateUploadConstraints({
+        size: (req.files.file as any).size,
+        user: req.user,
+    });
+    if (!validation.valid) {
+        const status = validation.reason === "file_size_exceeded" ? 400 : 403;
+        return res.status(status).json({
+            error: validation.error,
         });
     }
 
     next();
+}
+
+export async function validateUploadConstraints({
+    size,
+    user,
+}: {
+    size: number;
+    user: User & { _id: mongoose.Types.ObjectId };
+}): Promise<UploadValidationResult> {
+    const allowedFileSize = getMaxFileUploadSize({ user });
+    if (size > allowedFileSize) {
+        return {
+            valid: false,
+            reason: "file_size_exceeded",
+            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${allowedFileSize} bytes`,
+            allowedFileSize,
+        };
+    }
+
+    if (!(await hasEnoughStorage(size, user))) {
+        return {
+            valid: false,
+            reason: "not_enough_storage",
+            error: NOT_ENOUGH_STORAGE,
+        };
+    }
+
+    return { valid: true };
 }
 
 export async function hasEnoughStorage(

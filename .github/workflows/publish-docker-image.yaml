@@ -12,56 +12,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Checkout and pull branch
-        run: |
-          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          git checkout $LATEST_TAG
+        uses: actions/checkout@v4
 
       - name: Setup buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERNAME }}
           password: ${{ secrets.DOCKERTOKEN }}
 
-      - name: Docker meta for core 
-        id: meta_core 
-        uses: docker/metadata-action@v3
+      - name: Docker meta for API 
+        id: meta_api
+        uses: docker/metadata-action@v5
         with:
           images: codelit/medialit 
 
       - name: Build and push API 
         id: docker_build_api
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./apps/api/Dockerfile
           push: true
-          tags: ${{ steps.meta_core.outputs.tags }}
+          tags: ${{ steps.meta_api.outputs.tags }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build_api.outputs.digest }}
 
-      - name: Setup AWS ECR Details
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Docker meta for Web app
+        id: meta_web
+        uses: docker/metadata-action@v5
         with:
-          aws-access-key-id: ${{ secrets.AWS_ECR_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_ECR_ACCESS_SECRET }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          images: codelit/medialit-web 
 
-      - name: Login to AWS ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push Web App 
+        id: docker_build_web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta_web.outputs.tags }}
 
-      - name: Build, tag, and push docker images to Amazon ECR
-        env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: ${{ secrets.AWS_ECR_REPO }} 
-          IMAGE_TAG: latest 
-        run: |
-          docker build -f apps/web/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG 
+      - name: Image digest
+        run: echo ${{ steps.docker_build_web.outputs.digest }}

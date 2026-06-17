@@ -5,11 +5,13 @@ import { getUniqueId } from "@medialit/utils";
 export async function createApiKey(
     userId: string,
     name: string,
+    isDefault: boolean = false,
 ): Promise<Apikey> {
     return await ApikeyModel.create({
         name,
         key: getUniqueId(),
         userId,
+        default: isDefault,
     });
 }
 
@@ -28,6 +30,7 @@ export async function getApiKeyByUserId(
         key: 1,
         httpReferrers: 1,
         ipAddresses: 1,
+        default: 1,
         createdAt: 1,
         updatedAt: 1,
     };
@@ -46,19 +49,8 @@ export async function getApiKeyByUserId(
     return result;
 }
 
-// export async function deleteApiKey(
-//     userId: string,
-//     keyId: string,
-// ): Promise<void> {
-//     await ApikeyModel.deleteOne({
-//         key: keyId,
-//         userId,
-//     });
-// }
-
 export default {
     createApiKey,
     getApiKeyUsingKeyId,
     getApiKeyByUserId,
-    // deleteApiKey,
 };

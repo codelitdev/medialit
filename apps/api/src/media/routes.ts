@@ -18,6 +18,7 @@ import {
 import signatureMiddleware from "../signature/middleware";
 import storage from "./storage-middleware";
 import { getSignatureFromReq } from "../signature/utils";
+import { authenticatedApiLimiter } from "../auth/limiters";
 
 const router = express.Router();
 
@@ -26,8 +27,8 @@ router.post(
     /* 
         #swagger.tags = ['Media']
         #swagger.summary = 'Upload Media'
-        #swagger.description = 'Upload a new media file. Use API key auth from Authorize (`x-medialit-apikey`) or pass `x-medialit-signature` for this endpoint only.'
-        #swagger.security = [{ "apiKeyAuth": [] }, { "signatureAuth": [] }]
+        #swagger.description = 'Upload a new media file. Use OAuth Bearer auth, API key auth from Authorize (`x-medialit-apikey`), or pass `x-medialit-signature` for this endpoint only.'
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }, { "signatureAuth": [] }]
         #swagger.parameters['x-medialit-signature'] = {
             in: 'header',
             description: 'Upload Signature for secure client-side uploads',
@@ -73,6 +74,7 @@ router.post(
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     cors(),
+    authenticatedApiLimiter,
     fileUpload({
         useTempFiles: true,
         tempFileDir: tempFileDirForUploads,
@@ -105,7 +107,7 @@ router.post(
         #swagger.tags = ['Media']
         #swagger.summary = 'Get Media Count'
         #swagger.description = 'Get the total number of media files.'
-        #swagger.security = [{ "apiKeyAuth": [] }] 
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.responses[200] = {
             description: 'Count retrieved successfully',
             content: {
@@ -116,6 +118,7 @@ router.post(
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
     */
+    authenticatedApiLimiter,
     apikey,
     getMediaCount,
 );
@@ -125,7 +128,7 @@ router.post(
         #swagger.tags = ['Media']
         #swagger.summary = 'Get Total Size'
         #swagger.description = 'Get the total size of all media files in bytes.'
-        #swagger.security = [{ "apiKeyAuth": [] }] 
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.responses[200] = {
             description: 'Size retrieved successfully',
             content: {
@@ -136,6 +139,7 @@ router.post(
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
     */
+    authenticatedApiLimiter,
     apikey,
     getTotalSpaceOccupied,
 );
@@ -145,7 +149,7 @@ router.post(
         #swagger.tags = ['Media']
         #swagger.summary = 'Get Media Details'
         #swagger.description = 'Retrieve metadata for a specific media item.'
-        #swagger.security = [{ "apiKeyAuth": [] }] 
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.parameters['mediaId'] = {
             in: 'path',
             description: 'ID of the media file',
@@ -164,6 +168,7 @@ router.post(
         #swagger.responses[404] = { description: 'Media not found' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     getMediaDetails,
 );
@@ -173,7 +178,7 @@ router.post(
         #swagger.tags = ['Media']
         #swagger.summary = 'List Media'
         #swagger.description = 'List media files filtered by optional query payload.'
-        #swagger.security = [{ "apiKeyAuth": [] }]
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.requestBody = {
             required: false,
             content: {
@@ -197,6 +202,7 @@ router.post(
         #swagger.responses[401] = { description: 'Unauthorized' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     getMedia,
 );
@@ -206,7 +212,7 @@ router.post(
         #swagger.tags = ['Media']
         #swagger.summary = 'Seal Media'
         #swagger.description = 'Seal a media file (mark as processed/finalized).'
-        #swagger.security = [{ "apiKeyAuth": [] }]
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.parameters['mediaId'] = {
             in: 'path',
             description: 'ID of the media file',
@@ -225,6 +231,7 @@ router.post(
         #swagger.responses[404] = { description: 'Media not found' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     sealMedia,
 );
@@ -234,7 +241,7 @@ router.delete(
         #swagger.tags = ['Media']
         #swagger.summary = 'Delete Media'
         #swagger.description = 'Permanently delete a media file.'
-        #swagger.security = [{ "apiKeyAuth": [] }] 
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.parameters['mediaId'] = {
             in: 'path',
             description: 'ID of the media file',
@@ -257,6 +264,7 @@ router.delete(
         #swagger.responses[401] = { description: 'Unauthorized' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
+    authenticatedApiLimiter,
     apikey,
     deleteMedia,
 );

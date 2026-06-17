@@ -8,10 +8,11 @@ import mediaRoutes from "./media/routes";
 import signatureRoutes from "./signature/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
 import tusRoutes from "./tus/routes";
+import mcpRoutes from "./mcp/routes";
 import logger from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
 import { Apikey, User } from "@medialit/models";
-import { createApiKey } from "./apikey/queries";
+import { getApiKeyByUserId } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";
 
@@ -23,9 +24,10 @@ import { HOUR_IN_SECONDS } from "./config/constants";
 connectToDatabase();
 const app = express();
 
-app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true");
+app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false);
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 app.get(
     "/health",
@@ -88,6 +90,7 @@ app.use("/settings/media", mediaSettingsRoutes(passport));
 app.use("/media/signature", signatureRoutes);
 app.use("/media", tusRoutes);
 app.use("/media", mediaRoutes);
+app.use(mcpRoutes);
 
 app.get(
     "/cleanup/temp",
@@ -165,6 +168,15 @@ async function checkConfig() {
             "If CDN_ENDPOINT is not set, both CLOUD_ENDPOINT and CLOUD_ENDPOINT_PUBLIC must be provided",
         );
     }
+    if (
+        !process.env.OAUTH_SIGNING_KEY ||
+        Buffer.byteLength(process.env.OAUTH_SIGNING_KEY, "utf8") < 32
+    ) {
+        throw new Error(
+            "OAUTH_SIGNING_KEY is required and must be at least 32 bytes (256 bits). " +
+                "Generate one with: openssl rand -base64 48",
+        );
+    }
 }
 
 async function checkDependencies() {
@@ -203,10 +215,9 @@ async function createAdminUser() {
 
         if (!user) {
             const user = await createUser(email, undefined, "subscribed");
-            const apikey: Apikey = await createApiKey(user.id, "App 1");
-            console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-            console.log(`@     API key: ${apikey.key}      @`);
-            console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            const keys = await getApiKeyByUserId(user.id);
+            const firstKey = Array.isArray(keys) ? keys[0] : keys;
+            logger.info({ apiKey: firstKey?.key }, "Admin user created");
         }
     } catch (error) {
         logger.error({ error }, "Failed to create admin user");

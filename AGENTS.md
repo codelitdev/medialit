@@ -1,4 +1,4 @@
-# Dev Environment Tips
+## Dev Environment
 
-- Use `pnpm` as the package manager.
-- This is a monorepo, so use `pnpm --filter <package-name> <command>` to run commands in specific packages.
+- Use `pnpm` as the package manager
+- This is a monorepo — use `pnpm --filter <package-name> <command>` for specific packages

@@ -1,72 +1,50 @@
-import NextAuth from "next-auth";
-import { z } from "zod";
-import { authConfig } from "./auth.config";
-import { hashCode } from "@/lib/magic-code-utils";
-import { Constants } from "@medialit/models";
-import { getUniqueId } from "@medialit/utils";
-import CredentialsProvider from "next-auth/providers/credentials";
-import connectToDatabase from "@/lib/connect-db";
-import VerificationToken from "@/models/verification-token";
-import User from "@/models/user";
-import Apikey from "@/models/apikey";
-import { createUser } from "./lib/courselit";
+"use server";
 
-export const { auth, signIn, signOut, handlers } = NextAuth({
-    ...authConfig,
-    providers: [
-        CredentialsProvider({
-            name: "Email",
-            credentials: {},
-            async authorize(credentials, req) {
-                const parsedCredentials = z
-                    .object({
-                        email: z.string().email(),
-                        code: z.string().min(6),
-                    })
-                    .safeParse(credentials);
-                if (!parsedCredentials.success) {
-                    return null;
-                }
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import {
+    ACCESS_TOKEN_COOKIE,
+    REFRESH_TOKEN_COOKIE,
+    USER_COOKIE,
+    revokeRefreshToken,
+} from "@/lib/oauth-session";
 
-                const { email, code }: any = parsedCredentials.data;
-                const sanitizedEmail = email.toLowerCase();
+export interface SessionUser {
+    id: string;
+    email: string;
+    name?: string;
+}
 
-                await connectToDatabase();
-                const verificationToken =
-                    await VerificationToken.findOneAndDelete({
-                        email: sanitizedEmail,
-                        code: hashCode(code),
-                        timestamp: { $gt: Date.now() },
-                    });
+export interface Session {
+    user: SessionUser;
+    accessToken: string;
+}
 
-                if (!verificationToken) {
-                    return null;
-                }
+export async function auth(): Promise<Session | null> {
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
+    const userJson = cookieStore.get(USER_COOKIE)?.value;
 
-                let user = await User.findOne({
-                    email: sanitizedEmail,
-                });
+    if (!accessToken || !userJson) {
+        return null;
+    }
 
-                if (!user) {
-                    user = await User.create({
-                        email: sanitizedEmail,
-                        active: true,
-                        subscriptionStatus:
-                            Constants.SubscriptionStatus.NOT_SUBSCRIBED,
-                    });
-                    try {
-                        await createUser({ email: sanitizedEmail });
-                    } catch (err: any) {
-                        console.error("Error creating user in CourseLit");
-                        console.error(err);
-                    }
-                }
-                return {
-                    id: user.userId,
-                    email: sanitizedEmail,
-                    name: user.name,
-                };
-            },
-        }),
-    ],
-});
+    try {
+        const user = JSON.parse(userJson) as SessionUser;
+        return {
+            user,
+            accessToken,
+        };
+    } catch {
+        return null;
+    }
+}
+
+export async function signOut() {
+    const cookieStore = await cookies();
+    await revokeRefreshToken(cookieStore.get(REFRESH_TOKEN_COOKIE)?.value);
+    cookieStore.delete(ACCESS_TOKEN_COOKIE);
+    cookieStore.delete(REFRESH_TOKEN_COOKIE);
+    cookieStore.delete(USER_COOKIE);
+    redirect("/login");
+}

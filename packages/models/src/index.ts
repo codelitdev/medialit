@@ -1,8 +1,14 @@
 export { Apikey } from "./api-key";
+export { OauthClient } from "./oauth-client";
+export { OauthPendingAuth } from "./oauth-pending-auth";
+export { OauthRevokedToken } from "./oauth-revoked-token";
 export { User } from "./user";
 export { APIKEY_RESTRICTION } from "./api-key-restriction";
 export { default as UserSchema } from "./user-schema";
 export { default as ApikeySchema } from "./api-key-schema";
+export { default as OauthClientSchema } from "./oauth-client-schema";
+export { default as OauthPendingAuthSchema } from "./oauth-pending-auth-schema";
+export { default as OauthRevokedTokenSchema } from "./oauth-revoked-token-schema";
 export * as Constants from "./constants";
 export { Media } from "./media";
 export { default as MediaSchema } from "./media-schema";

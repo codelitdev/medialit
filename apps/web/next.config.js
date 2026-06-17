@@ -24,7 +24,7 @@ const nextConfig = {
             },
             {
                 protocol: "https",
-                hostname: "cdn.medialit.clqa.online",
+                hostname: "cdn.medialit.clqa.site",
             },
             {
                 protocol: "https",

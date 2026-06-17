@@ -4,6 +4,7 @@ import {
     updateMediaSettingsHandler,
 } from "./handlers";
 import apikey from "../apikey/middleware";
+import { authenticatedApiLimiter } from "../auth/limiters";
 
 export default (passport: any) => {
     const router = express.Router();
@@ -14,7 +15,7 @@ export default (passport: any) => {
             #swagger.tags = ['Settings']
             #swagger.summary = 'Update Media Settings'
             #swagger.description = 'Update configuration for media processing.'
-            #swagger.security = [{ "apiKeyAuth": [] }]
+            #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
             #swagger.requestBody = {
                 required: true,
                 content: {
@@ -40,6 +41,7 @@ export default (passport: any) => {
             #swagger.responses[401] = { description: 'Unauthorized' }
             #swagger.responses[500] = { description: 'Internal Server Error' }
         */
+        authenticatedApiLimiter,
         apikey,
         updateMediaSettingsHandler,
     );
@@ -50,7 +52,7 @@ export default (passport: any) => {
             #swagger.tags = ['Settings']
             #swagger.summary = 'Get Media Settings'
             #swagger.description = 'Retrieve current media processing configuration.'
-            #swagger.security = [{ "apiKeyAuth": [] }]
+            #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
             #swagger.responses[200] = {
                 description: 'Settings retrieved successfully',
                 content: {
@@ -62,6 +64,7 @@ export default (passport: any) => {
             #swagger.responses[401] = { description: 'Unauthorized' }
             #swagger.responses[500] = { description: 'Internal Server Error' }
         */
+        authenticatedApiLimiter,
         apikey,
         getMediaSettingsHandler,
     );

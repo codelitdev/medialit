@@ -3,19 +3,13 @@ import {
     maxStorageAllowedNotSubscribed,
     maxStorageAllowedSubscribed,
 } from "../config/constants";
-import {
-    FILE_IS_REQUIRED,
-    FILE_SIZE_EXCEEDED,
-    NOT_FOUND,
-    SUCCESS,
-} from "../config/strings";
+import { FILE_IS_REQUIRED, NOT_FOUND, SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
 import { getSubscriptionStatus } from "@medialit/models";
 import { getSignatureFromReq } from "../signature/utils";
-import getMaxFileUploadSize from "./utils/get-max-file-upload-size";
 import { getMediaSchema, uploadMediaSchema } from "./schemas";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
@@ -32,13 +26,6 @@ export async function uploadMedia(
 
     if (!req.files || !req.files.file) {
         return res.status(400).json({ error: FILE_IS_REQUIRED });
-    }
-
-    const allowedFileSize = getMaxFileUploadSize(req);
-    if (req.files.file.size > allowedFileSize) {
-        return res.status(400).json({
-            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${allowedFileSize} bytes`,
-        });
     }
 
     const { error } = validateUploadOptions(req);
@@ -182,13 +169,7 @@ export async function sealMedia(req: any, res: any) {
             mediaId,
         });
 
-        const mediaDetails = await mediaService.getMediaDetails({
-            userId: req.user.id,
-            apikey: req.apikey,
-            mediaId: media.mediaId,
-        });
-
-        return res.status(200).json(mediaDetails);
+        return res.status(200).json(media);
     } catch (err: any) {
         const statusCode =
             err.message === "Media not found"

@@ -2,7 +2,39 @@ import mongoose, { FilterQuery } from "mongoose";
 import { numberOfRecordsPerPage } from "../config/constants";
 import GetPageProps from "./GetPageProps";
 import MediaModel from "./model";
-import { Constants, type MediaWithUserId } from "@medialit/models";
+import {
+    AccessControl,
+    Constants,
+    type MediaWithUserId,
+} from "@medialit/models";
+
+export function buildMediaCountQuery({
+    userId,
+    apikey,
+    access,
+    group,
+}: {
+    userId: string | mongoose.Types.ObjectId;
+    apikey: string;
+    access?: AccessControl;
+    group?: string;
+}): FilterQuery<MediaWithUserId> {
+    const query: FilterQuery<MediaWithUserId> = {
+        apikey,
+        userId,
+        temp: { $ne: true },
+    };
+    if (access) {
+        query.accessControl =
+            access === Constants.AccessControl.PRIVATE
+                ? Constants.AccessControl.PRIVATE
+                : Constants.AccessControl.PUBLIC;
+    }
+    if (typeof group === "string" && group.trim().length > 0) {
+        query.group = { $regex: `^${escapeRegex(group.trim())}` };
+    }
+    return query;
+}
 
 function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -28,15 +60,16 @@ export async function getMedia({
 export async function getMediaCount({
     userId,
     apikey,
+    access,
+    group,
 }: {
     userId: string;
     apikey: string;
+    access?: AccessControl;
+    group?: string;
 }): Promise<number> {
-    return await MediaModel.countDocuments({
-        apikey,
-        userId,
-        temp: { $ne: true },
-    }).lean();
+    const query = buildMediaCountQuery({ userId, apikey, access, group });
+    return await MediaModel.countDocuments(query).lean();
 }
 
 export async function getTotalSpace({
@@ -82,20 +115,7 @@ export async function getPaginatedMedia({
     group,
     recordsPerPage,
 }: GetPageProps): Promise<MediaWithUserId[]> {
-    const query: FilterQuery<MediaWithUserId> = {
-        userId,
-        apikey,
-        temp: { $ne: true },
-    };
-    if (access) {
-        query.accessControl =
-            access === Constants.AccessControl.PRIVATE
-                ? Constants.AccessControl.PRIVATE
-                : Constants.AccessControl.PUBLIC;
-    }
-    if (typeof group === "string" && group.trim().length > 0) {
-        query.group = { $regex: `^${escapeRegex(group.trim())}` };
-    }
+    const query = buildMediaCountQuery({ userId, apikey, access, group });
     const limitWithFallback = recordsPerPage || numberOfRecordsPerPage;
 
     return await MediaModel.find(query, {
