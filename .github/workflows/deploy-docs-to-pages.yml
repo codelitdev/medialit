@@ -42,9 +42,9 @@ jobs:
         with:
           node-version: "20"
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10.7.1
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
@@ -72,7 +72,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Install dependencies
-        run: pnpm i
+        run: pnpm i --frozen-lockfile
       - name: Build with Next.js
         run: pnpm --filter @medialit/docs build 
       - name: Upload artifact
