@@ -4,7 +4,7 @@
 **Status:** Implemented
 **Author:** Rajat Saxena
 **Date:** 2026-06-13
-**Last revised:** 2026-06-14
+**Last revised:** 2026-06-17
 
 > ## ✅ OAuth Restart-Safety Revision (2026-06-14) — implemented
 >
@@ -48,7 +48,7 @@ The OAuth 2.0 Authorization Server is a **standalone generic module** at `src/oa
   ┌──────────────────────────────────────────────────────────────┐
   │ Express API (port 8000)                                      │
   │                                                              │
-  │  /media/*    →  REST routes (multipart upload)               │ ◄── upload files
+  │  /media/*    →  REST routes (multipart + TUS upload)          │ ◄── upload files
   │  /settings/* →  REST routes                                  │
   │                                                              │
   │  ── OAuth 2.0 Authorization Server (standalone) ────────    │
@@ -56,6 +56,7 @@ The OAuth 2.0 Authorization Server is a **standalone generic module** at `src/oa
   │  /oauth/authorize     →  authorization page (OTP login)      │ ◄── user login
   │  /oauth/token         →  token exchange / refresh            │ ◄── get access token
   │  /oauth/revoke        →  token revocation                    │ ◄── logout
+  │  /oauth/userinfo      →  current OAuth user profile          │ ◄── web session user
   │  /oauth/register      →  DCR (RFC 7591)                      │ ◄── client registration
   │                                                              │
   │  ── MCP transport ──────────────────────────────────────    │
@@ -76,7 +77,8 @@ The OAuth 2.0 Authorization Server is a **standalone generic module** at `src/oa
 ```
 
 - The MCP transport is mounted as Express middleware at `/mcp`
-- A unified auth middleware checks for `Authorization: Bearer *** first, then falls back to `x-medialit-apikey`
+- A unified auth middleware checks for `Authorization: Bearer ***` first, then falls back to `x-medialit-apikey`
+- `apps/api/src/index.ts` mounts `mcp/routes.ts`; that router owns the OAuth discovery/routes and the MCP transport route
 - The OAuth server is mounted at `/oauth/*` (and `/.well-known/oauth-authorization-server` for discovery); there are no `/mcp/*` OAuth aliases
 - MCP tools call service-layer functions directly — no HTTP calls to self
 - Always enabled, no feature flag
@@ -85,21 +87,23 @@ The OAuth 2.0 Authorization Server is a **standalone generic module** at `src/oa
 
 File uploads are supported via two paths:
 
-**Path A — REST API (multipart):** The existing `POST /media` endpoint accepts binary files as multipart/form-data. Suitable for large files and direct client uploads.
+**Path A — REST API (multipart):** The existing `POST /media/create` endpoint accepts binary files as multipart/form-data. Suitable for large files and direct client uploads.
 
 **Path B — MCP tool (base64):** The `upload_media` MCP tool accepts files encoded as base64 strings in a JSON-RPC call. The server decodes the base64 content, writes it to a temp file, and calls the same `mediaService.upload()` function used by the REST route. Suitable for AI agents uploading small-to-medium files inline.
 
+**Path C — TUS resumable upload:** The `POST /media/create/resumable` TUS endpoint accepts resumable uploads and finalizes them through the same media service path.
+
 ```
   ┌──────────┐    multipart upload     ┌──────────────┐
-  │  Client  │ ──────────────────────→ │  POST /media │
+  │  Client  │ ──────────────────────→ │ /media/create│
   │  (REST)  │                         │  (REST)      │
-  │          │     returns mediaId     └──────────────┘
+  │          │     returns media       └──────────────┘
   │          │ ←──────────────────────
   │          │
   │  Client  │  POST /mcp (JSON-RPC)
   │  (MCP)   │  { upload_media, base64... }
   │          │ ──────────────────────────→  upload_media tool
-  │          │ ←──────────────────────────  returns { mediaId }
+  │          │ ←──────────────────────────  returns media
   │          │                            (record is now temp=true)
   │          │
   │  Client  │  POST /mcp (JSON-RPC)
@@ -111,7 +115,7 @@ File uploads are supported via two paths:
   │  Client  │  POST /mcp (JSON-RPC)
   │          │  { list_media, group, ... }
   │          │ ──────────────────────────→  list_media tool
-  │          │ ←──────────────────────────  returns { mediaItems, total, page }
+  │          │ ←──────────────────────────  returns { mediaItems }
   └──────────┘
 ```
 
@@ -119,13 +123,14 @@ File uploads are supported via two paths:
 
 - MCP transport (Streamable HTTP) uses JSON-RPC — not designed for binary file transfer
 - Base64 encoding allows file bytes to be embedded in the JSON payload
-- Both paths share the same `mediaService.upload()` implementation, ensuring consistent processing (WebP conversion, thumbnails, S3 upload)
+- REST multipart and MCP uploads share the same `mediaService.upload()` implementation, ensuring consistent processing (WebP conversion, thumbnails, S3 upload)
+- REST multipart, TUS, and MCP uploads all call `validateUploadConstraints()` so account storage limits and per-file size limits are enforced consistently before storage work begins
 
 **Two-step upload (temp → sealed):**
 
-Every record created by `mediaService.upload()` is flagged `temp: true` in the database. Records with `temp: true` are **excluded** from `list_media`, `get_media_count`, `get_media_size`, and `get_paginated_media` queries (the `getPaginatedMedia` / `getMediaCount` filters in `src/media/queries.ts` apply `temp: { $ne: true }`). To make a record permanently visible, the caller must invoke `seal_media` with the returned `mediaId`. The `seal` operation `$unset`s the `temp` field.
+Every record created by `mediaService.upload()` is flagged `temp: true` in the database. Records with `temp: true` are **excluded** from `list_media`, `get_media_count`, `get_total_storage`, and `get_paginated_media` queries (the `getPaginatedMedia` / `getMediaCount` filters in `src/media/queries.ts` apply `temp: { $ne: true }`). To make a record permanently visible, the caller must invoke `seal_media` with the returned `mediaId`. The `seal` operation `$unset`s the `temp` field.
 
-This is the same two-step behavior as the existing REST API (`POST /media` → `POST /media/{mediaId}/seal`), preserved for consistency. The temp flag also enables a periodic cleanup sweep (`src/media/cleanup.ts`) that deletes orphaned temp records older than a configurable TTL.
+This is the same two-step behavior as the existing REST API (`POST /media/create` → `POST /media/seal/{mediaId}`), preserved for consistency. The temp flag also enables a periodic cleanup sweep (`src/media/cleanup.ts`) that deletes orphaned temp records older than a configurable TTL.
 
 > **Callout:** If an agent calls `upload_media` and the new file does not appear in `list_media`, the most common cause is that `seal_media` was not called. Always pair `upload_media` with `seal_media` unless the upload is intentionally a draft.
 
@@ -143,21 +148,29 @@ Remote HTTP is strictly better for this use case:
 ```
 apps/api/src/
 ├── mcp/
+│   ├── routes.ts           ← Express router for OAuth discovery/routes, CORS,
+│   │                          rate limiting, MCP auth, and /mcp sessions
 │   ├── server.ts           ← Creates McpServer with StreamableHTTPTransport,
 │   │                          imports + registers all tools
 │   └── tools/
 │       ├── media.ts        ← list_media, get_media, get_media_count,
-│       │                      get_media_size, delete_media, seal_media
+│       │                      get_total_storage, delete_media, seal_media
+│       ├── responses.ts    ← Shared MCP error responses
+│       ├── schemas.ts      ← Shared output schemas for structuredContent
 │       ├── signature.ts    ← create_upload_signature
 │       ├── settings.ts     ← get_media_settings, update_media_settings
 │       └── upload.ts       ← upload_media
 │
 ├── oauth/
-│   ├── server.ts           ← OAuth2Server instance + Express Router
-│   │                          (endpoints at /oauth/*)
-│   ├── model.ts            ← AuthorizationCodeModel (in-memory Maps)
+│   ├── routes.ts           ← Express Router for /.well-known and /oauth/*
+│   ├── server.ts           ← OAuth2Server instance
+│   ├── model.ts            ← AuthorizationCodeModel (in-memory auth codes,
+│   │                          JWT access/refresh tokens, DCR persistence)
 │   ├── authorize-page.ts   ← Templated authorization HTML page
 │   ├── jwt.ts              ← (NEW) HS256 sign/verify helpers
+│   ├── pending-auth-model.ts
+│   ├── client-model.ts
+│   ├── revoked-token-model.ts
 │   └── middleware.ts       ← Express middleware for Bearer token
 │                              introspection on any route
 │
@@ -175,13 +188,15 @@ The shared auth middleware (`auth/middleware.ts`) imports from the oauth module 
 
 ## 4. Dependencies
 
-Add to `apps/api/package.json`:
+Current `apps/api/package.json` dependencies:
 
-| Package                     | Version                                             | Purpose                                    |
-| --------------------------- | --------------------------------------------------- | ------------------------------------------ |
-| `@modelcontextprotocol/sdk` | ^1.x                                                | MCP server, StreamableHTTPTransport, types |
-| `@node-oauth/oauth2-server` | ^5.3.0                                              | OAuth 2.0 Authorization Code + PKCE server |
-| `jsonwebtoken`              | (already installed transitively via `passport-jwt`) | HS256 access-token signing                 |
+| Package                     | Version  | Purpose                                    |
+| --------------------------- | -------- | ------------------------------------------ |
+| `@modelcontextprotocol/sdk` | ^1.29.0  | MCP server, StreamableHTTPTransport, types |
+| `@node-oauth/oauth2-server` | ^5.3.0   | OAuth 2.0 Authorization Code + PKCE server |
+| `jsonwebtoken`              | ^9.0.2   | HS256 access-token signing                 |
+| `express-rate-limit`        | ^7.5.0   | OAuth and MCP rate limiting                |
+| `zod`                       | ^3.25.76 | MCP and OAuth boundary validation          |
 
 `@node-oauth/oauth2-server` handles the OAuth 2.0 protocol logic (authorization code flow, token issuance, PKCE verification, refresh token rotation). `jsonwebtoken` handles the **stateless verification of access tokens** issued by the model (see §6.7).
 
@@ -191,25 +206,25 @@ Add to `apps/api/package.json`:
 
 ### 5.1 Media
 
-| Tool Name         | Calls                             | Input Parameters                                                                                | Description                                     |
-| ----------------- | --------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `list_media`      | `getMedia()` handler              | `page?` (number, ≥1), `limit?` (number, ≥1), `access?` ("public"\|"private"), `group?` (string) | List media files with optional filters          |
-| `get_media`       | `getMediaDetails()` handler       | `mediaId` (string, required)                                                                    | Get metadata for a specific media file          |
-| `get_media_count` | `getMediaCount()` handler         | none                                                                                            | Get total number of media files                 |
-| `get_media_size`  | `getTotalSpaceOccupied()` handler | none                                                                                            | Get total storage used and max storage in bytes |
-| `delete_media`    | `deleteMedia()` handler           | `mediaId` (string, required)                                                                    | Permanently delete a media file                 |
-| `seal_media`      | `sealMedia()` handler             | `mediaId` (string, required)                                                                    | Mark a media file as finalized/processed        |
+| Tool Name           | Calls                       | Input Parameters                                                                                | Description                                     |
+| ------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `list_media`        | `mediaService.getPage()`    | `page?` (number, ≥1), `limit?` (number, ≥1), `access?` ("public"\|"private"), `group?` (string) | List media files with optional filters          |
+| `get_media`         | `getMediaDetails()` handler | `mediaId` (string, required)                                                                    | Get metadata for a specific media file          |
+| `get_media_count`   | `getMediaCount()` handler   | none                                                                                            | Get total number of media files                 |
+| `get_total_storage` | `getTotalSpace()` handler   | none                                                                                            | Get total storage used and max storage in bytes |
+| `delete_media`      | `deleteMedia()` handler     | `mediaId` (string, required)                                                                    | Permanently delete a media file                 |
+| `seal_media`        | `sealMedia()` handler       | `mediaId` (string, required)                                                                    | Mark a media file as finalized/processed        |
 
 **Output:**
 
-- `list_media` returns `{ mediaItems, total, page }`. `total` is the **real database count** matching the `access` / `group` filter (computed by `getMediaCount` in parallel with `getPage`, see commit `e684f70`) — it is _not_ the page length. `structuredContent` echoes the same shape.
-- `get_media` returns the full media object (schema is `z.object({ mediaId: z.string() }).passthrough()`). `structuredContent` is the full media dict.
+- `list_media` returns `structuredContent: { mediaItems }`, where `mediaItems` is the current page of media list items. The text content is the JSON array for backward-compatible clients.
+- `get_media` returns the full media object. `structuredContent` is the same media object and follows `mediaSchema`.
 - `get_media_count` returns `{ count }`.
-- `get_media_size` returns `{ storage }` (the storage object from `getTotalSpace()`, which contains `storage` and `maxStorage` keys). `structuredContent: { storage }`.
-- `delete_media` returns `{ deleted: true, mediaId }`.
-- `seal_media` returns the sealed media object (or `{ sealed: true, mediaId }` if the service returns null).
+- `get_total_storage` returns `{ storage, maxStorage }`, both in bytes.
+- `delete_media` returns `{ message: SUCCESS }`.
+- `seal_media` returns the sealed media object.
 
-**Sealed-only filter (applies to the list/count/size tools in this section):** The query helpers `getMediaCount`, `getTotalSpace`, and `getPaginatedMedia` in `src/media/queries.ts` filter out records that are still flagged `temp: true`. Newly uploaded records (via REST `POST /media` _or_ MCP `upload_media`) are created with `temp: true` and become visible to `list_media` / `get_media_count` / `get_media_size` only **after** `seal_media` is invoked. See §2.3 for the full temp → seal flow.
+**Sealed-only filter (applies to the list/count/storage tools in this section):** The query helpers `getMediaCount`, `getTotalSpace`, and `getPaginatedMedia` in `src/media/queries.ts` filter out records that are still flagged `temp: true`. Newly uploaded records (via REST `POST /media/create`, TUS, or MCP `upload_media`) are created with `temp: true` and become visible to `list_media` / `get_media_count` / `get_total_storage` only **after** `seal_media` is invoked. See §2.3 for the full temp → seal flow.
 
 **Exception — `get_media`:** `getMedia` (the single-item lookup) does **not** apply the `temp: { $ne: true }` filter (the filter is intentionally commented out in `src/media/queries.ts`). This lets a caller fetch and inspect a freshly uploaded draft by its `mediaId` _before_ sealing it.
 
@@ -230,18 +245,18 @@ Add to `apps/api/package.json`:
 
 **Output:**
 
-- `get_media_settings` returns the full settings object. `structuredContent` is the settings dict (schema is `z.object({}).passthrough()`, so any keys pass through).
-- `update_media_settings` returns `{ updated: true }`.
+- `get_media_settings` returns the full settings object: `{ useWebP, webpOutputQuality, thumbnailWidth, thumbnailHeight }`.
+- `update_media_settings` returns `{ message: SUCCESS }`.
 
 ### 5.4 Upload
 
-| Tool Name      | Calls                   | Input Parameters                                                                                                                                                                                                                                                      | Auth     | Annotations                                    | Description                                                   |
-| -------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------- | ------------------------------------------------------------- |
-| `upload_media` | `mediaService.upload()` | `fileBase64` (string, required — base64-encoded file content), `fileName` (string, required — filename with extension), `mimeType` (string, required — MIME type), `caption` (string, optional), `access` ("public"\|"private", optional), `group` (string, optional) | Required | `destructiveHint: true`, `openWorldHint: true` | Upload a file to MediaLit storage from base64-encoded content |
+| Tool Name      | Calls                   | Input Parameters                                                                                                                                                                                                                                                      | Auth     | Annotations                                     | Description                                                   |
+| -------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------- | ------------------------------------------------------------- |
+| `upload_media` | `mediaService.upload()` | `fileBase64` (string, required — base64-encoded file content), `fileName` (string, required — filename with extension), `mimeType` (string, required — MIME type), `caption` (string, optional), `access` ("public"\|"private", optional), `group` (string, optional) | Required | `destructiveHint: false`, `openWorldHint: true` | Upload a file to MediaLit storage from base64-encoded content |
 
-The tool decodes the base64 string into a `Buffer`, writes it to a temp file in `os.tmpdir()`, constructs a file-like object with a `mv()` method, and calls `mediaService.upload()`. The temp file is removed in a `finally` block after the upload completes or fails. Returns `{ mediaId }` on success — `structuredContent: { mediaId }` is required.
+The tool decodes the base64 string into a `Buffer`, writes it to a temp file in `os.tmpdir()`, constructs a file-like object with a `mv()` method, validates file size and account storage via `validateUploadConstraints()`, and calls `mediaService.upload()`. The temp file is removed in a `finally` block after the upload completes or fails. It then fetches the uploaded media details and returns the full media object in `structuredContent`.
 
-> **Two-step upload:** The record returned by `upload_media` is created with `temp: true` and is **not** visible to `list_media` / `get_media_count` / `get_media_size` until the caller invokes `seal_media` with the returned `mediaId`. See §2.3 and §5.1. A typical agent workflow is: `upload_media` → `seal_media` (and then optionally `list_media` / `get_media` to confirm).
+> **Two-step upload:** The record returned by `upload_media` is created with `temp: true` and is **not** visible to `list_media` / `get_media_count` / `get_total_storage` until the caller invokes `seal_media` with the returned `mediaId`. See §2.3 and §5.1. A typical agent workflow is: `upload_media` → `seal_media` (and then optionally `list_media` / `get_media` to confirm).
 
 ## 6. OAuth 2.0 Authorization Server
 
@@ -262,30 +277,35 @@ User identity comes from the existing email-based OTP/magic link login (the User
 
 ```
 src/oauth/
-├── server.ts         ← OAuth2Server instance + Express Router
+├── routes.ts         ← Express Router
 │                        Endpoints: /oauth/authorize, /oauth/token,
-│                        /oauth/revoke, /oauth/register
+│                        /oauth/revoke, /oauth/userinfo, /oauth/register
+├── server.ts         ← OAuth2Server instance
 ├── model.ts          ← AuthorizationCodeModel
 │                        (in-memory auth-codes; JWT access + refresh tokens)
 ├── jwt.ts            ← HS256 sign/verify helpers, payload shape, key loading
 ├── authorize-page.ts ← Templated HTML authorization page
+├── pending-auth-model.ts ← MongoDB-backed pending OTP/OAuth sessions
+├── client-model.ts   ← MongoDB-backed dynamic client registrations
+├── revoked-token-model.ts ← MongoDB-backed revoked refresh-token JTIs
 └── middleware.ts     ← Express middleware: validate Bearer token
                          on any route (returns userId or null)
 ```
 
 **Standardized endpoints:**
 
-| Endpoint                                  | Method | Purpose                                |
-| ----------------------------------------- | ------ | -------------------------------------- |
-| `/.well-known/oauth-authorization-server` | GET    | OAuth discovery metadata               |
-| `/oauth/authorize`                        | GET    | Authorization page (OTP login)         |
-| `/oauth/authorize/send-otp`               | POST   | Send OTP email                         |
-| `/oauth/authorize/verify-otp`             | POST   | Verify OTP + issue auth code           |
-| `/oauth/token`                            | POST   | Token exchange & refresh               |
-| `/oauth/revoke`                           | POST   | Token revocation                       |
-| `/oauth/register`                         | POST   | Dynamic client registration (RFC 7591) |
+| Endpoint                                  | Method | Purpose                                     |
+| ----------------------------------------- | ------ | ------------------------------------------- |
+| `/.well-known/oauth-authorization-server` | GET    | OAuth discovery metadata                    |
+| `/oauth/authorize`                        | GET    | Authorization page (OTP login)              |
+| `/oauth/authorize/send-otp`               | POST   | Send OTP email                              |
+| `/oauth/authorize/verify-otp`             | POST   | Verify OTP + issue auth code                |
+| `/oauth/token`                            | POST   | Token exchange & refresh                    |
+| `/oauth/userinfo`                         | GET    | Current OAuth user's `{ sub, email, name }` |
+| `/oauth/revoke`                           | POST   | Token revocation                            |
+| `/oauth/register`                         | POST   | Dynamic client registration (RFC 7591)      |
 
-The `src/oauth/` module is mounted at `/oauth/*` (plus the `/.well-known` discovery endpoint) in `src/index.ts`. No MCP-specific `/mcp/authorize` / `/mcp/token` / `/mcp/revoke` aliases exist — they were considered for backward compat but never needed, since MCP clients discover the `/oauth/*` endpoints via `/.well-known/oauth-authorization-server`.
+The `src/oauth/` module is mounted by `src/mcp/routes.ts`, which is then mounted once from `src/index.ts` with `app.use(mcpRoutes)`. No MCP-specific `/mcp/authorize` / `/mcp/token` / `/mcp/revoke` aliases exist — they were considered for backward compat but never needed, since MCP clients discover the `/oauth/*` endpoints via `/.well-known/oauth-authorization-server`.
 
 `/oauth/register` is public for MCP client compatibility, but is rate-limited and accepts only public PKCE clients. Registered redirect URIs must be HTTPS, except localhost or loopback development URLs, and must not contain fragments or credentials.
 
@@ -313,7 +333,7 @@ Flow:
 | Mobile app (future)       | Public       | PKCE + OTP  | authorization_code | DCR (RFC 7591)                                  |
 | CLI / Script (future)     | Public       | Device Code | device_code        | Dynamic                                         |
 
-**First-party clients** (web frontend, mobile app) are pre-registered in the OAuth model with known client IDs and redirect URIs. They use the same OAuth flow as third-party clients — no special bypass. The web frontend uses NextAuth.js with an OAuth provider configured to point at `/oauth/token`.
+**First-party clients** (web frontend, mobile app) are pre-registered in the OAuth model with known client IDs and redirect URIs. They use the same OAuth flow as third-party clients — no special bypass. The web frontend uses a custom PKCE flow with HTTP-only session cookies instead of NextAuth.
 
 ### 6.4 Authorization Flow (OTP)
 
@@ -343,32 +363,19 @@ The authorization endpoint is split into two stages. Our code owns the user-iden
 1. Client registers via DCR (`POST /oauth/register`) or uses a static client ID
 2. Client initiates OAuth flow via the authorization page, user authenticates with OTP
 3. Client receives authorization code and exchanges it at `POST /oauth/token` for an access token
-4. Client sends the access token as `Authorization: Bearer *** on every MCP request (`POST /mcp`)
+4. Client sends the access token as `Authorization: Bearer ***` on every MCP request (`POST /mcp`)
 5. The MCP auth middleware exported from `src/auth/middleware.ts` validates the token through `src/auth/resolve-auth.ts`, which calls `oauth/middleware.ts`'s `validateBearerToken()`
 
 #### 6.5.2 Web Frontend (`apps/web`)
 
-1. The Next.js app configures NextAuth.js with an OAuth provider pointing at the internal OAuth server
-2. The OAuth provider uses `authorization: "/oauth/authorize"` and `token: "/oauth/token"`
-3. Users sign in via the email/OTP page served at `/oauth/authorize`
-4. NextAuth.js exchanges the authorization code for tokens and manages the session
-5. Server-side API routes validate Bearer tokens via `oauth/middleware.ts`
+The Next.js frontend replaces NextAuth with a small first-party OAuth client:
 
-**Configuration example (in `apps/web/auth.ts`):**
-
-```typescript
-// Instead of CredentialsProvider, use the built-in OAuth provider
-import OAuthProvider from "next-auth/providers/oauth";
-// ...
-providers: [
-    OAuthProvider({
-        clientId: "web-client",
-        clientSecret: "", // public client
-        authorization: { url: "https://api.medialit.cloud/oauth/authorize" },
-        token: "https://api.medialit.cloud/oauth/token",
-    }),
-],
-```
+1. `apps/web/auth.ts` exposes `auth()` and `signOut()` helpers backed by HTTP-only cookies. `auth()` reads `session_user` and `session_access_token`; `signOut()` revokes `session_refresh_token`, clears local session cookies, and redirects to `/login`.
+2. `apps/web/middleware.ts` protects application routes. It allows `/login`, `/api/auth/callback/medialit`, `/api/auth/signout`, static assets, and cleanup APIs, and redirects unauthenticated users to `/login`.
+3. If the access token is missing, expired, or near expiry while a refresh token exists, middleware calls `POST /oauth/token` with `grant_type=refresh_token` and `client_id=web-client`, then stores the rotated `session_access_token` and `session_refresh_token` cookies.
+4. `apps/web/app/login/route.ts` starts the PKCE flow by generating `state`, `code_verifier`, and `code_challenge`, storing the verifier in a short-lived HTTP-only `oauth_code_verifier` cookie, and redirecting to `/oauth/authorize`.
+5. `apps/web/app/api/auth/callback/medialit/route.ts` exchanges the authorization code at `/oauth/token`, calls `/oauth/userinfo`, stores `session_access_token`, `session_refresh_token`, and `session_user`, clears `oauth_code_verifier`, and redirects to `/`.
+6. `apps/web/app/api/auth/signout/route.ts` revokes the refresh token at `/oauth/revoke`, clears `session_access_token`, `session_refresh_token`, and `session_user`, and redirects to `/login`.
 
 #### 6.5.3 Mobile App (future)
 
@@ -449,7 +456,7 @@ interface AccessTokenPayload {
     sub: string; // userId
     cid: string; // clientId
     typ: "access"; // discriminator
-    scope: string[]; // future-proof; default: []
+    scope: string; // OAuth space-delimited scope string; default: ""
     iat: number; // issued-at (seconds)
     exp: number; // expires-at (seconds)
 }
@@ -471,7 +478,7 @@ Claims are kept minimal — the JWT is **not** a session store, it's a capabilit
 
 ```typescript
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
+import { randomUUID } from "crypto";
 
 const KEYS = (process.env.OAUTH_SIGNING_KEY || "")
     .split(",")
@@ -489,22 +496,20 @@ export function signAccessToken(
     clientId: string,
     scope: string[] = [],
 ): string {
-    const now = Math.floor(Date.now() / 1000);
     return jwt.sign(
-        { sub: userId, cid: clientId, typ: "access", scope },
+        { sub: userId, cid: clientId, typ: "access", scope: scope.join(" ") },
         SIGNING_KEY,
         { algorithm: "HS256", expiresIn: ACCESS_TOKEN_TTL, noTimestamp: false },
     );
 }
 
 export function signRefreshToken(userId: string, clientId: string): string {
-    const now = Math.floor(Date.now() / 1000);
     return jwt.sign(
         {
             sub: userId,
             cid: clientId,
             typ: "refresh",
-            jti: crypto.randomUUID(),
+            jti: randomUUID(),
         },
         SIGNING_KEY,
         { algorithm: "HS256", expiresIn: REFRESH_TOKEN_TTL },
@@ -529,7 +534,7 @@ export function verifyToken(
             return {
                 sub: decoded.sub,
                 cid: decoded.cid,
-                scope: decoded.scope ?? [],
+                scope: normalizeScope(decoded.scope),
                 jti: decoded.jti,
             };
         } catch {
@@ -545,6 +550,16 @@ export function verifyAccessToken(token: string) {
 
 export function verifyRefreshToken(token: string) {
     return verifyToken(token, "refresh");
+}
+
+function normalizeScope(scope: unknown): string[] {
+    if (Array.isArray(scope)) {
+        return scope.filter((item): item is string => typeof item === "string");
+    }
+    if (typeof scope === "string") {
+        return scope.split(/\s+/).filter(Boolean);
+    }
+    return [];
 }
 ```
 
@@ -716,16 +731,16 @@ const oauth = new OAuth2Server({
 | Refresh token           | Signed JWT, persisted `jti` deny-list in MongoDB `oauthrevokedtokens`                         | 30 days                                           | ✅                |
 | DCR client registration | `{ clientId, redirectUris, grantTypes, ... }` persisted to MongoDB `oauthclients`             | Indefinite                                        | ✅                |
 
-### 6.8 Migration Plan (overall, unchanged from before)
+### 6.8 Implemented Migration Shape
 
 | Step | What                                                                                                                                                                      | Impact                                                                                    |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | 1    | Create `src/oauth/` module — move `oauth-model.ts` → `oauth/model.ts`, split `oauth-server.ts` into `oauth/server.ts` + `oauth/authorize-page.ts` + `oauth/middleware.ts` | No functional change — imports still work                                                 |
-| 2    | Mount OAuth router at `/oauth/*` (primary) + keep `/mcp/*` legacy aliases                                                                                                 | Backward compatible                                                                       |
-| 3    | Update `src/index.ts` — mount new `oauthRouter` at `/oauth/`, keep legacy redirects at `/mcp/authorize` etc.                                                              | Web/mobile can use `/oauth/`                                                              |
-| 4    | Configure NextAuth.js in `apps/web` with OAuth provider pointing to `/oauth/...`                                                                                          | Web frontend migrates from custom auth                                                    |
+| 2    | Split OAuth routing into `src/oauth/routes.ts` and keep the `OAuth2Server` instance in `src/oauth/server.ts`                                                              | Router code and server initialization have separate ownership                             |
+| 3    | Mount `src/mcp/routes.ts` once from `src/index.ts`; `mcp/routes.ts` mounts OAuth discovery/routes and `/mcp`                                                              | `index.ts` stays thin; MCP-specific CORS/session handling lives in the MCP folder         |
+| 4    | Replace legacy web auth with the `apps/web` custom PKCE client that uses `/oauth/authorize`, `/oauth/token`, `/oauth/userinfo`, and `/oauth/revoke`                       | Web frontend uses the generic OAuth server without NextAuth                               |
 | 5    | Add pre-registered first-party clients (`web-client`, `mobile-app`) to the model                                                                                          | New clients work out of the box                                                           |
-| 6    | Remove legacy `/mcp/authorize`, `/mcp/token`, `/mcp/revoke` aliases                                                                                                       | Cleanup after all consumers have migrated                                                 |
+| 6    | Do not expose legacy `/mcp/authorize`, `/mcp/token`, or `/mcp/revoke` aliases                                                                                             | OAuth clients discover the standard `/oauth/*` endpoints                                  |
 | 7    | **(2026-06-14, this revision)** Replace in-memory token store with stateless signed JWTs (see §6.7)                                                                       | Solves restart invalidation bug; **all in-flight tokens invalidated once at deploy time** |
 
 ## 7. Implementation Phases
@@ -737,19 +752,15 @@ const oauth = new OAuth2Server({
 Steps:
 
 1. Install `@modelcontextprotocol/sdk`
-2. Create `server.ts` — `new McpServer({ name: "medialit", version: "1.0.0" })` with `StreamableHTTPServerTransport`
-3. Register read-only tools: `list_media`, `get_media`, `get_media_count`, `get_media_size`, `get_media_settings` (note: the `health_check` tool that shipped in the original rollout was removed in the Phase 3.5 cleanup — server reachability is now verified by the existing `/health` REST endpoint)
+2. Create `mcp/server.ts` — `new McpServer({ name: "MediaLit", version: "1.0.0" })` with `StreamableHTTPServerTransport`
+3. Register read-only tools: `list_media`, `get_media`, `get_media_count`, `get_total_storage`, `get_media_settings` (note: the `health_check` tool that shipped in the original rollout was removed in the Phase 3.5 cleanup — server reachability is now verified by the existing `/health` REST endpoint)
 4. Create `auth/middleware.ts` with API key path only (OAuth path stubbed)
-5. Mount in `apps/api/src/index.ts`:
+5. Mount in `apps/api/src/index.ts` through the MCP router:
 
     ```typescript
-    import { MCPServer } from "./mcp/server";
-    import { mcpAuth } from "./auth/middleware";
+    import mcpRoutes from "./mcp/routes";
 
-    const mcpServer = new MCPServer();
-    app.post("/mcp", mcpAuth, (req, res) =>
-        mcpServer.transport.handleRequest(req, res),
-    );
+    app.use(mcpRoutes);
     ```
 
 6. Test with MCP Inspector:
@@ -781,17 +792,18 @@ Steps:
 8. Install `@node-oauth/oauth2-server`
 9. Create `src/oauth/` module:
     - `model.ts` — `AuthorizationCodeModel` backed by in-memory authorization-code storage, stateless JWT access/refresh tokens, and DCR persistence in MongoDB `oauthclients`
-    - `server.ts` — create the `OAuth2Server` instance with `requirePKCE: true`, `allowEmptyState: true`, `allowExtendedTokenAttributes: true`; register static MCP clients + first-party web/mobile clients; export Express router for `/.well-known/oauth-authorization-server`, `GET /oauth/authorize`, `POST /oauth/token`, `POST /oauth/revoke`, `POST /oauth/register`
+    - `server.ts` — create the `OAuth2Server` instance with `allowEmptyState: true`, `allowExtendedTokenAttributes: true`, public-client token exchange, and refresh-token rotation
+    - `routes.ts` — export the Express router for `/.well-known/oauth-authorization-server`, `GET /oauth/authorize`, `POST /oauth/token`, `GET /oauth/userinfo`, `POST /oauth/revoke`, `POST /oauth/register`
     - `authorize-page.ts` — extract the inline HTML into a templated module
     - `middleware.ts` — generic `validateBearerToken()` for any Express route
 10. Build the Stage 1 authorization handler — email input → OTP send → OTP verify → call library's `authorize()` middleware with resolved user
-11. Mount the OAuth router at `/oauth/*` in `index.ts` (before `mcpAuth` middleware, no auth required), with legacy `/mcp/*` aliases for backward compat
+11. Mount the OAuth router from `mcp/routes.ts` before the `/mcp` transport route, with no auth required for OAuth flow endpoints
 12. Wire the `Authorization: Bearer` path into `auth/middleware.ts` using `auth/resolve-auth.ts`
-13. Update `mcp/oauth-server.ts` and `mcp/oauth-model.ts` to re-export from `src/oauth/` (backward compat)
+13. Keep OAuth implementation out of `src/mcp/`; MCP consumes the generic OAuth module through shared auth middleware
 14. Test the full flow using MCP Inspector OAuth mode
 15. Connect ChatGPT MCP connector and verify end-to-end
 
-**Deliverables:** OAuth flow complete at `/oauth/*`, ChatGPT connector working, both auth paths tested, backward compat maintained.
+**Deliverables:** OAuth flow complete at `/oauth/*`, ChatGPT connector working, both auth paths tested, no MCP-specific OAuth aliases.
 
 ### Phase 3.5: OAuth Restart-Safety Hardening (2026-06-14, **this revision**)
 
@@ -827,6 +839,8 @@ Steps:
 26. Create `__tests__/mcp/` with unit tests for tool schemas and OAuth model methods
 27. Audit error messages — `isError: true` with actionable text on all tool failures
 28. Add `TOKEN_TTL_SECONDS` to `.env.example`
+29. Ensure every tool with `outputSchema` returns matching `structuredContent`
+30. Add file-size and account-storage constraint tests for REST multipart, TUS, and MCP upload paths
 
 **Deliverables:** Test suite, validation, production-ready error handling.
 
@@ -836,15 +850,14 @@ Steps:
 
 Steps:
 
-29. Add first-party client entries (`web-client`, `mobile-app`) to the OAuth model's static clients
-30. Add `/oauth/*` routes in `src/index.ts` alongside the existing `/mcp/*` aliases
-31. Remove MCP-specific OAuth code from `src/mcp/` — delete `mcp/oauth-server.ts`, `mcp/oauth-model.ts`; update imports to point at `src/oauth/`
-32. Configure NextAuth.js in `apps/web` with an OAuth provider pointing to the internal `/oauth/authorize` and `/oauth/token` endpoints, replacing the current CredentialsProvider
-33. Test the web frontend login flow end-to-end
-34. Verify backward compatibility: MCP Inspector, ChatGPT connector, and Claude Code all still work
-35. Remove legacy `/mcp/authorize`, `/mcp/token`, `/mcp/revoke` aliases
+31. Add first-party client entries (`web-client`, `mobile-app`) to the OAuth model's static clients
+32. Expose `/oauth/*` routes and discovery from `mcp/routes.ts`
+33. Keep MCP-specific OAuth code out of `src/mcp/`; MCP requests resolve OAuth through `auth/resolve-auth.ts`
+34. Replace the web frontend auth with the custom PKCE client: `auth.ts` cookie session helpers, `/login` PKCE redirect, `/api/auth/callback/medialit` token exchange + userinfo lookup, middleware refresh-token rotation, and `/api/auth/signout` revocation
+35. Test the web frontend login flow end-to-end
+36. Verify MCP Inspector, ChatGPT connector, and Claude Code all still work
 
-**Deliverables:** Generic OAuth server serving all clients, web frontend migrated, mobile-ready, legacy paths removed.
+**Deliverables:** Generic OAuth server serving all clients, web frontend migrated, mobile-ready, no legacy MCP OAuth aliases.
 
 ## 8. Error Handling
 
@@ -881,20 +894,19 @@ All tools return errors as MCP content results with `isError: true`:
 
 ### Mount in Express
 
-In `apps/api/src/index.ts`, add after existing route registrations:
+In `apps/api/src/index.ts`, mount the MCP router after REST routes:
 
 ```typescript
-import { createMCPSession } from "./mcp/server";
-import { mcpAuth } from "./auth/middleware";
-import { oauthRouter } from "./oauth/server";
+import mcpRoutes from "./mcp/routes";
 
-// OAuth endpoints (no auth middleware — these are part of the auth flow)
-// Mounted at /oauth/* and /.well-known/oauth-authorization-server
-app.use(oauthRouter);
-
-// MCP transport (unified auth: Bearer token OR x-medialit-apikey)
-app.post("/mcp", mcpAuth, ...);
+app.use("/settings/media", mediaSettingsRoutes(passport));
+app.use("/media/signature", signatureRoutes);
+app.use("/media", tusRoutes);
+app.use("/media", mediaRoutes);
+app.use(mcpRoutes);
 ```
+
+`mcp/routes.ts` mounts the OAuth discovery/routes, applies MCP CORS and rate limiting, authenticates `/mcp` with the shared `mcpAuth` middleware, and manages Streamable HTTP sessions.
 
 The MCP transport and OAuth endpoints are always active — no feature flag.
 
