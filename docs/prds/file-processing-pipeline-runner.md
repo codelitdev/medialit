@@ -944,3 +944,51 @@ Recommended new areas:
 - `packages/models/src/media-processing-job-schema.ts`
 - `packages/models/src/media-rendition-schema.ts`
 - `apps/runner/` or a separate worker package for the Docker job entrypoint
+
+# Architect's analysis:
+
+Verdict: the architecture is fundamentally sound and industry-standard\*\* — immutable originals + rendition pointer swap + stable logical delivery URLs + queue-backed workers is exactly how Cloudinary, Mux, and Imgix-style systems work, and the rejected alternatives (§25) are rejected for the right reasons. The weaknesses are mostly in operational details the PRD glosses over, a couple of which are internal contradictions. Here's the critique, roughly by severity.
+
+## Correctness / durability gaps
+
+**1. Dual-write between MongoDB and Redis is not atomic (§12.6, §17).** Seal writes `sealRequestedAt` to Mongo _and_ enqueues to BullMQ. If the process dies between those two writes, you get a media stuck in `seal_requested` forever, or a Redis job with no Mongo record. Redis is also not durable by default (AOF off, eviction policies) — BullMQ can silently lose jobs. The PRD says "MongoDB remains source of truth for audit and recovery" but never specifies the _reconciler_: a periodic sweeper that finds Mongo jobs in `queued`/`seal_requested` with no live Redis entry and re-enqueues them. Without that (or an outbox pattern), the durability claim is aspirational. This is the single biggest hole.
+
+**2. `--network none` contradicts the runner's own responsibilities (§9 vs §12.4).** The runner container "downloads source file" and "uploads outputs to staging" — that requires network access to object storage. Either the orchestrator stages files into the workdir and drains outputs afterward, so the runner is genuinely offline (the more secure design, and I'd recommend stating it explicitly), or the container needs egress restricted to storage endpoints only. As written, an implementer can't build this without guessing, and the guess determines the security posture.
+
+**3. Concurrent-writer fencing on the commit is missing (§19).** Idempotency by `(mediaId, eagerTransforms, sourceVersionId)` handles _re-delivery_ of the same job, but not two _different_ jobs racing (a lease-expired zombie whose container is still running, plus its retry; or a future `reprocess` overlapping a seal job). Switching `activeRenditionId` needs a compare-and-swap on version/attempt so a stale worker can't win the pointer. Also, `eagerTransforms` as part of an idempotency key needs canonical serialization/hashing — object key-order will bite.
+
+**4. CDN caching undermines the stable-URL promise (§11).** The whole point of `cdn.medialit.cloud/m/{mediaId}` is that content changes under a stable URL — which is precisely what CDN and browser caches assume doesn't happen. The PRD never addresses cache invalidation, TTLs, or ETag strategy at rendition cutover. Option A's redirect helps (cache the redirect briefly, cache the target long with versioned keys — which the `{versionId}` layout enables), but this needs to be spelled out or operators will ship stale content after every reprocess.
+
+## Security
+
+**5. Container isolation is treated as sufficient; the media-parsing attack surface isn't.** ffmpeg/libvips CVEs are the classic escape-adjacent risk here. Missing: input hard limits (max resolution/pixel count to stop decompression/pixel-flood bombs, max duration, max frame count), ffmpeg `-protocol_whitelist` (a malicious playlist/container can make ffmpeg issue network requests — moot if you resolve #2 to truly network-less), and stronger-than-"where feasible" seccomp, or gVisor as a scale-hardening option. Docker alone is not a strong boundary for hostile input; the PRD should at least name these mitigations.
+
+**6. The delivery token (`?token=...`) is shown but never specified.** Lifetime, scope, revocation on delete, and whether a leaked token grants access after access-control changes — all unaddressed for the new hot-path endpoint.
+
+## Scalability / operations
+
+**7. The orchestrator is a custom scheduler and the PRD underestimates it.** Lease management, heartbeats, zombie reclamation, log shipping, workspace GC, crash reconciliation — that's a meaningful distributed-systems component being hand-rolled around `docker run`. Reasonable for the self-host constraint, but consider a cheaper v1 split: **in-process sharp workers for images** (the overwhelming volume, milliseconds each — container-per-job overhead dominates the work) and container-per-job **only for video/untrusted formats**. Alternative D rejects the shared-service model wholesale where a hybrid is more pragmatic.
+
+**8. Option A puts every private-asset fetch through the API + DB.** A page with 30 private thumbnails is 30 redirect lookups. Fine for v1, but the PRD's "cached aggressively" hand-wave conflicts with private/signed semantics (signed redirects are per-requester, mostly uncacheable). Worth acknowledging this is a real cost until Option B ships.
+
+**9. No per-tenant fairness or quotas.** Weighted scheduling is by transform class only; one tenant sealing 10,000 videos starves everyone. A multi-tenant service needs tenant-level concurrency caps in v1, not phase 4.
+
+**10. Long video jobs vs the lease/timeout model.** Hour-long transcodes need generous leases, progress-based heartbeats, worker disk sizing guidance, and ideally resumability or at least cheap retry (a retry of a 55-minute transcode at minute 50 is expensive). The performance targets (§20) only cover API latency, not job-duration SLOs.
+
+## Product / migration gaps
+
+**11. No webhooks.** The developer story says "poll or subscribe" (§7) but no subscription mechanism is specified anywhere. Async pipelines without completion webhooks force polling; every comparable product (Mux, Cloudinary, Transloadit) ships webhooks as core. This should be v1 or an explicit, justified non-goal.
+
+**12. Behavioral regression is understated (§23).** Today clients get a WebP-converted file + thumbnail immediately at upload. After this change, pre-seal delivery serves the _original_ and `thumbnail` may be empty until processing completes. Existing SDK users will observe different bytes, MIME types, and missing thumbnails at the same points in their flow. "The URL remains fetchable" is not the same as "behavior is compatible" — this needs a compat flag or explicit major-version framing.
+
+**13. No backfill plan for existing media.** `GET /media/file/:mediaId` must resolve legacy records that have no rendition rows and old object-key layouts. Phase 1 mentions the endpoint but not the legacy-resolution logic or migration of existing objects.
+
+**14. Deletion GC needs an orphan scrubber (§12.7).** Tombstone-first is right, but a crash between DB delete and object delete leaks storage forever; a periodic orphan-object sweep (objects with no live media record) should be a stated requirement, especially since operators pay for storage.
+
+## Minor
+
+- `425 Too Early` is a misuse of that status (it's specifically for TLS early-data replay); use `409` or `202` for "still processing."
+- `apikey` stored on the job record (§13.2) — store a key _id_, never the secret.
+- The state machine (§16) omits `cancelled` and dead-letter paths that §12.3 defines; the two lists should match.
+
+**Bottom line:** approve the direction — it's the correct, standard architecture and the vendor-agnostic constraints are consistently applied. Before implementation, I'd insist on resolving #1 (Mongo↔Redis reconciliation/outbox), #2 (the network-isolation contradiction), #3 (commit fencing), and #4 (cache invalidation), and I'd make a deliberate call on #7 (hybrid isolation) and #11 (webhooks) since both change v1 scope.

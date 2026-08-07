@@ -38,3 +38,4 @@ dist
 
 # IDE files
 .rgignore
+.agents
