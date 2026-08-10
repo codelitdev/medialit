@@ -1,4 +1,4 @@
-import type { ApikeyRow } from "@medialit/db";
+import type { ApikeyRow } from "../db/types";
 import { getUniqueId } from "@medialit/utils";
 import getRepositories from "../config/repositories";
 

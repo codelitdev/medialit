@@ -1,13 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import {
-    ACCESS_TOKEN_COOKIE,
-    REFRESH_TOKEN_COOKIE,
-    USER_COOKIE,
-    revokeRefreshToken,
-} from "@/lib/oauth-session";
+import { API_SERVER } from "@/lib/config";
 
 export interface SessionUser {
     id: string;
@@ -17,34 +11,26 @@ export interface SessionUser {
 
 export interface Session {
     user: SessionUser;
-    accessToken: string;
 }
 
-export async function auth(): Promise<Session | null> {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
-    const userJson = cookieStore.get(USER_COOKIE)?.value;
-
-    if (!accessToken || !userJson) {
-        return null;
-    }
-
+export async function getSessionFromCookieHeader(
+    cookieHeader: string,
+    fetchImpl: typeof fetch = fetch,
+): Promise<Session | null> {
     try {
-        const user = JSON.parse(userJson) as SessionUser;
-        return {
-            user,
-            accessToken,
-        };
+        if (!cookieHeader) return null;
+        const response = await fetchImpl(`${API_SERVER}/api/auth/get-session`, {
+            headers: { Cookie: cookieHeader },
+            cache: "no-store",
+        });
+        if (!response.ok) return null;
+        const body = (await response.json()) as { user?: SessionUser };
+        return body.user ? { user: body.user } : null;
     } catch {
         return null;
     }
 }
 
-export async function signOut() {
-    const cookieStore = await cookies();
-    await revokeRefreshToken(cookieStore.get(REFRESH_TOKEN_COOKIE)?.value);
-    cookieStore.delete(ACCESS_TOKEN_COOKIE);
-    cookieStore.delete(REFRESH_TOKEN_COOKIE);
-    cookieStore.delete(USER_COOKIE);
-    redirect("/login");
+export async function auth(): Promise<Session | null> {
+    return getSessionFromCookieHeader((await cookies()).toString());
 }

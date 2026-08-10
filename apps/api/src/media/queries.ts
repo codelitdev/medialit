@@ -1,4 +1,4 @@
-import type { MediaRow, NewMediaRow } from "@medialit/db";
+import type { MediaRow, NewMediaRow } from "../db/types";
 import { AccessControl } from "@medialit/models";
 import { numberOfRecordsPerPage } from "../config/constants";
 import getRepositories from "../config/repositories";

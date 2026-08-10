@@ -1,13 +1,14 @@
-import UserModel from "@/models/user";
+import type { WebUser } from "./api";
+import { webApi } from "./api";
 
-type UserWithId = { id: string; email: string; _id: string };
+type UserLookup = () => Promise<WebUser | null>;
 
 export async function getUserFromSession(
-    session: { user?: { email?: string | null } } | null,
-): Promise<UserWithId | null> {
-    if (!session?.user?.email) return null;
-    const dbUser = await UserModel.findOne({
-        email: session.user.email,
-    }).lean();
-    return dbUser as UserWithId | null;
+    session: {
+        user?: { id?: string | null; email?: string | null };
+    } | null,
+    lookup: UserLookup = webApi.getUser,
+): Promise<WebUser | null> {
+    if (!session?.user?.id) return null;
+    return lookup();
 }

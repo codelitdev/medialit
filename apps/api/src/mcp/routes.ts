@@ -2,7 +2,6 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { mcpAuth } from "../auth/middleware";
-import { oauthRouter } from "../oauth/routes";
 import { createMCPSession } from "./server";
 
 const router = Router();
@@ -69,9 +68,6 @@ function getMcpAuth(req: any) {
         scopes: [] as string[],
     };
 }
-
-router.use(["/.well-known", "/oauth"], mcpCors);
-router.use(oauthRouter);
 
 router.post(
     "/mcp",

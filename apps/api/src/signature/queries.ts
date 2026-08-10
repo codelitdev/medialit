@@ -1,4 +1,4 @@
-import type { PresignedUrlRow } from "@medialit/db";
+import type { PresignedUrlRow } from "../db/types";
 import { getUniqueId } from "@medialit/utils";
 import {
     SIGNATURE_LENGTH,

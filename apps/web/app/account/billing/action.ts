@@ -1,12 +1,10 @@
 "use server";
 
 import { Session } from "@/auth";
-import connectToDatabase from "@/lib/connect-db";
-import UserModel from "@/models/user";
 import { LEMONSQUEEZY_API_KEY } from "@/lib/constants";
 import { auth } from "@/auth";
-import { User } from "@medialit/models";
 import { error } from "@/utils/logger";
+import { getUserFromSession } from "@/lib/user-handlers";
 
 export async function cancelSubscription(
     prevState: Record<string, unknown>,
@@ -25,13 +23,9 @@ export async function cancelSubscription(
             throw new Error("Unauthorized");
         }
 
-        await connectToDatabase();
+        const user = await getUserFromSession(session);
 
-        const user: User | null = await UserModel.findOne({
-            email: session.user.email,
-        });
-
-        if (!user) {
+        if (!user?.subscriptionId) {
             throw new Error("Unauthorized");
         }
 
@@ -47,7 +41,6 @@ export async function cancelSubscription(
             },
         );
         if (response.ok) {
-            const resp = await response.json();
             return { success: true };
         }
 
@@ -74,13 +67,9 @@ export async function resumeSubscription(
             throw new Error("Unauthorized");
         }
 
-        await connectToDatabase();
+        const user = await getUserFromSession(session);
 
-        const user: User | null = await UserModel.findOne({
-            email: session.user.email,
-        });
-
-        if (!user) {
+        if (!user?.subscriptionId) {
             throw new Error("Unauthorized");
         }
 

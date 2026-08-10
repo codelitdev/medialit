@@ -18,7 +18,7 @@ import { Constants, PathKey } from "@medialit/models";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 // The Mongo `Media` collection has been retired in favor of Postgres (see
-// packages/db). This script only needs to read a handful of fields off the
+// API database layer). This script only needs to read a handful of fields off the
 // legacy documents, so it declares its own loose, read-only schema rather
 // than depending on the (now removed) shared mongoose schema.
 const LegacyMediaSchema = new mongoose.Schema(

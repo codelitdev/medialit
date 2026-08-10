@@ -7,11 +7,11 @@ import {
     DialogTitle,
     DialogTrigger,
     DialogClose,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+} from "@/components/ui/codelit/dialog";
+import { Label } from "@/components/ui/codelit/label";
+import { Input } from "@/components/ui/codelit/input";
+import { Switch } from "@/components/ui/codelit/switch";
+import { Card, CardContent, CardFooter } from "@/components/ui/codelit/card";
 import { Separator } from "@/components/ui/separator";
 import FileInteractivity from "./file-interactivity";
 import {

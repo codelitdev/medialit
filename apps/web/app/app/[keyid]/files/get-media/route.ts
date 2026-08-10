@@ -1,8 +1,6 @@
 export const dynamic = "auto";
 
-import connectToDatabase from "@/lib/connect-db";
-import { getUserFromSession } from "@/lib/user-handlers";
-import { getApikeyByUserId } from "@/lib/apikey-handlers";
+import { getApikeyFromKeyId } from "@/lib/apikey-handlers";
 import { auth } from "@/auth";
 import { getMediaLitClient } from "@/lib/get-medialit-client";
 
@@ -18,14 +16,7 @@ export async function POST(request: Request) {
         throw new Error("Unauthenticated");
     }
 
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        throw new Error("User not found");
-    }
-
-    const apikey = await getApikeyByUserId({ userId: dbUser._id, keyId });
+    const apikey = await getApikeyFromKeyId(keyId);
 
     if (!apikey) {
         throw new Error("Apikey not found");

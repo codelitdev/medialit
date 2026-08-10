@@ -1,8 +1,6 @@
 "use server";
 
-import connectToDatabase from "@/lib/connect-db";
-import { getUserFromSession } from "@/lib/user-handlers";
-import { getApikeyByUserId } from "@/lib/apikey-handlers";
+import { getApikeyFromKeyId } from "@/lib/apikey-handlers";
 import { auth } from "@/auth";
 import { Media } from "@medialit/models";
 import { getMediaLitClient } from "@/lib/get-medialit-client";
@@ -16,17 +14,7 @@ export async function getMediaFiles(
         throw new Error("Unauthenticated");
     }
 
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        throw new Error("User not found");
-    }
-
-    const apikey = await getApikeyByUserId({
-        userId: dbUser._id,
-        keyId: keyid,
-    });
+    const apikey = await getApikeyFromKeyId(keyid);
 
     if (!apikey) {
         throw new Error("Apikey not found");
@@ -43,17 +31,7 @@ export async function getCount(keyid: string) {
         throw new Error("Unauthenticated");
     }
 
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        throw new Error("User not found");
-    }
-
-    const apikey = await getApikeyByUserId({
-        userId: dbUser._id,
-        keyId: keyid,
-    });
+    const apikey = await getApikeyFromKeyId(keyid);
 
     if (!apikey) {
         throw new Error("Apikey not found");

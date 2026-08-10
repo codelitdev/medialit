@@ -1,4 +1,4 @@
-import { createRepositories, type Repositories } from "@medialit/db";
+import { createRepositories, type Repositories } from "../db/repositories";
 import { getDb } from "./db";
 
 let repositories: Repositories | undefined;

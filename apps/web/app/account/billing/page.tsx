@@ -10,7 +10,6 @@ import ResumeSubscriptionButton from "./resume-subscription-button";
 import { auth } from "@/auth";
 import { getSubscriber } from "@/app/actions";
 import { redirect } from "next/navigation";
-import { User } from "@medialit/models";
 import {
     Card,
     CardContent,
@@ -18,7 +17,7 @@ import {
     CardFooter,
     CardHeader,
     CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/codelit/card";
 
 const pricingPlans = [
     {
@@ -65,7 +64,7 @@ const PricingPane = async ({
     isSecondary = false,
 }: PricingPaneProps) => {
     const session = await auth();
-    const user: User | null = await getSubscriber();
+    const user = await getSubscriber();
 
     if (!user) {
         return redirect("/404");
@@ -88,7 +87,7 @@ const PricingPane = async ({
                     {features.map((feature) => (
                         <div
                             key={feature}
-                            className="flex items-center gap-2 text-slate-700 text-sm"
+                            className="flex items-center gap-2 text-sm text-foreground"
                         >
                             {icon}
                             <p>{feature}</p>

@@ -3,63 +3,65 @@
 import React, { useEffect, useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useState } from "react";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { ToastAction } from "@/components/ui/toast";
-import { Button } from "@/components/ui/button";
+} from "@/components/ui/codelit/dialog";
+import { Input } from "@/components/ui/codelit/input";
+import { Label } from "@/components/ui/codelit/label";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/codelit/button";
 import { createNewApiKey } from "@/app/actions";
+import { CURRENT_APP_COOKIE } from "@/lib/current-app-cookie";
 
-export default function NewApp() {
-    const [open, setOpen] = useState(false);
+export default function NewApp({
+    open: openProp,
+    onOpenChange: onOpenChangeProp,
+    trigger,
+}: {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    /** Pass `null` to render the dialog with no built-in trigger (fully controlled). */
+    trigger?: React.ReactNode | null;
+} = {}) {
+    const [openState, setOpenState] = useState(false);
+    const open = openProp ?? openState;
+    const setOpen = onOpenChangeProp ?? setOpenState;
+
     const [apiKeyFormState, createApiKeyFormAction] = useActionState(
         createNewApiKey,
         { success: false },
     );
 
-    const [apiKey, setApiKey] = useState("");
+    const [appName, setAppName] = useState("");
     const router = useRouter();
-    const { toast } = useToast();
 
     useEffect(() => {
         if (apiKeyFormState.success) {
             setOpen(false);
+            if (apiKeyFormState.keyId) {
+                document.cookie = `${CURRENT_APP_COOKIE}=${apiKeyFormState.keyId}; path=/; max-age=${60 * 60 * 24 * 365}`;
+            }
             router.refresh();
-            toast({
-                title: `Success`,
-                description: `App ${apiKey} is ready to go`,
-                action: (
-                    <ToastAction
-                        altText="Go to app"
-                        onClick={() => {
-                            router.push(
-                                `/app/${encodeURIComponent(apiKey)}/files`,
-                            );
-                        }}
-                    >
-                        Go to app
-                    </ToastAction>
-                ),
+            toast.success("Success", {
+                description: `${appName} is ready to go`,
             });
         }
     }, [apiKeyFormState.success]);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button className="!w-20 h-8">New app</Button>
-            </DialogTrigger>
+            {trigger !== null && (
+                <DialogTrigger asChild>
+                    {trigger ?? <Button>New app</Button>}
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>Create new app</DialogTitle>
@@ -67,7 +69,7 @@ export default function NewApp() {
                 <form action={createApiKeyFormAction}>
                     <div className="grid gap-4 py-4">
                         {apiKeyFormState.error && (
-                            <p className="text-red-500">
+                            <p className="text-destructive">
                                 {apiKeyFormState.error}
                             </p>
                         )}
@@ -79,15 +81,14 @@ export default function NewApp() {
                                 className="col-span-3"
                                 id="apiKey"
                                 name="apiKey"
-                                type="apiKey"
                                 placeholder="Enter name"
                                 required
-                                onChange={(e) => setApiKey(e.target.value)}
+                                onChange={(e) => setAppName(e.target.value)}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Submit className="!w-20 h-8">Create</Submit>
+                        <Submit>Create</Submit>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -95,17 +96,11 @@ export default function NewApp() {
     );
 }
 
-function Submit({
-    children,
-    className = "",
-}: {
-    children: React.ReactNode;
-    className?: string;
-}) {
+function Submit({ children }: { children: React.ReactNode }) {
     const status = useFormStatus();
 
     return (
-        <Button type="submit" disabled={status.pending} className={className}>
+        <Button type="submit" disabled={status.pending}>
             {children}
         </Button>
     );

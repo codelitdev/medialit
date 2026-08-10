@@ -1,4 +1,4 @@
-import type { MediaSettingsRow } from "@medialit/db";
+import type { MediaSettingsRow } from "../db/types";
 import getRepositories from "../config/repositories";
 import { UpdateMediaSettingsProps } from "./service";
 

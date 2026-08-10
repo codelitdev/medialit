@@ -26,12 +26,13 @@ COPY apps/web/next.config.js ./apps/web/next.config.js
 COPY apps/web/postcss.config.js ./apps/web/postcss.config.js
 COPY apps/web/tailwind.config.ts ./apps/web/tailwind.config.ts
 COPY apps/web/tsconfig.json ./apps/web/tsconfig.json
+COPY apps/web/types ./apps/web/types
 
 COPY packages/models ./packages/models
 COPY packages/utils ./packages/utils
 COPY packages/medialit ./packages/medialit
 
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # RUN pnpm build
 RUN pnpm --filter=@medialit/utils build
@@ -39,7 +40,7 @@ RUN pnpm --filter=@medialit/models build
 RUN pnpm --filter=medialit build
 RUN pnpm --filter=@medialit/web build
 
-ENV NODE_ENV production 
+ENV NODE_ENV=production
 
 EXPOSE 3000
 

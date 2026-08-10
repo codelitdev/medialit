@@ -49,6 +49,14 @@ export default async function finalizeUpload(
     const { userId, apikey, metadata, uploadLength, tempFilePath, signature } =
         tusUpload;
 
+    if (!metadata || !tempFilePath) {
+        logger.error(
+            { uploadId },
+            "Legacy tus upload is missing metadata or its temporary file path",
+        );
+        throw new Error(`Tus upload is incomplete: ${uploadId}`);
+    }
+
     const user = await getUser(userId);
     if (!(await hasEnoughStorage(uploadLength, user!))) {
         throw new Error(NOT_ENOUGH_STORAGE);

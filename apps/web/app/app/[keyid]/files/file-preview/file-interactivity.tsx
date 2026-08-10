@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/codelit/button";
+import { Input } from "@/components/ui/codelit/input";
+import { Label } from "@/components/ui/codelit/label";
+import { toast } from "sonner";
 import { Media } from "@medialit/models";
 import { useState } from "react";
 
@@ -16,7 +16,6 @@ export default function FileInteractivity({
     };
     keyid: string;
 }) {
-    const { toast } = useToast();
     const [fileDirectLink, setFileDirectLink] = useState();
     const [loading, setLoading] = useState(false);
 
@@ -44,14 +43,10 @@ export default function FileInteractivity({
             if (data?.media?.file) {
                 setFileDirectLink(data.media.file);
                 navigator.clipboard.writeText(data.media.file);
-                toast({
-                    description: "Direct link has been copied to the clipboard",
-                });
+                toast.success("Direct link has been copied to the clipboard");
             }
         } catch (e) {
-            toast({
-                description: "Error in fetching direct link",
-            });
+            toast.error("Error in fetching direct link");
         } finally {
             setLoading(false);
         }
@@ -68,10 +63,9 @@ export default function FileInteractivity({
                     <Button
                         onClick={() => {
                             navigator.clipboard.writeText(media.mediaId);
-                            toast({
-                                description:
-                                    "Media id has been copied to the clipboard",
-                            });
+                            toast.success(
+                                "Media id has been copied to the clipboard",
+                            );
                         }}
                     >
                         Copy

@@ -1,4 +1,4 @@
-import type { PlanRow } from "@medialit/db";
+import type { PlanRow } from "../db/types";
 import getRepositories from "../config/repositories";
 
 export type Plan = PlanRow;

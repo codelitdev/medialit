@@ -1,9 +1,10 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/codelit/button";
+import { cn } from "@/lib/utils";
 import { useFormStatus } from "react-dom";
 import { resumeSubscription } from "./action";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { useEffect, useActionState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -21,20 +22,17 @@ export default function ResumeSubscriptionButton({
     const [formState, formAction] = useActionState(resumeSubscription, {
         success: false,
     });
-    const { toast } = useToast();
     const router = useRouter();
 
     useEffect(() => {
         if (formState.success) {
-            toast({
-                title: "Welcome back!",
+            toast.success("Welcome back!", {
                 description: "Your subscription has been resumed",
             });
             router.refresh();
         }
         if (formState.error) {
-            toast({
-                title: "Uh oh!",
+            toast.error("Uh oh!", {
                 description: formState.error,
             });
         }
@@ -54,7 +52,7 @@ export default function ResumeSubscriptionButton({
                 subscriptionStatus === "cancelled" &&
                 expiresAt && (
                     <p
-                        className="text-center text-sm text-slate-500"
+                        className="text-center text-sm text-muted-foreground"
                         suppressHydrationWarning={true}
                     >
                         Expires at{" "}
@@ -82,19 +80,19 @@ function Submit({
 }) {
     const status = useFormStatus();
     let buttonText = children;
+    const isCurrentPlan =
+        currentPlan === "Basic" && subscriptionStatus === "cancelled";
 
-    if (currentPlan === "Basic" && subscriptionStatus === "cancelled") {
+    if (isCurrentPlan) {
         buttonText = "Current plan";
-        className =
-            "pointer-events-none w-full mb-5 bg-white hover:bg-white !text-muted-foreground border border-muted-foreground";
     }
 
     return (
         <Button
-            className={`bg-red-500 hover:bg-red-700 w-full text-white mb-1 ${className}`}
+            className={cn("mb-1 w-full", className)}
             type="submit"
-            variant="secondary"
-            disabled={status.pending}
+            variant={isCurrentPlan ? "outline" : "primary"}
+            disabled={status.pending || isCurrentPlan}
         >
             {buttonText}
         </Button>

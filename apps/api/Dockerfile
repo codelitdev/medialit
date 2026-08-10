@@ -38,7 +38,7 @@ RUN corepack enable
 RUN apt-get update && apt-get -y install ffmpeg webp
 
 # set environment
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 # create app directory
 WORKDIR /app
@@ -59,6 +59,7 @@ COPY --chown=node:node --from=build /app/packages/models/package.json /app/packa
 COPY --chown=node:node --from=build /app/packages/models/dist /app/packages/models/dist
 COPY --chown=node:node --from=build /app/apps/api/package.json /app/apps/api/package.json
 COPY --chown=node:node --from=build /app/apps/api/dist /app/apps/api/dist
+COPY --chown=node:node --from=build /app/apps/api/drizzle /app/apps/api/drizzle
 
 # Run pnpm install
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
@@ -66,4 +67,4 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 # set a low privileged user
 USER node
 
-CMD ["pnpm", "--filter=@medialit/api", "start"]
+CMD ["node", "apps/api/dist/src/index.js"]

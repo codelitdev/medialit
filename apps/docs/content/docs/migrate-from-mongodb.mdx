@@ -1,0 +1,52 @@
+---
+title: Migrate from MongoDB to PostgreSQL
+description: Safely move an existing MediaLit installation to PostgreSQL
+---
+
+MediaLit requires PostgreSQL. The one-time migration tool copies every legacy
+MongoDB record, preserves Mongo document IDs as PostgreSQL primary keys, and is
+safe to rerun after an interruption.
+
+## Cutover procedure
+
+1. Back up MongoDB and PostgreSQL.
+2. Put MediaLit in maintenance mode and stop every process that can write to
+   MongoDB. Keep writers stopped until verification is complete.
+3. Build the API and apply its schema migrations. The API is the only service
+   that connects to PostgreSQL:
+
+```sh
+pnpm --filter @medialit/api build
+DB_CONNECTION_STRING=postgresql://... pnpm --filter @medialit/api db:migrate
+```
+
+4. Validate every source document without writing to PostgreSQL:
+
+```sh
+MONGO_CONNECTION_STRING=mongodb://... \
+pnpm --filter @medialit/api db:migrate:mongo --dry-run
+```
+
+5. Run the cutover. The confirmation flag is intentionally required so this
+   command cannot be accidentally run against a live, changing source:
+
+```sh
+MONGO_CONNECTION_STRING=mongodb://... \
+DB_CONNECTION_STRING=postgresql://... \
+pnpm --filter @medialit/api db:migrate:mongo --confirm-source-read-only
+```
+
+6. Review the per-collection totals. Any invalid record, unique-key conflict,
+   changed source count, or short write fails the migration. Fix the cause and
+   rerun; rows are upserted by their preserved Mongo `_id`.
+7. Start the PostgreSQL-backed API and web applications, run smoke tests, and
+   only then remove maintenance mode. Keep the MongoDB backup through the
+   rollback window.
+
+The Better Auth OAuth provider preserves registered OAuth clients, but cannot
+carry over authorization codes, access tokens, refresh tokens, or OTP sessions
+from the retired OAuth server. Users and API clients must authenticate again
+after cutover.
+
+Do not point the old MongoDB-backed release and the PostgreSQL-backed release
+at live traffic simultaneously. There is no dual-write mode.

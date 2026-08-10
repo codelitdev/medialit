@@ -246,7 +246,7 @@ export default function Terms() {
             <h2 className="text-lg font-bold">Your Privacy</h2>
 
             <p>
-                Please read <a href="/privacy">Privacy Policy</a>
+                Please read <Link href="/privacy">Privacy Policy</Link>
             </p>
 
             <h2 className="text-lg font-bold">Reservation of Rights</h2>
@@ -327,3 +327,4 @@ export default function Terms() {
         </div>
     );
 }
+import Link from "next/link";

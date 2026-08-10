@@ -1,6 +1,6 @@
 import { Apikey } from "@medialit/models";
 import { getApiKeyByUserId, getApiKeyUsingKeyId } from "../apikey/queries";
-import { validateBearerToken } from "../oauth/middleware";
+import { validateOAuthBearer } from "./oauth-bearer";
 import { getUser } from "../user/queries";
 
 type UserRecord = any;
@@ -72,7 +72,7 @@ export function sendAuthError(res: any, auth: AuthResult): boolean {
 }
 
 const defaultDependencies: AuthDependencies = {
-    validateBearerToken,
+    validateBearerToken: validateOAuthBearer,
     getUser,
     getApiKeyByUserId,
     getApiKeyUsingKeyId,

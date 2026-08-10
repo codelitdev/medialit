@@ -3,21 +3,17 @@
 import { useState, useEffect } from "react";
 // import { useFormState, useFormStatus } from "react-dom";
 import { redirect, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/codelit/button";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
     DialogClose,
-} from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
-import { ToastAction } from "@/components/ui/toast";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/components/ui/codelit/dialog";
+import { toast } from "sonner";
 import { deleteApiKeyOfUser, editApiKeyforUser } from "@/app/actions";
 import { Apikey } from "@medialit/models";
 
@@ -31,19 +27,14 @@ export default function DeleteAppButton({
     //     { success: false }
     // );
 
-    const { toast } = useToast();
     const router = useRouter();
 
     // const [editApiKey, setEditApiKey] = useState(decodedName);
     const [deleteSuccess, setDeleteSuccess] = useState(false);
-    const [open, setOpen] = useState(false);
-
     useEffect(() => {
         if (deleteSuccess) {
-            setOpen(false);
             router.push("/");
-            toast({
-                title: "Deleted",
+            toast.success("Deleted", {
                 description: `"${apikey.name}" has been deleted`,
             });
         }
@@ -74,7 +65,7 @@ export default function DeleteAppButton({
         <div className="">
             <Dialog>
                 <DialogTrigger asChild>
-                    <Button className="bg-red-600">Delete app</Button>
+                    <Button variant="destructive">Delete app</Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
@@ -84,10 +75,11 @@ export default function DeleteAppButton({
                     &quot;?
                     <DialogFooter>
                         <DialogClose asChild>
-                            <Button>Cancel</Button>
+                            <Button variant="outline">Cancel</Button>
                         </DialogClose>
                         <DialogClose asChild>
                             <Button
+                                variant="destructive"
                                 onClick={() => {
                                     deleteApiKeyOfUser(apikey.keyId);
                                     setDeleteSuccess(true);

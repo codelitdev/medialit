@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
-import { editApiKey, getApikeyByUserId } from "@/lib/apikey-handlers";
+import { editApiKey, getApikeyFromKeyId } from "@/lib/apikey-handlers";
 import { getMediaLitClient } from "@/lib/get-medialit-client";
 import { MediaStats } from "medialit";
 
@@ -16,9 +16,12 @@ export async function updateAppName(
     try {
         const session = await auth();
         if (!session?.user) throw new Error("Unauthenticated");
-        const key = await getApikeyByUserId({ userId: session.user.id, keyId });
+        const key = await getApikeyFromKeyId(keyId);
         if (!key) throw new Error("Apikey not found");
-        await editApiKey({ userId: session.user.id, name: key.name, newName });
+        await editApiKey({
+            keyId: key.keyId,
+            newName,
+        });
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };
@@ -30,10 +33,7 @@ export async function getTotalSpaceByApikey(
 ): Promise<MediaStats> {
     const session = await auth();
     if (!session?.user) throw new Error("Unauthenticated");
-    const apikey = await getApikeyByUserId({
-        userId: session.user.id,
-        keyId: keyid,
-    });
+    const apikey = await getApikeyFromKeyId(keyid);
     if (!apikey) throw new Error("Apikey not found");
     try {
         return await getMediaLitClient(apikey.key).getStats();

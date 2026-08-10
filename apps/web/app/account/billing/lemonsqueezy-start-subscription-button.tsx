@@ -1,10 +1,10 @@
 "use client";
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
-import { Button } from "../../../components/ui/button";
+import { Button } from "@/components/ui/codelit/button";
 import { useRouter } from "next/navigation";
 import { Session } from "@/auth";
-import { useToast } from "../../../components/ui/use-toast";
+import { toast } from "sonner";
 
 export default function LemonSqueezyStartSubscriptionButton({
     session,
@@ -27,7 +27,6 @@ export default function LemonSqueezyStartSubscriptionButton({
 }) {
     const router = useRouter();
     const [events, setEvents] = useState<any[]>([]);
-    const { toast } = useToast();
 
     useEffect(() => {
         // Make sure Lemon.js is loaded
@@ -57,8 +56,7 @@ export default function LemonSqueezyStartSubscriptionButton({
                 events[0] === "checkout" &&
                 events[1] === "close"
             ) {
-                toast({
-                    title: "Subscribed",
+                toast.success("Subscribed", {
                     description: "Thank you for your purchase! Keep creating.",
                 });
                 router.refresh();

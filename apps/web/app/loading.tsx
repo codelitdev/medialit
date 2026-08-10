@@ -1,7 +1,9 @@
-import React from "react";
+import { Loading } from "@/components/loading";
 
-const Loading = () => {
-    return <div>Loading...</div>;
-};
-
-export default Loading;
+export default function RouteLoading() {
+    return (
+        <div className="flex h-[60vh] items-center justify-center">
+            <Loading />
+        </div>
+    );
+}

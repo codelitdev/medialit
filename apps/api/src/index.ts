@@ -15,19 +15,43 @@ import { User } from "@medialit/models";
 import { getApiKeyByUserId } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";
+import { toNodeHandler } from "better-auth/node";
 
 import { spawn } from "child_process";
 import { cleanupTUSUploads } from "./tus/cleanup";
 import { cleanupExpiredTempUploads } from "./media/cleanup";
 import { HOUR_IN_SECONDS } from "./config/constants";
+import webInternalRoutes from "./web-internal/routes";
+import oauthPagesRoutes from "./auth/oauth-pages";
+import {
+    authBasePath,
+    ensureWebOAuthClient,
+    getAuth,
+    initializeAuth,
+} from "./auth/better-auth";
 
-connectToDatabase();
 const app = express();
 
 app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false);
 
+// Better Auth owns its request parsing and must run before Express's body
+// parsers. The instance is initialized after Postgres is connected, before
+// the server starts accepting requests.
+const betterAuthHandler = (req: express.Request, res: express.Response) =>
+    toNodeHandler(getAuth())(req, res);
+
+app.all("/api/auth/*", betterAuthHandler);
+// RFC 8414 places authorization-server metadata before an issuer path. Better
+// Auth can produce this response, but Express must also mount that canonical
+// URL because our auth handler otherwise lives beneath /api/auth.
+app.all(
+    `/.well-known/oauth-authorization-server${authBasePath}`,
+    betterAuthHandler,
+);
+app.use(oauthPagesRoutes);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use("/internal/web", webInternalRoutes);
 
 app.get(
     "/health",
@@ -115,33 +139,22 @@ app.get(
 
 const port = process.env.PORT || 80;
 
-if (process.env.EMAIL) {
-    createAdminUser();
-}
+async function main(): Promise<void> {
+    await checkConfig();
+    await connectToDatabase();
+    initializeAuth();
+    await ensureWebOAuthClient();
+    await checkDependencies();
 
-checkConfig()
-    .then(checkDependencies)
-    .then(() => {
-        app.listen(port, () => {
-            logger.info(`Medialit server running at ${port}`);
-        });
+    if (process.env.EMAIL) await createAdminUser();
 
-        // Setup background cleanup job for expired tus uploads
-        setInterval(
-            async () => {
-                await cleanupTUSUploads();
-            },
-            HOUR_IN_SECONDS, // 1 hour
-        );
-
-        // Setup background cleanup job for expired temp uploads
-        setInterval(
-            async () => {
-                await cleanupExpiredTempUploads();
-            },
-            HOUR_IN_SECONDS, // 1 hour
-        );
+    app.listen(port, () => {
+        logger.info(`Medialit server running at ${port}`);
     });
+
+    setInterval(cleanupTUSUploads, HOUR_IN_SECONDS).unref();
+    setInterval(cleanupExpiredTempUploads, HOUR_IN_SECONDS).unref();
+}
 
 async function checkConfig() {
     if (!process.env.DB_CONNECTION_STRING) {
@@ -168,44 +181,45 @@ async function checkConfig() {
             "If CDN_ENDPOINT is not set, both CLOUD_ENDPOINT and CLOUD_ENDPOINT_PUBLIC must be provided",
         );
     }
+    const authSecret =
+        process.env.BETTER_AUTH_SECRET || process.env.OAUTH_SIGNING_KEY;
+    if (!authSecret || Buffer.byteLength(authSecret, "utf8") < 32) {
+        throw new Error(
+            "BETTER_AUTH_SECRET is required and must be at least 32 bytes (256 bits). " +
+                "Generate one with: openssl rand -base64 48",
+        );
+    }
     if (
-        !process.env.OAUTH_SIGNING_KEY ||
-        Buffer.byteLength(process.env.OAUTH_SIGNING_KEY, "utf8") < 32
+        !process.env.WEB_INTERNAL_API_SECRET ||
+        Buffer.byteLength(process.env.WEB_INTERNAL_API_SECRET, "utf8") < 32
     ) {
         throw new Error(
-            "OAUTH_SIGNING_KEY is required and must be at least 32 bytes (256 bits). " +
-                "Generate one with: openssl rand -base64 48",
+            "WEB_INTERNAL_API_SECRET is required and must be at least 32 bytes. " +
+                "Generate one with: openssl rand -hex 32",
         );
     }
 }
 
 async function checkDependencies() {
-    try {
-        // Check ffmpeg
-        await new Promise((resolve, reject) => {
-            const ffmpeg = spawn("ffmpeg", ["-version"]);
-            ffmpeg.on("error", () =>
-                reject(new Error("ffmpeg is not installed")),
-            );
-            ffmpeg.on("exit", (code) => {
-                if (code === 0) resolve(true);
-                else reject(new Error("ffmpeg is not installed"));
-            });
+    // Check ffmpeg
+    await new Promise((resolve, reject) => {
+        const ffmpeg = spawn("ffmpeg", ["-version"]);
+        ffmpeg.on("error", () => reject(new Error("ffmpeg is not installed")));
+        ffmpeg.on("exit", (code) => {
+            if (code === 0) resolve(true);
+            else reject(new Error("ffmpeg is not installed"));
         });
+    });
 
-        // Check webp
-        await new Promise((resolve, reject) => {
-            const webp = spawn("cwebp", ["-version"]);
-            webp.on("error", () => reject(new Error("webp is not installed")));
-            webp.on("exit", (code) => {
-                if (code === 0) resolve(true);
-                else reject(new Error("webp is not installed"));
-            });
+    // Check webp
+    await new Promise((resolve, reject) => {
+        const webp = spawn("cwebp", ["-version"]);
+        webp.on("error", () => reject(new Error("webp is not installed")));
+        webp.on("exit", (code) => {
+            if (code === 0) resolve(true);
+            else reject(new Error("webp is not installed"));
         });
-    } catch (error: any) {
-        logger.error({ error: error.message });
-        process.exit(1);
-    }
+    });
 }
 
 async function createAdminUser() {
@@ -223,3 +237,8 @@ async function createAdminUser() {
         logger.error({ error }, "Failed to create admin user");
     }
 }
+
+main().catch((error) => {
+    logger.fatal({ error }, "Failed to start MediaLit");
+    process.exitCode = 1;
+});

@@ -80,6 +80,14 @@ pnpm install
 pnpm -r build
 ```
 
+### Start PostgreSQL locally
+
+```bash
+docker compose up -d postgres
+DB_CONNECTION_STRING=postgresql://medialit:medialit@localhost:5432/medialit \
+pnpm --filter @medialit/api db:migrate
+```
+
 ### Run the service
 
 ```bash

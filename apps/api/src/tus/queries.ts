@@ -1,4 +1,4 @@
-import type { NewTusUploadRow, TusUploadRow } from "@medialit/db";
+import type { NewTusUploadRow, TusUploadRow } from "../db/types";
 import { SIGNATURE_VALIDITY_MINUTES } from "../config/constants";
 import getRepositories from "../config/repositories";
 

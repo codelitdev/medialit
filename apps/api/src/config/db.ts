@@ -1,4 +1,8 @@
-import { createDatabase, runMigrations, type Database } from "@medialit/db";
+import {
+    checkDatabaseConnection,
+    createDatabase,
+    type Database,
+} from "../db/client";
 import logger from "../services/log";
 import { dbConnectionString } from "./constants";
 
@@ -10,19 +14,19 @@ export default async function connectToDatabase(): Promise<void> {
     }
 
     if (!dbConnectionString) {
-        logger.error("DB_CONNECTION_STRING is not defined");
-        process.exit(1);
+        throw new Error("DB_CONNECTION_STRING is not defined");
     }
 
     try {
         database = createDatabase(dbConnectionString);
-        await runMigrations(database);
+        await checkDatabaseConnection(database);
         logger.info("Database connected");
     } catch (err) {
         if (err instanceof Error) {
             logger.error({ err }, err.message);
         }
-        process.exit(1);
+        database = undefined;
+        throw err;
     }
 }
 

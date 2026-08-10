@@ -138,14 +138,9 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         delete content.paths["/cleanup/temp"];
         delete content.paths["/cleanup/tus"];
         delete content.paths["/mcp"];
-        delete content.paths["/.well-known/oauth-authorization-server"];
-        delete content.paths["/oauth/authorize"];
-        delete content.paths["/oauth/authorize/send-otp"];
-        delete content.paths["/oauth/authorize/verify-otp"];
-        delete content.paths["/oauth/token"];
-        delete content.paths["/oauth/revoke"];
-        delete content.paths["/oauth/register"];
-        delete content.paths["/oauth/userinfo"];
+        Object.keys(content.paths)
+            .filter((apiPath) => apiPath.startsWith("/internal/web"))
+            .forEach((apiPath) => delete content.paths[apiPath]);
     }
 
     Object.entries(content.paths || {}).forEach(([apiPath, pathItem]: any) => {

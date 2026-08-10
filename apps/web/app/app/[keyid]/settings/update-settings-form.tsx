@@ -1,13 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/codelit/button";
+import { Input } from "@/components/ui/codelit/input";
+import { Label } from "@/components/ui/codelit/label";
 import { useFormStatus } from "react-dom";
 import { updateAppName } from "./actions";
 import { useEffect, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 export default function UpdateSettingsForm({
     keyId,
@@ -21,7 +21,6 @@ export default function UpdateSettingsForm({
     });
     const [newName, setNewName] = useState(name);
     const router = useRouter();
-    const { toast } = useToast();
 
     useEffect(() => {
         function refresh() {
@@ -33,11 +32,9 @@ export default function UpdateSettingsForm({
         }
 
         if (state.error) {
-            toast({
-                title: "Error",
+            toast.error("Error", {
                 description:
                     "There was a problem saving your changes. Please try again.",
-                variant: "destructive",
             });
         }
     }, [state]);

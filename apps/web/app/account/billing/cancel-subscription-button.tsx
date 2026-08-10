@@ -1,21 +1,20 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/codelit/button";
 import { useFormStatus } from "react-dom";
 import { cancelSubscription } from "./action";
 import { useEffect, useState, useActionState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
     DialogClose,
-} from "@/components/ui/dialog";
+} from "@/components/ui/codelit/dialog";
 
 export default function CancelSubscriptionButton({
     subscriptionStatus,
@@ -29,23 +28,19 @@ export default function CancelSubscriptionButton({
     const [formState, formAction] = useActionState(cancelSubscription, {
         success: false,
     });
-    const { toast } = useToast();
     const router = useRouter();
 
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
         if (formState.success) {
-            setOpen(false);
-            toast({
-                title: "We are sorry to see you go",
+            toast.success("We are sorry to see you go", {
                 description: "Your subscription has been cancelled",
             });
             router.refresh();
         }
         if (formState.error) {
-            toast({
-                title: "Uh oh!",
+            toast.error("Uh oh!", {
                 description: formState.error,
             });
         }
@@ -57,13 +52,11 @@ export default function CancelSubscriptionButton({
                 <DialogTrigger asChild>
                     {currentPlan === "Basic" &&
                     subscriptionStatus === "subscribed" ? (
-                        <Button className={`${className}`} variant="outline">
+                        <Button className={className} variant="outline">
                             Downgrade to free
                         </Button>
                     ) : (
-                        <Button
-                            className={`bg-red-600 hover:bg-red-700 ${className}`}
-                        >
+                        <Button className={className} variant="outline">
                             Cancel subscription
                         </Button>
                     )}
@@ -120,20 +113,13 @@ function Submit({
     const status = useFormStatus();
 
     let buttonText = children;
-    let className;
 
     if (currentPlan === "Basic" && subscriptionStatus === "subscribed") {
         buttonText = "Yes! Cancel";
-        className = "bg-red-500 hover:bg-red-700";
     }
 
     return (
-        <Button
-            className={`bg-red-500 hover:bg-red-700 text-white ${className}`}
-            type="submit"
-            variant="secondary"
-            disabled={status.pending}
-        >
+        <Button type="submit" variant="destructive" disabled={status.pending}>
             {buttonText}
         </Button>
     );

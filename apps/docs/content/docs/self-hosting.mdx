@@ -1,14 +1,29 @@
 ---
 title: Self hosting
-description: Learn how to host MediaLit API 
+description: Learn how to host MediaLit API
 ---
 
 This guide explains how to self-host MediaLit with an S3-compatible storage provider.
 
 ## Requirements
-1. Two buckets: one dedicated to private files and one to public files.
-2. Private bucket access settings: public access disabled.
-3. Public bucket access settings: public access enabled.
+
+1. PostgreSQL 16 or newer.
+2. Two buckets: one dedicated to private files and one to public files.
+3. Private bucket access settings: public access disabled.
+4. Public bucket access settings: public access enabled.
+
+Apply database migrations as a deployment step before starting a new API
+version:
+
+```sh
+pnpm --filter @medialit/api build
+DB_CONNECTION_STRING=postgresql://... pnpm --filter @medialit/api db:migrate
+```
+
+The API is the sole PostgreSQL owner. If you deploy the MediaLit web app, give
+it `API_SERVER` and the same `WEB_INTERNAL_API_SECRET` as the API; do not give
+the web app a database connection string. Generate the shared secret with
+`openssl rand -hex 32`.
 
 ## Configuring storage
 
@@ -23,6 +38,7 @@ This guide explains how to self-host MediaLit with an S3-compatible storage prov
 ![AWS Public bucket public access](/aws-public-bucket-policy.png)
 
 **2.2 Configure bucket policy**
+
 ```json
 {
     "Version": "2012-10-17",
@@ -37,7 +53,9 @@ This guide explains how to self-host MediaLit with an S3-compatible storage prov
     ]
 }
 ```
+
 **3. Set environment variables**
+
 ```sh
 CLOUD_KEY=your_aws_access_key
 CLOUD_SECRET=your_aws_secret_key
@@ -77,7 +95,6 @@ CLOUDFRONT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_CONTENTS\n
 CLOUDFRONT_KEY_PAIR_ID=YOUR_KEY_PAIR_ID
 ```
 
-
 ### Cloudflare R2
 
 **1. Configure the private bucket**
@@ -87,6 +104,7 @@ CLOUDFRONT_KEY_PAIR_ID=YOUR_KEY_PAIR_ID
 ![Cloudflare R2 public bucket config](/cloudflare-public-bucket-config.png)
 
 **3. Set environment variables**
+
 ```sh
 CLOUD_KEY=your_cloudflare_r2_access_key
 CLOUD_SECRET=your_cloudflare_r2_secret_key
@@ -100,7 +118,6 @@ DISABLE_TAGGING=true
 ```
 
 > In the Cloudflare setup, you cannot serve private bucket content through the CDN.
-
 
 ### Minio
 
@@ -118,47 +135,47 @@ Below example uses Traefik IngressRoute in Kubernetes to create a new Ingress ro
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: minio-api
+    name: minio-api
 spec:
-  entryPoints:
-    - websecure
-  routes:
-    - match: Host(`minio-api.example.com`)
-      kind: Rule
-      services:
-        - name: minio-api
-          port: 9000
-    - match: HostRegexp(`^.+\.minio-api\.example\.com$`)
-      kind: Rule
-      services:
-        - name: minio-api
-          port: 9000
+    entryPoints:
+        - websecure
+    routes:
+        - match: Host(`minio-api.example.com`)
+          kind: Rule
+          services:
+              - name: minio-api
+                port: 9000
+        - match: HostRegexp(`^.+\.minio-api\.example\.com$`)
+          kind: Rule
+          services:
+              - name: minio-api
+                port: 9000
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: minio-api
+    name: minio-api
 spec:
-  type: ExternalName
-  ports:
-    - name: http
-      port: 9000
-  externalName: <ip address of minio VM>
+    type: ExternalName
+    ports:
+        - name: http
+          port: 9000
+    externalName: <ip address of minio VM>
 ```
 
 **2. Configure DNS:**
 The following 2 DNS entries need to be created in DNS provider:
 
-| DNS Name                | Record Type | IP Address                       |
-| ----------------------- | ----------- | -------------------------------- |
-| minio-api.example.com   | A           | Reverse Proxy IP                 |
-| *.minio-api.example.com | A           | Reverse Proxy IP                 |
+| DNS Name                 | Record Type | IP Address       |
+| ------------------------ | ----------- | ---------------- |
+| minio-api.example.com    | A           | Reverse Proxy IP |
+| \*.minio-api.example.com | A           | Reverse Proxy IP |
 
 **Certificates:**
 
 Additional SSL certificate for wildcard subdomain need to be created either in Minio VM (e.g CertBot), or in reverse proxy when using SSL termination.
 
-Below example uses Cert Manager in Kubernetes to issue new certificate for reverse proxy. 
+Below example uses Cert Manager in Kubernetes to issue new certificate for reverse proxy.
 
 Adjust accordingly for your reverse proxy or Minio VM certificate generator of choice.
 
@@ -166,18 +183,18 @@ Adjust accordingly for your reverse proxy or Minio VM certificate generator of c
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: cluster-certificate
-  namespace: cert-manager
+    name: cluster-certificate
+    namespace: cert-manager
 spec:
-  secretName: cluster-certificate-tls
-  issuerRef:
-    name: cloudflare-issuer
-    kind: ClusterIssuer
-  commonName: "*.example.com"
-  dnsNames:
-  - "*.example.com"
-  - "minio-api.example.com"
-  - "*.minio-api.example.com"
+    secretName: cluster-certificate-tls
+    issuerRef:
+        name: cloudflare-issuer
+        kind: ClusterIssuer
+    commonName: "*.example.com"
+    dnsNames:
+        - "*.example.com"
+        - "minio-api.example.com"
+        - "*.minio-api.example.com"
 ```
 
 **3. Configure private bucket**
