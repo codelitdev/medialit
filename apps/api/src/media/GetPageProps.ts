@@ -1,8 +1,7 @@
 import { AccessControl } from "@medialit/models";
-import mongoose from "mongoose";
 
 export default interface GetPageProps {
-    userId: mongoose.Types.ObjectId;
+    userId: string;
     apikey: string;
     access: AccessControl;
     page: number;

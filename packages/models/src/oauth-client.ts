@@ -4,6 +4,6 @@ export interface OauthClient {
     redirectUris: string[];
     grantTypes: string[];
     tokenEndpointAuthMethod: "none";
-    clientName?: string;
-    scope?: string;
+    clientName?: string | null;
+    scope?: string | null;
 }

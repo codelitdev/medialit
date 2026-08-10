@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
-import { UserSchema } from "@medialit/models";
 
-export default mongoose.models?.User || mongoose.model("User", UserSchema);
+// Kept only for legacy billing integrations; application data now lives in Postgres.
+export default mongoose.models.User ||
+    mongoose.model("User", new mongoose.Schema({}, { strict: false }));

@@ -11,7 +11,7 @@ import tusRoutes from "./tus/routes";
 import mcpRoutes from "./mcp/routes";
 import logger from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
-import { Apikey, User } from "@medialit/models";
+import { User } from "@medialit/models";
 import { getApiKeyByUserId } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";

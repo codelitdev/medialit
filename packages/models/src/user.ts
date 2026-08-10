@@ -5,10 +5,10 @@ export interface User {
     userId: string;
     email: string;
     active: boolean;
-    name?: string;
-    customerId?: string;
-    subscriptionId?: string;
-    subscriptionEndsAfter?: Date;
-    subscriptionMethod?: "stripe" | "lemon";
+    name?: string | null;
+    customerId?: string | null;
+    subscriptionId?: string | null;
+    subscriptionEndsAfter?: Date | null;
+    subscriptionMethod?: "stripe" | "lemon" | null;
     subscriptionStatus: SubscriptionStatus;
 }

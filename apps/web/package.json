@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@medialit/db": "workspace:^",
     "@medialit/models": "workspace:^",
     "@medialit/utils": "workspace:^",
     "@radix-ui/colors": "^3.0.0",

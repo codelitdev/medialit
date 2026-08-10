@@ -64,7 +64,7 @@ function patchMcpAcceptHeaders(req: any) {
 function getMcpAuth(req: any) {
     return {
         token: req.apikey || "",
-        clientId: String(req.userId || req.user?._id || req.user?.id || ""),
+        clientId: String(req.userId || req.user?.id || ""),
         user: req.user,
         scopes: [] as string[],
     };

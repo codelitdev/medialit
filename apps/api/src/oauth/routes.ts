@@ -1,6 +1,5 @@
 import { Router, Request as ExpressReq, Response as ExpressRes } from "express";
 import { z } from "zod";
-import type { OauthPendingAuth as PendingAuthRecord } from "@medialit/models";
 import { DcrValidationError, oauthModel, registerClient } from "./model";
 import type { DcrRequest, DcrResponse } from "./model";
 import { OAuth2Server, oauth } from "./server";
@@ -8,7 +7,7 @@ import { authorizePage, errorPage } from "./authorize-page";
 import { findByEmail, createUser, getUser } from "../user/queries";
 import { verifyAccessToken } from "./jwt";
 import logger from "../services/log";
-import OauthPendingAuth from "./pending-auth-model";
+import getRepositories from "../config/repositories";
 import {
     authorizeLimiter,
     registerLimiter,
@@ -108,7 +107,7 @@ oauthRouter.get(
             }
 
             const pendingId = generatePendingId();
-            await OauthPendingAuth.create({
+            await getRepositories().oauthPendingAuths.create({
                 clientId: q.client_id,
                 redirectUri: q.redirect_uri,
                 codeChallenge: q.code_challenge,
@@ -151,10 +150,11 @@ oauthRouter.post(
                 });
             }
 
-            const pending = (await OauthPendingAuth.findOne({
-                pendingId: String(pendingId),
-                expiresAt: { $gt: new Date() },
-            }).lean()) as PendingAuthRecord | null;
+            const pending =
+                await getRepositories().oauthPendingAuths.findValidByPendingId(
+                    String(pendingId),
+                    new Date(),
+                );
             if (!pending) {
                 return res.json({
                     success: false,
@@ -175,16 +175,13 @@ oauthRouter.post(
 
             const otp = generateOtp();
             const emailValue = String(email);
-            await OauthPendingAuth.updateOne(
-                { pendingId: String(pendingId) },
+            await getRepositories().oauthPendingAuths.updateOtp(
+                String(pendingId),
                 {
-                    $set: {
-                        email: emailValue,
-                        otpHash: hashOtp(String(pendingId), otp),
-                        otpExpires: new Date(Date.now() + OTP_TTL_MS),
-                        otpSentAt: new Date(),
-                        otpAttempts: 0,
-                    },
+                    email: emailValue,
+                    otpHash: hashOtp(String(pendingId), otp),
+                    otpExpires: new Date(Date.now() + OTP_TTL_MS),
+                    otpSentAt: new Date(),
                 },
             );
 
@@ -253,14 +250,11 @@ oauthRouter.post(
 
             const { pendingId, otp } = parsed.data;
 
-            const pending = (await OauthPendingAuth.findOneAndUpdate(
-                {
+            const pending =
+                await getRepositories().oauthPendingAuths.incrementOtpAttempts(
                     pendingId,
-                    expiresAt: { $gt: new Date() },
-                },
-                { $inc: { otpAttempts: 1 } },
-                { new: true },
-            ).lean()) as PendingAuthRecord | null;
+                    new Date(),
+                );
             if (!pending) {
                 return res.json({
                     success: false,
@@ -269,7 +263,9 @@ oauthRouter.post(
             }
 
             if ((pending.otpAttempts || 0) > MAX_OTP_ATTEMPTS) {
-                await OauthPendingAuth.deleteOne({ pendingId });
+                await getRepositories().oauthPendingAuths.deleteByPendingId(
+                    pendingId,
+                );
                 return res.json({
                     success: false,
                     error: "Too many attempts. Please restart authorization.",
@@ -281,7 +277,9 @@ oauthRouter.post(
                 !pending.otpExpires ||
                 pending.otpExpires < new Date()
             ) {
-                await OauthPendingAuth.deleteOne({ pendingId });
+                await getRepositories().oauthPendingAuths.deleteByPendingId(
+                    pendingId,
+                );
                 return res.json({
                     success: false,
                     error: "Code expired. Please restart authorization.",
@@ -297,7 +295,7 @@ oauthRouter.post(
             if (!user) {
                 user = await createUser(email, undefined, "subscribed");
             }
-            const userId = String((user as any)._id || (user as any).id);
+            const userId = String(user.id);
 
             const oauthReq = new OAuth2Server.Request({
                 headers: {
@@ -337,7 +335,9 @@ oauthRouter.post(
                 );
             }
 
-            await OauthPendingAuth.deleteOne({ pendingId });
+            await getRepositories().oauthPendingAuths.deleteByPendingId(
+                pendingId,
+            );
 
             res.json({ success: true, redirectUri: location });
         } catch (err: any) {
@@ -438,7 +438,7 @@ oauthRouter.get(
                 });
             }
             res.json({
-                sub: String(user._id || user.id),
+                sub: String(user.id),
                 email: user.email,
                 name: user.name || "",
             });

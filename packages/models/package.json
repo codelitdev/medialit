@@ -16,7 +16,6 @@
         "typescript": "^5.2.2"
     },
     "dependencies": {
-        "@medialit/utils": "workspace:*",
-        "mongoose": "^8.19.3"
+        "@medialit/utils": "workspace:*"
     }
 }

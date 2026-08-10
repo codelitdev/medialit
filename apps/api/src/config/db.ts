@@ -1,35 +1,22 @@
-import mongoose from "mongoose";
+import { createDatabase, runMigrations, type Database } from "@medialit/db";
 import logger from "../services/log";
 import { dbConnectionString } from "./constants";
 
-interface ConnectionProps {
-    isConnected?: number;
-}
+let database: Database | undefined;
 
-const connection: ConnectionProps = {};
+export default async function connectToDatabase(): Promise<void> {
+    if (database) {
+        return;
+    }
 
-export default async function (): Promise<void> {
     if (!dbConnectionString) {
         logger.error("DB_CONNECTION_STRING is not defined");
         process.exit(1);
     }
 
-    if (connection.isConnected) {
-        return;
-    }
-
-    const options: mongoose.ConnectOptions = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 5000,
-    } as mongoose.ConnectOptions;
-
     try {
-        const dbConnection = await mongoose.connect(
-            dbConnectionString,
-            options,
-        );
-        connection.isConnected = dbConnection.connections[0].readyState;
+        database = createDatabase(dbConnectionString);
+        await runMigrations(database);
         logger.info("Database connected");
     } catch (err) {
         if (err instanceof Error) {
@@ -39,6 +26,9 @@ export default async function (): Promise<void> {
     }
 }
 
-export async function disconnect(): Promise<void> {
-    return await mongoose.disconnect();
+export function getDb(): Database {
+    if (!database) {
+        throw new Error("Database has not been initialized");
+    }
+    return database;
 }

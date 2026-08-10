@@ -42,7 +42,7 @@ export const server = new Server({
             const mediaId = await finalizeUpload(upload.id);
             console.timeEnd("finalize");
             const media = await mediaService.getMediaDetails({
-                userId: req.user._id,
+                userId: req.user.id,
                 apikey: req.apikey,
                 mediaId,
             });

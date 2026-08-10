@@ -1,44 +1,8 @@
-import mongoose, { FilterQuery } from "mongoose";
+import type { MediaRow, NewMediaRow } from "@medialit/db";
+import { AccessControl } from "@medialit/models";
 import { numberOfRecordsPerPage } from "../config/constants";
+import getRepositories from "../config/repositories";
 import GetPageProps from "./GetPageProps";
-import MediaModel from "./model";
-import {
-    AccessControl,
-    Constants,
-    type MediaWithUserId,
-} from "@medialit/models";
-
-export function buildMediaCountQuery({
-    userId,
-    apikey,
-    access,
-    group,
-}: {
-    userId: string | mongoose.Types.ObjectId;
-    apikey: string;
-    access?: AccessControl;
-    group?: string;
-}): FilterQuery<MediaWithUserId> {
-    const query: FilterQuery<MediaWithUserId> = {
-        apikey,
-        userId,
-        temp: { $ne: true },
-    };
-    if (access) {
-        query.accessControl =
-            access === Constants.AccessControl.PRIVATE
-                ? Constants.AccessControl.PRIVATE
-                : Constants.AccessControl.PUBLIC;
-    }
-    if (typeof group === "string" && group.trim().length > 0) {
-        query.group = { $regex: `^${escapeRegex(group.trim())}` };
-    }
-    return query;
-}
-
-function escapeRegex(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 export async function getMedia({
     userId,
@@ -48,13 +12,8 @@ export async function getMedia({
     userId: string;
     apikey: string;
     mediaId: string;
-}): Promise<MediaWithUserId | null> {
-    return (await MediaModel.findOne({
-        mediaId,
-        apikey,
-        userId,
-        // temp: { $ne: true },
-    }).lean()) as MediaWithUserId | null;
+}): Promise<MediaRow | null> {
+    return await getRepositories().media.findOne({ userId, apikey, mediaId });
 }
 
 export async function getMediaCount({
@@ -68,43 +27,22 @@ export async function getMediaCount({
     access?: AccessControl;
     group?: string;
 }): Promise<number> {
-    const query = buildMediaCountQuery({ userId, apikey, access, group });
-    return await MediaModel.countDocuments(query).lean();
+    return await getRepositories().media.count({
+        userId,
+        apikey,
+        access,
+        group,
+    });
 }
 
 export async function getTotalSpace({
     userId,
     apikey,
 }: {
-    userId: mongoose.Types.ObjectId;
+    userId: string;
     apikey?: string;
 }): Promise<number> {
-    const query = apikey
-        ? { userId, apikey, temp: { $ne: true } }
-        : { userId, temp: { $ne: true } };
-    const result = await MediaModel.aggregate([
-        {
-            $match: query,
-        },
-        {
-            $group: {
-                _id: null,
-                totalSize: { $sum: "$size" },
-            },
-        },
-        {
-            $project: {
-                _id: 0,
-                totalSize: 1,
-            },
-        },
-    ]);
-
-    if (result.length === 0) {
-        return 0;
-    }
-
-    return result[0].totalSize;
+    return await getRepositories().media.sumSize({ userId, apikey });
 }
 
 export async function getPaginatedMedia({
@@ -114,38 +52,38 @@ export async function getPaginatedMedia({
     page,
     group,
     recordsPerPage,
-}: GetPageProps): Promise<MediaWithUserId[]> {
-    const query = buildMediaCountQuery({ userId, apikey, access, group });
-    const limitWithFallback = recordsPerPage || numberOfRecordsPerPage;
+}: GetPageProps): Promise<MediaRow[]> {
+    return await getRepositories().media.paginate({
+        userId,
+        apikey,
+        access,
+        page,
+        group,
+        recordsPerPage: recordsPerPage || numberOfRecordsPerPage,
+    });
+}
 
-    return await MediaModel.find(query, {
-        userId: 1,
-        mediaId: 1,
-        originalFileName: 1,
-        mimeType: 1,
-        size: 1,
-        accessControl: 1,
-        thumbnailGenerated: 1,
-        caption: 1,
-        group: 1,
-    })
-        .sort({ _id: -1 })
-        .skip(page ? (page - 1) * limitWithFallback : 0)
-        .limit(limitWithFallback);
+export async function clearTempMedia({
+    userId,
+    apikey,
+    mediaId,
+}: {
+    userId: string;
+    apikey: string;
+    mediaId: string;
+}): Promise<void> {
+    await getRepositories().media.clearTemp({ userId, apikey, mediaId });
 }
 
 export async function deleteMediaQuery(
     userId: string,
     mediaId: string,
-): Promise<any> {
-    return await MediaModel.deleteOne({ userId, mediaId });
+): Promise<void> {
+    await getRepositories().media.deleteOne(userId, mediaId);
 }
 
-export async function createMedia(
-    mediaData: MediaWithUserId,
-): Promise<MediaWithUserId> {
-    const media: MediaWithUserId = await MediaModel.create(mediaData);
-    return media;
+export async function createMedia(mediaData: NewMediaRow): Promise<MediaRow> {
+    return await getRepositories().media.create(mediaData);
 }
 
 export default {
@@ -153,6 +91,7 @@ export default {
     getMediaCount,
     getTotalSpace,
     getPaginatedMedia,
+    clearTempMedia,
     deleteMediaQuery,
     createMedia,
 };

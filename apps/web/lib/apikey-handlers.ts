@@ -1,104 +1,90 @@
-import { Apikey } from "@medialit/models";
-import ApikeyModel from "@/models/apikey";
+import {
+    createDatabase,
+    createRepositories,
+    type ApikeyRow,
+} from "@medialit/db";
 import { getUniqueId } from "@medialit/utils";
-import mongoose from "mongoose";
+
+let repositories: ReturnType<typeof createRepositories> | undefined;
+
+function getApiKeyRepository() {
+    if (!repositories) {
+        const connectionString = process.env.DB_CONNECTION_STRING;
+        if (!connectionString)
+            throw new Error("DB_CONNECTION_STRING is not configured");
+        repositories = createRepositories(createDatabase(connectionString));
+    }
+    return repositories.apikeys;
+}
 
 export async function getApiKeysByUserId(
-    userId: mongoose.Types.ObjectId,
+    userId: string,
     keyId?: string,
-): Promise<Apikey[] | null> {
-    let result: Apikey[] | null;
-    const projections = {
-        _id: 0,
-        name: 1,
-        // key: 1,
-        httpReferrers: 1,
-        ipAddresses: 1,
-        default: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        keyId: 1,
-    };
-
-    const query: Record<string, unknown> = {
-        userId,
-        deleted: { $ne: true },
-    };
-
+): Promise<ApikeyRow[] | null> {
     if (keyId) {
-        query.keyId = keyId;
+        const key = await getApiKeyRepository().findByUserIdAndKeyId(
+            userId,
+            keyId,
+            { excludeDeleted: true },
+        );
+        return key ? [key] : [];
     }
-
-    return await ApikeyModel.find(query, projections);
+    return getApiKeyRepository().findManyByUserId(userId, {
+        excludeDeleted: true,
+    });
 }
 
-export async function getApikeyFromKeyId(
-    userId: mongoose.Types.ObjectId,
+export function getApikeyFromKeyId(
+    userId: string,
     keyId: string,
-): Promise<Apikey | null> {
-    return (await ApikeyModel.findOne({
-        keyId,
-        userId,
-        deleted: { $ne: true },
-    }).lean()) as Apikey | null;
+): Promise<ApikeyRow | null> {
+    return getApiKeyRepository().findByUserIdAndKeyId(userId, keyId, {
+        excludeDeleted: true,
+    });
 }
 
-export async function createApiKey(
-    userId: mongoose.Types.ObjectId,
-    name: string,
-): Promise<Apikey> {
-    return await ApikeyModel.create({
+export function createApiKey(userId: string, name: string): Promise<ApikeyRow> {
+    return getApiKeyRepository().create({
         name,
         key: getUniqueId(),
         userId,
+        default: false,
     });
 }
 
 export async function deleteApiKey(
-    userId: mongoose.Types.ObjectId,
+    userId: string,
     keyId: string,
-) {
-    const key = await ApikeyModel.findOne({ keyId, userId });
-    if (key && key.default) {
-        throw new Error("Default API key cannot be deleted");
-    }
-    return await ApikeyModel.updateOne(
-        {
-            keyId,
-            userId,
-        },
-        { $set: { deleted: true } },
+): Promise<void> {
+    const key = await getApiKeyRepository().findByUserIdAndKeyId(
+        userId,
+        keyId,
+        { excludeDeleted: true },
     );
+    if (key?.default) throw new Error("Default API key cannot be deleted");
+    await getApiKeyRepository().softDelete(userId, keyId);
 }
 
-export async function editApiKey({
+export function editApiKey({
     userId,
     name,
     newName,
 }: {
-    userId: mongoose.Types.ObjectId;
+    userId: string;
     name: string;
     newName: string;
-}) {
-    const query = { userId, name };
-    const editedApiKey = await ApikeyModel.updateOne(query, {
-        $set: { name: newName },
-    });
-
-    return editedApiKey;
+}): Promise<void> {
+    return getApiKeyRepository().renameByUserIdAndName(userId, name, newName);
 }
 
 export async function getApikeyByUserId({
     userId,
     keyId,
 }: {
-    userId: mongoose.Types.ObjectId;
+    userId: string;
     keyId: string;
-}): Promise<Apikey | null> {
-    const apikeys = await getApiKeysByUserId(userId, keyId);
-    if (!apikeys || apikeys.length === 0 || apikeys[0].keyId !== keyId) {
-        throw new Error("Apikey not found");
-    }
-
-    return await getApikeyFromKeyId(userId, keyId);
+}): Promise<ApikeyRow | null> {
+    const apikey = await getApikeyFromKeyId(userId, keyId);
+    if (!apikey) throw new Error("Apikey not found");
+    return apikey;
 }

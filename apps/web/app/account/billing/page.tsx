@@ -161,7 +161,7 @@ const PricingPane = async ({
                     <ResumeSubscriptionButton
                         currentPlan={name}
                         subscriptionStatus={user.subscriptionStatus}
-                        expiresAt={user.subscriptionEndsAfter}
+                        expiresAt={user.subscriptionEndsAfter ?? undefined}
                         className="w-full"
                     />
                 )}

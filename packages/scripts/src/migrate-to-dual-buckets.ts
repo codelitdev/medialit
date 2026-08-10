@@ -12,12 +12,25 @@ import {
     CopyObjectCommand,
     HeadObjectCommand,
 } from "@aws-sdk/client-s3";
-import { MediaSchema, Constants, PathKey } from "@medialit/models";
+import { Constants, PathKey } from "@medialit/models";
 
 // Load environment variables from local .env config
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const MediaModel = mongoose.model("Media", MediaSchema);
+// The Mongo `Media` collection has been retired in favor of Postgres (see
+// packages/db). This script only needs to read a handful of fields off the
+// legacy documents, so it declares its own loose, read-only schema rather
+// than depending on the (now removed) shared mongoose schema.
+const LegacyMediaSchema = new mongoose.Schema(
+    {
+        mediaId: String,
+        fileName: String,
+        accessControl: String,
+        thumbnailGenerated: Boolean,
+    },
+    { strict: false },
+);
+const MediaModel = mongoose.model("Media", LegacyMediaSchema);
 
 const SOURCE_BUCKET = process.env.SOURCE_BUCKET_NAME;
 const PRIVATE_BUCKET = process.env.CLOUD_BUCKET_NAME;

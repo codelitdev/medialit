@@ -3,10 +3,12 @@
     "version": "0.0.1",
     "private": true,
     "scripts": {
-        "migrate:dual_bucket_architecture": "ts-node src/migrate-to-dual-buckets.ts"
+        "migrate:dual_bucket_architecture": "ts-node src/migrate-to-dual-buckets.ts",
+        "migrate:mongo_to_postgres": "ts-node src/migrate-mongo-to-postgres.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.0.0",
+        "@medialit/db": "workspace:*",
         "@medialit/models": "workspace:*",
         "dotenv": "^16.0.0",
         "mongoose": "^8.19.3"

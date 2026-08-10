@@ -50,7 +50,7 @@ export function registerMediaTools(server: McpServer): void {
             },
         },
         async (args: any, extra: any) => {
-            const userId = extra.authInfo?.user?._id;
+            const userId = extra.authInfo?.user?.id;
             const apikey = extra.authInfo?.token;
             if (!userId || !apikey) {
                 return AUTH_ERROR;
@@ -143,7 +143,7 @@ export function registerMediaTools(server: McpServer): void {
             },
         },
         async (extra: any) => {
-            const userId = extra.authInfo?.user?._id;
+            const userId = extra.authInfo?.user?.id;
             const apikey = extra.authInfo?.token;
             if (!userId || !apikey) {
                 return AUTH_ERROR;
@@ -272,7 +272,7 @@ export async function handleGetTotalStorageTool(
     dependencies = { getTotalSpace: mediaQueries.getTotalSpace },
 ) {
     const user = extra.authInfo?.user;
-    const userId = user?._id;
+    const userId = user?.id;
     const apikey = extra.authInfo?.token;
     if (!userId || !apikey) {
         return AUTH_ERROR;

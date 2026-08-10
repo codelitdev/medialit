@@ -12,7 +12,6 @@ describe("MCP get_total_storage", () => {
     test("uses the authenticated user id and returns the account storage limit", async () => {
         const user = {
             id: "string-user-id",
-            _id: "object-user-id",
             subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
         };
 
@@ -33,7 +32,7 @@ describe("MCP get_total_storage", () => {
             },
         );
 
-        assert.equal(queriedUserId, user._id);
+        assert.equal(queriedUserId, user.id);
         assert.deepEqual((response as any).structuredContent, {
             storage: 2103931,
             maxStorage: maxStorageAllowedSubscribed,

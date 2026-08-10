@@ -79,7 +79,7 @@ export async function getMedia(
 
     try {
         const result = await mediaService.getPage({
-            userId: req.user._id,
+            userId: req.user.id,
             apikey: req.apikey,
             access,
             page,
@@ -94,7 +94,7 @@ export async function getMedia(
 }
 
 export async function getMediaCount(req: any, res: any) {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const apikey = req.apikey;
 
     try {
@@ -106,7 +106,7 @@ export async function getMediaCount(req: any, res: any) {
 }
 
 export async function getTotalSpaceOccupied(req: any, res: any) {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const apikey = req.apikey;
 
     try {

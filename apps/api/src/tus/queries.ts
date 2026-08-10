@@ -1,16 +1,17 @@
+import type { NewTusUploadRow, TusUploadRow } from "@medialit/db";
 import { SIGNATURE_VALIDITY_MINUTES } from "../config/constants";
-import TusUploadModel, { TusUpload } from "./model";
+import getRepositories from "../config/repositories";
 
-type TusUploadDocument = any;
+export type TusUpload = TusUploadRow;
 
 export async function createTusUpload(
-    data: Omit<TusUpload, "uploadOffset" | "isComplete">,
-): Promise<TusUploadDocument> {
+    data: Omit<NewTusUploadRow, "uploadOffset" | "isComplete">,
+): Promise<TusUpload> {
     const expiresAt = new Date();
     const signatureValidityHours = SIGNATURE_VALIDITY_MINUTES / 60;
     expiresAt.setHours(expiresAt.getHours() + signatureValidityHours);
 
-    const tusUploadData: TusUpload = {
+    return await getRepositories().tusUploads.create({
         uploadId: data.uploadId,
         userId: data.userId,
         apikey: data.apikey,
@@ -21,35 +22,32 @@ export async function createTusUpload(
         uploadOffset: 0,
         isComplete: false,
         expiresAt,
-    };
-    const tusUpload = await TusUploadModel.create(tusUploadData);
-
-    return tusUpload;
+    });
 }
 
 export async function getTusUpload(
     uploadId: string,
-): Promise<TusUploadDocument | null> {
-    return TusUploadModel.findOne({ uploadId });
+): Promise<TusUpload | null> {
+    return await getRepositories().tusUploads.findByUploadId(uploadId);
 }
 
 export async function updateTusUploadOffset(
     uploadId: string,
     uploadOffset: number,
 ): Promise<void> {
-    await TusUploadModel.updateOne({ uploadId }, { uploadOffset });
+    await getRepositories().tusUploads.updateOffset(uploadId, uploadOffset);
 }
 
 export async function markTusUploadComplete(uploadId: string): Promise<void> {
-    await TusUploadModel.updateOne({ uploadId }, { isComplete: true });
+    await getRepositories().tusUploads.markComplete(uploadId);
 }
 
 export async function deleteTusUpload(uploadId: string): Promise<void> {
-    await TusUploadModel.deleteOne({ uploadId });
+    await getRepositories().tusUploads.deleteByUploadId(uploadId);
 }
 
 export async function getTusUploadsByUserId(
     userId: string,
-): Promise<TusUploadDocument[]> {
-    return TusUploadModel.find({ userId }).sort({ createdAt: -1 });
+): Promise<TusUpload[]> {
+    return await getRepositories().tusUploads.findByUserId(userId);
 }

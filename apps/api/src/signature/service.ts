@@ -1,7 +1,7 @@
 import logger from "../services/log";
 import { getUser } from "../user/queries";
 import * as queries from "./queries";
-import { PreSignedUrl } from "./model";
+import { PreSignedUrl } from "./queries";
 import { User } from "@medialit/models";
 
 interface PresignedUrlProps {
@@ -31,7 +31,11 @@ export async function getUserAndGroupFromPresignedUrl(
         return null;
     }
 
-    return { user, apikey: signedUrl.apikey, group: signedUrl.group };
+    return {
+        user,
+        apikey: signedUrl.apikey,
+        group: signedUrl.group ?? undefined,
+    };
 }
 
 interface GenerateSignedUrlProps {

@@ -9,8 +9,8 @@ export interface Media {
     size: number;
     thumbnailGenerated: boolean;
     accessControl: AccessControl;
-    group?: string;
-    caption?: string;
+    group?: string | null;
+    caption?: string | null;
     file?: string;
-    temp?: boolean;
+    temp?: boolean | null;
 }

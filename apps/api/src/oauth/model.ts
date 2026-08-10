@@ -1,8 +1,7 @@
 import crypto from "crypto";
 import type OAuth2Server from "@node-oauth/oauth2-server";
 import logger from "../services/log";
-import OauthClient from "./client-model";
-import OauthRevokedToken from "./revoked-token-model";
+import getRepositories from "../config/repositories";
 import {
     signAccessToken,
     signRefreshToken,
@@ -151,7 +150,11 @@ function validateTokenEndpointAuthMethod(method: string): "none" {
     return "none";
 }
 
-function sanitizeDcrClient(client: DynamicClient): DynamicClient {
+type SanitizedDcrClient = Omit<DynamicClient, "tokenEndpointAuthMethod"> & {
+    tokenEndpointAuthMethod: "none";
+};
+
+function sanitizeDcrClient(client: DynamicClient): SanitizedDcrClient {
     if (!Array.isArray(client.redirectUris)) {
         throw new DcrValidationError("redirect_uris must be an array");
     }
@@ -209,7 +212,7 @@ export async function registerClient(meta: DcrRequest): Promise<DcrResponse> {
         scope: meta.scope,
     };
     const sanitized = sanitizeDcrClient(client);
-    await OauthClient.create(sanitized);
+    await getRepositories().oauthClients.create(sanitized);
     return {
         client_id: sanitized.clientId,
         client_id_issued_at: sanitized.clientIdIssuedAt,
@@ -225,9 +228,8 @@ export async function registerClient(meta: DcrRequest): Promise<DcrResponse> {
 export const oauthModel: OAuth2Server.AuthorizationCodeModel &
     OAuth2Server.RefreshTokenModel = {
     async getClient(clientId: string, _clientSecret?: string) {
-        const dyn = (await OauthClient.findOne({
-            clientId,
-        }).lean()) as DynamicClient | null;
+        const dyn =
+            await getRepositories().oauthClients.findByClientId(clientId);
         if (dyn) {
             return {
                 id: dyn.clientId,
@@ -339,9 +341,10 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
         const payload = verifyRefreshToken(refreshToken);
         if (!payload) return null;
         if (payload.jti) {
-            const revoked = await OauthRevokedToken.findOne({
-                jti: payload.jti,
-            }).lean();
+            const revoked =
+                await getRepositories().oauthRevokedTokens.findByJti(
+                    payload.jti,
+                );
             if (revoked) return null;
         }
         return {
@@ -358,25 +361,17 @@ export const oauthModel: OAuth2Server.AuthorizationCodeModel &
     async revokeToken(token: StoredRefreshToken): Promise<boolean> {
         const payload = verifyRefreshToken(token.refreshToken);
         if (payload?.jti) {
-            await OauthRevokedToken.updateOne(
-                { jti: payload.jti },
-                {
-                    $setOnInsert: {
-                        jti: payload.jti,
-                        tokenType: "refresh_token",
-                        userId: payload.sub,
-                        clientId: payload.cid,
-                        expiresAt: payload.exp
-                            ? new Date(payload.exp * 1000)
-                            : (token.refreshTokenExpiresAt ??
-                              new Date(
-                                  Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000,
-                              )),
-                        revokedAt: new Date(),
-                    },
-                },
-                { upsert: true },
-            );
+            await getRepositories().oauthRevokedTokens.insertIfNotExists({
+                jti: payload.jti,
+                tokenType: "refresh_token",
+                userId: payload.sub,
+                clientId: payload.cid,
+                expiresAt: payload.exp
+                    ? new Date(payload.exp * 1000)
+                    : (token.refreshTokenExpiresAt ??
+                      new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000)),
+                revokedAt: new Date(),
+            });
         }
         return true;
     },

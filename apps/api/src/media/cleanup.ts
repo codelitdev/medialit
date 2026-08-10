@@ -1,5 +1,4 @@
 import logger from "../services/log";
-import MediaModel from "./model";
 import { deleteFolder } from "../services/s3";
 import {
     PATH_PREFIX,
@@ -7,6 +6,7 @@ import {
     cloudBucket,
 } from "../config/constants";
 import { Constants } from "@medialit/models";
+import getRepositories from "../config/repositories";
 
 export async function cleanupExpiredTempUploads(): Promise<void> {
     const cutoff = new Date(
@@ -14,10 +14,7 @@ export async function cleanupExpiredTempUploads(): Promise<void> {
     );
 
     try {
-        const expired = await MediaModel.find({
-            temp: true,
-            createdAt: { $lt: cutoff },
-        }).lean();
+        const expired = await getRepositories().media.findExpiredTemp(cutoff);
 
         if (expired.length === 0) {
             logger.info("No expired temp uploads found to cleanup");
@@ -37,7 +34,7 @@ export async function cleanupExpiredTempUploads(): Promise<void> {
                 await deleteFolder(tmpPrefix, cloudBucket);
 
                 // Delete media record
-                await MediaModel.deleteOne({ _id: media._id });
+                await getRepositories().media.deleteById(media.id);
                 count++;
             } catch (err: any) {
                 logger.error(

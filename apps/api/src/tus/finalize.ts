@@ -6,7 +6,6 @@ import {
 } from "fs";
 import path from "path";
 import thumbnail from "@medialit/thumbnail";
-import mongoose from "mongoose";
 import {
     tempFileDirForUploads,
     imagePattern,
@@ -131,7 +130,7 @@ export default async function finalizeUpload(
     const mediaObject = {
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
-        userId: new mongoose.Types.ObjectId(userId),
+        userId,
         apikey,
         originalFileName: metadata.fileName,
         mimeType,
