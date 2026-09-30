@@ -34,7 +34,7 @@
     "url": "https://github.com/codelitdev/medialit"
   },
   "dependencies": {
-    "form-data": "^4.0.0"
+    "form-data": "^4.0.6"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
