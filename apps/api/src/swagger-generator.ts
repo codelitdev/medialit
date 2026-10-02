@@ -146,6 +146,20 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         delete content.paths["/oauth/revoke"];
         delete content.paths["/oauth/register"];
         delete content.paths["/oauth/userinfo"];
+        for (const apiPath of Object.keys(content.paths)) {
+            if (
+                apiPath.startsWith("/api/") ||
+                apiPath.startsWith("/oauth/") ||
+                apiPath.startsWith("/.well-known") ||
+                apiPath.startsWith("/cleanup/") ||
+                apiPath.startsWith("/payment/") ||
+                apiPath === "/mcp" ||
+                apiPath === "/ready" ||
+                apiPath === "/openapi.json"
+            ) {
+                delete content.paths[apiPath];
+            }
+        }
     }
 
     Object.entries(content.paths || {}).forEach(([apiPath, pathItem]: any) => {

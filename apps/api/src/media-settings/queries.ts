@@ -1,11 +1,12 @@
-import MediaSettingsModel, { MediaSettings } from "./model";
+import { MediaSettings } from "./model";
 import { UpdateMediaSettingsProps } from "./service";
+import { getMediaSettingsRecord, upsertMediaSettings } from "@/db";
 
 export async function getMediaSettings(
     userId: string,
     apikey: string,
 ): Promise<MediaSettings | null> {
-    return await MediaSettingsModel.findOne({ userId, apikey });
+    return getMediaSettingsRecord(userId, apikey);
 }
 
 export async function updateMediaSettings({
@@ -16,16 +17,12 @@ export async function updateMediaSettings({
     thumbnailWidth,
     thumbnailHeight,
 }: UpdateMediaSettingsProps): Promise<void> {
-    await MediaSettingsModel.findOneAndUpdate(
-        { userId, apikey },
-        {
-            $set: {
-                useWebP,
-                webpOutputQuality,
-                thumbnailWidth,
-                thumbnailHeight,
-            },
-        },
-        { upsert: true },
-    );
+    await upsertMediaSettings({
+        userId,
+        apikey,
+        useWebP,
+        webpOutputQuality,
+        thumbnailWidth,
+        thumbnailHeight,
+    });
 }

@@ -1,140 +1,90 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import {
-    ACCESS_TOKEN_COOKIE,
-    DEFAULT_ACCESS_TOKEN_MAX_AGE_SECONDS,
-    REFRESH_TOKEN_COOKIE,
-    REFRESH_TOKEN_MAX_AGE_SECONDS,
-    USER_COOKIE,
-    shouldRefreshAccessToken,
-    tokenCookieOptions,
-} from "@/lib/oauth-session";
 
-async function refreshSession(request: NextRequest) {
-    const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
-    if (!refreshToken || !process.env.API_SERVER) return null;
+const SESSION_COOKIES = [
+    "medialit.session_token",
+    "__Secure-medialit.session_token",
+];
 
-    try {
-        const tokenResponse = await fetch(
-            `${process.env.API_SERVER}/oauth/token`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                    grant_type: "refresh_token",
-                    refresh_token: refreshToken,
-                    client_id: "web-client",
-                }).toString(),
-            },
-        );
+type SessionCheck = "valid" | "invalid" | "unavailable";
 
-        if (!tokenResponse.ok) return null;
-
-        const tokenData = await tokenResponse.json();
-        if (!tokenData.access_token || !tokenData.refresh_token) return null;
-
-        return {
-            accessToken: String(tokenData.access_token),
-            refreshToken: String(tokenData.refresh_token),
-            expiresIn:
-                Number(tokenData.expires_in) ||
-                DEFAULT_ACCESS_TOKEN_MAX_AGE_SECONDS,
-        };
-    } catch {
-        return null;
-    }
+function apiBase() {
+    return (
+        process.env.API_SERVER ||
+        process.env.PUBLIC_API_URL ||
+        "http://127.0.0.1:8000"
+    ).replace(/\/$/, "");
 }
 
-function redirectToLogin(request: NextRequest) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    const response = NextResponse.redirect(url);
-    response.cookies.delete(ACCESS_TOKEN_COOKIE);
-    response.cookies.delete(REFRESH_TOKEN_COOKIE);
-    response.cookies.delete(USER_COOKIE);
+function hasSessionCookie(request: NextRequest) {
+    return SESSION_COOKIES.some((name) => request.cookies.get(name)?.value);
+}
+
+function clearSessionCookies(request: NextRequest, response: NextResponse) {
+    for (const cookie of request.cookies.getAll()) {
+        if (!cookie.name.includes("medialit")) continue;
+        response.cookies.set(cookie.name, "", {
+            path: "/",
+            maxAge: 0,
+            secure: cookie.name.startsWith("__Secure-"),
+        });
+    }
     return response;
 }
 
-function setRefreshedTokenCookies(
-    response: NextResponse,
-    refreshed: {
-        accessToken: string;
-        refreshToken: string;
-        expiresIn: number;
-    },
-) {
-    response.cookies.set(
-        ACCESS_TOKEN_COOKIE,
-        refreshed.accessToken,
-        tokenCookieOptions(refreshed.expiresIn),
-    );
-    response.cookies.set(
-        REFRESH_TOKEN_COOKIE,
-        refreshed.refreshToken,
-        tokenCookieOptions(REFRESH_TOKEN_MAX_AGE_SECONDS),
-    );
+// Cookie presence is not a session. A dead cookie used to send /login back
+// to /, and the page redirect answered with a meta refresh, so the browser
+// reloaded forever.
+async function checkSession(request: NextRequest): Promise<SessionCheck> {
+    try {
+        const response = await fetch(`${apiBase()}/api/auth/get-session`, {
+            headers: { cookie: request.headers.get("cookie") ?? "" },
+            cache: "no-store",
+        });
+        if (!response.ok) {
+            return response.status >= 500 ? "unavailable" : "invalid";
+        }
+        const data = await response.json();
+        return data?.user?.id && data?.user?.email ? "valid" : "invalid";
+    } catch {
+        return "unavailable";
+    }
 }
 
 export async function middleware(request: NextRequest) {
-    const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
-    const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
-    const url = request.nextUrl.clone();
+    const { pathname } = request.nextUrl;
+    const isPublic =
+        pathname.startsWith("/api/") ||
+        pathname.startsWith("/payment/webhook") ||
+        pathname.startsWith("/_next") ||
+        pathname.includes(".");
 
-    const isLoginPage = url.pathname.startsWith("/login");
-    const isCallbackPage = url.pathname.startsWith(
-        "/api/auth/callback/medialit",
-    );
-    const isSignoutPage = url.pathname.startsWith("/api/auth/signout");
-    const isStaticAsset =
-        url.pathname.includes(".") ||
-        url.pathname.startsWith("/_next") ||
-        url.pathname.startsWith("/api/cleanup");
-
-    if (isStaticAsset) {
+    if (isPublic) {
         return NextResponse.next();
     }
 
-    if (!accessToken && !isCallbackPage && !isSignoutPage) {
-        if (refreshToken) {
-            const refreshed = await refreshSession(request);
-            if (refreshed) {
-                if (isLoginPage) {
-                    url.pathname = "/";
-                    const response = NextResponse.redirect(url);
-                    setRefreshedTokenCookies(response, refreshed);
-                    return response;
-                }
+    const check = hasSessionCookie(request)
+        ? await checkSession(request)
+        : "invalid";
 
-                const response = NextResponse.next();
-                setRefreshedTokenCookies(response, refreshed);
-                return response;
-            }
+    if (pathname.startsWith("/login")) {
+        if (check === "valid") {
+            return NextResponse.redirect(new URL("/", request.url));
         }
-
-        if (!isLoginPage) {
-            return redirectToLogin(request);
-        }
-    }
-
-    if (accessToken && isLoginPage) {
-        url.pathname = "/";
-        return NextResponse.redirect(url);
-    }
-
-    if (
-        accessToken &&
-        !isLoginPage &&
-        !isCallbackPage &&
-        !isSignoutPage &&
-        shouldRefreshAccessToken(accessToken)
-    ) {
-        const refreshed = await refreshSession(request);
-        if (!refreshed) return redirectToLogin(request);
-
         const response = NextResponse.next();
-        setRefreshedTokenCookies(response, refreshed);
+        if (check === "invalid" && hasSessionCookie(request)) {
+            clearSessionCookies(request, response);
+        }
+        return response;
+    }
+
+    if (check !== "valid") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        const response = NextResponse.redirect(url);
+        if (check === "invalid" && hasSessionCookie(request)) {
+            clearSessionCookies(request, response);
+        }
         return response;
     }
 

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { mcpCorsHeaders, patchMcpAccept } from "@codelitdev/mcp-server-kit";
 import { mcpAuth } from "../auth/middleware";
-import { oauthRouter } from "../oauth/routes";
 import { createMCPSession } from "./server";
 
 const router = Router();
@@ -21,14 +21,12 @@ const mcpLimiter = rateLimit({
 const mcpSessions = new Map<string, StreamableHTTPServerTransport>();
 
 const mcpCors = (req: any, res: any, next: any) => {
-    const origin = req.headers.origin || "*";
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    res.header(
-        "Access-Control-Allow-Headers",
-        "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, x-medialit-apikey, Authorization",
-    );
-    res.header("Access-Control-Expose-Headers", "Mcp-Session-Id");
+    const headers = mcpCorsHeaders(req.headers);
+    headers["Access-Control-Allow-Headers"] =
+        `${headers["Access-Control-Allow-Headers"]}, x-medialit-apikey`;
+    for (const [name, value] of Object.entries(headers)) {
+        res.header(name, value);
+    }
     if (req.method === "OPTIONS") {
         return res.status(204).end();
     }
@@ -36,17 +34,11 @@ const mcpCors = (req: any, res: any, next: any) => {
 };
 
 function patchMcpAcceptHeaders(req: any) {
-    const accept = req.headers.accept || "";
-    const needsJson = !accept.includes("application/json");
-    const needsSSE = !accept.includes("text/event-stream");
-    if (!needsJson && !needsSSE) return;
-
-    const additions: string[] = [];
-    if (needsJson) additions.push("application/json");
-    if (needsSSE) additions.push("text/event-stream");
-    const newAccept = accept
-        ? `${accept}, ${additions.join(", ")}`
-        : additions.join(", ");
+    const patched = patchMcpAccept(req.headers);
+    const newAccept = Array.isArray(patched.accept)
+        ? patched.accept.join(", ")
+        : patched.accept;
+    if (!newAccept || newAccept === req.headers.accept) return;
     req.headers.accept = newAccept;
 
     const rawHeaders: string[] = req.rawHeaders;
@@ -71,7 +63,6 @@ function getMcpAuth(req: any) {
 }
 
 router.use(["/.well-known", "/oauth"], mcpCors);
-router.use(oauthRouter);
 
 router.post(
     "/mcp",

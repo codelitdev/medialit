@@ -24,10 +24,10 @@ EMAIL=email@yourdomain.com
 Then, start the API:
 
 ```bash
-pnpm --filter @medialit/api dev
+bun --filter @medialit/api dev
 ```
 
-When the API starts for the very first time, a user with the provided email will be generated, and their subscription will be renewed for 10 years.
+When the API starts for the very first time, a user with the provided email will be generated with an active subscription. The user signs in to the dashboard with an email one-time code.
 
 Additionally, a default app will be generated for the user and its API key will be printed in the application logs. The log containing the API key will look something like the following:
 
@@ -49,7 +49,7 @@ Use the frontend if you want to:
 To start the frontend:
 
 ```sh
-pnpm --filter @medialit/web dev
+bun --filter @medialit/web dev
 ```
 
 Then log in using the same email you provided above while booting up the API.
@@ -71,23 +71,28 @@ sudo apt install ffmpeg webp
 ### Install dependencies
 
 ```bash
-pnpm install
+bun install
 ```
 
-### Build packages
+Start Postgres, MinIO, and Mailpit, then copy the local environment file:
 
 ```bash
-pnpm -r build
+docker compose -f docker-compose.local.yml up
+cp apps/api/.env.example apps/api/.env
 ```
+
+`docker-compose.local.yml` is only the local dependencies. The API and web app run on the host. Do not run it at the same time as `docker-compose.yml`; both publish Postgres on port 5433. MinIO is at <http://127.0.0.1:9000> (console at <http://127.0.0.1:9001>) and Mailpit's inbox is at <http://127.0.0.1:8025>.
+
+`OAUTH_SIGNING_KEY` must be at least 32 bytes. Existing production data can be copied from Mongo with `MONGO_URL` (or `DB_CONNECTION_STRING`) and `DATABASE_URL` set, then `bun --filter @medialit/scripts import:mongo`. That import keeps user ids, public user ids, API key secrets, and media ids. Tus uploads are local and are not imported.
 
 ### Run the service
 
 ```bash
-pnpm --filter=@medialit/api dev
+bun --filter=@medialit/api dev
 ```
 
 ### Publishing a new version
 
 ```bash
-pnpm exec changeset
+bunx changeset
 ```

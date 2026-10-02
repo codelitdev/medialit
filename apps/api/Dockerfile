@@ -1,69 +1,30 @@
-FROM node:24-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+FROM oven/bun:1.4.1
 WORKDIR /app
 
-# copy pnpm specific files 
-COPY package.json ./package.json
-COPY pnpm-lock.yaml ./pnpm-lock.yaml
-COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
+RUN apt-get update && apt-get -y install ffmpeg webp && rm -rf /var/lib/apt/lists/*
 
-# copy project files
-COPY tsconfig.json . 
+COPY package.json bun.lock ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY packages/images/package.json ./packages/images/package.json
+COPY packages/thumbnail/package.json ./packages/thumbnail/package.json
+COPY packages/models/package.json ./packages/models/package.json
+COPY packages/utils/package.json ./packages/utils/package.json
+COPY packages/scripts/package.json ./packages/scripts/package.json
+COPY packages/medialit/package.json ./packages/medialit/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/docs/package.json ./apps/docs/package.json
+COPY examples/express/package.json ./examples/express/package.json
+COPY examples/next-app-router/package.json ./examples/next-app-router/package.json
+
+RUN bun install --frozen-lockfile
+
+COPY tsconfig.json ./
 COPY apps/api ./apps/api
 COPY packages/images ./packages/images
 COPY packages/thumbnail ./packages/thumbnail
 COPY packages/models ./packages/models
 COPY packages/utils ./packages/utils
 
-# TODO: figure out why it is not working
-# FROM base AS prod-deps
-# RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
-
-FROM base AS build
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-RUN pnpm --filter=@medialit/thumbnail build
-RUN pnpm --filter=@medialit/images build
-RUN pnpm --filter=@medialit/utils build
-RUN pnpm --filter=@medialit/models build
-RUN pnpm --filter=@medialit/api build
-
-FROM node:20-slim 
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-
-# install required softwares
-RUN apt-get update && apt-get -y install ffmpeg webp
-
-# set environment
-ENV NODE_ENV production
-
-# create app directory
-WORKDIR /app
-
-# copy files
-#COPY --chown=node:node --from=prod-deps /app/node_modules /app/node_modules 
-COPY --chown=node:node --from=build /app/package.json /app/package.json
-COPY --chown=node:node --from=build /app/pnpm-lock.yaml /app/pnpm-lock.yaml
-COPY --chown=node:node --from=build /app/pnpm-workspace.yaml /app/pnpm-workspace.yaml
-COPY --chown=node:node --from=build /app/packages/thumbnail/package.json /app/packages/thumbnail/package.json
-COPY --chown=node:node --from=build /app/packages/thumbnail/dist /app/packages/thumbnail/dist  
-COPY --chown=node:node --from=build /app/packages/thumbnail/bin /app/packages/thumbnail/bin 
-COPY --chown=node:node --from=build /app/packages/images/package.json /app/packages/images/package.json
-COPY --chown=node:node --from=build /app/packages/images/dist /app/packages/images/dist
-COPY --chown=node:node --from=build /app/packages/utils/package.json /app/packages/utils/package.json
-COPY --chown=node:node --from=build /app/packages/utils/dist /app/packages/utils/dist
-COPY --chown=node:node --from=build /app/packages/models/package.json /app/packages/models/package.json
-COPY --chown=node:node --from=build /app/packages/models/dist /app/packages/models/dist
-COPY --chown=node:node --from=build /app/apps/api/package.json /app/apps/api/package.json
-COPY --chown=node:node --from=build /app/apps/api/dist /app/apps/api/dist
-
-# Run pnpm install
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts
-
-# set a low privileged user
-USER node
-
-CMD ["pnpm", "--filter=@medialit/api", "start"]
+ENV NODE_ENV=production
+USER bun
+CMD ["bun", "apps/api/src/index.ts"]

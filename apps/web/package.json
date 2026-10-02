@@ -9,8 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@medialit/models": "workspace:^",
-    "@medialit/utils": "workspace:^",
+    "@codelitdev/observability": "0.1.0-alpha.0",
+    "@medialit/models": "workspace:*",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-avatar": "^1.0.4",
     "@radix-ui/react-dialog": "^1.0.5",
@@ -27,9 +27,8 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "lucide-react": "^0.487.0",
-    "medialit": "workspace:^",
-    "mongoose": "^8.19.3",
     "next": "^15.5.7",
+    "posthog-js": "^1.200.0",
     "next-themes": "^0.2.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",

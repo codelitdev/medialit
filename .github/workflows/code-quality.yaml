@@ -34,22 +34,19 @@ jobs:
       - name: Checkout and pull branch
         run: git checkout "${GITHUB_REF:11}" && git pull
 
-      - name: Install pnpm 
-        run: |
-          npm i pnpm@10.7.1 -g
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
 
       - name: Install dependencies
-        run: pnpm install 
+        run: bun install --frozen-lockfile
 
-      - name: Run lint 
-        run: pnpm lint 
-      
-      - name: Run prettier 
-        run: pnpm prettier 
+      - name: Run lint
+        run: bun run lint
 
-      - name: Build dependencies
-        run: |
-          pnpm -r build
+      - name: Run prettier
+        run: bun run prettier
 
       - name: Run test
-        run: pnpm test
+        run: bun run test

@@ -15,7 +15,7 @@
     "url": "https://github.com/codelitdev/medialit"
   },
   "license": "MIT",
-  "main": "dist/index.js",
+  "main": "./lib/index.ts",
   "bin": {
     "generate-thumbnail": "./bin/generate-thumbnail.sh"
   },
@@ -27,12 +27,14 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "main": "dist/index.js",
+    "types": "./lib/index.ts"
   },
   "scripts": {
     "test": "jest",
     "build": "tsc",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "bun run build"
   },
   "devDependencies": {
     "jest": "^24.8.0",

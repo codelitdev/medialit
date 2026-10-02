@@ -2,18 +2,20 @@
     "name": "@medialit/scripts",
     "version": "0.0.1",
     "private": true,
+    "type": "module",
     "scripts": {
-        "migrate:dual_bucket_architecture": "ts-node src/migrate-to-dual-buckets.ts"
+        "import:mongo": "bun src/import-mongo.ts",
+        "test": "bun test src"
     },
     "dependencies": {
-        "@aws-sdk/client-s3": "^3.0.0",
-        "@medialit/models": "workspace:*",
+        "@medialit/utils": "workspace:*",
         "dotenv": "^16.0.0",
-        "mongoose": "^8.19.3"
+        "drizzle-orm": "0.45.2",
+        "mongodb": "^6.16.0",
+        "pg": "8.23.0"
     },
     "devDependencies": {
-        "ts-node": "^10.9.1",
-        "typescript": "^5.0.0",
-        "@types/node": "^20.0.0"
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
     }
 }

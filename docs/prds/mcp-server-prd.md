@@ -33,7 +33,7 @@ The MCP server uses **Streamable HTTP** transport — a single HTTP POST endpoin
 
 **Why Streamable HTTP:**
 
-- No separate process to manage — one `pnpm dev` starts everything
+- No separate process to manage — one `bun dev` starts everything
 - Reuses existing Express port, TLS certificate, and middleware stack
 - MCP clients connect via URL: `http://localhost:8000/mcp` (dev) or `https://api.medialit.cloud/mcp` (production)
 - Auth via both the existing `apikey` middleware (CLI/agent clients) and OAuth 2.0 (browser-based/ChatGPT clients)

@@ -43,3 +43,6 @@ dist
 .agent-skills/
 .claude/
 .agents/
+
+# archives
+db.archive

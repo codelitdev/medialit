@@ -1,9 +1,8 @@
-import { maxStorageAllowedNotSubscribed } from "../config/constants";
-import { maxStorageAllowedSubscribed } from "../config/constants";
-import { getSubscriptionStatus, User } from "@medialit/models";
+import { User } from "@medialit/models";
+import { maxStorageFor } from "../billing/entitlements";
 import mediaQueries from "./queries";
 import { FILE_SIZE_EXCEEDED, NOT_ENOUGH_STORAGE } from "../config/strings";
-import mongoose from "mongoose";
+
 import getMaxFileUploadSize from "./utils/get-max-file-upload-size";
 
 export type UploadValidationResult =
@@ -45,7 +44,7 @@ export async function validateUploadConstraints({
     user,
 }: {
     size: number;
-    user: User & { _id: mongoose.Types.ObjectId };
+    user: User & { _id: string };
 }): Promise<UploadValidationResult> {
     const allowedFileSize = getMaxFileUploadSize({ user });
     if (size > allowedFileSize) {
@@ -70,14 +69,12 @@ export async function validateUploadConstraints({
 
 export async function hasEnoughStorage(
     size: number,
-    user: User & { _id: mongoose.Types.ObjectId },
+    user: User & { _id: string },
 ): Promise<boolean> {
     const totalSpaceOccupied = await mediaQueries.getTotalSpace({
         userId: user._id,
     });
-    const maxStorageAllowed = getSubscriptionStatus(user)
-        ? maxStorageAllowedSubscribed
-        : maxStorageAllowedNotSubscribed;
+    const maxStorageAllowed = maxStorageFor(user);
 
     return totalSpaceOccupied + size <= maxStorageAllowed;
 }

@@ -20,12 +20,17 @@ export default function ResumeSubscriptionButton({
 }) {
     const [formState, formAction] = useActionState(resumeSubscription, {
         success: false,
+        url: undefined as string | undefined,
     });
     const { toast } = useToast();
     const router = useRouter();
 
     useEffect(() => {
         if (formState.success) {
+            if (formState.url) {
+                window.location.href = formState.url;
+                return;
+            }
             toast({
                 title: "Welcome back!",
                 description: "Your subscription has been resumed",

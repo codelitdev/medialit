@@ -1,12 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import {
-    maxStorageAllowedNotSubscribed,
-    maxStorageAllowedSubscribed,
-} from "../../config/constants";
 import mediaService from "../../media/service";
 import * as mediaQueries from "../../media/queries";
-import { getSubscriptionStatus } from "@medialit/models";
+import { maxStorageFor } from "../../billing/entitlements";
 import { NOT_FOUND, SUCCESS } from "../../config/strings";
 import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
 import {
@@ -281,9 +277,7 @@ export async function handleGetTotalStorageTool(
         const storage = await dependencies.getTotalSpace({ userId, apikey });
         const response = {
             storage,
-            maxStorage: getSubscriptionStatus(user)
-                ? maxStorageAllowedSubscribed
-                : maxStorageAllowedNotSubscribed,
+            maxStorage: maxStorageFor(user),
         };
         return {
             content: [

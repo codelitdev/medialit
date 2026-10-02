@@ -3,30 +3,54 @@ loadDotFile();
 
 import express from "express";
 import connectToDatabase from "./config/db";
-import passport from "passport";
 import mediaRoutes from "./media/routes";
 import signatureRoutes from "./signature/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
 import tusRoutes from "./tus/routes";
 import mcpRoutes from "./mcp/routes";
-import logger from "./services/log";
+import logger, { captureException } from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
-import { Apikey, User } from "@medialit/models";
+import { User } from "@medialit/models";
 import { getApiKeyByUserId } from "./apikey/queries";
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "./swagger_output.json";
+import {
+    createMcpOAuthDiscoveryRoutes,
+    type BetterAuthMetadataApi,
+} from "@codelitdev/oauth-server-kit/mcp";
+import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit/express";
+import { toNodeHandler } from "better-auth/node";
+import { seedWebOAuthClient } from "@/db";
 
 import { spawn } from "child_process";
 import { cleanupTUSUploads } from "./tus/cleanup";
 import { cleanupExpiredTempUploads } from "./media/cleanup";
 import { HOUR_IN_SECONDS } from "./config/constants";
+import { createMedialitAuth } from "./auth/better-auth";
+import { AUTH_BASE_PATH, MCP_SCOPES_SUPPORTED } from "./auth/options";
+import { setBearerAuth } from "./auth/bearer";
+import { legacyOAuthRouter } from "./auth/legacy-oauth";
+import { createDashboardRouter } from "./dashboard/routes";
+import { createBillingRouter, dodoWebhookRouter } from "./billing/routes";
+import { startBillingMaintenance } from "./billing/maintenance";
+import { lemonWebhookRouter } from "./billing/lemonsqueezy";
 
-connectToDatabase();
 const app = express();
 
 app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false);
 
-app.use(express.json());
+const authRouter = express.Router();
+app.use(authRouter);
+
+app.use(
+    express.json({
+        limit: "2mb",
+        verify: (req, _res, buf) => {
+            (req as express.Request & { rawBody?: Buffer }).rawBody =
+                Buffer.from(buf);
+        },
+    }),
+);
 app.use(express.urlencoded({ extended: false }));
 
 app.get(
@@ -86,7 +110,7 @@ app.use(
     }),
 );
 
-app.use("/settings/media", mediaSettingsRoutes(passport));
+app.use("/settings/media", mediaSettingsRoutes(undefined));
 app.use("/media/signature", signatureRoutes);
 app.use("/media", tusRoutes);
 app.use("/media", mediaRoutes);
@@ -115,13 +139,56 @@ app.get(
 
 const port = process.env.PORT || 80;
 
-if (process.env.EMAIL) {
-    createAdminUser();
-}
-
 checkConfig()
+    .then(() => connectToDatabase())
     .then(checkDependencies)
-    .then(() => {
+    .then(async () => {
+        const publicApiUrl = (
+            process.env.PUBLIC_API_URL ||
+            process.env.API_SERVER ||
+            `http://127.0.0.1:${port}`
+        ).replace(/\/$/, "");
+        const webOrigin = (
+            process.env.WEB_ORIGIN ||
+            process.env.WEB_CLIENT ||
+            "http://localhost:3000"
+        ).replace(/\/$/, "");
+        const secret =
+            process.env.BETTER_AUTH_SECRET || process.env.OAUTH_SIGNING_KEY!;
+        const auth = createMedialitAuth({ publicApiUrl, secret, webOrigin });
+        setBearerAuth(auth);
+        authRouter.use(
+            createMcpOAuthDiscoveryRoutes({
+                auth: auth.auth as unknown as BetterAuthMetadataApi,
+                oauthResourceClient: auth.oauthResourceClient,
+                resourceUrl: auth.mcpResource,
+                scopesSupported: [...MCP_SCOPES_SUPPORTED],
+                allowedOrigins: "*",
+            }),
+        );
+        authRouter.all(`${AUTH_BASE_PATH}/*`, toNodeHandler(auth.auth));
+        authRouter.use(
+            createOAuthPagesRouter({
+                appName: "MediaLit",
+                authBasePath: AUTH_BASE_PATH,
+                allowedRedirectOrigins: [new URL(webOrigin).origin],
+                defaultRedirectUrl: `${webOrigin}/`,
+                loginMethods: [{ type: "email-otp" }],
+            }),
+        );
+        app.use(legacyOAuthRouter(auth));
+        app.use(createDashboardRouter(auth));
+        app.use(createBillingRouter(auth));
+        app.use("/payment/webhook/dodo", dodoWebhookRouter());
+        app.use("/payment/webhook/lemonsqueezy", lemonWebhookRouter());
+        app.use(jsonErrorHandler);
+        await seedWebOAuthClient({
+            redirectUris: [`${webOrigin}/api/auth/callback/medialit`],
+        });
+        if (process.env.EMAIL) {
+            await createAdminUser();
+        }
+        startBillingMaintenance();
         app.listen(port, () => {
             logger.info(`Medialit server running at ${port}`);
         });
@@ -143,9 +210,27 @@ checkConfig()
         );
     });
 
+function jsonErrorHandler(
+    error: unknown,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+) {
+    captureException({
+        error,
+        source: "express",
+        context: { method: req.method, path: req.path },
+    });
+    if (res.headersSent) {
+        next(error);
+        return;
+    }
+    res.status(500).json({ error: "Internal Server Error" });
+}
+
 async function checkConfig() {
-    if (!process.env.DB_CONNECTION_STRING) {
-        throw new Error("DB_CONNECTION_STRING is not set");
+    if (!process.env.DATABASE_URL) {
+        throw new Error("DATABASE_URL is not set");
     }
     if (!process.env.CLOUD_KEY || !process.env.CLOUD_SECRET) {
         throw new Error(

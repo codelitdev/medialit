@@ -1,11 +1,5 @@
-import {
-    maxFileUploadSizeNotSubscribed,
-    maxFileUploadSizeSubscribed,
-} from "../../config/constants";
-import { getSubscriptionStatus } from "@medialit/models";
+import { maxUploadFor } from "../../billing/entitlements";
 
 export default function getMaxFileUploadSize(req: any): number {
-    return getSubscriptionStatus(req.user)
-        ? maxFileUploadSizeSubscribed
-        : maxFileUploadSizeNotSubscribed;
+    return maxUploadFor(req.user);
 }

@@ -1,19 +1,20 @@
 {
-  "compilerOptions": {
-    "outDir": "dist",
-    "target": "es5",
-    "module": "nodenext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "nodenext",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    }
-  }
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "noEmit": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["./src/*"],
+            "zod/v3": ["./node_modules/zod/v3/index.d.cts"]
+        },
+        "types": ["node"]
+    },
+    "include": ["src", "__tests__", "billing.config.ts"]
 }

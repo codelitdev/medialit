@@ -1,46 +1,27 @@
-FROM node:20-alpine
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-
+FROM oven/bun:1.4.1
 WORKDIR /app
 
-# copy pnpm specific files
-COPY package.json .
-COPY pnpm-lock.yaml .
-COPY pnpm-workspace.yaml .
-
-# copy project files
-COPY tsconfig.json .
+COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/package.json
-COPY apps/web/app ./apps/web/app
-COPY apps/web/components ./apps/web/components
-COPY apps/web/lib ./apps/web/lib
-COPY apps/web/models ./apps/web/models
-COPY apps/web/public ./apps/web/public
-COPY apps/web/utils ./apps/web/utils
-COPY apps/web/auth.ts ./apps/web/auth.ts
-COPY apps/web/middleware.ts ./apps/web/middleware.ts
-COPY apps/web/components.json ./apps/web/components.json
-COPY apps/web/next.config.js ./apps/web/next.config.js
-COPY apps/web/postcss.config.js ./apps/web/postcss.config.js
-COPY apps/web/tailwind.config.ts ./apps/web/tailwind.config.ts
-COPY apps/web/tsconfig.json ./apps/web/tsconfig.json
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/docs/package.json ./apps/docs/package.json
+COPY packages/images/package.json ./packages/images/package.json
+COPY packages/thumbnail/package.json ./packages/thumbnail/package.json
+COPY packages/models/package.json ./packages/models/package.json
+COPY packages/utils/package.json ./packages/utils/package.json
+COPY packages/scripts/package.json ./packages/scripts/package.json
+COPY packages/medialit/package.json ./packages/medialit/package.json
+COPY examples/express/package.json ./examples/express/package.json
+COPY examples/next-app-router/package.json ./examples/next-app-router/package.json
 
+RUN bun install --frozen-lockfile
+
+COPY tsconfig.json ./
+COPY apps/web ./apps/web
 COPY packages/models ./packages/models
-COPY packages/utils ./packages/utils
-COPY packages/medialit ./packages/medialit
 
-RUN pnpm install
+RUN bun --filter @medialit/web build
 
-# RUN pnpm build
-RUN pnpm --filter=@medialit/utils build
-RUN pnpm --filter=@medialit/models build
-RUN pnpm --filter=medialit build
-RUN pnpm --filter=@medialit/web build
-
-ENV NODE_ENV production 
-
+ENV NODE_ENV=production
 EXPOSE 3000
-
-CMD ["pnpm", "--filter=@medialit/web", "start"]
+CMD ["bun", "--filter", "@medialit/web", "start"]

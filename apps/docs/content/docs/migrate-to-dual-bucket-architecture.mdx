@@ -19,9 +19,9 @@ This makes the architecture portable across cloud providers. We discovered that 
 
 ```sh
 cd <medialit-repo>
-pnpm i
-pnpm --filter @medialit/scripts migrate:dual_bucket_architecture --dry-run # To see the changes without actually performing those
-pnpm --filter @medialit/scripts migrate:dual_bucket_architecture
+bun install
+bun --filter @medialit/scripts migrate:dual_bucket_architecture -- --dry-run # To see the changes without actually performing those
+bun --filter @medialit/scripts migrate:dual_bucket_architecture
 ``` 
 3. Upgrade the MediaLit DB by running the following migration, by logging into your MediaLit's database and copy pasting the content of the file.
 

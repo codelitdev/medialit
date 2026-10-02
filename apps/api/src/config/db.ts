@@ -1,44 +1,24 @@
-import mongoose from "mongoose";
+import { applyMigrations } from "@/db";
+import pg from "pg";
 import logger from "../services/log";
-import { dbConnectionString } from "./constants";
 
-interface ConnectionProps {
-    isConnected?: number;
-}
-
-const connection: ConnectionProps = {};
-
-export default async function (): Promise<void> {
-    if (!dbConnectionString) {
-        logger.error("DB_CONNECTION_STRING is not defined");
-        process.exit(1);
+export default async function connectToDatabase(): Promise<void> {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        throw new Error("DATABASE_URL is not set");
     }
-
-    if (connection.isConnected) {
-        return;
-    }
-
-    const options: mongoose.ConnectOptions = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 5000,
-    } as mongoose.ConnectOptions;
-
+    const pool = new pg.Pool({ connectionString });
     try {
-        const dbConnection = await mongoose.connect(
-            dbConnectionString,
-            options,
-        );
-        connection.isConnected = dbConnection.connections[0].readyState;
-        logger.info("Database connected");
-    } catch (err) {
-        if (err instanceof Error) {
-            logger.error({ err }, err.message);
-        }
-        process.exit(1);
+        await applyMigrations(async (statement) => {
+            await pool.query(statement);
+        });
+        logger.info("Database migrated");
+    } finally {
+        await pool.end();
     }
 }
 
 export async function disconnect(): Promise<void> {
-    return await mongoose.disconnect();
+    const { closeDb } = await import("@/db");
+    await closeDb();
 }

@@ -1,6 +1,6 @@
 import { Apikey } from "@medialit/models";
 import { getApiKeyByUserId, getApiKeyUsingKeyId } from "../apikey/queries";
-import { validateBearerToken } from "../oauth/middleware";
+import { validateBearerToken } from "./bearer";
 import { getUser } from "../user/queries";
 
 type UserRecord = any;

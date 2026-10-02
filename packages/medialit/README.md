@@ -9,7 +9,7 @@ npm install medialit
 # or
 yarn add medialit
 # or
-pnpm add medialit
+bun add medialit
 ```
 
 ## Usage
@@ -301,7 +301,7 @@ try {
 ### Running Tests
 
 ```bash
-pnpm test
+bun run test
 ```
 
 ## TypeScript Support

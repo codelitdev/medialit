@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    transpilePackages: ["@medialit/models", "@codelitdev/observability"],
     images: {
         remotePatterns: [
             {

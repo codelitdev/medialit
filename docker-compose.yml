@@ -1,12 +1,23 @@
 version: "3"
 
 services:
+  postgres:
+    image: postgres:16
+    restart: on-failure
+    environment:
+      POSTGRES_USER: medialit
+      POSTGRES_PASSWORD: medialit
+      POSTGRES_DB: medialit
+    ports:
+      - "5433:5432"
+
   medialit:
     image: codelit/medialit
     restart: on-failure
     environment:
       - EMAIL=${EMAIL?'Email is required to set up a user'}
-      - DB_CONNECTION_STRING=${DB_CONNECTION_STRING?'Database connection string is required'}
+      - DATABASE_URL=postgresql://medialit:medialit@postgres:5432/medialit
+      - OAUTH_SIGNING_KEY=${OAUTH_SIGNING_KEY?'OAUTH_SIGNING_KEY is required'}
       - CLOUD_ENDPOINT=${CLOUD_ENDPOINT?'Cloud endpoint is required'}
       - CLOUD_REGION=${CLOUD_REGION?'Cloud region is required'}
       - CLOUD_KEY=${CLOUD_KEY?'Cloud key is required'}
@@ -22,7 +33,9 @@ services:
       - CLOUDFRONT_PRIVATE_KEY=${CLOUDFRONT_PRIVATE_KEY}
       - CDN_MAX_AGE=${CDN_MAX_AGE}
     expose:
-      - 8000 
+      - 8000
+    depends_on:
+      - postgres
 
   proxy:
     image: caddy
