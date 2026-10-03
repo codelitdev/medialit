@@ -1,10 +1,16 @@
 # MCP Server for MediaLit API
 
 **Issue:** #185
-**Status:** Implemented
+**Status:** Superseded by the CodeLit Platform migration
 **Author:** Rajat Saxena
 **Date:** 2026-06-13
 **Last revised:** 2026-06-17
+
+> **Superseded (2026-10-04).** MediaLit now uses Better Auth through
+> `@codelitdev/oauth-server-kit` for OAuth and MCP discovery. The custom OAuth
+> server described below (`src/oauth/`, the `/oauth/*` endpoints, self-signed
+> JWTs, and `OAUTH_SIGNING_KEY`) has been removed. Keep this document for
+> history only; it no longer describes the code.
 
 > ## ✅ OAuth Restart-Safety Revision (2026-06-14) — implemented
 >
