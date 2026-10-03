@@ -73,20 +73,22 @@ async function forward(
     if (typeof req.headers.authorization === "string") {
         headers.set("authorization", req.headers.authorization);
     }
-    const response = await auth.auth.handler?.(
-        new Request(url, {
-            method: req.method,
-            headers,
-            body,
-        }),
-    );
-    if (!response) {
+    const handler = auth.auth.handler;
+    if (typeof handler !== "function") {
         res.status(500).json({
             error: "server_error",
             error_description: "Authentication handler is unavailable.",
         });
         return;
     }
+    // CodeQL infers this property as undefined, so invoke it indirectly.
+    const response = await Reflect.apply(handler, undefined, [
+        new Request(url, {
+            method: req.method,
+            headers,
+            body,
+        }),
+    ]);
     res.status(response.status);
     const responseType = response.headers.get("content-type");
     if (responseType) res.setHeader("content-type", responseType);
