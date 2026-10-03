@@ -83,7 +83,7 @@ cp apps/api/.env.example apps/api/.env
 
 `docker-compose.local.yml` is only the local dependencies. The API and web app run on the host. Do not run it at the same time as `docker-compose.yml`; both publish Postgres on port 5433. MinIO is at <http://127.0.0.1:9000> (console at <http://127.0.0.1:9001>) and Mailpit's inbox is at <http://127.0.0.1:8025>.
 
-`OAUTH_SIGNING_KEY` must be at least 32 bytes. Existing production data can be copied from Mongo with `MONGO_URL` (or `DB_CONNECTION_STRING`) and `DATABASE_URL` set, then `bun --filter @medialit/scripts import:mongo`. That import keeps user ids, public user ids, API key secrets, and media ids. Tus uploads are local and are not imported.
+`OAUTH_SIGNING_KEY` must be at least 32 bytes. Start the API once so it applies database migrations. Existing production data can then be copied from Mongo with `MONGO_URL` (or `DB_CONNECTION_STRING`) and `DATABASE_URL` set, then `bun --filter @medialit/scripts import:mongo`. The import checks that its tables already exist and does not migrate. It keeps user ids, public user ids, API key secrets, and media ids. Tus uploads are local and are not imported.
 
 ### Run the service
 

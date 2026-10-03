@@ -8,9 +8,7 @@
         "test": "bun test src"
     },
     "dependencies": {
-        "@medialit/utils": "workspace:*",
         "dotenv": "^16.0.0",
-        "drizzle-orm": "0.45.2",
         "mongodb": "^6.16.0",
         "pg": "8.23.0"
     },
