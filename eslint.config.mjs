@@ -48,7 +48,6 @@ export default defineConfig([
     "**/dist",
     "**/components/ui/**",
     "**/.next/**",
-    ".migrations/**",
     "apps/docs/.source",
     "apps/docs/out/**",
     "**/next-env.d.ts",
