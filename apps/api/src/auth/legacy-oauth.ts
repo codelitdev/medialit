@@ -1,4 +1,8 @@
-import { Router, type Request, type Response } from "express";
+import {
+    Router,
+    type Request as ExpressRequest,
+    type Response as ExpressResponse,
+} from "express";
 import { rateLimit } from "express-rate-limit";
 import { isLegacyTokenRevoked, revokeLegacyToken } from "@/db";
 import {
@@ -42,8 +46,8 @@ function bearerCredential(header: string): string | undefined {
 async function forward(
     auth: MedialitAuth,
     path: string,
-    req: Request,
-    res: Response,
+    req: ExpressRequest,
+    res: ExpressResponse,
 ) {
     const url = new URL(path, auth.publicApiUrl);
     const query = req.originalUrl.includes("?")
@@ -73,22 +77,13 @@ async function forward(
     if (typeof req.headers.authorization === "string") {
         headers.set("authorization", req.headers.authorization);
     }
-    const handler = auth.auth.handler;
-    if (typeof handler !== "function") {
-        res.status(500).json({
-            error: "server_error",
-            error_description: "Authentication handler is unavailable.",
-        });
-        return;
-    }
-    // CodeQL infers this property as undefined, so invoke it indirectly.
-    const response = await Reflect.apply(handler, undefined, [
+    const response = await auth.auth.handler(
         new Request(url, {
             method: req.method,
             headers,
             body,
         }),
-    ]);
+    );
     res.status(response.status);
     const responseType = response.headers.get("content-type");
     if (responseType) res.setHeader("content-type", responseType);
@@ -97,7 +92,7 @@ async function forward(
 
 async function rotateLegacyRefresh(
     refreshToken: string,
-    res: Response,
+    res: ExpressResponse,
 ): Promise<boolean> {
     const payload = verifyRefreshToken(refreshToken);
     if (!payload?.jti) return false;
