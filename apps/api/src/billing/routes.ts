@@ -10,9 +10,13 @@ import { billingSubscriptions } from "@/db/schema/billing.generated";
 import type { MedialitAuth } from "../auth/better-auth";
 import logger from "../services/log";
 import { preconsumedGrant } from "./authorization";
-import { deploymentMode, proOfferKey, type BillingInterval } from "./catalog";
+import {
+    billingComposition,
+    deploymentMode,
+    proOfferKey,
+    type BillingInterval,
+} from "./catalog";
 import { getBillingEngine } from "./engine";
-import { updateLemonSubscription } from "./lemonsqueezy";
 
 function webOrigin(): string {
     return (
@@ -92,12 +96,17 @@ async function storedDodoInterval(userId: string): Promise<BillingInterval> {
     return rows[0]?.interval === "year" ? "year" : "month";
 }
 
+function configuredBilling() {
+    if (billingComposition().deploymentMode !== "cloud") return null;
+    return getBillingEngine();
+}
+
 async function beginProCheckout(
     res: Response,
     user: AccountUser,
     interval: BillingInterval,
 ) {
-    const billing = getBillingEngine();
+    const billing = configuredBilling();
     if (!billing) {
         res.status(503).json({ error: "Billing is not configured" });
         return;
@@ -144,7 +153,7 @@ export function createBillingRouter(auth: MedialitAuth) {
     router.post("/api/account/billing/portal", async (req, res) => {
         const user = await sessionUser(auth, req, res);
         if (!user) return;
-        const billing = getBillingEngine();
+        const billing = configuredBilling();
         if (!billing) {
             res.status(503).json({ error: "Billing is not configured" });
             return;
@@ -165,23 +174,11 @@ export function createBillingRouter(auth: MedialitAuth) {
     router.post("/api/account/billing/cancel", async (req, res) => {
         const user = await sessionUser(auth, req, res);
         if (!user) return;
-        if (user.subscriptionMethod === "lemon") {
-            const result = await updateLemonSubscription(
-                user.subscriptionId,
-                "DELETE",
-            );
-            if (!result.ok) {
-                res.status(result.status).json({ error: result.error });
-                return;
-            }
-            res.json({ success: true });
-            return;
-        }
         if (user.subscriptionMethod !== "dodo") {
             res.status(400).json({ error: "No subscription" });
             return;
         }
-        const billing = getBillingEngine();
+        const billing = configuredBilling();
         if (!billing) {
             res.status(503).json({ error: "Billing is not configured" });
             return;
@@ -201,18 +198,6 @@ export function createBillingRouter(auth: MedialitAuth) {
     router.post("/api/account/billing/resume", async (req, res) => {
         const user = await sessionUser(auth, req, res);
         if (!user) return;
-        if (user.subscriptionMethod === "lemon") {
-            const result = await updateLemonSubscription(
-                user.subscriptionId,
-                "PATCH",
-            );
-            if (!result.ok) {
-                res.status(result.status).json({ error: result.error });
-                return;
-            }
-            res.json({ success: true });
-            return;
-        }
         if (user.subscriptionMethod !== "dodo") {
             res.status(400).json({ error: "No subscription" });
             return;
@@ -239,7 +224,7 @@ export function createBillingRouter(auth: MedialitAuth) {
 export function dodoWebhookRouter() {
     const router = Router();
     router.post("/", async (req, res) => {
-        const billing = getBillingEngine();
+        const billing = configuredBilling();
         if (!billing) {
             res.status(503).json({ error: "Billing is not configured" });
             return;

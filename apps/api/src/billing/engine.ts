@@ -8,7 +8,11 @@ import { getDb } from "@/db";
 import * as billingSchema from "@/db/schema/billing.generated";
 import logger from "../services/log";
 import { medialitBillingAuthorization } from "./authorization";
-import { billingCatalogKeys, readCloudBillingConfig } from "./catalog";
+import {
+    billingCatalogKeys,
+    billingComposition,
+    type BillingComposition,
+} from "./catalog";
 import { decryptBillingValue, encryptBillingValue } from "./crypto";
 import { createMedialitDodoProvider } from "./dodo";
 import { applyMedialitProjectionEffects } from "./product-effects";
@@ -31,53 +35,75 @@ export function resetBillingEngine(): void {
     engine = undefined;
 }
 
-export function getBillingEngine(): BillingEngine | null {
+export function getBillingEngine(): BillingEngine {
     if (engine) return engine;
-    const config = readCloudBillingConfig();
-    if (!config) return null;
+    const composition = billingComposition();
+    const cloud = composition.deploymentMode === "cloud";
     const store = createDrizzleBillingStore(getDb() as never, {
         schema: billingSchema,
         clock,
     });
     engine = createBilling({
         database: store,
-        providers: [createMedialitDodoProvider()],
+        providers: cloud ? [createMedialitDodoProvider()] : [],
         clock,
         authorization: medialitBillingAuthorization,
-        sensitiveValues: {
-            async encrypt(plaintext: string) {
-                return {
-                    ciphertext: encryptBillingValue(plaintext),
-                    keyVersion: "v1",
-                };
-            },
-            async decrypt(ciphertext: string, _context) {
-                return decryptBillingValue(ciphertext);
-            },
-        },
-        hooks: {
-            audit: {
-                async record(event) {
-                    logger.info(
-                        { effectId: event.effectId, actor: event.actor.kind },
-                        "billing audit",
-                    );
-                },
-            },
-            lifecycle: {
-                afterProjection: (input) =>
-                    applyMedialitProjectionEffects(
-                        input,
-                        (store.getTransaction() ?? getDb()) as never,
-                    ),
-            },
-        },
-        mode: "cloud",
-        checkoutProvider: "dodo",
-        requestedRevision: config.catalogRevision,
-        requiredOfferKeys: [...billingCatalogKeys],
-        offers: config.offers,
-        returnUrlValidator: returnUrlAllowed,
+        sensitiveValues: cloud
+            ? {
+                  async encrypt(plaintext: string) {
+                      return {
+                          ciphertext: encryptBillingValue(plaintext),
+                          keyVersion: "v1",
+                      };
+                  },
+                  async decrypt(ciphertext: string, _context) {
+                      return decryptBillingValue(ciphertext);
+                  },
+              }
+            : undefined,
+        hooks: cloud
+            ? {
+                  audit: {
+                      async record(event) {
+                          logger.info(
+                              {
+                                  effectId: event.effectId,
+                                  actor: event.actor.kind,
+                              },
+                              "billing audit",
+                          );
+                      },
+                  },
+                  lifecycle: {
+                      afterProjection: (input) =>
+                          applyMedialitProjectionEffects(
+                              input,
+                              (store.getTransaction() ?? getDb()) as never,
+                          ),
+                  },
+              }
+            : undefined,
+        ...billingEngineCheckout(composition),
+        returnUrlValidator: cloud ? returnUrlAllowed : undefined,
     });
     return engine;
+}
+
+export function billingEngineCheckout(composition: BillingComposition) {
+    if (composition.deploymentMode === "oss") {
+        return {
+            mode: "oss" as const,
+            checkoutProvider: "",
+            requestedRevision: null,
+            requiredOfferKeys: [] as string[],
+            offers: [],
+        };
+    }
+    return {
+        mode: "cloud" as const,
+        checkoutProvider: "dodo",
+        requestedRevision: composition.catalogRevision,
+        requiredOfferKeys: [...billingCatalogKeys],
+        offers: composition.offers,
+    };
 }

@@ -8,7 +8,11 @@ import {
     maxStorageAllowedNotSubscribed,
     maxStorageAllowedSubscribed,
 } from "../config/constants";
-import { readCloudBillingConfig } from "./catalog";
+import { billingComposition, readCloudBillingConfig } from "./catalog";
+import { billingEngineCheckout } from "./engine";
+import { createBilling } from "@codelitdev/billing/workflows";
+import { systemClock } from "@codelitdev/billing/core";
+import { medialitBillingAuthorization } from "./authorization";
 import {
     UNLIMITED_BYTES,
     accountPlan,
@@ -48,11 +52,31 @@ test("cloud billing config stays off until Dodo is fully set", () => {
         null,
     );
     assert.equal(
+        billingComposition({ MEDIALIT_DEPLOYMENT_MODE: "cloud" })
+            .deploymentMode,
+        "oss",
+    );
+    assert.equal(billingComposition({}).deploymentMode, "oss");
+    assert.equal(
         readCloudBillingConfig({
             MEDIALIT_DEPLOYMENT_MODE: "oss",
             DODO_PAYMENTS_API_KEY: "test",
         }),
         null,
+    );
+    const ossCheckout = billingEngineCheckout({ deploymentMode: "oss" });
+    assert.equal(ossCheckout.mode, "oss");
+    assert.equal(ossCheckout.checkoutProvider, "");
+    assert.equal(ossCheckout.requestedRevision, null);
+    assert.deepEqual(ossCheckout.requiredOfferKeys, []);
+    assert.deepEqual(ossCheckout.offers, []);
+    assert.doesNotThrow(() =>
+        createBilling({
+            clock: systemClock,
+            authorization: medialitBillingAuthorization,
+            providers: [],
+            ...ossCheckout,
+        }),
     );
     assert.throws(
         () =>

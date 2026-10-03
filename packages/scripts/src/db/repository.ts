@@ -36,7 +36,7 @@ export type AccountUser = {
     customerId?: string;
     subscriptionId?: string;
     subscriptionEndsAfter?: Date;
-    subscriptionMethod?: "stripe" | "lemon" | "dodo";
+    subscriptionMethod?: "stripe" | "dodo";
     subscriptionStatus: SubscriptionStatus;
 };
 
@@ -138,11 +138,8 @@ function mapUser(
         subscriptionId: profile.subscriptionId || undefined,
         subscriptionEndsAfter: profile.subscriptionEndsAfter || undefined,
         subscriptionMethod:
-            (profile.subscriptionMethod as
-                | "stripe"
-                | "lemon"
-                | "dodo"
-                | null) || undefined,
+            (profile.subscriptionMethod as "stripe" | "dodo" | null) ||
+            undefined,
         subscriptionStatus: profile.subscriptionStatus as SubscriptionStatus,
     };
 }
@@ -329,7 +326,7 @@ export async function createAccount(input: {
 export async function updateSubscription(
     publicUserId: string,
     patch: {
-        subscriptionMethod?: "stripe" | "lemon" | "dodo";
+        subscriptionMethod?: "stripe" | "dodo";
         customerId?: string;
         subscriptionId?: string;
         subscriptionStatus?: SubscriptionStatus;

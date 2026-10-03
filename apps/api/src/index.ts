@@ -33,7 +33,6 @@ import { legacyOAuthRouter } from "./auth/legacy-oauth";
 import { createDashboardRouter } from "./dashboard/routes";
 import { createBillingRouter, dodoWebhookRouter } from "./billing/routes";
 import { startBillingMaintenance } from "./billing/maintenance";
-import { lemonWebhookRouter } from "./billing/lemonsqueezy";
 
 const app = express();
 
@@ -180,7 +179,6 @@ checkConfig()
         app.use(createDashboardRouter(auth));
         app.use(createBillingRouter(auth));
         app.use("/payment/webhook/dodo", dodoWebhookRouter());
-        app.use("/payment/webhook/lemonsqueezy", lemonWebhookRouter());
         app.use(jsonErrorHandler);
         await seedWebOAuthClient({
             redirectUris: [`${webOrigin}/api/auth/callback/medialit`],

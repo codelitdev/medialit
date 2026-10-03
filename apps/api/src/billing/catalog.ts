@@ -20,6 +20,8 @@ export type CloudBillingConfig = {
     offers: PackageBillingOffer[];
 };
 
+export type BillingComposition = { deploymentMode: "oss" } | CloudBillingConfig;
+
 const offerEnv: Record<
     BillingCatalogKey,
     { amount: string; product: string; interval: BillingInterval }
@@ -85,9 +87,9 @@ function positiveSafeInteger(value: string, name: string): number {
 }
 
 /**
- * Cloud checkout config. Returns null when Dodo is not configured so local
- * and test processes keep serving the existing Basic and Pro limits.
- * A partial configuration throws.
+ * Paid Dodo catalog. Returns null for OSS and for a cloud process with no
+ * billing env vars. A partial cloud configuration throws. Quotas stay on the
+ * profile either way.
  */
 export function readCloudBillingConfig(
     env: NodeJS.ProcessEnv = process.env,
@@ -152,4 +154,11 @@ export function readCloudBillingConfig(
         currency,
         offers,
     };
+}
+
+/** OSS, and cloud with no Dodo settings, compose an engine with no checkout. */
+export function billingComposition(
+    env: NodeJS.ProcessEnv = process.env,
+): BillingComposition {
+    return readCloudBillingConfig(env) ?? { deploymentMode: "oss" };
 }

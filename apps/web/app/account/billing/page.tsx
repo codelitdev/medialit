@@ -68,7 +68,6 @@ const PricingPane = async ({
         return redirect("/404");
     }
     const current = user.plan === name.toLowerCase();
-    const lemon = user.subscriptionMethod === "lemon";
 
     return (
         <Card
@@ -137,7 +136,6 @@ const PricingPane = async ({
                 )}
                 {name === "Pro" &&
                     user.plan === "pro" &&
-                    !lemon &&
                     user.subscriptionMethod === "dodo" && (
                         <DodoCheckoutButton mode="portal" className="w-full">
                             Manage billing

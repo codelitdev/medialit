@@ -10,6 +10,6 @@ export interface User {
     customerId?: string;
     subscriptionId?: string;
     subscriptionEndsAfter?: Date;
-    subscriptionMethod?: "stripe" | "lemon" | "dodo";
+    subscriptionMethod?: "stripe" | "dodo";
     subscriptionStatus: SubscriptionStatus;
 }

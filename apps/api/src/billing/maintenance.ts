@@ -5,7 +5,6 @@ const HOUR_MS = 60 * 60 * 1000;
 
 export function startBillingMaintenance(): void {
     const billing = getBillingEngine();
-    if (!billing) return;
     const workerId = `billing-${process.pid}`;
     void billing.recordRequestedCatalog().catch((error) => {
         logger.error({ err: error }, "Failed to record billing catalog");
