@@ -1,4 +1,5 @@
 import { NextFunction, Response } from "express";
+import { getMcpResourceMetadataUrl } from "./bearer";
 import { AuthResult, resolveAuth, sendAuthError } from "./resolve-auth";
 
 type AuthResolver = (input: {
@@ -43,7 +44,14 @@ export function createAuthMiddleware(
             bodyApiKey: req.body?.apikey,
         });
 
-        if (sendAuthError(res, auth)) return;
+        if (
+            sendAuthError(
+                res,
+                auth,
+                mode === "mcp" ? getMcpResourceMetadataUrl() : undefined,
+            )
+        )
+            return;
         if (auth.status !== "authenticated") return;
 
         applyAuthToRequest(req, auth, mode);

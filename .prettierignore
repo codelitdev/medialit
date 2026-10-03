@@ -3,3 +3,6 @@ dist
 **/.next
 apps/docs/.source
 apps/docs/out
+apps/api/src/db/schema/billing.generated.ts
+.codelit-platform.json
+.github/workflows/platform-conformance.yml

@@ -9,7 +9,6 @@ import {
     findUserByEmail,
     insertAuthUser,
     listApiKeys,
-    revokeLegacyToken,
     updateSubscription,
     upsertMediaSettings,
 } from "../../../apps/api/src/db/index.js";
@@ -22,7 +21,6 @@ const IMPORT_TABLES = [
     "media",
     "media_settings",
     "signatures",
-    "legacy_revoked_tokens",
 ] as const;
 
 export function missingImportTables(present: Iterable<string>): string[] {
@@ -171,27 +169,11 @@ async function main() {
             });
         }
 
-        const revoked = await db
-            .collection("oauthrevokedtokens")
-            .find({})
-            .toArray()
-            .catch(() => [] as Document[]);
-        for (const doc of revoked) {
-            if (!doc.jti) continue;
-            await revokeLegacyToken({
-                jti: String(doc.jti),
-                userId: String(doc.userId || ""),
-                clientId: String(doc.clientId || ""),
-                expiresAt: asDate(doc.expiresAt) || new Date(),
-            });
-        }
-
         console.log(
             JSON.stringify({
                 users: importedUsers,
                 media: importedMedia,
                 signatures: signatures.length,
-                revoked: revoked.length,
             }),
         );
     } finally {

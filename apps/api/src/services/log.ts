@@ -27,4 +27,6 @@ const observability = createObservability({
 
 export const captureException =
     observability.captureException.bind(observability);
+export const shutdownObservability = (timeoutMs: number) =>
+    observability.shutdown(timeoutMs);
 export default observability.logger;

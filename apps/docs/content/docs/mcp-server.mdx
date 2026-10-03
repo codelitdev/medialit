@@ -28,6 +28,8 @@ Connecting with OAuth is straightforward:
 
 Once approved, you are logged in and the client will automatically handle connection keys in the background.
 
+MediaLit supports Client ID Metadata Documents (CIMD) for current MCP clients and keeps Dynamic Client Registration (DCR) enabled for compatible clients. Registration identifies the client; users still sign in and approve access before it receives a token.
+
 <Callout type="info" title="Default App Mapping">
   When connecting via OAuth 2.0, the MCP server automatically associates the session with your **Default API Key**. Consequently, any files uploaded or managed via the MCP tools will be routed and stored under your **Default App**.
 </Callout>

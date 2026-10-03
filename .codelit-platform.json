@@ -1,0 +1,21 @@
+{
+    "schemaVersion": 2,
+    "product": {
+        "name": "medialit",
+        "slug": "medialit"
+    },
+    "cliVersion": "0.1.0-alpha.1",
+    "capabilities": [
+        "auth",
+        "mcp",
+        "observability",
+        "billing"
+    ],
+    "managedFiles": {
+        ".github/workflows/platform-conformance.yml": "fcfe29161db0dce568d54f687a65e61638d7b8d16ef3cf19a380531c752a8978"
+    },
+    "productOwnedGlobs": [
+        "apps/**",
+        "packages/**"
+    ]
+}

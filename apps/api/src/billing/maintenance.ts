@@ -3,13 +3,14 @@ import { getBillingEngine } from "./engine";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-export function startBillingMaintenance(): void {
+/** Starts the billing timers and returns a function that stops them. */
+export function startBillingMaintenance(): () => void {
     const billing = getBillingEngine();
     const workerId = `billing-${process.pid}`;
     void billing.recordRequestedCatalog().catch((error) => {
         logger.error({ err: error }, "Failed to record billing catalog");
     });
-    setInterval(() => {
+    const batches = setInterval(() => {
         void billing
             .verifyRequestedCatalog()
             .catch((error) =>
@@ -34,7 +35,7 @@ export function startBillingMaintenance(): void {
                 logger.error({ err: error }, "Billing deadline batch failed"),
             );
     }, 60 * 1000);
-    setInterval(() => {
+    const retention = setInterval(() => {
         void billing
             .purgeExpiredSensitiveValues({
                 before: new Date(Date.now() - 30 * 24 * HOUR_MS),
@@ -43,4 +44,8 @@ export function startBillingMaintenance(): void {
                 logger.error({ err: error }, "Billing retention failed"),
             );
     }, HOUR_MS);
+    return () => {
+        clearInterval(batches);
+        clearInterval(retention);
+    };
 }

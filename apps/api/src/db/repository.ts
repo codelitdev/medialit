@@ -4,7 +4,6 @@ import { and, asc, desc, eq, like, lt, sql } from "drizzle-orm";
 import { getDb } from "./client.js";
 import {
     apiKeys,
-    legacyRevokedTokens,
     media,
     mediaSettings,
     oauthClient,
@@ -855,35 +854,6 @@ export async function listExpiredTus(before: Date): Promise<TusUploadRecord[]> {
 export async function deleteTusById(id: string): Promise<void> {
     const db = getDb();
     await db.delete(tusUploads).where(eq(tusUploads.id, id));
-}
-
-export async function revokeLegacyToken(input: {
-    jti: string;
-    userId: string;
-    clientId: string;
-    expiresAt: Date;
-}): Promise<void> {
-    const db = getDb();
-    await db
-        .insert(legacyRevokedTokens)
-        .values({
-            jti: input.jti,
-            userId: input.userId,
-            clientId: input.clientId,
-            expiresAt: input.expiresAt,
-            revokedAt: now(),
-        })
-        .onConflictDoNothing();
-}
-
-export async function isLegacyTokenRevoked(jti: string): Promise<boolean> {
-    const db = getDb();
-    const [row] = await db
-        .select({ jti: legacyRevokedTokens.jti })
-        .from(legacyRevokedTokens)
-        .where(eq(legacyRevokedTokens.jti, jti))
-        .limit(1);
-    return Boolean(row);
 }
 
 export async function seedWebOAuthClient(input: {

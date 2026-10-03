@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import { usePathname } from "fumadocs-core/framework";
+import { usePathname } from "next/navigation";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import {
     Popover,

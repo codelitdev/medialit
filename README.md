@@ -83,7 +83,7 @@ cp apps/api/.env.example apps/api/.env
 
 `docker-compose.local.yml` is only the local dependencies. The API and web app run on the host. Do not run it at the same time as `docker-compose.yml`; both publish Postgres on port 5433. MinIO is at <http://127.0.0.1:9000> (console at <http://127.0.0.1:9001>) and Mailpit's inbox is at <http://127.0.0.1:8025>.
 
-`OAUTH_SIGNING_KEY` must be at least 32 bytes. Apply database migrations before starting the API:
+`BETTER_AUTH_SECRET` must be at least 32 bytes (`openssl rand -base64 48`). Apply database migrations before starting the API:
 
 ```bash
 bun --filter @medialit/api db:migrate

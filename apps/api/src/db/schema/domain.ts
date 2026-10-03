@@ -120,11 +120,3 @@ export const tusUploads = pgTable("tus_uploads", {
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });
-
-export const legacyRevokedTokens = pgTable("legacy_revoked_tokens", {
-    jti: text("jti").primaryKey(),
-    userId: text("user_id").notNull(),
-    clientId: text("client_id").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    revokedAt: timestamp("revoked_at", { withTimezone: true }).notNull(),
-});

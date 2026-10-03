@@ -1,4 +1,5 @@
 import { oauthProvider } from "@better-auth/oauth-provider";
+import { cimd } from "@better-auth/cimd";
 import { createOAuthProviderOptions } from "@codelitdev/oauth-server-kit/better-auth";
 import type { BetterAuthOptions } from "better-auth";
 import { emailOTP } from "better-auth/plugins/email-otp";
@@ -6,6 +7,7 @@ import { jwt } from "better-auth/plugins/jwt";
 import { ensureProfile } from "@/db";
 import { sendSignInCode } from "../services/mail";
 import logger from "../services/log";
+import { fetchClientMetadataResource } from "./cimd-fetch";
 
 export const AUTH_BASE_PATH = "/api/auth";
 export const AUTH_COOKIE_PREFIX = "medialit";
@@ -69,8 +71,8 @@ export function medialitAuthOptions(input: {
                     await sendSignInCode(email, otp);
                 },
             }),
-            oauthProvider(
-                createOAuthProviderOptions({
+            oauthProvider({
+                ...createOAuthProviderOptions({
                     loginPage: `${urls.publicApiUrl}/oauth/login`,
                     consentPage: `${urls.publicApiUrl}/oauth/consent`,
                     scopes: [
@@ -97,7 +99,17 @@ export function medialitAuthOptions(input: {
                         "data:read",
                     ],
                 }),
-            ),
+                clientRegistrationDefaultResources: [urls.mcpResource],
+            }),
+            cimd({
+                fetchClientMetadataResource,
+                metadataProfile: "mcp-2026-07-28",
+                metadataRevalidationInterval: "60m",
+                metadataFetchPolicy: {
+                    minimumFetchInterval: 0,
+                },
+                originBoundFields: ["post_logout_redirect_uris", "client_uri"],
+            }),
         ],
     };
 }

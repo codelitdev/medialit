@@ -1,140 +1,27 @@
 import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
-import express from "express";
 import { checkDatabaseConnection } from "./config/db";
-import mediaRoutes from "./media/routes";
-import signatureRoutes from "./signature/routes";
-import mediaSettingsRoutes from "./media-settings/routes";
-import tusRoutes from "./tus/routes";
-import mcpRoutes from "./mcp/routes";
-import logger, { captureException } from "./services/log";
+import { closeMcpSessions } from "./mcp/routes";
+import logger, { shutdownObservability } from "./services/log";
 import { createUser, findByEmail } from "./user/queries";
 import { User } from "@medialit/models";
 import { getApiKeyByUserId } from "./apikey/queries";
-import swaggerUi from "swagger-ui-express";
-import swaggerOutput from "./swagger_output.json";
-import {
-    createMcpOAuthDiscoveryRoutes,
-    type BetterAuthMetadataApi,
-} from "@codelitdev/oauth-server-kit/mcp";
-import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit/express";
-import { toNodeHandler } from "better-auth/node";
-import { seedWebOAuthClient } from "@/db";
+import { closeDb, getDb, seedWebOAuthClient } from "@/db";
+import { sql } from "drizzle-orm";
+import type { GracefulShutdown } from "@codelitdev/platform";
+import { apiReadiness, createApiShutdown } from "./lifecycle";
 
 import { spawn } from "child_process";
 import { cleanupTUSUploads } from "./tus/cleanup";
 import { cleanupExpiredTempUploads } from "./media/cleanup";
 import { HOUR_IN_SECONDS } from "./config/constants";
 import { createMedialitAuth } from "./auth/better-auth";
-import { AUTH_BASE_PATH, MCP_SCOPES_SUPPORTED } from "./auth/options";
-import { setBearerAuth } from "./auth/bearer";
-import { legacyOAuthRouter } from "./auth/legacy-oauth";
-import { createDashboardRouter } from "./dashboard/routes";
-import { createBillingRouter, dodoWebhookRouter } from "./billing/routes";
+import { createApp } from "./app";
 import { startBillingMaintenance } from "./billing/maintenance";
 
-const app = express();
-
-app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false);
-
-const authRouter = express.Router();
-app.use(authRouter);
-
-app.use(
-    express.json({
-        limit: "2mb",
-        verify: (req, _res, buf) => {
-            (req as express.Request & { rawBody?: Buffer }).rawBody =
-                Buffer.from(buf);
-        },
-    }),
-);
-app.use(express.urlencoded({ extended: false }));
-
-app.get(
-    "/health",
-    /* 
-        #swagger.summary = 'Status of the server', 
-        #swagger.description = 'Returns the status of the server and uptime'
-        #swagger.responses[200] = {
-            description: "OK",
-            content: {
-                "application/json": {
-                    schema: {
-                        type: "object",
-                        properties: {
-                            status: {
-                                type: "string",
-                                example: "ok",
-                            },
-                            uptime: {
-                                type: "number",
-                                example: 12.345,
-                            },
-                        },
-                    },
-                },
-            },
-        }
-    */
-    (req, res) => {
-        res.status(200).json({
-            status: "ok",
-            uptime: process.uptime(),
-        });
-    },
-);
-
-app.get(
-    "/openapi.json",
-    /* #swagger.ignore = true */
-    (req, res) => {
-        res.json(swaggerOutput);
-    },
-);
-
-app.use(
-    "/docs",
-    swaggerUi.serve,
-    swaggerUi.setup(swaggerOutput, {
-        explorer: true,
-        swaggerOptions: {
-            persistAuthorization: true,
-            displayRequestDuration: true,
-            docExpansion: "none",
-            defaultModelsExpandDepth: -1,
-            validatorUrl: null,
-        },
-    }),
-);
-
-app.use("/settings/media", mediaSettingsRoutes(undefined));
-app.use("/media/signature", signatureRoutes);
-app.use("/media", tusRoutes);
-app.use("/media", mediaRoutes);
-app.use(mcpRoutes);
-
-app.get(
-    "/cleanup/temp",
-    /* #swagger.ignore = true */
-    async (req, res) => {
-        await cleanupExpiredTempUploads();
-        res.status(200).json({
-            message: "Expired temp uploads cleaned up",
-        });
-    },
-);
-app.get(
-    "/cleanup/tus",
-    /* #swagger.ignore = true */
-    async (req, res) => {
-        await cleanupTUSUploads();
-        res.status(200).json({
-            message: "Expired tus uploads cleaned up",
-        });
-    },
-);
+let started = false;
+let shutdown: GracefulShutdown | undefined;
 
 const port = process.env.PORT || 80;
 
@@ -145,54 +32,39 @@ checkConfig()
         const publicApiUrl = (
             process.env.PUBLIC_API_URL ||
             process.env.API_SERVER ||
-            `http://127.0.0.1:${port}`
+            `http://localhost:${port}`
         ).replace(/\/$/, "");
         const webOrigin = (
             process.env.WEB_ORIGIN ||
             process.env.WEB_CLIENT ||
             "http://localhost:3000"
         ).replace(/\/$/, "");
-        const secret =
-            process.env.BETTER_AUTH_SECRET || process.env.OAUTH_SIGNING_KEY!;
+        const secret = process.env.BETTER_AUTH_SECRET!;
         const auth = createMedialitAuth({ publicApiUrl, secret, webOrigin });
-        setBearerAuth(auth);
-        authRouter.use(
-            createMcpOAuthDiscoveryRoutes({
-                auth: auth.auth as unknown as BetterAuthMetadataApi,
-                oauthResourceClient: auth.oauthResourceClient,
-                resourceUrl: auth.mcpResource,
-                scopesSupported: [...MCP_SCOPES_SUPPORTED],
-                allowedOrigins: "*",
-            }),
-        );
-        authRouter.all(`${AUTH_BASE_PATH}/*`, toNodeHandler(auth.auth));
-        authRouter.use(
-            createOAuthPagesRouter({
-                appName: "MediaLit",
-                authBasePath: AUTH_BASE_PATH,
-                allowedRedirectOrigins: [new URL(webOrigin).origin],
-                defaultRedirectUrl: `${webOrigin}/`,
-                loginMethods: [{ type: "email-otp" }],
-            }),
-        );
-        app.use(legacyOAuthRouter(auth));
-        app.use(createDashboardRouter(auth));
-        app.use(createBillingRouter(auth));
-        app.use("/payment/webhook/dodo", dodoWebhookRouter());
-        app.use(jsonErrorHandler);
+        const app = createApp({
+            auth,
+            webOrigin,
+            readiness: () =>
+                apiReadiness({
+                    started,
+                    shuttingDown: shutdown?.shuttingDown() ?? false,
+                    pingDatabase: () => getDb().execute(sql`select 1`),
+                }),
+        });
         await seedWebOAuthClient({
             redirectUris: [`${webOrigin}/api/auth/callback/medialit`],
         });
         if (process.env.EMAIL) {
             await createAdminUser();
         }
-        startBillingMaintenance();
-        app.listen(port, () => {
+        const stopBillingMaintenance = startBillingMaintenance();
+        const server = app.listen(port, () => {
+            started = true;
             logger.info(`Medialit server running at ${port}`);
         });
 
         // Setup background cleanup job for expired tus uploads
-        setInterval(
+        const tusCleanup = setInterval(
             async () => {
                 await cleanupTUSUploads();
             },
@@ -200,31 +72,45 @@ checkConfig()
         );
 
         // Setup background cleanup job for expired temp uploads
-        setInterval(
+        const tempCleanup = setInterval(
             async () => {
                 await cleanupExpiredTempUploads();
             },
             HOUR_IN_SECONDS, // 1 hour
         );
-    });
 
-function jsonErrorHandler(
-    error: unknown,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-) {
-    captureException({
-        error,
-        source: "express",
-        context: { method: req.method, path: req.path },
+        const apiShutdown = createApiShutdown({
+            stopBackgroundJobs: () => {
+                clearInterval(tusCleanup);
+                clearInterval(tempCleanup);
+                stopBillingMaintenance();
+            },
+            closeMcpSessions,
+            closeServer: () =>
+                new Promise<void>((resolve, reject) => {
+                    server.close((error) =>
+                        error ? reject(error) : resolve(),
+                    );
+                    // Keep-alive sockets with no request would hold close open.
+                    server.closeIdleConnections?.();
+                }),
+            closeDatabase: closeDb,
+            flushObservability: () => shutdownObservability(1_000),
+        });
+        shutdown = apiShutdown;
+        const handleSignal = (signal: NodeJS.Signals) => {
+            logger.info({ signal }, "Shutting down");
+            apiShutdown
+                .shutdown()
+                .then(() => process.exit(0))
+                .catch((error) => {
+                    logger.error({ err: error }, "Graceful shutdown failed");
+                    process.exit(1);
+                });
+        };
+        process.on("SIGTERM", handleSignal);
+        process.on("SIGINT", handleSignal);
     });
-    if (res.headersSent) {
-        next(error);
-        return;
-    }
-    res.status(500).json({ error: "Internal Server Error" });
-}
 
 async function checkConfig() {
     if (!process.env.DATABASE_URL) {
@@ -252,11 +138,11 @@ async function checkConfig() {
         );
     }
     if (
-        !process.env.OAUTH_SIGNING_KEY ||
-        Buffer.byteLength(process.env.OAUTH_SIGNING_KEY, "utf8") < 32
+        !process.env.BETTER_AUTH_SECRET ||
+        Buffer.byteLength(process.env.BETTER_AUTH_SECRET, "utf8") < 32
     ) {
         throw new Error(
-            "OAUTH_SIGNING_KEY is required and must be at least 32 bytes (256 bits). " +
+            "BETTER_AUTH_SECRET is required and must be at least 32 bytes (256 bits). " +
                 "Generate one with: openssl rand -base64 48",
         );
     }

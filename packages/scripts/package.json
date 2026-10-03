@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "import:mongo": "bun src/import-mongo.ts",
-        "test": "bun test src"
+        "api:integration-testing": "bun src/integration-testing.ts"
     },
     "dependencies": {
         "dotenv": "^16.0.0",

@@ -105,4 +105,11 @@ router.post(
 
 router.options("/mcp", mcpCors);
 
+/** Closes open MCP sessions so their streams do not hold the server open. */
+export async function closeMcpSessions(): Promise<void> {
+    const transports = [...mcpSessions.values()];
+    mcpSessions.clear();
+    await Promise.allSettled(transports.map((transport) => transport.close()));
+}
+
 export default router;

@@ -23,12 +23,8 @@ import { user } from "./auth.generated";
 import { payerUser } from "./billing-payer";
 
 const timestamps = {
-    createdAt: timestamp("created_at", { withTimezone: true })
-        .notNull()
-        .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-        .notNull()
-        .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 };
 
 export const billingPriceEntries = pgTable(
@@ -47,28 +43,15 @@ export const billingPriceEntries = pgTable(
         ...timestamps,
     },
     (table) => ({
-        providerProductUnique: uniqueIndex(
-            "billing_price_entries_provider_product_uidx",
-        ).on(table.provider, table.providerProductId),
-        offerKeyIdx: index("billing_price_entries_offer_key_idx").on(
-            table.offerKey,
+        providerProductUnique: uniqueIndex("billing_price_entries_provider_product_uidx").on(
+            table.provider,
+            table.providerProductId,
         ),
-        amountCheck: check(
-            "billing_price_entries_amount_check",
-            sql`${table.amountMinor} > 0`,
-        ),
-        trialDaysCheck: check(
-            "billing_price_entries_trial_days_check",
-            sql`${table.providerTrialDays} >= 0`,
-        ),
-        currencyCheck: check(
-            "billing_price_entries_currency_check",
-            sql`${table.currency} ~ '^[A-Z]{3}$'`,
-        ),
-        planCheck: check(
-            "billing_price_entries_plan_check",
-            sql`${table.plan} IN ('pro')`,
-        ),
+        offerKeyIdx: index("billing_price_entries_offer_key_idx").on(table.offerKey),
+        amountCheck: check("billing_price_entries_amount_check", sql`${table.amountMinor} > 0`),
+        trialDaysCheck: check("billing_price_entries_trial_days_check", sql`${table.providerTrialDays} >= 0`),
+        currencyCheck: check("billing_price_entries_currency_check", sql`${table.currency} ~ '^[A-Z]{3}$'`),
+        planCheck: check("billing_price_entries_plan_check", sql`${table.plan} IN ('pro')`),
         intervalCheck: check(
             "billing_price_entries_interval_check",
             sql`${table.billingInterval} IN ('month', 'year')`,
@@ -93,13 +76,8 @@ export const billingCatalogRevisions = pgTable(
             "billing_catalog_revisions_status_check",
             sql`${table.status} IN ('pending_verification', 'active', 'retired', 'invalid', 'abandoned')`,
         ),
-        revisionCheck: check(
-            "billing_catalog_revisions_revision_check",
-            sql`${table.revision} > 0`,
-        ),
-        activeProviderUnique: uniqueIndex(
-            "billing_catalog_revisions_active_provider_uidx",
-        )
+        revisionCheck: check("billing_catalog_revisions_revision_check", sql`${table.revision} > 0`),
+        activeProviderUnique: uniqueIndex("billing_catalog_revisions_active_provider_uidx")
             .on(table.checkoutProvider)
             .where(sql`${table.status} = 'active'`),
     }),
@@ -111,21 +89,21 @@ export const billingCatalogRevisionItems = pgTable(
         id: uuid("id").primaryKey().defaultRandom(),
         catalogRevisionId: uuid("catalog_revision_id")
             .notNull()
-            .references(() => billingCatalogRevisions.id, {
-                onDelete: "cascade",
-            }),
+            .references(() => billingCatalogRevisions.id, { onDelete: "cascade" }),
         offerKey: text("offer_key").notNull(),
         billingPriceEntryId: uuid("billing_price_entry_id")
             .notNull()
             .references(() => billingPriceEntries.id, { onDelete: "restrict" }),
     },
     (table) => ({
-        revisionKeyUnique: uniqueIndex(
-            "billing_catalog_revision_items_revision_key_uidx",
-        ).on(table.catalogRevisionId, table.offerKey),
-        revisionPriceUnique: uniqueIndex(
-            "billing_catalog_revision_items_revision_price_uidx",
-        ).on(table.catalogRevisionId, table.billingPriceEntryId),
+        revisionKeyUnique: uniqueIndex("billing_catalog_revision_items_revision_key_uidx").on(
+            table.catalogRevisionId,
+            table.offerKey,
+        ),
+        revisionPriceUnique: uniqueIndex("billing_catalog_revision_items_revision_price_uidx").on(
+            table.catalogRevisionId,
+            table.billingPriceEntryId,
+        ),
     }),
 );
 
@@ -145,17 +123,16 @@ export const billingProviderCustomers = pgTable(
         ...timestamps,
     },
     (table) => ({
-        providerPayerUnique: uniqueIndex(
-            "billing_provider_customers_provider_payer_uidx",
-        ).on(table.provider, table.payerId),
-        providerCustomerUnique: uniqueIndex(
-            "billing_provider_customers_provider_customer_uidx",
-        )
+        providerPayerUnique: uniqueIndex("billing_provider_customers_provider_payer_uidx").on(
+            table.provider,
+            table.payerId,
+        ),
+        providerCustomerUnique: uniqueIndex("billing_provider_customers_provider_customer_uidx")
             .on(table.provider, table.providerCustomerId)
             .where(sql`${table.providerCustomerId} IS NOT NULL`),
-        idempotencyUnique: uniqueIndex(
-            "billing_provider_customers_idempotency_uidx",
-        ).on(table.idempotencyKey),
+        idempotencyUnique: uniqueIndex("billing_provider_customers_idempotency_uidx").on(
+            table.idempotencyKey,
+        ),
         statusCheck: check(
             "billing_provider_customers_status_check",
             sql`${table.status} IN ('creating', 'active', 'conflicted')`,
@@ -200,17 +177,13 @@ export const billingCheckoutAttempts = pgTable(
         ...timestamps,
     },
     (table) => ({
-        providerSessionUnique: uniqueIndex(
-            "billing_checkout_attempts_provider_session_uidx",
-        )
+        providerSessionUnique: uniqueIndex("billing_checkout_attempts_provider_session_uidx")
             .on(table.provider, table.providerCheckoutSessionId)
             .where(sql`${table.providerCheckoutSessionId} IS NOT NULL`),
-        idempotencyUnique: uniqueIndex(
-            "billing_checkout_attempts_idempotency_uidx",
-        ).on(table.idempotencyKey),
-        entityNonterminalUnique: uniqueIndex(
-            "billing_checkout_attempts_entity_nonterminal_uidx",
-        )
+        idempotencyUnique: uniqueIndex("billing_checkout_attempts_idempotency_uidx").on(
+            table.idempotencyKey,
+        ),
+        entityNonterminalUnique: uniqueIndex("billing_checkout_attempts_entity_nonterminal_uidx")
             .on(table.billableEntityId)
             .where(sql`${table.status} IN ('creating', 'open')`),
         statusCheck: check(
@@ -241,9 +214,7 @@ export const billingSubscriptions = pgTable(
             .references(() => user.id, { onDelete: "restrict" }),
         billingCustomerId: uuid("billing_customer_id")
             .notNull()
-            .references(() => billingProviderCustomers.id, {
-                onDelete: "restrict",
-            }),
+            .references(() => billingProviderCustomers.id, { onDelete: "restrict" }),
         payerId: text("payer_id")
             .notNull()
             .references(() => payerUser.id, { onDelete: "restrict" }),
@@ -262,47 +233,31 @@ export const billingSubscriptions = pgTable(
         plan: text("plan").notNull(),
         billingInterval: text("billing_interval").notNull(),
         status: text("status").notNull().default("pending"),
-        currentPeriodStartsAt: timestamp("current_period_starts_at", {
-            withTimezone: true,
-        }),
-        currentPeriodEndsAt: timestamp("current_period_ends_at", {
-            withTimezone: true,
-        }),
+        currentPeriodStartsAt: timestamp("current_period_starts_at", { withTimezone: true }),
+        currentPeriodEndsAt: timestamp("current_period_ends_at", { withTimezone: true }),
         paidThroughAt: timestamp("paid_through_at", { withTimezone: true }),
         trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
-        cancelAtPeriodEnd: boolean("cancel_at_period_end")
-            .notNull()
-            .default(false),
-        isEntitlementSource: boolean("is_entitlement_source")
-            .notNull()
-            .default(false),
-        providerOccurredAt: timestamp("provider_occurred_at", {
-            withTimezone: true,
-        }),
+        cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+        isEntitlementSource: boolean("is_entitlement_source").notNull().default(false),
+        providerOccurredAt: timestamp("provider_occurred_at", { withTimezone: true }),
         providerVersion: text("provider_version"),
         lastObservedAt: timestamp("last_observed_at", { withTimezone: true }),
-        lastReconciledAt: timestamp("last_reconciled_at", {
-            withTimezone: true,
-        }),
+        lastReconciledAt: timestamp("last_reconciled_at", { withTimezone: true }),
         ...timestamps,
     },
     (table) => ({
-        providerSubscriptionUnique: uniqueIndex(
-            "billing_subscriptions_provider_subscription_uidx",
-        ).on(table.provider, table.providerSubscriptionId),
-        entitySourceUnique: uniqueIndex(
-            "billing_subscriptions_entity_source_uidx",
-        )
+        providerSubscriptionUnique: uniqueIndex("billing_subscriptions_provider_subscription_uidx").on(
+            table.provider,
+            table.providerSubscriptionId,
+        ),
+        entitySourceUnique: uniqueIndex("billing_subscriptions_entity_source_uidx")
             .on(table.billableEntityId)
             .where(sql`${table.isEntitlementSource} = true`),
         statusCheck: check(
             "billing_subscriptions_status_check",
             sql`${table.status} IN ('pending', 'trialing', 'active', 'past_due', 'cancelled', 'expired')`,
         ),
-        planCheck: check(
-            "billing_subscriptions_plan_check",
-            sql`${table.plan} IN ('pro')`,
-        ),
+        planCheck: check("billing_subscriptions_plan_check", sql`${table.plan} IN ('pro')`),
         intervalCheck: check(
             "billing_subscriptions_interval_check",
             sql`${table.billingInterval} IN ('month', 'year')`,
@@ -320,9 +275,7 @@ export const billingPlanChangeAttempts = pgTable(
             .references(() => user.id, { onDelete: "restrict" }),
         subscriptionId: uuid("subscription_id")
             .notNull()
-            .references(() => billingSubscriptions.id, {
-                onDelete: "restrict",
-            }),
+            .references(() => billingSubscriptions.id, { onDelete: "restrict" }),
         actorId: text("actor_id").notNull(),
         payerId: text("payer_id")
             .notNull()
@@ -352,12 +305,10 @@ export const billingPlanChangeAttempts = pgTable(
         ...timestamps,
     },
     (table) => ({
-        idempotencyUnique: uniqueIndex(
-            "billing_plan_change_attempts_idempotency_uidx",
-        ).on(table.idempotencyKey),
-        entityNonterminalUnique: uniqueIndex(
-            "billing_plan_change_attempts_entity_nonterminal_uidx",
-        )
+        idempotencyUnique: uniqueIndex("billing_plan_change_attempts_idempotency_uidx").on(
+            table.idempotencyKey,
+        ),
+        entityNonterminalUnique: uniqueIndex("billing_plan_change_attempts_entity_nonterminal_uidx")
             .on(table.billableEntityId)
             .where(sql`${table.status} IN ('creating', 'pending')`),
         statusCheck: check(
@@ -383,19 +334,22 @@ export const billingPlanChangeAttempts = pgTable(
     }),
 );
 
-export const billingPlanStates = pgTable("billing_plan_states", {
-    id: uuid("id").primaryKey().defaultRandom(),
-    billableEntityId: text("billable_entity_id")
-        .notNull()
-        .unique()
-        .references(() => user.id, { onDelete: "restrict" }),
-    activeSubscriptionId: uuid("active_subscription_id").references(
-        () => billingSubscriptions.id,
-        { onDelete: "restrict" },
-    ),
-    projectionVersion: integer("projection_version").notNull().default(0),
-    ...timestamps,
-});
+export const billingPlanStates = pgTable(
+    "billing_plan_states",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        billableEntityId: text("billable_entity_id")
+            .notNull()
+            .unique()
+            .references(() => user.id, { onDelete: "restrict" }),
+        activeSubscriptionId: uuid("active_subscription_id").references(
+            () => billingSubscriptions.id,
+            { onDelete: "restrict" },
+        ),
+        projectionVersion: integer("projection_version").notNull().default(0),
+        ...timestamps,
+    },
+);
 
 export const billingWebhookEvents = pgTable(
     "billing_webhook_events",
@@ -413,25 +367,19 @@ export const billingWebhookEvents = pgTable(
         status: text("status").notNull().default("pending"),
         processingAttempts: integer("processing_attempts").notNull().default(0),
         lastError: text("last_error"),
-        availableAt: timestamp("available_at", { withTimezone: true })
-            .notNull()
-            .defaultNow(),
+        availableAt: timestamp("available_at", { withTimezone: true }).notNull().defaultNow(),
         lockedAt: timestamp("locked_at", { withTimezone: true }),
         leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
         workerId: text("worker_id"),
-        receivedAt: timestamp("received_at", { withTimezone: true })
-            .notNull()
-            .defaultNow(),
+        receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
         processedAt: timestamp("processed_at", { withTimezone: true }),
     },
     (table) => ({
-        providerEventUnique: uniqueIndex(
-            "billing_webhook_events_provider_event_uidx",
-        ).on(table.provider, table.providerEventId),
-        queueIdx: index("billing_webhook_events_queue_idx").on(
-            table.status,
-            table.availableAt,
+        providerEventUnique: uniqueIndex("billing_webhook_events_provider_event_uidx").on(
+            table.provider,
+            table.providerEventId,
         ),
+        queueIdx: index("billing_webhook_events_queue_idx").on(table.status, table.availableAt),
         statusCheck: check(
             "billing_webhook_events_status_check",
             sql`${table.status} IN ('pending', 'processing', 'processed', 'ignored', 'quarantined', 'failed')`,
@@ -463,9 +411,7 @@ export const billingReconciliationJobs = pgTable(
         operation: text("operation").notNull().default("reconcile"),
         status: text("status").notNull().default("pending"),
         attemptCount: integer("attempt_count").notNull().default(0),
-        availableAt: timestamp("available_at", { withTimezone: true })
-            .notNull()
-            .defaultNow(),
+        availableAt: timestamp("available_at", { withTimezone: true }).notNull().defaultNow(),
         lockedAt: timestamp("locked_at", { withTimezone: true }),
         leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
         workerId: text("worker_id"),
@@ -477,34 +423,18 @@ export const billingReconciliationJobs = pgTable(
             "billing_reconciliation_jobs_exactly_one_subject",
             sql`((CASE WHEN ${table.checkoutAttemptId} IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN ${table.planChangeAttemptId} IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN ${table.subscriptionId} IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN ${table.providerCustomerId} IS NOT NULL THEN 1 ELSE 0 END)) = 1`,
         ),
-        liveCheckoutUnique: uniqueIndex(
-            "billing_reconciliation_jobs_live_checkout_uidx",
-        )
+        liveCheckoutUnique: uniqueIndex("billing_reconciliation_jobs_live_checkout_uidx")
             .on(table.checkoutAttemptId)
-            .where(
-                sql`${table.checkoutAttemptId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`,
-            ),
-        livePlanChangeUnique: uniqueIndex(
-            "billing_reconciliation_jobs_live_plan_change_uidx",
-        )
+            .where(sql`${table.checkoutAttemptId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`),
+        livePlanChangeUnique: uniqueIndex("billing_reconciliation_jobs_live_plan_change_uidx")
             .on(table.planChangeAttemptId)
-            .where(
-                sql`${table.planChangeAttemptId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`,
-            ),
-        liveSubscriptionUnique: uniqueIndex(
-            "billing_reconciliation_jobs_live_subscription_uidx",
-        )
+            .where(sql`${table.planChangeAttemptId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`),
+        liveSubscriptionUnique: uniqueIndex("billing_reconciliation_jobs_live_subscription_uidx")
             .on(table.subscriptionId)
-            .where(
-                sql`${table.subscriptionId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`,
-            ),
-        liveCustomerUnique: uniqueIndex(
-            "billing_reconciliation_jobs_live_customer_uidx",
-        )
+            .where(sql`${table.subscriptionId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`),
+        liveCustomerUnique: uniqueIndex("billing_reconciliation_jobs_live_customer_uidx")
             .on(table.providerCustomerId)
-            .where(
-                sql`${table.providerCustomerId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`,
-            ),
+            .where(sql`${table.providerCustomerId} IS NOT NULL AND ${table.status} IN ('pending', 'processing', 'failed')`),
         statusCheck: check(
             "billing_reconciliation_jobs_status_check",
             sql`${table.status} IN ('pending', 'processing', 'failed', 'completed', 'quarantined')`,

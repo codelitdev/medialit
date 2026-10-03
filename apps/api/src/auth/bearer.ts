@@ -1,5 +1,4 @@
 import { verifyOAuthAccessToken } from "@codelitdev/oauth-server-kit";
-import { verifyAccessToken as verifyLegacyAccessToken } from "../oauth/jwt";
 import type { MedialitAuth } from "./better-auth";
 
 export type BearerClaims = {
@@ -14,17 +13,15 @@ export function setBearerAuth(auth: MedialitAuth): void {
     kitAuth = auth;
 }
 
+export function getMcpResourceMetadataUrl(): string | undefined {
+    return kitAuth
+        ? `${kitAuth.publicApiUrl}/.well-known/oauth-protected-resource/mcp`
+        : undefined;
+}
+
 export async function validateBearerToken(
     bearer: string,
 ): Promise<BearerClaims | null> {
-    const legacy = verifyLegacyAccessToken(bearer);
-    if (legacy) {
-        return {
-            userId: legacy.sub,
-            clientId: legacy.cid,
-            scopes: legacy.scope,
-        };
-    }
     if (!kitAuth) return null;
     const result = await verifyOAuthAccessToken(
         {

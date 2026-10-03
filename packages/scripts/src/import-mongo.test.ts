@@ -22,7 +22,6 @@ describe("missingImportTables", () => {
             "media",
             "media_settings",
             "signatures",
-            "legacy_revoked_tokens",
         ]);
     });
 
@@ -35,7 +34,6 @@ describe("missingImportTables", () => {
                 "media",
                 "media_settings",
                 "signatures",
-                "legacy_revoked_tokens",
                 "billing_subscriptions",
             ]),
         ).toEqual([]);
