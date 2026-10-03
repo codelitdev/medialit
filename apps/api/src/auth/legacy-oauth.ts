@@ -73,21 +73,20 @@ async function forward(
     if (typeof req.headers.authorization === "string") {
         headers.set("authorization", req.headers.authorization);
     }
-    const handler = auth.auth.handler;
-    if (typeof handler !== "function") {
-        res.status(500).json({
-            error: "server_error",
-            error_description: "Authentication handler is unavailable.",
-        });
-        return;
-    }
-    const response = await handler(
+    const response = await auth.auth.handler?.(
         new Request(url, {
             method: req.method,
             headers,
             body,
         }),
     );
+    if (!response) {
+        res.status(500).json({
+            error: "server_error",
+            error_description: "Authentication handler is unavailable.",
+        });
+        return;
+    }
     res.status(response.status);
     const responseType = response.headers.get("content-type");
     if (responseType) res.setHeader("content-type", responseType);
