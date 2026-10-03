@@ -13,6 +13,34 @@ const compat = new FlatCompat({
   resolvePluginsRelativeTo: path.dirname(require.resolve("eslint-config-next")),
 });
 
+// `eslint-config-next` parses JavaScript with `next/babel`. That preset resolves
+// from the Next app, not the repo root, so `bun run lint` fails on every JS file.
+// Keep the Next rules and let ESLint use its normal parser.
+function withoutNextBabelParser(config) {
+  if (!config.languageOptions) return config;
+  const languageOptions = { ...config.languageOptions };
+  delete languageOptions.parser;
+  if (languageOptions.parserOptions) {
+    const parserOptions = { ...languageOptions.parserOptions };
+    delete parserOptions.babelOptions;
+    delete parserOptions.requireConfigFile;
+    delete parserOptions.allowImportExportEverywhere;
+    languageOptions.parserOptions = parserOptions;
+  }
+  return { ...config, languageOptions };
+}
+
+const nextConfigs = compat
+  .config({
+    extends: ["next"],
+    settings: {
+      next: {
+        rootDir: "apps/web/",
+      },
+    },
+  })
+  .map(withoutNextBabelParser);
+
 
 export default defineConfig([
   globalIgnores([
@@ -30,14 +58,7 @@ export default defineConfig([
   { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"], languageOptions: { globals: { ...globals.browser, ...globals.node } } },
   tseslint.configs.recommended,
   // pluginReact.configs.flat.recommended,
-  ...compat.config({
-    extends: ['next'],
-    settings: {
-      next: {
-        rootDir: 'apps/web/',
-      },
-    },
-  }),
+  ...nextConfigs,
   {
     files: ["**/__tests__/**/*.{js,jsx,ts,tsx}", "**/*.{spec,test}.{js,jsx,ts,tsx}"],
     languageOptions: {
