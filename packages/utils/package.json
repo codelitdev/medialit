@@ -18,6 +18,6 @@
         "typescript": "^5.2.2"
     },
     "dependencies": {
-        "nanoid": "^3.3.2"
+        "nanoid": "^3.3.18"
     }
 }
