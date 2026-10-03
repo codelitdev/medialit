@@ -58,7 +58,7 @@ function getMcpAuth(req: any) {
         token: req.apikey || "",
         clientId: String(req.userId || req.user?._id || req.user?.id || ""),
         user: req.user,
-        scopes: [] as string[],
+        scopes: (req.scopes ?? []) as string[],
     };
 }
 

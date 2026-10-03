@@ -1,6 +1,7 @@
 import { NextFunction, Response } from "express";
 import { getMcpResourceMetadataUrl } from "./bearer";
 import { AuthResult, resolveAuth, sendAuthError } from "./resolve-auth";
+import { API_KEY_SCOPES } from "./scopes";
 
 type AuthResolver = (input: {
     authorization?: unknown;
@@ -19,12 +20,12 @@ function applyAuthToRequest(
 
     req.user = auth.user;
     req.apikey = auth.apiKey;
+    req.scopes = auth.kind === "oauth" ? auth.scopes : API_KEY_SCOPES;
 
     if (mode === "mcp") {
         req.userId = auth.userId;
         if (auth.kind === "oauth") {
             req.clientId = auth.clientId;
-            req.scopes = auth.scopes;
         }
     }
 }

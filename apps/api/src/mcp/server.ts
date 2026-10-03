@@ -5,8 +5,42 @@ import { registerMediaTools } from "./tools/media";
 import { registerSignatureTool } from "./tools/signature";
 import { registerSettingsTools } from "./tools/settings";
 import { registerUploadTool } from "./tools/upload";
+import { hasScope, insufficientScopeMessage, toolScope } from "../auth/scopes";
 
-function registerAllTools(server: McpServer): void {
+/**
+ * Wrap tool registration so every tool checks the caller's OAuth scopes:
+ * tools annotated `readOnlyHint: true` need data:read, all others need
+ * data:write. API keys carry both scopes.
+ */
+export function enforceToolScopes(server: McpServer): void {
+    const register = server.registerTool.bind(server) as (
+        ...args: any[]
+    ) => any;
+    (server as any).registerTool = (
+        name: string,
+        config: { annotations?: { readOnlyHint?: boolean } },
+        handler: (args: any, extra: any) => any,
+    ) => {
+        const scope = toolScope(config.annotations?.readOnlyHint);
+        return register(name, config, (args: any, extra: any) => {
+            if (!hasScope(extra.authInfo?.scopes, scope)) {
+                return {
+                    content: [
+                        {
+                            type: "text" as const,
+                            text: insufficientScopeMessage(scope),
+                        },
+                    ],
+                    isError: true,
+                };
+            }
+            return handler(args, extra);
+        });
+    };
+}
+
+export function registerAllTools(server: McpServer): void {
+    enforceToolScopes(server);
     registerMediaTools(server);
     registerSignatureTool(server);
     registerSettingsTools(server);

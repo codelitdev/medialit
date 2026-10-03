@@ -109,7 +109,7 @@ test("MCP middleware maps OAuth auth fields", async () => {
     assert.equal(req.apikey, "default-key");
 });
 
-test("MCP middleware maps API-key auth fields without OAuth fields", async () => {
+test("MCP middleware maps API-key auth fields with full data scopes", async () => {
     const req: any = {
         headers: { "x-medialit-apikey": "submitted-key" },
         body: {},
@@ -133,7 +133,8 @@ test("MCP middleware maps API-key auth fields without OAuth fields", async () =>
     assert.equal(req.userId, "user-1");
     assert.equal(req.apikey, "submitted-key");
     assert.equal(req.clientId, undefined);
-    assert.equal(req.scopes, undefined);
+    // API keys predate scopes and keep full access.
+    assert.deepEqual(req.scopes, ["data:read", "data:write"]);
 });
 
 test("MCP middleware preserves missing-auth 401 behavior", async () => {

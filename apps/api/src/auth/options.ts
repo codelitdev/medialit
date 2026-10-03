@@ -11,7 +11,16 @@ import { fetchClientMetadataResource } from "./cimd-fetch";
 
 export const AUTH_BASE_PATH = "/api/auth";
 export const AUTH_COOKIE_PREFIX = "medialit";
-export const MCP_SCOPES_SUPPORTED = ["data:read"] as const;
+export const DATA_READ_SCOPE = "data:read";
+export const DATA_WRITE_SCOPE = "data:write";
+// Advertised to MCP clients, which request exactly these scopes.
+// `offline_access` gets them a refresh token instead of re-consenting
+// every time the access token expires.
+export const MCP_SCOPES_SUPPORTED = [
+    DATA_READ_SCOPE,
+    DATA_WRITE_SCOPE,
+    "offline_access",
+] as const;
 
 export function authUrls(publicApiUrl: string, webOrigin?: string) {
     const normalized = publicApiUrl.replace(/\/$/, "");
@@ -80,7 +89,8 @@ export function medialitAuthOptions(input: {
                         "profile",
                         "email",
                         "offline_access",
-                        "data:read",
+                        DATA_READ_SCOPE,
+                        DATA_WRITE_SCOPE,
                     ],
                     validAudiences: [
                         urls.restResource,
@@ -96,7 +106,8 @@ export function medialitAuthOptions(input: {
                     ],
                     clientRegistrationAllowedScopes: [
                         "offline_access",
-                        "data:read",
+                        DATA_READ_SCOPE,
+                        DATA_WRITE_SCOPE,
                     ],
                 }),
                 clientRegistrationDefaultResources: [urls.mcpResource],
