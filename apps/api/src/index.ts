@@ -2,7 +2,7 @@ import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
 import express from "express";
-import connectToDatabase from "./config/db";
+import { checkDatabaseConnection } from "./config/db";
 import mediaRoutes from "./media/routes";
 import signatureRoutes from "./signature/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
@@ -139,7 +139,7 @@ app.get(
 const port = process.env.PORT || 80;
 
 checkConfig()
-    .then(() => connectToDatabase())
+    .then(() => checkDatabaseConnection())
     .then(checkDependencies)
     .then(async () => {
         const publicApiUrl = (

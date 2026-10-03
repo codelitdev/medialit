@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { before, describe, test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { applyMigrations } from "./migrate.js";
+import { migrate } from "drizzle-orm/pglite/migrator";
 import { setDb, type AppDb } from "./client.js";
 import * as schema from "./schema/index.js";
 import {
@@ -23,8 +25,14 @@ import {
 
 before(async () => {
     const client = new PGlite();
-    await applyMigrations((statement) => client.exec(statement));
-    setDb(drizzle(client, { schema }) as unknown as AppDb);
+    const db = drizzle(client, { schema });
+    await migrate(db, {
+        migrationsFolder: path.resolve(
+            path.dirname(fileURLToPath(import.meta.url)),
+            "../../drizzle",
+        ),
+    });
+    setDb(db as unknown as AppDb);
 });
 
 describe("repository", () => {

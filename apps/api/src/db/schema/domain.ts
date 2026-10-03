@@ -8,7 +8,7 @@ import {
     uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { user } from "./auth.generated.js";
+import { user } from "./auth.generated";
 
 export const profiles = pgTable("profiles", {
     userId: text("user_id")

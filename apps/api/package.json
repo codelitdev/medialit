@@ -25,7 +25,11 @@
     "start": "bun src/index.ts",
     "test": "node --require ./test-preload.cjs --import tsx --test '**/*.test.ts'",
     "billing:generate": "codelit-billing generate --config billing.config.ts",
-    "billing:generate:check": "codelit-billing generate --check --config billing.config.ts"
+    "billing:generate:check": "codelit-billing generate --check --config billing.config.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun --env-file=.env src/db/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",

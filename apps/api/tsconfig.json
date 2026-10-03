@@ -16,5 +16,5 @@
         },
         "types": ["node"]
     },
-    "include": ["src", "__tests__", "billing.config.ts"]
+    "include": ["src", "__tests__", "billing.config.ts", "drizzle.config.ts"]
 }

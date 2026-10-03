@@ -1,1 +1,1 @@
-export { user as payerUser } from "./auth.generated.js";
+export { user as payerUser } from "./auth.generated";

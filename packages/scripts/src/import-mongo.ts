@@ -73,7 +73,7 @@ async function assertImportTables(databaseUrl: string): Promise<void> {
         );
         if (missing.length > 0) {
             throw new Error(
-                `Postgres is missing ${missing.join(", ")}. Start the API so it applies migrations, then run import:mongo again.`,
+                `Postgres is missing ${missing.join(", ")}. Run bun --filter @medialit/api db:migrate, then run import:mongo again.`,
             );
         }
     } finally {
