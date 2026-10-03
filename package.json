@@ -7,7 +7,7 @@
     "@eslint/js": "^9.24.0",
     "@next/eslint-plugin-next": "^15.2.4",
     "@typescript-eslint/eslint-plugin": "^8.29.1",
-    "eslint": "^9.24.0",
+    "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.0.0",
     "husky": "^9.1.7",
@@ -76,7 +76,9 @@
       "browserslist@>=4.0.0 <5.0.0": "4.28.7",
       "@humanfs/node@>=0.16.0 <0.17.0": "0.16.8",
       "baseline-browser-mapping@>=2.0.0 <3.0.0": "2.11.0",
-      "image-size@>=2.0.0 <3.0.0": "2.0.3"
+      "image-size@>=2.0.0 <3.0.0": "2.0.3",
+      "tmp@>=0.0.0 <1.0.0": "0.2.7",
+      "@eslint/plugin-kit@>=0.2.0 <0.3.0": "0.3.5"
     }
   }
 }
