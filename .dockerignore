@@ -1,5 +1,9 @@
 node_modules
+**/node_modules
+.git
+.next
+**/.next
 **/.env
 **/.env.local
 dist
-
+**/dist

@@ -44,7 +44,6 @@
         "@codelitdev/oauth-server-kit": "0.3.0",
         "@codelitdev/observability": "0.3.0",
         "@codelitdev/platform": "0.3.0",
-        "@codelitdev/platform-conformance": "0.3.0",
         "@medialit/images": "workspace:*",
         "@medialit/models": "workspace:*",
         "@medialit/thumbnail": "workspace:*",
@@ -52,7 +51,6 @@
         "@modelcontextprotocol/sdk": "1.30.0",
         "@tus/file-store": "^2.1.1",
         "@tus/server": "^2.4.5",
-        "aws-sdk": "^2.1692.0",
         "better-auth": "1.7.7",
         "cors": "^2.8.5",
         "dodopayments": "2.48.0",
@@ -70,6 +68,7 @@
         "zod": "3.25.76"
     },
     "devDependencies": {
+        "@codelitdev/platform-conformance": "0.3.0",
         "@electric-sql/pglite": "0.5.8",
         "@types/cors": "^2.8.12",
         "@types/express": "^4.17.20",

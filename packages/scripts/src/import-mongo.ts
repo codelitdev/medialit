@@ -88,6 +88,7 @@ async function main() {
         await client.connect();
         const db = client.db();
         const users = await db.collection("users").find({}).toArray();
+        const importedUserIds = new Map<string, string>();
         let importedUsers = 0;
         for (const doc of users) {
             const mongoId = idOf(doc._id);
@@ -96,9 +97,8 @@ async function main() {
             const existing = await findUserByEmail(email);
             if (existing && existing.id !== mongoId) {
                 console.warn(
-                    `skip user ${email}: postgres id differs from mongo _id`,
+                    `remap Mongo user ${mongoId} to existing Postgres user ${existing.id} (${email})`,
                 );
-                continue;
             }
             const userId = existing
                 ? existing.id
@@ -108,6 +108,7 @@ async function main() {
                       name: doc.name ? String(doc.name) : undefined,
                       emailVerified: true,
                   });
+            importedUserIds.set(mongoId, userId);
             await importKeys(db, doc._id, userId);
             const account = await ensureProfile({
                 userId,
@@ -130,12 +131,21 @@ async function main() {
 
         const media = await db.collection("media").find({}).toArray();
         let importedMedia = 0;
+        let skippedMedia = 0;
+        const orphanedMediaOwners = new Set<string>();
         for (const doc of media) {
+            const mongoUserId = idOf(doc.userId);
+            const userId = importedUserIds.get(mongoUserId);
+            if (!userId) {
+                skippedMedia += 1;
+                orphanedMediaOwners.add(mongoUserId);
+                continue;
+            }
             await createMediaRecord({
                 id: idOf(doc._id),
                 fileName: String(doc.fileName),
                 mediaId: String(doc.mediaId),
-                userId: idOf(doc.userId),
+                userId,
                 apikey: String(doc.apikey),
                 originalFileName: String(doc.originalFileName),
                 mimeType: String(doc.mimeType),
@@ -156,24 +166,48 @@ async function main() {
             .find({})
             .toArray()
             .catch(() => [] as Document[]);
+        let importedSignatures = 0;
+        let skippedSignatures = 0;
+        const orphanedSignatureOwners = new Set<string>();
         for (const doc of signatures) {
             if (!doc.signature || !doc.userId || !doc.apikey) continue;
+            const mongoUserId = idOf(doc.userId);
+            const userId = importedUserIds.get(mongoUserId);
+            if (!userId) {
+                skippedSignatures += 1;
+                orphanedSignatureOwners.add(mongoUserId);
+                continue;
+            }
             await createSignature({
                 id: idOf(doc._id),
-                userId: idOf(doc.userId),
+                userId,
                 apikey: String(doc.apikey),
                 signature: String(doc.signature),
                 validTill: asDate(doc.validTill) || new Date(),
                 group: doc.group ? String(doc.group) : undefined,
                 createdAt: asDate(doc.createdAt),
             });
+            importedSignatures += 1;
+        }
+
+        if (skippedMedia > 0) {
+            console.warn(
+                `skipped ${skippedMedia} media records owned by missing Mongo users: ${[...orphanedMediaOwners].join(", ")}`,
+            );
+        }
+        if (skippedSignatures > 0) {
+            console.warn(
+                `skipped ${skippedSignatures} signatures owned by missing Mongo users: ${[...orphanedSignatureOwners].join(", ")}`,
+            );
         }
 
         console.log(
             JSON.stringify({
                 users: importedUsers,
                 media: importedMedia,
-                signatures: signatures.length,
+                signatures: importedSignatures,
+                skippedMedia,
+                skippedSignatures,
             }),
         );
     } finally {
@@ -226,12 +260,15 @@ async function importKeys(
         .find({ userId: mongoUserId })
         .toArray();
     for (const key of keys) {
-        if (!key.key || !key.name) continue;
+        if (!key.key) continue;
+        const keyId = key.keyId ? String(key.keyId) : undefined;
         await createApiKey({
             userId,
-            name: String(key.name),
+            name: key.name
+                ? String(key.name)
+                : `Imported key ${keyId || idOf(key._id)}`,
             key: String(key.key),
-            keyId: key.keyId ? String(key.keyId) : undefined,
+            keyId,
             isDefault: Boolean(key.default),
             deleted: Boolean(key.deleted),
             restriction: key.restriction ? String(key.restriction) : undefined,
