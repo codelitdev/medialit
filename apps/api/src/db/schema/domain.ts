@@ -8,7 +8,7 @@ import {
     uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { user } from "./auth.generated";
+import { session, user } from "./auth.generated";
 
 export const profiles = pgTable("profiles", {
     userId: text("user_id")
@@ -119,4 +119,22 @@ export const tusUploads = pgTable("tus_uploads", {
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
+/**
+ * The app an OAuth end-user picked on `/oauth/select-app`, keyed by their
+ * Better Auth session. `oauthProvider`'s `postLogin.consentReferenceId` hook
+ * reads it back so the app ends up on the access token's `app_id` claim, which
+ * scopes MCP and REST requests made with that token to the app.
+ */
+export const oauthAppSelections = pgTable("oauth_app_selections", {
+    sessionId: text("session_id")
+        .primaryKey()
+        .references(() => session.id, { onDelete: "cascade" }),
+    apiKeyId: text("api_key_id")
+        .notNull()
+        .references(() => apiKeys.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+        .notNull()
+        .defaultNow(),
 });

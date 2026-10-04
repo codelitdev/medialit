@@ -15,6 +15,7 @@ type OAuthClaims = {
     userId: string;
     clientId: string;
     scopes: string[];
+    appId?: string;
 };
 
 export type AuthInput = {
@@ -26,7 +27,10 @@ export type AuthInput = {
 export type AuthDependencies = {
     validateBearerToken: (bearer: string) => Promise<OAuthClaims | null>;
     getUser: (id: string) => Promise<UserRecord | null>;
-    getApiKeyByUserId: (userId: string) => Promise<Apikey | Apikey[] | null>;
+    getApiKeyByUserId: (
+        userId: string,
+        keyId?: string,
+    ) => Promise<Apikey | Apikey[] | null>;
     getApiKeyUsingKeyId: (key: string) => Promise<Apikey | null>;
 };
 
@@ -118,11 +122,23 @@ export function selectEffectiveApiKey(
     return keys.find((key) => key.default === true) || keys[0] || null;
 }
 
+/**
+ * The app an OAuth token acts on: the one picked at authorization, or the
+ * user's default app for tokens issued before the picker existed. `null`
+ * means the picked app no longer exists.
+ */
 async function getEffectiveOAuthApiKey(
     userId: string,
+    appId: string | undefined,
     dependencies: AuthDependencies,
-): Promise<string | undefined> {
+): Promise<string | undefined | null> {
     try {
+        if (appId) {
+            const key = selectEffectiveApiKey(
+                await dependencies.getApiKeyByUserId(userId, appId),
+            );
+            return key && key.keyId === appId ? key.key : null;
+        }
         const keys = await dependencies.getApiKeyByUserId(userId);
         return selectEffectiveApiKey(keys)?.key;
     } catch {
@@ -177,6 +193,15 @@ export async function resolveAuth(
         const user = await dependencies.getUser(claims.userId);
         if (!user) return { status: "unauthorized" };
 
+        const apiKey = await getEffectiveOAuthApiKey(
+            claims.userId,
+            claims.appId,
+            dependencies,
+        );
+        // The picked app was deleted; the client must re-authorize and pick
+        // another rather than silently act on a different app.
+        if (apiKey === null) return { status: "invalid_token" };
+
         return {
             status: "authenticated",
             kind: "oauth",
@@ -184,7 +209,7 @@ export async function resolveAuth(
             userId: claims.userId,
             clientId: claims.clientId,
             scopes: claims.scopes,
-            apiKey: await getEffectiveOAuthApiKey(claims.userId, dependencies),
+            apiKey,
         };
     }
 

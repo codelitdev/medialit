@@ -79,6 +79,50 @@ test("OAuth auth falls back to the first API key when no default exists", async 
     assert.equal(auth.apiKey, "first");
 });
 
+test("OAuth auth uses the app picked at authorization", async () => {
+    const lookups: unknown[] = [];
+    const auth = await resolveAuth(
+        { authorization: "Bearer valid-token" },
+        dependencies({
+            validateBearerToken: async () => ({
+                userId: "user-1",
+                clientId: "client-1",
+                scopes: ["read"],
+                appId: "picked",
+            }),
+            getApiKeyByUserId: async (userId: string, keyId?: string) => {
+                lookups.push([userId, keyId]);
+                return keyId === "picked"
+                    ? apiKey("picked-secret", { keyId: "picked" })
+                    : [apiKey("default", { default: true })];
+            },
+        }),
+    );
+
+    assert.deepEqual(lookups, [["user-1", "picked"]]);
+    assert.equal(auth.status, "authenticated");
+    assert.equal(auth.kind, "oauth");
+    assert.equal(auth.apiKey, "picked-secret");
+});
+
+test("OAuth auth rejects a token whose picked app was deleted", async () => {
+    const auth = await resolveAuth(
+        { authorization: "Bearer valid-token" },
+        dependencies({
+            validateBearerToken: async () => ({
+                userId: "user-1",
+                clientId: "client-1",
+                scopes: ["read"],
+                appId: "deleted",
+            }),
+            getApiKeyByUserId: async (_userId: string, keyId?: string) =>
+                keyId ? null : [apiKey("default", { default: true })],
+        }),
+    );
+
+    assert.equal(auth.status, "invalid_token");
+});
+
 test("OAuth auth succeeds without an API key when the user has none", async () => {
     const auth = await resolveAuth(
         { authorization: "Bearer valid-token" },

@@ -8,6 +8,11 @@ import { ensureProfile } from "@/db";
 import { sendSignInCode } from "../services/mail";
 import logger from "../services/log";
 import { fetchClientMetadataResource } from "./cimd-fetch";
+import { SELECT_APP_PATH } from "./oauth-app-pages";
+import {
+    createOAuthAppSelectionHooks,
+    oauthAppSelectionAdapter,
+} from "./oauth-app-selection";
 
 export const AUTH_BASE_PATH = "/api/auth";
 export const AUTH_COOKIE_PREFIX = "medialit";
@@ -111,6 +116,10 @@ export function medialitAuthOptions(input: {
                     ],
                 }),
                 clientRegistrationDefaultResources: [urls.mcpResource],
+                ...createOAuthAppSelectionHooks({
+                    page: `${urls.publicApiUrl}${SELECT_APP_PATH}`,
+                    adapter: oauthAppSelectionAdapter,
+                }),
             }),
             cimd({
                 fetchClientMetadataResource,

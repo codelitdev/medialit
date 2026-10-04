@@ -6,6 +6,7 @@ import {
     apiKeys,
     media,
     mediaSettings,
+    oauthAppSelections,
     oauthClient,
     profiles,
     signatures,
@@ -447,6 +448,44 @@ export async function softDeleteApiKey(
         .update(apiKeys)
         .set({ deleted: true, updatedAt: now() })
         .where(and(eq(apiKeys.userId, userId), eq(apiKeys.keyId, keyId)));
+}
+
+/** Upserts so revisiting the app picker overwrites the earlier choice. */
+export async function setOAuthAppSelection(
+    sessionId: string,
+    apiKeyId: string,
+): Promise<void> {
+    const db = getDb();
+    await db
+        .insert(oauthAppSelections)
+        .values({ sessionId, apiKeyId })
+        .onConflictDoUpdate({
+            target: oauthAppSelections.sessionId,
+            set: { apiKeyId, updatedAt: now() },
+        });
+}
+
+/** The app picked for this session, or `null` if the user has not picked one
+ * or the app has since been deleted. */
+export async function getOAuthAppSelection(
+    sessionId: string,
+): Promise<{ keyId: string; updatedAt: Date } | null> {
+    const db = getDb();
+    const [row] = await db
+        .select({
+            keyId: apiKeys.keyId,
+            updatedAt: oauthAppSelections.updatedAt,
+        })
+        .from(oauthAppSelections)
+        .innerJoin(apiKeys, eq(apiKeys.id, oauthAppSelections.apiKeyId))
+        .where(
+            and(
+                eq(oauthAppSelections.sessionId, sessionId),
+                eq(apiKeys.deleted, false),
+            ),
+        )
+        .limit(1);
+    return row ?? null;
 }
 
 function escapeLike(value: string): string {

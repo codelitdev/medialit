@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { mcpCorsHeaders, patchMcpAccept } from "@codelitdev/mcp-server-kit";
 import { mcpAuth } from "../auth/middleware";
+import { createMcpAuthInfo } from "./auth-context";
 import { createMCPSession } from "./server";
 
 const router = Router();
@@ -53,13 +54,18 @@ function patchMcpAcceptHeaders(req: any) {
     if (!found) rawHeaders.push("Accept", newAccept);
 }
 
-function getMcpAuth(req: any) {
-    return {
-        token: req.apikey || "",
-        clientId: String(req.userId || req.user?._id || req.user?.id || ""),
-        user: req.user,
-        scopes: (req.scopes ?? []) as string[],
-    };
+/** Runs after `mcpAuth`, which accepts exactly one of an OAuth bearer token
+ * or an `x-medialit-apikey` header. */
+function attachMcpAuthInfo(req: any, res: any, next: any) {
+    const authInfo = createMcpAuthInfo(req);
+    if (!authInfo) {
+        return res.status(401).json({
+            error: "unauthorized",
+            error_description: "MCP authentication context is incomplete.",
+        });
+    }
+    req.auth = authInfo;
+    next();
 }
 
 router.use(["/.well-known", "/oauth"], mcpCors);
@@ -69,10 +75,10 @@ router.post(
     mcpCors,
     mcpLimiter,
     mcpAuth,
+    attachMcpAuthInfo,
     async (req: any, res: any) => {
         patchMcpAcceptHeaders(req);
 
-        const auth = getMcpAuth(req);
         const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
         if (sessionId) {
@@ -84,22 +90,43 @@ router.post(
                     id: null,
                 });
             }
-            await transport.handleRequest(
-                Object.assign(req, { auth }),
-                res,
-                req.body,
-            );
+            await transport.handleRequest(req, res, req.body);
         } else {
             const transport = createMCPSession(
                 (id) => mcpSessions.set(id, transport),
                 (id) => mcpSessions.delete(id),
             );
-            await transport.handleRequest(
-                Object.assign(req, { auth }),
-                res,
-                req.body,
-            );
+            await transport.handleRequest(req, res, req.body);
         }
+    },
+);
+
+router.delete(
+    "/mcp",
+    mcpCors,
+    mcpLimiter,
+    mcpAuth,
+    attachMcpAuthInfo,
+    async (req: any, res: any) => {
+        const sessionId = req.headers["mcp-session-id"] as string | undefined;
+        if (!sessionId) {
+            return res.status(400).json({
+                jsonrpc: "2.0",
+                error: { code: -32600, message: "Session ID required" },
+                id: null,
+            });
+        }
+
+        const transport = mcpSessions.get(sessionId);
+        if (!transport) {
+            return res.status(404).json({
+                jsonrpc: "2.0",
+                error: { code: -32001, message: "Session not found" },
+                id: null,
+            });
+        }
+
+        await transport.handleRequest(req, res);
     },
 );
 

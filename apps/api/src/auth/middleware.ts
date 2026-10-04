@@ -23,6 +23,7 @@ function applyAuthToRequest(
     req.scopes = auth.kind === "oauth" ? auth.scopes : API_KEY_SCOPES;
 
     if (mode === "mcp") {
+        req.authKind = auth.kind;
         req.userId = auth.userId;
         if (auth.kind === "oauth") {
             req.clientId = auth.clientId;

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { requireScope, toolScope } from "../scopes.js";
-import { enforceToolScopes, registerAllTools } from "../../mcp/server.js";
+import { createToolRegistrar, registerAllTools } from "../../mcp/server.js";
 
 const READ_ONLY_TOOLS = new Set([
     "list_media",
@@ -13,14 +13,26 @@ const READ_ONLY_TOOLS = new Set([
 
 type Registered = {
     name: string;
-    handler: (args: any, extra: any) => any;
+    call: (extra: any) => any;
 };
 
+// Calls handlers the way the MCP SDK does: tools without an input schema get
+// only the request extra.
 function fakeServer() {
     const tools: Registered[] = [];
     const server: any = {
-        registerTool(name: string, _config: unknown, handler: any) {
-            tools.push({ name, handler });
+        registerTool(
+            name: string,
+            config: { inputSchema?: unknown },
+            handler: any,
+        ) {
+            tools.push({
+                name,
+                call: (extra) =>
+                    config.inputSchema === undefined
+                        ? handler(extra)
+                        : handler({}, extra),
+            });
         },
     };
     return { server, tools };
@@ -41,7 +53,7 @@ test("every MCP tool rejects a token without its scope", async () => {
         const scope = READ_ONLY_TOOLS.has(tool.name)
             ? "data:read"
             : "data:write";
-        const result = await tool.handler({}, { authInfo: { scopes: [] } });
+        const result = await tool.call({ authInfo: { scopes: [] } });
         assert.equal(result.isError, true, tool.name);
         assert.match(result.content[0].text, new RegExp(scope), tool.name);
     }
@@ -49,19 +61,44 @@ test("every MCP tool rejects a token without its scope", async () => {
 
 test("a read-only token can read but not write", async () => {
     const { server, tools } = fakeServer();
-    enforceToolScopes(server);
+    const registrar = createToolRegistrar(server);
     const calls: string[] = [];
-    server.registerTool("read", { annotations: { readOnlyHint: true } }, () =>
-        calls.push("read"),
+    registrar.registerTool(
+        "read",
+        { annotations: { readOnlyHint: true } },
+        () => calls.push("read"),
     );
-    server.registerTool("write", { annotations: { readOnlyHint: false } }, () =>
-        calls.push("write"),
+    registrar.registerTool(
+        "write",
+        { annotations: { readOnlyHint: false } },
+        () => calls.push("write"),
     );
     const extra = { authInfo: { scopes: ["data:read"] } };
 
-    for (const tool of tools) await tool.handler({}, extra);
+    for (const tool of tools) await tool.call(extra);
 
     assert.deepEqual(calls, ["read"]);
+});
+
+test("tools without input get the request extra as their second argument", async () => {
+    const { server, tools } = fakeServer();
+    const registrar = createToolRegistrar(server);
+    const received: unknown[] = [];
+    registrar.registerTool(
+        "no_input",
+        { annotations: { readOnlyHint: true } },
+        (args, extra) => received.push(args, extra),
+    );
+    registrar.registerTool(
+        "with_input",
+        { inputSchema: {}, annotations: { readOnlyHint: true } },
+        (args, extra) => received.push(args, extra),
+    );
+    const extra = { authInfo: { scopes: ["data:read"] } };
+
+    for (const tool of tools) await tool.call(extra);
+
+    assert.deepEqual(received, [{}, extra, {}, extra]);
 });
 
 function response() {

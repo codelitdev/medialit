@@ -20,6 +20,8 @@ import { cleanupExpiredTempUploads } from "./media/cleanup";
 import type { MedialitAuth } from "./auth/better-auth";
 import { AUTH_BASE_PATH, MCP_SCOPES_SUPPORTED } from "./auth/options";
 import { setBearerAuth } from "./auth/bearer";
+import { createOAuthAppPages } from "./auth/oauth-app-pages";
+import { oauthAppSelectionAdapter } from "./auth/oauth-app-selection";
 import { createDashboardRouter } from "./dashboard/routes";
 import { createBillingRouter, dodoWebhookRouter } from "./billing/routes";
 
@@ -73,6 +75,13 @@ export function createApp(input: {
             allowedRedirectOrigins: [new URL(webOrigin).origin],
             defaultRedirectUrl: `${webOrigin}/`,
             loginMethods: [{ type: "email-otp" }],
+        }),
+    );
+    app.use(
+        createOAuthAppPages({
+            auth: auth.auth,
+            adapter: oauthAppSelectionAdapter,
+            authBasePath: AUTH_BASE_PATH,
         }),
     );
 
