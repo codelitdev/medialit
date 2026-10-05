@@ -39,8 +39,19 @@ function page(body: string): string {
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Choose a MediaLit app</title><style>${STYLES}</style></head><body><main class="card"><div class="logo">M</div>${body}</main></body></html>`;
 }
 
+/**
+ * A JavaScript string literal that is safe inside an inline <script>:
+ * JSON.stringify alone leaves "</script>" and line separators intact.
+ */
+function scriptString(value: string): string {
+    return JSON.stringify(value)
+        .replace(/</g, "\\u003c")
+        .replace(/\u2028/g, "\\u2028")
+        .replace(/\u2029/g, "\\u2029");
+}
+
 function continueScript(authBasePath: string): string {
-    return `async function continueAuthorization(){var response=await fetch(${JSON.stringify(`${authBasePath}/oauth2/continue`)},{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify({postLogin:true,oauth_query:location.search.slice(1)})});var data={};try{data=await response.json()}catch{}var target=data.url||data.redirect_uri;if(!response.ok||!target)throw new Error();location.assign(target)}`;
+    return `async function continueAuthorization(){var response=await fetch(${scriptString(`${authBasePath}/oauth2/continue`)},{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify({postLogin:true,oauth_query:location.search.slice(1)})});var data={};try{data=await response.json()}catch{}var target=data.url||data.redirect_uri;if(!response.ok||!target)throw new Error();location.assign(target)}`;
 }
 
 function pickerPage(apps: OAuthApp[], authBasePath: string): string {
@@ -52,7 +63,7 @@ function pickerPage(apps: OAuthApp[], authBasePath: string): string {
         )
         .join("");
     return page(
-        `<h1>Choose an app</h1><p class="sub">The connected client will upload, list and delete files in this app.</p><div class="error" id="error"></div><form id="app-form"><div class="apps">${choices}</div><button type="submit">Continue</button></form><script>(function(){${continueScript(authBasePath)}var form=document.getElementById("app-form"),button=form.querySelector("button"),errorEl=document.getElementById("error");form.addEventListener("submit",async function(event){event.preventDefault();var selected=form.querySelector('input[name="app"]:checked');if(!selected)return;button.disabled=true;errorEl.style.display="none";try{var save=await fetch(${JSON.stringify(SELECT_APP_PATH)},{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({appId:selected.value})});if(!save.ok)throw new Error();await continueAuthorization()}catch{errorEl.textContent="Could not continue authorization.";errorEl.style.display="block";button.disabled=false}})})();</script>`,
+        `<h1>Choose an app</h1><p class="sub">The connected client will upload, list and delete files in this app.</p><div class="error" id="error"></div><form id="app-form"><div class="apps">${choices}</div><button type="submit">Continue</button></form><script>(function(){${continueScript(authBasePath)}var form=document.getElementById("app-form"),button=form.querySelector("button"),errorEl=document.getElementById("error");form.addEventListener("submit",async function(event){event.preventDefault();var selected=form.querySelector('input[name="app"]:checked');if(!selected)return;button.disabled=true;errorEl.style.display="none";try{var save=await fetch(${scriptString(SELECT_APP_PATH)},{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({appId:selected.value})});if(!save.ok)throw new Error();await continueAuthorization()}catch{errorEl.textContent="Could not continue authorization.";errorEl.style.display="block";button.disabled=false}})})();</script>`,
     );
 }
 

@@ -79,7 +79,7 @@
       "name": "@medialit/docs",
       "version": "0.0.0",
       "dependencies": {
-        "@codelitdev/design-system": "0.1.0-alpha.6",
+        "@codelitdev/design-system": "0.3.0",
         "fumadocs-core": "16.7.1",
         "fumadocs-mdx": "14.2.10",
         "fumadocs-openapi": "^10.4.1",
@@ -584,7 +584,7 @@
 
     "@codelitdev/billing": ["@codelitdev/billing@0.3.0", "", { "dependencies": { "drizzle-orm": "^0.45.2", "nanoid": "^5.1.6", "zod": "^3.25.76" }, "peerDependencies": { "dodopayments": "^2.48.0" }, "optionalPeers": ["dodopayments"], "bin": { "codelit-billing": "bin/codelit-billing.js" } }, "sha512-mfGZ9tac8d8H7X5BQA2WCIjtxX/NNlKNaIb19PmJyxFaxAuN6xYt6mOwU7gY/nSHQSetCw3JtpTXGu0Bc7P9kw=="],
 
-    "@codelitdev/design-system": ["@codelitdev/design-system@0.1.0-alpha.6", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-hMqlHp0o1p+qufYWGP1GXfQFjIcei5epOOpjRO0b86MXHA0Tzg845HfK6ALxSGJ6wEu2ksdCNQ8aXDHIjmdc6g=="],
+    "@codelitdev/design-system": ["@codelitdev/design-system@0.3.0", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-z9+0VSd9oB89Dgi9lfpX211TVa7mE8vrEpDp5++4Z3RMvk4E51iEOLLemo+wrYACROXhH++jYxYnKZGE3EHlpg=="],
 
     "@codelitdev/mcp-server-kit": ["@codelitdev/mcp-server-kit@0.3.0", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0", "zod": "^3.25.76" }, "peerDependencies": { "@codelitdev/platform": ">=0.3.0" } }, "sha512-2K0b1zoeu7n2PlHajw3bGgWkC+ea1oJLBK9EYFvD9pubWQxaytJZzSq1ZGtYgOsUweVlnP63IbzweoQYTz7aqA=="],
 

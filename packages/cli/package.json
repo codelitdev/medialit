@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "test": "node --import tsx --test '__tests__/**/*.test.ts'",
+    "test": "bun --filter medialit --filter @medialit/uploader build && node --import tsx --test '__tests__/**/*.test.ts'",
     "prepublishOnly": "bun run build"
   },
   "keywords": [

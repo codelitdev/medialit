@@ -207,7 +207,7 @@ export async function runSyntheticCheck(
     if (heartbeatUrl) {
         const url = result.ok
             ? heartbeatUrl
-            : `${heartbeatUrl.replace(/\/+$/, "")}/fail`;
+            : `${withoutTrailingSlashes(heartbeatUrl)}/fail`;
         try {
             await fetch(url, {
                 method: "POST",
@@ -258,4 +258,11 @@ function describe(error: unknown): string {
     ).cause;
     const reason = cause?.code ?? cause?.message;
     return reason ? `${error.message} (${reason})` : error.message;
+}
+
+// A loop instead of /\/+$/, which is slow on input with many slashes.
+function withoutTrailingSlashes(url: string): string {
+    let end = url.length;
+    while (end > 0 && url[end - 1] === "/") end--;
+    return url.slice(0, end);
 }
