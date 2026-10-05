@@ -9,6 +9,7 @@ const READ_ONLY_TOOLS = new Set([
     "get_media_count",
     "get_total_storage",
     "get_media_settings",
+    "whoami",
 ]);
 
 type Registered = {
@@ -48,7 +49,7 @@ test("every MCP tool rejects a token without its scope", async () => {
     const { server, tools } = fakeServer();
     registerAllTools(server);
 
-    assert.equal(tools.length, 10);
+    assert.equal(tools.length, 11);
     for (const tool of tools) {
         const scope = READ_ONLY_TOOLS.has(tool.name)
             ? "data:read"

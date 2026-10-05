@@ -39,3 +39,16 @@ export const successMessageSchema = z.object({
 export const signatureSchema = z.object({
     signature: z.string(),
 });
+
+export const whoamiSchema = z.object({
+    auth: z.enum(["oauth", "apikey"]),
+    email: z.string(),
+    app: z.object({
+        id: z.string(),
+        name: z.string(),
+        default: z.boolean(),
+    }),
+    files: z.number(),
+    storage: z.number(),
+    maxStorage: z.number(),
+});

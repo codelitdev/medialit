@@ -7,6 +7,7 @@ import { registerMediaTools } from "./tools/media";
 import { registerSignatureTool } from "./tools/signature";
 import { registerSettingsTools } from "./tools/settings";
 import { registerUploadTool } from "./tools/upload";
+import { registerWhoamiTool } from "./tools/whoami";
 import { hasScope, insufficientScopeMessage, toolScope } from "../auth/scopes";
 
 export type McpToolConfig = {
@@ -63,6 +64,7 @@ export function createToolRegistrar(server: McpServer): McpToolRegistrar {
 
 export function registerAllTools(server: McpServer): void {
     const tools = createToolRegistrar(server);
+    registerWhoamiTool(tools);
     registerMediaTools(tools);
     registerSignatureTool(tools);
     registerSettingsTools(tools);
@@ -88,7 +90,7 @@ export function createMCPSession(
         name: "MediaLit",
         version: "1.0.0",
         description:
-            "MediaLit MCP server — manage media files, storage, and upload settings for one MediaLit app: the app picked when the client was authorized, or the API key's app. Supports listing, inspecting, deleting, and sealing media items, querying storage usage, generating upload signatures, and configuring media processing settings.",
+            "MediaLit MCP server — manage media files, storage, and upload settings for one MediaLit app: the app picked when the client was authorized, or the API key's app. Supports listing, inspecting, deleting, and sealing media items, checking the connected account and app (whoami), querying storage usage, generating upload signatures, and configuring media processing settings.",
     });
     registerAllTools(server);
     server.connect(transport);

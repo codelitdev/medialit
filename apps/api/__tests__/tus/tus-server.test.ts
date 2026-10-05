@@ -1,7 +1,7 @@
 import { Constants } from "@medialit/models";
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
-import { handleTusUploadCreate } from "../../src/tus/tus-server";
+import { handleTusUploadCreate, uploadGroup } from "../../src/tus/tus-server";
 import mediaQueries from "../../src/media/queries";
 import { createTusUpload } from "../../src/tus/queries";
 import {
@@ -77,5 +77,18 @@ describe("TUS upload creation", () => {
                 body: NOT_ENOUGH_STORAGE,
             },
         );
+    });
+
+    test("keeps the signature's group when the client sends another", () => {
+        assert.strictEqual(
+            uploadGroup("workspace-42", "client-forged-group"),
+            "workspace-42",
+        );
+    });
+
+    test("uses the client's group when the signature has none", () => {
+        assert.strictEqual(uploadGroup(undefined, "avatars"), "avatars");
+        assert.strictEqual(uploadGroup(null, "avatars"), "avatars");
+        assert.strictEqual(uploadGroup(undefined, undefined), undefined);
     });
 });

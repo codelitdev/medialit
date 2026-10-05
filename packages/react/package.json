@@ -1,0 +1,58 @@
+{
+  "name": "@medialit/react",
+  "version": "0.1.0",
+  "description": "React hook and drop-in upload component for MediaLit",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "tsup && cp src/styles.css dist/styles.css",
+    "test": "node --import tsx --test '__tests__/**/*.test.ts'",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "medialit",
+    "react",
+    "upload",
+    "file upload",
+    "dropzone"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codelitdev/medialit"
+  },
+  "dependencies": {
+    "@medialit/uploader": "workspace:^"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^19",
+    "react": "^19.0.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "bun@1.4.1"
+}

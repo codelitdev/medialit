@@ -1,4 +1,65 @@
 @import "tailwindcss";
-@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/lib/default-colors.css";
 @import "fumadocs-ui/css/preset.css";
 @import "fumadocs-openapi/css/preset.css";
+
+/* Fumadocs applies this class from its packaged runtime. Tailwind does not
+   scan that runtime by default, so ensure the mobile subnav's desktop hide
+   utility is present in the compiled stylesheet. */
+@source inline("md:hidden");
+
+/* The design system's tokens are imported in layout.tsx: Turbopack drops a
+   package @import here without an error. */
+
+/* Keep Fumadocs' layout and components while sourcing every semantic color
+   from the shared CodeLit design system. `data-product="medialit"` on <html>
+   selects MediaLit's purple accent family. */
+@theme inline {
+    --color-fd-background: var(--background);
+    --color-fd-foreground: var(--foreground);
+    --color-fd-card: var(--card);
+    --color-fd-card-foreground: var(--card-foreground);
+    --color-fd-popover: var(--popover);
+    --color-fd-popover-foreground: var(--popover-foreground);
+    --color-fd-primary: var(--primary);
+    --color-fd-primary-foreground: var(--primary-foreground);
+    --color-fd-secondary: var(--secondary);
+    --color-fd-secondary-foreground: var(--secondary-foreground);
+    --color-fd-muted: var(--muted);
+    --color-fd-muted-foreground: var(--muted-foreground);
+    --color-fd-accent: var(--accent);
+    --color-fd-accent-foreground: var(--accent-foreground);
+    --color-fd-border: var(--border);
+    --color-fd-ring: var(--ring);
+    --color-fd-overlay: var(--scrim);
+    --color-fd-error: var(--destructive);
+    --color-fd-warning: var(--warning);
+    --color-fd-success: var(--success);
+}
+
+/* Fumadocs also reads these through var() at runtime (link underlines, callout
+   colors) and redefines them under .dark, which `@theme inline` doesn't
+   override. Declare them as plain variables too, for both themes. */
+:root,
+.dark {
+    --color-fd-background: var(--background);
+    --color-fd-foreground: var(--foreground);
+    --color-fd-card: var(--card);
+    --color-fd-card-foreground: var(--card-foreground);
+    --color-fd-popover: var(--popover);
+    --color-fd-popover-foreground: var(--popover-foreground);
+    --color-fd-primary: var(--primary);
+    --color-fd-primary-foreground: var(--primary-foreground);
+    --color-fd-secondary: var(--secondary);
+    --color-fd-secondary-foreground: var(--secondary-foreground);
+    --color-fd-muted: var(--muted);
+    --color-fd-muted-foreground: var(--muted-foreground);
+    --color-fd-accent: var(--accent);
+    --color-fd-accent-foreground: var(--accent-foreground);
+    --color-fd-border: var(--border);
+    --color-fd-ring: var(--ring);
+    --color-fd-overlay: var(--scrim);
+    --color-fd-error: var(--destructive);
+    --color-fd-warning: var(--warning);
+    --color-fd-success: var(--success);
+}

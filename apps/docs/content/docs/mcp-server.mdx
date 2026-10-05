@@ -6,12 +6,18 @@ icon: Terminal
 
 ## Introduction
 
-MediaLit includes a built-in [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server. Instead of forcing external AI coding assistants (like Claude Code, Cursor, or ChatGPT) to interact through raw REST endpoints, they can query the MCP server to directly discover and run high-level tools.
+Agents create files: reports, images, exports and screenshots. The MediaLit MCP server gives any MCP client a place to keep them and a link to share. Files an agent keeps appear in your [dashboard](/dashboard) and are available to your apps through the API.
 
-The server uses the **Streamable HTTP** transport. Unlike standard stdio-based MCP servers that require running a separate subprocess, the MediaLit MCP server is mounted directly inside the main Express application at the `/mcp` route. This allows it to:
-- Run on the same port and share the same SSL certificates.
-- Reuse the application's authentication middlewares.
-- Be accessible to both remote cloud-based clients (like ChatGPT) and local workspace assistants (like Claude Code).
+Once connected, you can ask things like:
+
+- "Upload this chart as a public file and give me the link."
+- "List the files I uploaded this week."
+- "Delete the drafts you made earlier."
+- "How much storage am I using?"
+
+Uploads from agents are [temporary until sealed](#two-step-upload-flow-drafts--sealing), so an agent's scratch files are cleaned up unless it, or you, decides to keep them. The [CLI](/cli) is different: it seals uploads right away unless the agent passes `--temp`.
+
+The server is at `https://api.medialit.cloud/mcp` and uses the Streamable HTTP transport, so there is nothing to install or run locally.
 
 ---
 
@@ -30,11 +36,19 @@ Once approved, you are logged in and the client will automatically handle connec
 
 MediaLit supports Client ID Metadata Documents (CIMD) for current MCP clients and keeps Dynamic Client Registration (DCR) enabled for compatible clients. Registration identifies the client; users still sign in and approve access before it receives a token.
 
-<Callout type="info" title="Default App Mapping">
-  When connecting via OAuth 2.0, the MCP server automatically associates the session with your **Default API Key**. Consequently, any files uploaded or managed via the MCP tools will be routed and stored under your **Default App**.
+<Callout type="info" title="Choosing an app">
+  If you have more than one app, MediaLit asks which one to connect after you sign in. The agent's uploads and changes all happen in that app. Connect again to choose a different one. The [CLI](/cli) uses the same sign-in.
 </Callout>
 
 
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http medialit https://api.medialit.cloud/mcp
+```
+
+Then run `/mcp` in Claude Code to sign in.
 
 ### 2. API Key Setup (Alternative)
 
@@ -153,10 +167,10 @@ Uploads a new file directly using base64-encoded payload parameters.
   - `access` *("public" | "private", optional)*: Access controls (default: `private`).
   - `group` *(string, optional)*: Custom folder/group tag.
 - **Output:** `{ mediaId: string }`
-- **Limits:** Maximum payload size is restricted to **10MB**. For larger files, generate a signature and use the TUS protocol via REST.
+- **Limits:** Requests to the MCP server are limited to 2 MB, and base64 makes a file about a third larger, so this tool works for files up to about 1.5 MB. For larger files, an agent that can run commands can use the [CLI](/cli), which uploads in resumable chunks. Otherwise, use `create_upload_signature` and upload the file with [`@medialit/uploader`](/other-frameworks) or the REST API.
 
 #### `create_upload_signature`
-Generates a time-limited HMAC signature to authorize direct browser-to-bucket uploads.
+Creates a short-lived [upload signature](/concepts#upload-signatures) that lets a browser or script upload one file to MediaLit without an API key.
 - **Inputs:**
   - `group` *(string, optional)*: Optional group to associate with the uploaded file.
 - **Output:** `{ signature: string }`

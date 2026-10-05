@@ -20,7 +20,7 @@
   "scripts": {
     "prepare": "husky",
     "ci:publish": "bunx changeset publish",
-    "test": "bun run --filter @medialit/api test && bun run --filter medialit test",
+    "test": "bun run --filter @medialit/api test && bun run --filter medialit test && bun run --filter @medialit/uploader test && bun run --filter @medialit/react test && bun run --filter @medialit/cli test",
     "lint": "eslint --cache --quiet",
     "prettier": "prettier --check **/*.{ts,tsx,js,css,md}",
     "lint:fix": "eslint --cache --fix",
@@ -28,7 +28,7 @@
     "release": "./release.sh",
     "dev:api": "bun --filter @medialit/api dev",
     "dev:web": "bun --filter @medialit/web dev --port 3007",
-    "dev:docs": "bun --filter @medialit/docs dev",
+    "dev:docs": "bun --filter @medialit/docs dev --port 3008",
     "script:integration-testing": "bun --filter @medialit/scripts api:integration-testing"
   },
   "lint-staged": {

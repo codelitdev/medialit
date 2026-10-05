@@ -5,7 +5,7 @@ This is a [Next.js](https://nextjs.org) project which demonstrates the usage of 
 This example app demonstrates two upload methods:
 
 1. **Standard Upload** - Traditional single-request upload, best for smaller files
-2. **TUS Resumable Upload** - Multipart resumable uploads using the TUS protocol with:
+2. **TUS Resumable Upload** - The drop-in `MediaLitUploader` component from `@medialit/react`, with its signature route made by `createSignatureHandler` from `medialit`. It provides:
     - Real-time upload progress tracking
     - Automatic retry on failure
     - Cancel upload capability

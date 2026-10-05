@@ -3,7 +3,9 @@ title: Self hosting
 description: Learn how to host MediaLit API 
 ---
 
-This guide explains how to self-host MediaLit with an S3-compatible storage provider.
+This guide explains how to self-host MediaLit with an S3-compatible storage provider. Files are stored in your own buckets, and your apps, agents, the dashboard and the CLI talk to your server instead of medialit.cloud.
+
+To deploy on a single server with Docker Compose, use the [single-server setup](https://github.com/codelitdev/single-server-setup/tree/main/medialit). The steps below configure the storage it needs.
 
 ## Requirements
 1. Two buckets: one dedicated to private files and one to public files.
@@ -104,7 +106,7 @@ DISABLE_TAGGING=true
 
 ### Minio
 
-Minio by default uses Path Style (e.g. `https://minio-api.example.com/bucket-name`) while CourseLit/AWS S3 uses Virtual Hosted Style (e.g. `https://bucket-name.minio-api.example.com`)
+Minio by default uses Path Style (e.g. `https://minio-api.example.com/bucket-name`) while MediaLit/AWS S3 uses Virtual Hosted Style (e.g. `https://bucket-name.minio-api.example.com`)
 
 In order for Minio to be used as object storage backend for MediaLit, additional DNS entry and certificates need to be generated.
 
@@ -202,3 +204,27 @@ CDN_ENDPOINT=https://<your_minio_api_endpoint> # For accessing public bucket con
 ```
 
 > In the Minio setup, you cannot serve private bucket content through the CDN.
+
+## Set upload limits
+
+These variables set the largest file and the total storage per account, in bytes. "Subscribed" applies to accounts with an active subscription. The first user created from `EMAIL` has one.
+
+```sh
+MAX_UPLOAD_SIZE_SUBSCRIBED=2147483648        # 2 GB
+MAX_UPLOAD_SIZE_NOT_SUBSCRIBED=52428800      # 50 MB
+MAX_STORAGE_ALLOWED_SUBSCRIBED=107374182400  # 100 GB
+MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED=1073741824 # 1 GB
+TEMP_MEDIA_EXPIRATION_HOURS=24               # unsealed uploads are deleted after this
+```
+
+## Point your apps at your server
+
+Set `MEDIALIT_ENDPOINT` wherever you use the [Node.js SDK](/node-sdk):
+
+```sh
+MEDIALIT_ENDPOINT=https://medialit.example.com
+MEDIALIT_API_KEY=your_api_key
+```
+
+If your server reaches MediaLit on a different URL than browsers do, for example inside Docker, pass `publicEndpoint` to [`createSignatureHandler`](/node-sdk#createsignaturehandler). MCP clients connect to `https://medialit.example.com/mcp`, and the [CLI](/cli) logs in with `medialit login --endpoint https://medialit.example.com`.
+

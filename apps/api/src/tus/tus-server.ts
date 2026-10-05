@@ -64,6 +64,17 @@ export const server = new Server({
     },
 });
 
+/**
+ * The group bound to the upload signature always wins over the one the
+ * client sends, so apps can trust it to say who an upload belongs to.
+ */
+export function uploadGroup(
+    signatureGroup: string | null | undefined,
+    clientGroup: string | undefined,
+): string | undefined {
+    return signatureGroup ?? clientGroup;
+}
+
 export async function handleTusUploadCreate(req: any, upload: any) {
     const metadata = upload.metadata;
     const { user, apikey, group } = req;
@@ -90,7 +101,7 @@ export async function handleTusUploadCreate(req: any, upload: any) {
                 mimeType: metadata.mimeType || "application/octet-stream",
                 accessControl: metadata.access,
                 caption: metadata.caption,
-                group: metadata.group || group,
+                group: uploadGroup(group, metadata.group),
             },
             tempFilePath: upload.id,
         });

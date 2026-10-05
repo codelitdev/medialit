@@ -9,12 +9,12 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@medialit/react": "workspace:^",
     "lucide-react": "^0.487.0",
     "medialit": "workspace:^",
     "next": "16.3.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tus-js-client": "^4.3.1"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

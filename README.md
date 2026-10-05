@@ -2,7 +2,7 @@
 
 MediaLit is a platform for uploading, transforming, and storing files on any S3-compatible storage provider.
 
-Use it as cloud storage for your apps, a personal media drive, or a file system for AI agents. MediaLit provides both a REST API and an MCP server for managing files programmatically.
+Use it as cloud storage for your apps, a personal media drive, or a file system for AI agents. MediaLit provides a REST API, an MCP server and a CLI for managing files.
 
 ## Managing your files
 
@@ -10,6 +10,10 @@ This repository contains:
 
 - The backend API (under `apps/api`)
 - The frontend (under `apps/web`)
+- The docs (under `apps/docs`)
+- The Node.js SDK (`medialit`, under `packages/medialit`)
+- The browser uploader and React component (`@medialit/uploader` and `@medialit/react`, under `packages/uploader` and `packages/react`)
+- The CLI (`@medialit/cli`, under `packages/cli`)
 
 ### Starting the API
 

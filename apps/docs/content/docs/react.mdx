@@ -1,0 +1,185 @@
+---
+title: React
+description: The MediaLitUploader component and the useMediaLitUpload hook.
+---
+
+`@medialit/react` uploads files from the browser directly to MediaLit with resumable uploads. It works with any React 18 or 19 app, including Next.js, Remix and Vite.
+
+```npm
+npm install @medialit/react
+```
+
+Your server needs a route that returns an upload signature. See [Next.js](/next-app-router#create-the-signature-route) or [`createSignatureHandler`](/node-sdk#createsignaturehandler).
+
+## MediaLitUploader
+
+A drop zone with upload progress, cancel, retry and a preview of the uploaded file.
+
+```tsx
+"use client";
+
+import { MediaLitUploader } from "@medialit/react";
+import "@medialit/react/styles.css";
+
+export function Upload() {
+    return (
+        <MediaLitUploader
+            signatureEndpoint="/api/medialit/signature"
+            onUploadComplete={(media) => console.log(media.mediaId)}
+        />
+    );
+}
+```
+
+### Props
+
+<TypeTable
+  type={{
+    signatureEndpoint: {
+      type: "string",
+      description: "Your route that returns { signature, endpoint }. It is called with POST and the browser's cookies.",
+    },
+    getSignature: {
+      type: "() => Promise<{ signature: string; endpoint: string }>",
+      description: "Use instead of signatureEndpoint when you need to fetch the signature yourself, for example with an Authorization header.",
+    },
+    access: {
+      type: '"public" | "private"',
+      default: '"private"',
+      description: "Who can open the file once it is sealed.",
+    },
+    caption: { type: "string", description: "Stored with the file." },
+    accept: {
+      type: "string",
+      description: 'File types to allow, in the format of <input accept>, such as "image/*,.pdf". Also checked for dropped files.',
+    },
+    maxFileSize: {
+      type: "number",
+      description: "Largest file in bytes. MediaLit also enforces your plan's limit.",
+    },
+    chunkSize: {
+      type: "number",
+      description: "Bytes per request. By default the file is sent in one request.",
+    },
+    onUploadComplete: { type: "(media: UploadedMedia) => void" },
+    onUploadError: { type: "(error: MediaLitUploadError) => void" },
+    labels: {
+      type: "Partial<MediaLitUploaderLabels>",
+      description: "Replace any text, for example to translate it.",
+    },
+    disabled: { type: "boolean", default: "false" },
+    className: { type: "string", description: "Added to the root element." },
+  }}
+/>
+
+### Translate the text
+
+```tsx
+<MediaLitUploader
+    signatureEndpoint="/api/medialit/signature"
+    labels={{
+        prompt: "Déposez un fichier ou cliquez pour parcourir",
+        cancel: "Annuler",
+        uploaded: "Envoyé",
+        uploadAnother: "Envoyer un autre fichier",
+        retry: "Réessayer",
+        chooseAnother: "Choisir un autre fichier",
+        invalidType: "Ce type de fichier n'est pas autorisé",
+        tooLarge: (maxSize) => `Taille maximale : ${maxSize}`,
+    }}
+/>
+```
+
+### Style it
+
+`@medialit/react/styles.css` is optional. It follows the system's light or dark mode, and you can change its colours and corners with CSS variables:
+
+```css
+.medialit-uploader {
+    --medialit-accent: #0f766e;
+    --medialit-accent-contrast: #ffffff;
+    --medialit-radius: 6px;
+    --medialit-font: inherit;
+}
+```
+
+The other variables are `--medialit-text`, `--medialit-muted`, `--medialit-border`, `--medialit-surface`, `--medialit-surface-hover`, `--medialit-track`, `--medialit-success` and `--medialit-error`.
+
+To style it from scratch, skip the stylesheet and target the `medialit-uploader__*` classes. The root element has `data-status` set to `idle`, `uploading`, `success` or `error`.
+
+## useMediaLitUpload
+
+The same upload logic without any markup, for when you want your own UI.
+
+```tsx
+"use client";
+
+import { useMediaLitUpload } from "@medialit/react";
+
+export function UploadButton() {
+    const { upload, cancel, status, progress, media, error } =
+        useMediaLitUpload({
+            signatureEndpoint: "/api/medialit/signature",
+            access: "public",
+        });
+
+    if (status === "uploading") {
+        return (
+            <button onClick={cancel}>Cancel ({Math.round(progress)}%)</button>
+        );
+    }
+
+    return (
+        <div>
+            <input
+                type="file"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) upload(file);
+                }}
+            />
+            {media && <img src={media.thumbnail || media.file} alt="" />}
+            {error && <p role="alert">{error.message}</p>}
+        </div>
+    );
+}
+```
+
+It takes the same options as `MediaLitUploader` except `accept`, `maxFileSize`, `labels`, `disabled` and `className`, and returns:
+
+<TypeTable
+  type={{
+    upload: {
+      type: "(file: File, options?) => Promise<UploadedMedia | null>",
+      description: "Starts an upload and cancels any upload already running. Resolves to null if the upload fails or is cancelled. It never rejects. The options override the hook's options for this upload.",
+    },
+    cancel: { type: "() => void", description: "Stops the upload and returns to idle." },
+    reset: { type: "() => void", description: "Same as cancel. Use it to clear a finished upload." },
+    status: { type: '"idle" | "uploading" | "success" | "error"' },
+    progress: { type: "number", description: "0 to 100." },
+    file: { type: "File | null", description: "The file being uploaded or last uploaded." },
+    media: { type: "UploadedMedia | null", description: "Set when status is success." },
+    error: { type: "MediaLitUploadError | null", description: "Set when status is error. message is MediaLit's reason, such as a file over your plan's limit." },
+  }}
+/>
+
+## UploadedMedia
+
+What an upload returns.
+
+<TypeTable
+  type={{
+    mediaId: { type: "string", description: "Pass this to your server to seal, get or delete the file." },
+    originalFileName: { type: "string" },
+    mimeType: { type: "string" },
+    size: { type: "number", description: "Bytes." },
+    access: { type: '"public" | "private"' },
+    file: { type: "string", description: "A signed URL. Public files get their permanent URL when they are sealed." },
+    thumbnail: { type: "string", description: "Empty when no thumbnail was made." },
+    caption: { type: "string" },
+  }}
+/>
+
+<Callout>
+  Uploads are temporary until your server seals them. See [sealing](/concepts#temporary-uploads-and-sealing).
+</Callout>
