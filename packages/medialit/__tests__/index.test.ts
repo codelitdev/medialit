@@ -210,6 +210,37 @@ describe("MediaLit", () => {
         });
     });
 
+    describe("media IDs", () => {
+        test("rejects IDs that would change the request path", async () => {
+            const client = new MediaLit({ apiKey: mockApiKey });
+            const fetchMock = mock.fn(
+                async () => ({ ok: true, json: async () => ({}) }) as Response,
+            );
+            global.fetch = fetchMock;
+
+            for (const id of [
+                "../signature/create",
+                "..",
+                "a/b",
+                "a?b=1",
+                "a#b",
+                "%2e%2e",
+                "",
+            ]) {
+                await assert.rejects(client.get(id), /Invalid media ID/);
+                await assert.rejects(client.seal(id), /Invalid media ID/);
+                await assert.rejects(client.delete(id), /Invalid media ID/);
+            }
+            assert.strictEqual(fetchMock.mock.calls.length, 0);
+
+            await client.get("Q3VOkZySgoU9vD-nK4qVb7M4dl9Yv5_TdRI836gP");
+            assert.strictEqual(
+                (fetchMock.mock.calls[0].arguments as unknown as [string])[0],
+                "https://api.medialit.cloud/media/get/Q3VOkZySgoU9vD-nK4qVb7M4dl9Yv5_TdRI836gP",
+            );
+        });
+    });
+
     describe("list", () => {
         test("should list media with filters successfully", async () => {
             const client = new MediaLit({ apiKey: mockApiKey });

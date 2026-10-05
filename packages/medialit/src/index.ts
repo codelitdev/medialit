@@ -7,6 +7,7 @@ import { lookup } from "mime-types";
 const BROWSER_ENVIRONMENT_ERROR =
     "MediaLit SDK is only meant to be used in a server-side Node.js environment";
 const API_KEY_REQUIRED = "API Key is required";
+const INVALID_MEDIA_ID = "Invalid media ID";
 
 export interface MediaLitConfig {
     apiKey?: string;
@@ -59,6 +60,18 @@ export class MediaLit {
             config?.endpoint ||
             process.env.MEDIALIT_ENDPOINT ||
             "https://api.medialit.cloud";
+    }
+
+    /**
+     * Media IDs are nanoids. Anything else could change which endpoint the
+     * request reaches (for example "../signature/create") when an app passes
+     * a user-supplied ID, so it is rejected before any request is made.
+     */
+    private mediaUrl(action: "get" | "seal" | "delete", mediaId: string) {
+        if (typeof mediaId !== "string" || !/^[A-Za-z0-9_-]+$/.test(mediaId)) {
+            throw new Error(INVALID_MEDIA_ID);
+        }
+        return `${this.endpoint}/media/${action}/${mediaId}`;
     }
 
     private authHeaders(): Record<string, string> {
@@ -130,16 +143,13 @@ export class MediaLit {
     }
 
     async delete(mediaId: string): Promise<void> {
-        const response = await fetch(
-            `${this.endpoint}/media/delete/${mediaId}`,
-            {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...this.authHeaders(),
-                },
+        const response = await fetch(this.mediaUrl("delete", mediaId), {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json",
+                ...this.authHeaders(),
             },
-        );
+        });
 
         if (!response.ok) {
             const error = await response.json();
@@ -148,7 +158,7 @@ export class MediaLit {
     }
 
     async seal(mediaId: string): Promise<Media> {
-        const response = await fetch(`${this.endpoint}/media/seal/${mediaId}`, {
+        const response = await fetch(this.mediaUrl("seal", mediaId), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -165,7 +175,7 @@ export class MediaLit {
     }
 
     async get(mediaId: string): Promise<Media> {
-        const response = await fetch(`${this.endpoint}/media/get/${mediaId}`, {
+        const response = await fetch(this.mediaUrl("get", mediaId), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
