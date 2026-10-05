@@ -103,6 +103,14 @@ Existing production data can then be copied from Mongo with `MONGO_URL` (or `DB_
 bun --filter=@medialit/api dev
 ```
 
+### Run the integration tests
+
+Pull requests must pass the REST, MCP and CLI integration tests, run against a fresh API with Postgres, MinIO and Mailpit. Run the same check locally (it needs Docker, and leaves your dev stack and `apps/api/.env` alone):
+
+```bash
+bun run test:integration:stack
+```
+
 ### Publishing a new version
 
 ```bash

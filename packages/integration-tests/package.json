@@ -1,0 +1,44 @@
+{
+    "name": "@medialit/integration-tests",
+    "version": "0.1.0",
+    "description": "End-to-end tests and a synthetic check for MediaLit servers",
+    "type": "module",
+    "bin": {
+        "medialit-integration-tests": "dist/bin.mjs"
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "synthetic": "bun src/bin.ts synthetic",
+        "test:integration": "bun --filter @medialit/cli build && bun src/bin.ts all",
+        "test:all": "bun src/bin.ts all",
+        "test:rest": "bun src/bin.ts rest",
+        "test:mcp": "bun src/bin.ts mcp",
+        "test:cli": "bun --filter @medialit/cli build && bun src/bin.ts cli",
+        "prepublishOnly": "bun run build"
+    },
+    "keywords": [
+        "medialit",
+        "monitoring",
+        "synthetic monitoring",
+        "integration tests"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/codelitdev/medialit"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "tsup": "^8.0.0",
+        "typescript": "^5.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

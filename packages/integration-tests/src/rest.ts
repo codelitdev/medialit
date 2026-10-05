@@ -1,15 +1,15 @@
 /**
  * Run against a live API (use an API key with no concurrent media writes):
  * MEDIALIT_APIKEY=... MEDIALIT_SERVER=localhost:8000 \
- *   bun --filter @medialit/scripts api:integration-testing
+ *   bun --filter @medialit/integration-tests test:rest
  *
  * Only this run's media is deleted. The API counts sealed media in list/count/
  * storage totals, so upload accounting is checked when each upload is sealed.
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { generatePng } from "./integration-utils";
-export { generatePng } from "./integration-utils";
+import { generatePng } from "./utils";
+export { generatePng } from "./utils";
 
 type JsonObject = Record<string, unknown>;
 type Access = "public" | "private";
@@ -495,13 +495,4 @@ export async function runIntegrationTests(
     log(
         "PASS MediaLit public API lifecycle; storage and count restored to baseline",
     );
-}
-
-if ((import.meta as ImportMeta & { main?: boolean }).main) {
-    runIntegrationTests().catch((error) => {
-        console.error(
-            `FAIL: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        process.exitCode = 1;
-    });
 }

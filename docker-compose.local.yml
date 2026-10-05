@@ -42,8 +42,11 @@ services:
       timeout: 5s
       retries: 12
 
+  # MinIO no longer publishes images (quay.io/minio and Docker Hub's
+  # minio/minio are gone). Chainguard builds it from source; its image also
+  # includes a shell and mc, which the health check and minio-init use.
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z
+    image: cgr.dev/chainguard/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -60,7 +63,7 @@ services:
       retries: 12
 
   minio-init:
-    image: quay.io/minio/mc:latest
+    image: cgr.dev/chainguard/minio:latest
     restart: "no"
     depends_on:
       minio:

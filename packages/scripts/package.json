@@ -4,9 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "import:mongo": "bun src/import-mongo.ts",
-        "api:integration-testing": "bun src/integration-testing.ts",
-        "api:mcp-integration-testing": "bun src/mcp-integration-testing.ts"
+        "import:mongo": "bun src/import-mongo.ts"
     },
     "dependencies": {
         "dotenv": "^16.0.0",

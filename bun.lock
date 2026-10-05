@@ -208,6 +208,18 @@
         "typescript": "^5.2.2",
       },
     },
+    "packages/integration-tests": {
+      "name": "@medialit/integration-tests",
+      "version": "0.1.0",
+      "bin": {
+        "medialit-integration-tests": "dist/bin.mjs",
+      },
+      "devDependencies": {
+        "@types/node": "^20.0.0",
+        "tsup": "^8.0.0",
+        "typescript": "^5.0.0",
+      },
+    },
     "packages/medialit": {
       "name": "medialit",
       "version": "0.2.0",
@@ -815,6 +827,8 @@
     "@medialit/docs": ["@medialit/docs@workspace:apps/docs"],
 
     "@medialit/images": ["@medialit/images@workspace:packages/images"],
+
+    "@medialit/integration-tests": ["@medialit/integration-tests@workspace:packages/integration-tests"],
 
     "@medialit/models": ["@medialit/models@workspace:packages/models"],
 

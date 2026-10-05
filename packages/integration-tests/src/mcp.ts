@@ -2,14 +2,14 @@
  * Run against a live API with a dedicated key and no concurrent media writes
  * or media-settings changes:
  * MEDIALIT_APIKEY=... MEDIALIT_SERVER=localhost:8000 \
- *   bun --filter @medialit/scripts api:mcp-integration-testing
+ *   bun --filter @medialit/integration-tests test:mcp
  *
  * This exercises the MCP Streamable HTTP endpoint and deletes only media
  * created by this run.
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { generatePng } from "./integration-utils";
+import { generatePng } from "./utils";
 
 type JsonObject = Record<string, unknown>;
 type MediaSettings = JsonObject & {
@@ -35,6 +35,7 @@ const EXPECTED_MCP_TOOLS = [
     "seal_media",
     "update_media_settings",
     "upload_media",
+    "whoami",
 ].sort();
 
 function object(value: unknown, label = "value"): JsonObject {
@@ -347,6 +348,25 @@ export async function runMcpIntegrationTests(
         return object(JSON.parse(body), "signed upload response");
     }
 
+    /** whoami reports the same app usage as the dedicated tools. */
+    async function checkWhoami(expected: Stats & { files: number }) {
+        const result = await client.callTool("whoami");
+        assert.equal(result.auth, "apikey");
+        nonemptyText(result.email, "whoami email");
+        const app = object(result.app, "whoami app");
+        nonemptyText(app.id, "whoami app id");
+        nonemptyText(app.name, "whoami app name");
+        assert.equal(typeof app.default, "boolean");
+        assert.equal(
+            JSON.stringify(result).includes(apiKey!),
+            false,
+            "whoami must not return the API key",
+        );
+        assert.equal(result.files, expected.files);
+        assert.equal(result.storage, expected.storage);
+        assert.equal(result.maxStorage, expected.maxStorage);
+    }
+
     async function checkTotals(bytes: number, files: number): Promise<void> {
         assert(baseline && baselineCount !== undefined);
         const current = await storage();
@@ -357,6 +377,7 @@ export async function runMcpIntegrationTests(
             baseline.maxStorage - baseline.storage - bytes,
         );
         assert.equal(await count(), baselineCount + files);
+        await checkWhoami({ ...current, files: baselineCount + files });
     }
 
     log(`MediaLit MCP integration run ${group} against ${endpoint.origin}`);
@@ -401,7 +422,10 @@ export async function runMcpIntegrationTests(
             [],
             "Run group already contains media",
         );
-        log("PASS get_total_storage, get_media_count and list_media baseline");
+        await checkWhoami({ ...baseline, files: baselineCount });
+        log(
+            "PASS get_total_storage, get_media_count, whoami and list_media baseline",
+        );
 
         const signed = await client.callTool("create_upload_signature", {
             group,
@@ -536,13 +560,4 @@ export async function runMcpIntegrationTests(
         );
     }
     log("PASS MediaLit MCP lifecycle; media and session cleaned up");
-}
-
-if ((import.meta as ImportMeta & { main?: boolean }).main) {
-    runMcpIntegrationTests().catch((error) => {
-        console.error(
-            `FAIL: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        process.exitCode = 1;
-    });
 }
