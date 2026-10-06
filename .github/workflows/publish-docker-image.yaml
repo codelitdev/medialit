@@ -3,7 +3,8 @@ name: Publish Docker image
 on:
   push:
     tags:
-      - '*'
+      # Only release tags. Changesets pushes package tags like medialit@0.3.0.
+      - 'v*'
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
