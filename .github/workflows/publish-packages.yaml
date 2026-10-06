@@ -40,7 +40,6 @@ jobs:
         run: |
           git config --global user.name 'Rajat Saxena'
           git config --global user.email 'hi@sub.rajatsaxena.dev'
-          git remote set-url origin https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -53,7 +52,7 @@ jobs:
           title: "chore: update versions"
           publish: bun run ci:publish
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Echo changeset output
         run: echo "${{ steps.changesets.outputs.hasChangesets }}"
