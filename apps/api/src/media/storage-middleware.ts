@@ -1,8 +1,10 @@
 import { rm } from "node:fs/promises";
+import path from "node:path";
 import { User } from "@medialit/models";
 import { maxStorageFor } from "../billing/entitlements";
 import mediaQueries from "./queries";
 import { FILE_SIZE_EXCEEDED, NOT_ENOUGH_STORAGE } from "../config/strings";
+import { tempFileDirForUploads } from "../config/constants";
 
 import getMaxFileUploadSize from "./utils/get-max-file-upload-size";
 
@@ -89,7 +91,15 @@ export async function hasEnoughStorage(
     return totalSpaceOccupied + size <= maxStorageAllowed;
 }
 
-async function removeTempFile(path: string | undefined) {
-    if (!path) return;
-    await rm(path, { force: true }).catch(() => undefined);
+// Same default as express-fileupload when no temp folder is configured.
+const uploadTempDir = path.resolve(
+    tempFileDirForUploads || path.join(process.cwd(), "tmp"),
+);
+
+/** Deletes an upload's temp file, but never anything outside the temp folder. */
+async function removeTempFile(filePath: string | undefined) {
+    if (!filePath) return;
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(uploadTempDir + path.sep)) return;
+    await rm(resolved, { force: true }).catch(() => undefined);
 }
