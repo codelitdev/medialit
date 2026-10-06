@@ -14,7 +14,7 @@ settings, and upload signatures.
     storage available until you have verified the v0.5.0 deployment.
 </Callout>
 
-The steps below use the official single-server Docker Compose setup and run the
+The steps below use the Docker Compose setup in the MediaLit repository and run the
 data import from your local computer. If you manage PostgreSQL separately, use
 the equivalent commands for your deployment.
 
@@ -30,8 +30,8 @@ from the computer that will run the import.
 ## 2. Prepare the v0.5.0 deployment
 
 Replace the v0.4.0 Compose configuration with the v0.5.0 configuration from the
-[single-server setup](https://github.com/codelitdev/single-server-setup/tree/main/medialit)
-and copy its `.env.example` to `.env`. Review every value before continuing and
+[`docker-compose.yml`](https://github.com/codelitdev/medialit/blob/main/docker-compose.yml)
+in the MediaLit repository and create a `.env` file for it. Review every value before continuing and
 set `TAG=v0.5.0` to pin both application images to this release.
 
 The database variables have changed:
@@ -70,31 +70,18 @@ git clone https://github.com/codelitdev/medialit.git
 cd medialit
 git checkout v0.5.0
 bun install --frozen-lockfile
-cp packages/scripts/.env.example packages/scripts/.env
 ```
 
-Set the source MongoDB and destination PostgreSQL URLs in
-`packages/scripts/.env`:
+Create `packages/scripts/.env` with the source MongoDB and destination
+PostgreSQL URLs:
 
 ```dotenv
 MONGO_URL=mongodb://<mongo-user>:<mongo-password>@<mongo-host>:27017/<mongo-database>
-DATABASE_URL=postgresql://medialit:<postgres-password>@127.0.0.1:5438/medialit
+DATABASE_URL=postgresql://medialit:<postgres-password>@<postgres-host>:<postgres-port>/medialit
 ```
 
 Both databases must be reachable from your local computer. Keep database ports
-private. For example, when PostgreSQL is running on a remote host and its
-Compose port is the default `127.0.0.1:5433`, open an SSH tunnel in a separate
-terminal:
-
-```sh
-ssh -N -L 5438:127.0.0.1:5433 <ssh-user>@<server>
-```
-
-The example `DATABASE_URL` above then connects through local port `5438`. If
-MongoDB is also only reachable from the server, use another SSH tunnel or an
-equivalent private connection. Do not expose either database publicly.
-Percent-encode any special characters used in database usernames or passwords
-before placing them in a connection URL.
+private.
 
 ## 4. Import MongoDB data
 

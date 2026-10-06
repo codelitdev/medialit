@@ -1,6 +1,9 @@
 import { Constants } from "@medialit/models";
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import storageValidation from "../../src/media/storage-middleware";
 import mediaQueries from "../../src/media/queries";
 import {
@@ -183,6 +186,48 @@ describe("storageValidation middleware", () => {
         assert.strictEqual(response.code, 403);
         assert.strictEqual(response.data.error, NOT_ENOUGH_STORAGE);
         assert.strictEqual(nextCalled, false);
+    });
+
+    test("should reject and remove a file truncated at the upload size limit", async () => {
+        const tempFilePath = join(
+            mkdtempSync(join(tmpdir(), "medialit-truncated-")),
+            "upload",
+        );
+        writeFileSync(tempFilePath, "partial");
+        const req = {
+            user: {
+                id: "test-user-id",
+                subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
+            },
+            files: {
+                file: {
+                    size: 1024 * 1024, // Within the limit once cut off
+                    truncated: true,
+                    tempFilePath,
+                },
+            },
+        };
+
+        const res = {
+            status: (code: number) => ({
+                json: (data: any) => ({ code, data }),
+            }),
+        };
+
+        mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
+            async () => 0,
+        );
+
+        let nextCalled = false;
+        const next = () => {
+            nextCalled = true;
+        };
+
+        const response = await storageValidation(req, res, next);
+        assert.strictEqual(response.code, 400);
+        assert.ok(response.data.error.startsWith(FILE_SIZE_EXCEEDED));
+        assert.strictEqual(nextCalled, false);
+        assert.strictEqual(existsSync(tempFilePath), false);
     });
 
     test("should handle missing file in request", async () => {

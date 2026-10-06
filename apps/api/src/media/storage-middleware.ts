@@ -1,3 +1,4 @@
+import { rm } from "node:fs/promises";
 import { User } from "@medialit/models";
 import { maxStorageFor } from "../billing/entitlements";
 import mediaQueries from "./queries";
@@ -22,6 +23,15 @@ export default async function storageValidation(
     if (!req.files?.file) {
         return res.status(400).json({
             error: "No file uploaded",
+        });
+    }
+
+    // express-fileupload cuts a file off at its size limit and only flags it,
+    // so without this check an oversized upload is stored incomplete.
+    if (req.files.file.truncated) {
+        await removeTempFile(req.files.file.tempFilePath);
+        return res.status(400).json({
+            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${getMaxFileUploadSize({ user: req.user })} bytes`,
         });
     }
 
@@ -77,4 +87,9 @@ export async function hasEnoughStorage(
     const maxStorageAllowed = maxStorageFor(user);
 
     return totalSpaceOccupied + size <= maxStorageAllowed;
+}
+
+async function removeTempFile(path: string | undefined) {
+    if (!path) return;
+    await rm(path, { force: true }).catch(() => undefined);
 }

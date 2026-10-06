@@ -5,14 +5,94 @@ description: Learn how to host MediaLit API
 
 This guide explains how to self-host MediaLit with an S3-compatible storage provider. Files are stored in your own buckets, and your apps, agents, the dashboard and the CLI talk to your server instead of medialit.cloud.
 
-To deploy on a single server with Docker Compose, use the [single-server setup](https://github.com/codelitdev/single-server-setup/tree/main/medialit). The steps below configure the storage it needs.
+To run everything on one machine, use [Docker Compose](#run-with-docker-compose). To store files with AWS S3, Cloudflare R2 or your own MinIO instead of the bundled MinIO, see [Configuring storage](#configuring-storage).
 
-## Requirements
+## Run with Docker Compose
+
+The [`docker-compose.yml`](https://github.com/codelitdev/medialit/blob/main/docker-compose.yml) in the MediaLit repository starts the whole stack:
+
+- the API and the dashboard
+- PostgreSQL
+- MinIO for file storage, with a private `medialit` bucket and a public `medialit-public` bucket created on first start
+- Mailpit, which catches the sign-in emails
+- Caddy, a reverse proxy on port 80 that routes each hostname to the right service
+
+### Try it on your computer
+
+```sh
+git clone https://github.com/codelitdev/medialit.git
+cd medialit
+cp .env.example .env
+docker compose up
+```
+
+The values in `.env.example` work as they are:
+
+| What | Address |
+| --- | --- |
+| Dashboard | `http://app.localtest.me` |
+| API | `http://api.localtest.me` |
+| MCP server | `http://api.localtest.me/mcp` |
+| Sign-in emails (Mailpit) | `http://localhost:8025` |
+
+Sign in to the dashboard with the `EMAIL` from `.env`, which is `admin@example.com` by default, and read the code in Mailpit.
+
+To use the [CLI](/cli), run `medialit login --endpoint http://api.localtest.me`.
+
+### Upload a test file
+
+1. In the dashboard, open your app (named **My Store** at first) and go to **Settings**. Copy its API key.
+2. Upload a file. Replace `YOUR_API_KEY` with the key you copied:
+
+    ```sh
+    echo "hello from MediaLit" > test.txt
+    curl -X POST http://api.localtest.me/media/create \
+      -H "x-medialit-apikey: YOUR_API_KEY" \
+      -F "file=@test.txt;type=text/plain" \
+      -F "access=private"
+    ```
+
+    The response is the new file. Note its `mediaId`.
+3. Seal the file. Uploads stay temporary, and are deleted after a while, until you [seal](/concepts#temporary-uploads-and-sealing) them:
+
+    ```sh
+    curl -X POST http://api.localtest.me/media/seal/YOUR_MEDIA_ID \
+      -H "x-medialit-apikey: YOUR_API_KEY"
+    ```
+
+4. In the dashboard, open the app's **Files** tab. The file appears there.
+
+<Callout>
+`localtest.me` is a public domain that always resolves to `127.0.0.1`, so your computer needs a working internet connection to look it up. Do not use `localhost` or `*.localhost` instead: inside the containers those names point to the container itself, and the API must reach its own public address to verify sign-ins from MCP clients and the CLI.
+</Callout>
+
+`.env.example` sets `NODE_ENV=development`, which lets the API run on plain `http://` URLs. It also turns off rate limiting on sign-in and writes sign-in codes to the API's log. Use it only on your computer.
+
+### Run it on a server
+
+1. Point three hostnames at your server with DNS records, for example `medialit.example.com` for the API, `app.medialit.example.com` for the dashboard and `s3.medialit.example.com` for file downloads.
+2. Copy `.env.example` to `.env` and change it:
+    - Set `SITE_ADDRESS`, `WEB_SITE_ADDRESS` and `S3_SITE_ADDRESS` to the three hostnames.
+    - Set `PUBLIC_API_URL` and `WEB_ORIGIN` to the `https://` addresses of the API and the dashboard.
+    - Delete the `NODE_ENV` line.
+    - Generate `BETTER_AUTH_SECRET` with `openssl rand -base64 48`, and choose your own `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`.
+    - Set `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS` and `EMAIL_FROM` to your SMTP server, and remove the `mailpit` service from `docker-compose.yml`.
+3. In `docker-compose.yml`, change the three `http://` storage URLs (`CLOUD_ENDPOINT`, `CLOUD_ENDPOINT_PUBLIC` and `CDN_ENDPOINT`) to `https://`. Browsers open file links from these URLs, and an `https://` dashboard does not load files from `http://` links.
+4. Put a reverse proxy that handles HTTPS in front of Caddy, for example your load balancer or a Caddy or nginx instance on the host. Forward all three hostnames to port 80 and keep the original `Host` header, because Caddy routes requests by hostname. If your proxy needs port 80 on the same server, publish Caddy on another port, for example `"8080:80"`.
+5. Run `docker compose up -d`.
+
+PostgreSQL is published only on `127.0.0.1:5433` and uses the default password `medialit`. Keep it that way: do not open port 5433 in your firewall or publish it on all interfaces.
+
+The API does not start without HTTPS: in production it refuses `http://` URLs in `PUBLIC_API_URL`.
+
+## Configuring storage
+
+The Docker Compose setup stores files in its bundled MinIO. To use another provider, replace the MinIO settings of the `medialit` service in `docker-compose.yml` with the values from the steps below.
+
+### Requirements
 1. Two buckets: one dedicated to private files and one to public files.
 2. Private bucket access settings: public access disabled.
 3. Public bucket access settings: public access enabled.
-
-## Configuring storage
 
 ### AWS S3
 
@@ -45,7 +125,7 @@ CLOUD_KEY=your_aws_access_key
 CLOUD_SECRET=your_aws_secret_key
 CLOUD_BUCKET_NAME=your_bucket_name
 CLOUD_PUBLIC_BUCKET_NAME=your_public_bucket_name
-CLOUD_REGION=ap-southeast-1
+CLOUD_REGION=us-east-1
 CDN_ENDPOINT=https://<bucket-name>.s3.<region>.amazonaws.com
 ```
 

@@ -3,36 +3,9 @@ const nextConfig = {
     output: "standalone",
     transpilePackages: ["@medialit/models", "@codelitdev/observability"],
     images: {
-        remotePatterns: [
-            {
-                protocol: "https",
-                hostname: "courselit-qa.s3.ap-southeast-1.amazonaws.com",
-            },
-            {
-                protocol: "https",
-                hostname: "medialit-prod.s3.ap-southeast-1.amazonaws.com",
-            },
-            {
-                protocol: "https",
-                hostname: "medialit-prod.s3.ap-southeast-1.amazonaws.com",
-            },
-            {
-                protocol: "https",
-                hostname: "dxffh090a1hlp.cloudfront.net",
-            },
-            {
-                protocol: "https",
-                hostname: "d27g932tzd9f7s.cloudfront.net",
-            },
-            {
-                protocol: "https",
-                hostname: "cdn.medialit.clqa.site",
-            },
-            {
-                protocol: "https",
-                hostname: "cdn.medialit.cloud",
-            },
-        ],
+        // Thumbnails come from whatever storage the deployment uses, so the
+        // browser loads them directly instead of through Next's optimizer.
+        unoptimized: true,
     },
 };
 
