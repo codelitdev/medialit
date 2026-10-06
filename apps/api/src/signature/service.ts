@@ -1,7 +1,7 @@
 import logger from "../services/log";
 import { getUser } from "../user/queries";
 import * as queries from "./queries";
-import { PreSignedUrl } from "./model";
+import { PreSignedUrl } from "./queries";
 import { User } from "@medialit/models";
 
 interface PresignedUrlProps {
@@ -25,7 +25,7 @@ export async function getUserAndGroupFromPresignedUrl(
         return null;
     }
 
-    const user: User | null = await getUser(signedUrl!.userId.toString());
+    const user: User | null = await getUser(String(signedUrl.userId));
 
     if (!user) {
         return null;

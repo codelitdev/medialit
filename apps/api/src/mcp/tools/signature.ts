@@ -1,10 +1,11 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../server";
 import { z } from "zod";
 import { generateSignature } from "../../signature/service";
+import { getMcpAuth } from "../auth-context";
 import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
 import { signatureSchema } from "./schemas";
 
-export function registerSignatureTool(server: McpServer): void {
+export function registerSignatureTool(server: McpToolRegistrar): void {
     server.registerTool(
         "create_upload_signature",
         {
@@ -27,11 +28,9 @@ export function registerSignatureTool(server: McpServer): void {
             },
         },
         async (args: any, extra: any) => {
-            const userId = extra.authInfo?.clientId;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 const signature = await generateSignature({
                     userId,

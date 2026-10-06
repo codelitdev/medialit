@@ -45,13 +45,31 @@ const PricingPane = ({
     isSecondary = false,
 }: PricingPaneProps) => {
     return (
-        <div className=" p-4 w-full md:w-[49%] h-80 border border-[#8B8B8B] rounded flex flex-col justify-between mb-[2%]">
+        <div className=" p-4 w-full md:w-[49%] min-h-80 border border-[#8B8B8B] rounded flex flex-col justify-between mb-[2%]">
             <div>
                 <h6 className="text-primary text-lg font-semibold">{name}</h6>
                 <p className="text-muted-foreground">{description}</p>
                 <div className="py-4">
-                    <span className="text-primary font-bold">&#36;{price}</span>
-                    <span className="text-[#6B6666] font-bold"> /month</span>
+                    <div>
+                        <span className="text-primary font-bold">
+                            &#36;{price}
+                        </span>
+                        <span className="text-[#6B6666] font-bold">
+                            {" "}
+                            /month
+                        </span>
+                    </div>
+                    {name === "Pro" && (
+                        <div>
+                            <span className="text-primary font-bold">
+                                &#36;100
+                            </span>
+                            <span className="text-[#6B6666] font-bold">
+                                {" "}
+                                /year
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <div>
                     {features.map((feature) => (

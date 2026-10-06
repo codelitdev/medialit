@@ -1,0 +1,49 @@
+name: Integration tests
+
+# Boots the API with Postgres, MinIO and Mailpit and runs the REST, MCP and
+# CLI integration tests against it. Make "Integration tests / api" a required
+# status check on main to gate pull requests.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: integration-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
+
+      # The API makes thumbnails with ffmpeg and converts images with cwebp.
+      - name: Install ffmpeg and webp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg webp
+
+      - run: bun install --frozen-lockfile
+
+      - name: Run integration tests against a fresh stack
+        run: bash packages/integration-tests/scripts/run-with-local-stack.sh
+        env:
+          API_LOG: ${{ runner.temp }}/api.log
+
+      - name: Upload the API log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-log
+          path: ${{ runner.temp }}/api.log
+          if-no-files-found: ignore

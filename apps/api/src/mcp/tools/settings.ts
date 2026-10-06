@@ -1,18 +1,19 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../server";
 import { z } from "zod";
 import { getMediaSettings } from "../../media-settings/service";
 import { updateMediaSettings } from "../../media-settings/queries";
 import { SUCCESS } from "../../config/strings";
+import { getMcpAuth } from "../auth-context";
 import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
 import { mediaSettingsSchema, successMessageSchema } from "./schemas";
 
-export function registerSettingsTools(server: McpServer): void {
+export function registerSettingsTools(server: McpToolRegistrar): void {
     // get_media_settings
     server.registerTool(
         "get_media_settings",
         {
             description:
-                "Returns the current image processing configuration for the account, including WebP conversion settings and thumbnail dimensions.",
+                "Returns the current image processing configuration for the connected app, including WebP conversion settings and thumbnail dimensions.",
             outputSchema: mediaSettingsSchema,
             annotations: {
                 readOnlyHint: true,
@@ -21,12 +22,10 @@ export function registerSettingsTools(server: McpServer): void {
                 destructiveHint: false,
             },
         },
-        async (extra: any) => {
-            const userId = extra.authInfo?.clientId;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+        async (_args: any, extra: any) => {
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 const settings = await getMediaSettings(userId, apikey);
                 return {
@@ -49,7 +48,7 @@ export function registerSettingsTools(server: McpServer): void {
         "update_media_settings",
         {
             description:
-                "Overwrites image processing settings for the account. Supply only the fields you want to change; omitted fields retain their current values.",
+                "Overwrites image processing settings for the connected app. Supply only the fields you want to change; omitted fields retain their current values.",
             inputSchema: {
                 useWebP: z
                     .boolean()
@@ -83,11 +82,9 @@ export function registerSettingsTools(server: McpServer): void {
             },
         },
         async (args: any, extra: any) => {
-            const userId = extra.authInfo?.clientId;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 await updateMediaSettings({
                     userId,

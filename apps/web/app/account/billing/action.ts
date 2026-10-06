@@ -1,126 +1,57 @@
 "use server";
 
-import { Session } from "@/auth";
-import connectToDatabase from "@/lib/connect-db";
-import UserModel from "@/models/user";
-import { LEMONSQUEEZY_API_KEY } from "@/lib/constants";
 import { auth } from "@/auth";
-import { User } from "@medialit/models";
-import { error } from "@/utils/logger";
+import { serverApi } from "@/lib/server-api";
+
+async function postBilling(
+    path: string,
+    body: Record<string, unknown> = {},
+): Promise<{
+    success: boolean;
+    error?: string;
+    url?: string;
+}> {
+    try {
+        const session = await auth();
+        if (!session?.user) {
+            throw new Error("Unauthorized");
+        }
+        const response = await serverApi(path, {
+            method: "POST",
+            body: JSON.stringify(body),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return {
+                success: false,
+                error: data.error || "Some error occurred",
+            };
+        }
+        const url = data.checkoutUrl || data.portalUrl;
+        return { success: true, url };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function startProCheckout(interval: "month" | "year") {
+    return postBilling("/api/account/billing/checkout", { interval });
+}
+
+export async function openBillingPortal() {
+    return postBilling("/api/account/billing/portal");
+}
 
 export async function cancelSubscription(
     prevState: Record<string, unknown>,
     formData: FormData,
-): Promise<{
-    success: boolean;
-    error?: string;
-}> {
-    try {
-        if (!LEMONSQUEEZY_API_KEY) {
-            throw new Error("Lemon API key not found");
-        }
-
-        const session: Session | null = await auth();
-        if (!session || !session.user) {
-            throw new Error("Unauthorized");
-        }
-
-        await connectToDatabase();
-
-        const user: User | null = await UserModel.findOne({
-            email: session.user.email,
-        });
-
-        if (!user) {
-            throw new Error("Unauthorized");
-        }
-
-        const response = await fetch(
-            `https://api.lemonsqueezy.com/v1/subscriptions/${user.subscriptionId}`,
-            {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/vnd.api+json",
-                    Accept: "application/vnd.api+json",
-                    Authorization: `Bearer ${LEMONSQUEEZY_API_KEY}`,
-                },
-            },
-        );
-        if (response.ok) {
-            const resp = await response.json();
-            return { success: true };
-        }
-
-        throw new Error("Some error occurred");
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
+) {
+    return postBilling("/api/account/billing/cancel");
 }
 
 export async function resumeSubscription(
     prevState: Record<string, unknown>,
     formData: FormData,
-): Promise<{
-    success: boolean;
-    error?: string;
-}> {
-    try {
-        if (!LEMONSQUEEZY_API_KEY) {
-            throw new Error("Lemon API key not found");
-        }
-
-        const session: Session | null = await auth();
-        if (!session || !session.user) {
-            throw new Error("Unauthorized");
-        }
-
-        await connectToDatabase();
-
-        const user: User | null = await UserModel.findOne({
-            email: session.user.email,
-        });
-
-        if (!user) {
-            throw new Error("Unauthorized");
-        }
-
-        const response = await fetch(
-            `https://api.lemonsqueezy.com/v1/subscriptions/${user.subscriptionId}`,
-            {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/vnd.api+json",
-                    Accept: "application/vnd.api+json",
-                    Authorization: `Bearer ${LEMONSQUEEZY_API_KEY}`,
-                },
-                body: JSON.stringify({
-                    data: {
-                        type: "subscriptions",
-                        id: user.subscriptionId,
-                        attributes: {
-                            cancelled: false,
-                        },
-                    },
-                }),
-            },
-        );
-        const resp = await response.json();
-
-        if (response.ok) {
-            return { success: true };
-        }
-
-        error(`Error in resuming subscription`, {
-            userId: user.subscriptionId,
-            apiResponse: resp,
-            statusCode: response.status,
-        });
-        return {
-            success: false,
-            error: "Some error occurred while resuming subscription. Try again in a while.",
-        };
-    } catch (err: any) {
-        error(`Error in resuming subscription`, err.stack);
-        return { success: false, error: err.message };
-    }
+) {
+    return postBilling("/api/account/billing/resume");
 }

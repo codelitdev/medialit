@@ -9,7 +9,7 @@ npm install medialit
 # or
 yarn add medialit
 # or
-pnpm add medialit
+bun add medialit
 ```
 
 ## Usage
@@ -92,6 +92,8 @@ const medialit = new MediaLit({
 
 ### `new MediaLit(config?)`
 
+Pass `accessToken` instead of `apiKey` to call MediaLit with an OAuth access token, for example in a tool that logs users in.
+
 Creates a new MediaLit instance.
 
 #### Parameters:
@@ -111,6 +113,8 @@ Uploads a file to MediaLit. Accepts file path, Buffer, or Readable stream.
     - `access`: 'public' | 'private' (default: 'private')
     - `caption`: Optional caption for the media
     - `group`: Optional group name to organize media
+    - `fileName`: Name to store. Defaults to the file name for a path, otherwise `file`. Its extension sets the type.
+    - `mimeType`: Overrides the type found from the file name
 
 #### Returns:
 
@@ -194,33 +198,32 @@ Updates the media settings.
     - `thumbnailWidth`: Width of generated thumbnails
     - `thumbnailHeight`: Height of generated thumbnails
 
-### `getPresignedUploadUrl(options?: { group?: string }): Promise<string>`
+### `getSignature(options?: { group?: string }): Promise<string>`
 
-Gets a presigned URL for direct upload to MediaLit. You can share the generated URL to the client side apps.
+Creates a short-lived signature that lets a browser upload to MediaLit without your API key. Uploads made with it go into `group` when you pass one.
 
-#### Parameters:
+### `createSignatureHandler(options): (request: Request) => Promise<Response>`
 
-- `options` (optional):
-    - `group`: Optional group name to organize media
+Creates a `POST` route handler that returns `{ signature, endpoint }` for browser uploads with [`@medialit/react`](../react) or [`@medialit/uploader`](../uploader). It works anywhere with the Fetch API `Request` and `Response`, such as Next.js route handlers, Hono, Remix, and Bun.
 
-#### Returns:
+```typescript
+// app/api/medialit/signature/route.ts
+import { createSignatureHandler } from "medialit";
 
-- Promise resolving to a presigned URL string
+export const POST = createSignatureHandler({
+    authorize: async (request) => {
+        const user = await getUser(request); // your app's auth
+        return user ? { group: user.teamId } : false;
+    },
+});
+```
 
-<!-- ### `uploadWithPresignedUrl(presignedUrl: string, file: File, options?: UploadOptions): Promise<Media>`
+#### Options:
 
-Uploads a file using a presigned URL.
-
-#### Parameters:
-- `presignedUrl`: The presigned URL obtained from `getPresignedUploadUrl()`
-- `file`: A File object to upload
-- `options` (optional):
-  - `access`: 'public' | 'private' (default: 'private')
-  - `caption`: Optional caption for the media
-  - `group`: Optional group name to organize media
-
-#### Returns:
-- Promise resolving to the uploaded media object -->
+- `authorize` (required): Return `false` or `null` to refuse with 401, `true` to allow, or `{ group }` to allow and put the uploads in a group. Anyone who passes this check can upload to your MediaLit app.
+- `apiKey`, `endpoint` (optional): Same as the constructor. They are read when the first request arrives.
+- `client` (optional): An existing `MediaLit` client to use instead.
+- `publicEndpoint` (optional): The MediaLit URL the browser should use when it differs from the one your server uses, for example inside Docker.
 
 ## Media Object Structure
 
@@ -301,7 +304,7 @@ try {
 ### Running Tests
 
 ```bash
-pnpm test
+bun run test
 ```
 
 ## TypeScript Support

@@ -5,6 +5,8 @@ import {
 } from "./handlers";
 import apikey from "../apikey/middleware";
 import { authenticatedApiLimiter } from "../auth/limiters";
+import { DATA_READ_SCOPE, DATA_WRITE_SCOPE } from "../auth/options";
+import { requireScope } from "../auth/scopes";
 
 export default (passport: any) => {
     const router = express.Router();
@@ -43,6 +45,7 @@ export default (passport: any) => {
         */
         authenticatedApiLimiter,
         apikey,
+        requireScope(DATA_WRITE_SCOPE),
         updateMediaSettingsHandler,
     );
 
@@ -66,6 +69,7 @@ export default (passport: any) => {
         */
         authenticatedApiLimiter,
         apikey,
+        requireScope(DATA_READ_SCOPE),
         getMediaSettingsHandler,
     );
 

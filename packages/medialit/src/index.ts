@@ -1,13 +1,18 @@
 import type { Media } from "./types";
-import { createReadStream } from "fs";
+import { readFile } from "fs/promises";
+import { basename } from "path";
 import { Readable } from "stream";
+import { lookup } from "mime-types";
 
 const BROWSER_ENVIRONMENT_ERROR =
     "MediaLit SDK is only meant to be used in a server-side Node.js environment";
 const API_KEY_REQUIRED = "API Key is required";
+const INVALID_MEDIA_ID = "Invalid media ID";
 
 export interface MediaLitConfig {
     apiKey?: string;
+    /** An OAuth access token, used instead of an API key. */
+    accessToken?: string;
     endpoint?: string;
 }
 
@@ -15,6 +20,10 @@ export interface UploadOptions {
     group?: string;
     access?: "private" | "public";
     caption?: string;
+    /** Defaults to the file's name for a path. Its extension sets the type. */
+    fileName?: string;
+    /** Defaults to the type for the file name's extension. */
+    mimeType?: string;
 }
 
 export interface MediaStats {
@@ -33,20 +42,42 @@ export interface MediaSettings {
 export type FileInput = string | Buffer | Readable;
 
 export class MediaLit {
-    private apiKey: string;
+    private apiKey?: string;
+    private accessToken?: string;
     public endpoint: string;
 
     constructor(config?: MediaLitConfig) {
         this.checkBrowserEnvironment();
-        const apiKey = config?.apiKey || process.env.MEDIALIT_API_KEY || "";
-        if (!apiKey) {
-            throw new Error(API_KEY_REQUIRED);
+        if (config?.accessToken) {
+            this.accessToken = config.accessToken;
+        } else {
+            this.apiKey = config?.apiKey || process.env.MEDIALIT_API_KEY;
+            if (!this.apiKey) {
+                throw new Error(API_KEY_REQUIRED);
+            }
         }
-        this.apiKey = apiKey;
         this.endpoint =
             config?.endpoint ||
             process.env.MEDIALIT_ENDPOINT ||
             "https://api.medialit.cloud";
+    }
+
+    /**
+     * Media IDs are nanoids. Anything else could change which endpoint the
+     * request reaches (for example "../signature/create") when an app passes
+     * a user-supplied ID, so it is rejected before any request is made.
+     */
+    private mediaUrl(action: "get" | "seal" | "delete", mediaId: string) {
+        if (typeof mediaId !== "string" || !/^[A-Za-z0-9_-]+$/.test(mediaId)) {
+            throw new Error(INVALID_MEDIA_ID);
+        }
+        return `${this.endpoint}/media/${action}/${mediaId}`;
+    }
+
+    private authHeaders(): Record<string, string> {
+        return this.accessToken
+            ? { authorization: `Bearer ${this.accessToken}` }
+            : { "x-medialit-apikey": this.apiKey! };
     }
 
     private checkBrowserEnvironment() {
@@ -57,28 +88,39 @@ export class MediaLit {
 
     private async createFormData(
         file: FileInput,
-    ): Promise<{ formData: any; filename: string }> {
-        const FormData = (await import("form-data")).default;
-        const formData = new FormData();
-
+        options: UploadOptions,
+    ): Promise<FormData> {
+        // Copied into Uint8Arrays because Node's Buffer type is not a BlobPart.
+        const parts: Uint8Array[] = [];
+        let name = options.fileName;
         if (typeof file === "string") {
-            // File path
-            formData.append("file", createReadStream(file));
-            return { formData, filename: file.split("/").pop() || "unknown" };
+            parts.push(new Uint8Array(await readFile(file)));
+            name ??= basename(file);
         } else if (Buffer.isBuffer(file)) {
-            formData.append("file", file, "file");
-            return { formData, filename: "buffer" };
+            parts.push(new Uint8Array(file));
         } else if (file instanceof Readable) {
-            formData.append("file", file);
-            return { formData, filename: "stream" };
+            for await (const chunk of file) {
+                parts.push(new Uint8Array(Buffer.from(chunk)));
+            }
+            const path = (file as Readable & { path?: unknown }).path;
+            if (typeof path === "string") name ??= basename(path);
+        } else {
+            throw new Error(
+                "Invalid file input. Must be a file path, Buffer, or Readable stream",
+            );
         }
-        throw new Error(
-            "Invalid file input. Must be a file path, Buffer, or Readable stream",
-        );
+        name ??= "file";
+        const type =
+            options.mimeType || lookup(name) || "application/octet-stream";
+
+        // Node's fetch only sends its own FormData, not the form-data package.
+        const formData = new FormData();
+        formData.append("file", new Blob(parts as BlobPart[], { type }), name);
+        return formData;
     }
 
     async upload(file: FileInput, options: UploadOptions = {}): Promise<Media> {
-        const { formData } = await this.createFormData(file);
+        const formData = await this.createFormData(file, options);
 
         if (options.access) formData.append("access", options.access);
         if (options.caption) formData.append("caption", options.caption);
@@ -87,8 +129,7 @@ export class MediaLit {
         const response = await fetch(`${this.endpoint}/media/create`, {
             method: "POST",
             headers: {
-                ...formData.getHeaders(),
-                "x-medialit-apikey": this.apiKey,
+                ...this.authHeaders(),
             },
             body: formData,
         });
@@ -102,16 +143,13 @@ export class MediaLit {
     }
 
     async delete(mediaId: string): Promise<void> {
-        const response = await fetch(
-            `${this.endpoint}/media/delete/${mediaId}`,
-            {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-medialit-apikey": this.apiKey,
-                },
+        const response = await fetch(this.mediaUrl("delete", mediaId), {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json",
+                ...this.authHeaders(),
             },
-        );
+        });
 
         if (!response.ok) {
             const error = await response.json();
@@ -120,11 +158,11 @@ export class MediaLit {
     }
 
     async seal(mediaId: string): Promise<Media> {
-        const response = await fetch(`${this.endpoint}/media/seal/${mediaId}`, {
+        const response = await fetch(this.mediaUrl("seal", mediaId), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-medialit-apikey": this.apiKey,
+                ...this.authHeaders(),
             },
         });
 
@@ -137,11 +175,11 @@ export class MediaLit {
     }
 
     async get(mediaId: string): Promise<Media> {
-        const response = await fetch(`${this.endpoint}/media/get/${mediaId}`, {
+        const response = await fetch(this.mediaUrl("get", mediaId), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-medialit-apikey": this.apiKey,
+                ...this.authHeaders(),
             },
         });
 
@@ -158,24 +196,15 @@ export class MediaLit {
         limit: number = 10,
         filters: { access?: "private" | "public"; group?: string } = {},
     ): Promise<Media[]> {
-        const params = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-        });
-
-        if (filters.access) params.append("access", filters.access);
-        if (filters.group) params.append("group", filters.group);
-
-        const response = await fetch(
-            `${this.endpoint}/media/get?${params.toString()}`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-medialit-apikey": this.apiKey,
-                },
+        // The API reads these from the body, not the query string.
+        const response = await fetch(`${this.endpoint}/media/get`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...this.authHeaders(),
             },
-        );
+            body: JSON.stringify({ page, limit, ...filters }),
+        });
 
         if (!response.ok) {
             const error = await response.json();
@@ -192,7 +221,7 @@ export class MediaLit {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "x-medialit-apikey": this.apiKey,
+                    ...this.authHeaders(),
                 },
                 body: JSON.stringify({
                     ...(options.group ? { group: options.group } : {}),
@@ -214,7 +243,7 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-medialit-apikey": this.apiKey,
+                ...this.authHeaders(),
             },
         });
 
@@ -232,7 +261,7 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-medialit-apikey": this.apiKey,
+                ...this.authHeaders(),
             },
         });
 
@@ -249,7 +278,7 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-medialit-apikey": this.apiKey,
+                ...this.authHeaders(),
             },
         });
 
@@ -266,7 +295,7 @@ export class MediaLit {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-medialit-apikey": this.apiKey,
+                ...this.authHeaders(),
             },
             body: JSON.stringify({
                 ...settings,
@@ -281,3 +310,8 @@ export class MediaLit {
 }
 
 export type { Media } from "./types";
+export { createSignatureHandler } from "./signature-handler";
+export type {
+    SignatureGrant,
+    SignatureHandlerOptions,
+} from "./signature-handler";

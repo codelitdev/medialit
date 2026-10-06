@@ -1,14 +1,10 @@
 import Joi from "joi";
-import {
-    maxStorageAllowedNotSubscribed,
-    maxStorageAllowedSubscribed,
-} from "../config/constants";
 import { FILE_IS_REQUIRED, NOT_FOUND, SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
-import { getSubscriptionStatus } from "@medialit/models";
+import { maxStorageFor } from "../billing/entitlements";
 import { getSignatureFromReq } from "../signature/utils";
 import { getMediaSchema, uploadMediaSchema } from "./schemas";
 
@@ -113,9 +109,7 @@ export async function getTotalSpaceOccupied(req: any, res: any) {
         const totalSpaceOccupied = await getTotalSpace({ userId, apikey });
         return res.status(200).json({
             storage: totalSpaceOccupied,
-            maxStorage: getSubscriptionStatus(req.user)
-                ? maxStorageAllowedSubscribed
-                : maxStorageAllowedNotSubscribed,
+            maxStorage: maxStorageFor(req.user),
         });
     } catch (err: any) {
         return res.status(500).json({ error: err.message });

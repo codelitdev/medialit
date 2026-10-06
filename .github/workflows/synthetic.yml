@@ -1,0 +1,51 @@
+name: Synthetic check
+
+# Checks every 10 minutes that MediaLit can upload, seal, serve and delete a
+# file. Set up before it does anything:
+# - secret MEDIALIT_SYNTHETIC_APIKEY: the API key of an app used only for
+#   monitoring
+# - secret MEDIALIT_SYNTHETIC_HEARTBEAT_URL: a heartbeat monitor (Better Stack,
+#   Healthchecks.io) that alerts on /fail and when pings stop
+# - variable MEDIALIT_SYNTHETIC_SERVER: defaults to https://api.medialit.cloud
+#
+# GitHub can delay scheduled runs and disables them in repositories without
+# recent activity. The heartbeat alerts you when that happens too, so give
+# it a period of about 30 minutes.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: synthetic
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MEDIALIT_APIKEY: ${{ secrets.MEDIALIT_SYNTHETIC_APIKEY }}
+      MEDIALIT_SYNTHETIC_HEARTBEAT_URL: ${{ secrets.MEDIALIT_SYNTHETIC_HEARTBEAT_URL }}
+      MEDIALIT_SERVER: ${{ vars.MEDIALIT_SYNTHETIC_SERVER || 'https://api.medialit.cloud' }}
+    steps:
+      - name: Skip until configured
+        if: ${{ env.MEDIALIT_APIKEY == '' }}
+        run: echo "::notice::Set the MEDIALIT_SYNTHETIC_APIKEY secret to enable the synthetic check."
+
+      # Runs the checked-out code, not the npm package, so a compromised
+      # package can't see the monitoring key.
+      - uses: actions/checkout@v4
+        if: ${{ env.MEDIALIT_APIKEY != '' }}
+      - uses: oven-sh/setup-bun@v2
+        if: ${{ env.MEDIALIT_APIKEY != '' }}
+        with:
+          bun-version: 1.4.1
+      - name: Run synthetic check
+        if: ${{ env.MEDIALIT_APIKEY != '' }}
+        # The synthetic check only uses Node built-ins, so it needs no install.
+        run: bun packages/integration-tests/src/bin.ts synthetic

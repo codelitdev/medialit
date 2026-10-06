@@ -1,133 +1,78 @@
 "use server";
 
-import { auth, Session } from "@/auth";
-import connectToDatabase from "@/lib/connect-db";
-import {
-    createApiKey,
-    getApiKeysByUserId,
-    deleteApiKey,
-    editApiKey,
-    getApikeyFromKeyId,
-} from "@/lib/apikey-handlers";
-import { getUserFromSession } from "@/lib/user-handlers";
-import { Apikey } from "@medialit/models";
-import UserModel from "@/models/user";
-import { User } from "@medialit/models";
+import { auth, type Session } from "@/auth";
+import { serverApi } from "@/lib/server-api";
+import { Apikey, User } from "@medialit/models";
 
-export async function getUser(): Promise<any | null> {
-    const session: Session | null = await auth();
-    if (!session || !session.user) {
-        return null;
-    }
-    return session.user;
+async function errorMessage(response: Response) {
+    const data = await response.json().catch(() => ({}));
+    return data.error || "Request failed";
 }
 
-export async function getSubscriber(): Promise<Pick<
-    User,
-    | "id"
-    | "active"
-    | "userId"
-    | "email"
-    | "subscriptionEndsAfter"
-    | "subscriptionStatus"
-> | null> {
-    const session: Session | null = await auth();
-    if (!session || !session.user) {
-        return null;
-    }
+export async function getUser(): Promise<Session["user"] | null> {
+    const session = await auth();
+    return session?.user ?? null;
+}
 
-    await connectToDatabase();
-
-    return await UserModel.findOne(
-        { email: session.user.email },
-        {
-            email: 1,
-            userId: 1,
-            subscriptionEndsAfter: 1,
-            subscriptionStatus: 1,
-            subscribedToUpdates: 1,
-            _id: 0,
-        },
-    );
+export async function getSubscriber(): Promise<
+    | (Pick<
+          User,
+          | "id"
+          | "active"
+          | "userId"
+          | "email"
+          | "subscriptionEndsAfter"
+          | "subscriptionStatus"
+          | "subscriptionMethod"
+      > & {
+          plan: "oss" | "basic" | "pro";
+          deploymentMode: "oss" | "cloud";
+      })
+    | null
+> {
+    const session = await auth();
+    if (!session?.user) return null;
+    const response = await serverApi("/api/account");
+    if (!response.ok) return null;
+    return response.json();
 }
 
 export async function getApiKeys() {
-    await connectToDatabase();
-
     const session = await auth();
-    if (!session || !session.user) {
-        return;
-    }
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        return;
-    }
-
-    const apikeys = await getApiKeysByUserId(dbUser._id);
-    return apikeys;
+    if (!session?.user) return;
+    const response = await serverApi("/api/apps");
+    if (!response.ok) return;
+    return response.json();
 }
 
 export async function getApikeyUsingKeyId(
     keyId: string,
 ): Promise<Pick<Apikey, "name" | "key" | "keyId" | "default"> | null> {
     const session = await auth();
-    if (!session || !session.user) {
+    if (!session?.user) {
         throw new Error("Unauthenticated");
     }
-
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        throw new Error("User not found");
+    const response = await serverApi(`/api/apps/${encodeURIComponent(keyId)}`);
+    if (response.status === 404) return null;
+    if (!response.ok) {
+        throw new Error(await errorMessage(response));
     }
-
-    const apikey = await getApikeyFromKeyId(dbUser._id, keyId);
-
-    if (!apikey) {
-        return null;
-    }
-
-    return {
-        keyId: apikey.keyId,
-        name: apikey.name,
-        key: apikey.key,
-        default: apikey.default,
-    };
-}
-
-export async function createApiKeyForUser(
-    name: string,
-): Promise<{ key: string } | undefined> {
-    if (!name) {
-        throw new Error("Name is required");
-    }
-
-    const session = await auth();
-    if (!session || !session.user) {
-        return;
-    }
-
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        return;
-    }
-
-    const apikey = await createApiKey(dbUser._id, name);
-    return { key: apikey.key };
+    return response.json();
 }
 
 export async function createNewApiKey(
     prevState: Record<string, unknown>,
     formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
-    const apikey = formData.get("apiKey") as string;
-
+    const name = formData.get("apiKey") as string;
     try {
-        const result = await createApiKeyForUser(apikey);
+        const response = await serverApi("/api/apps", {
+            method: "POST",
+            body: JSON.stringify({ name }),
+        });
+        if (!response.ok) {
+            return { success: false, error: await errorMessage(response) };
+        }
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };
@@ -137,30 +82,14 @@ export async function createNewApiKey(
 export async function deleteApiKeyOfUser(
     keyId: string,
 ): Promise<{ success: boolean; error?: string }> {
-    const session = await auth();
-    if (!session || !session.user) {
-        return { success: false, error: "Invalid session" };
-    }
-
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        return { success: false, error: "Invalid User" };
-    }
-
-    const apikey = await getApikeyFromKeyId(dbUser._id, keyId);
-
-    if (!apikey) {
-        return { success: false, error: "Apikey not found" };
-    }
-
-    if (apikey.default) {
-        return { success: false, error: "Default Apikey cannot be deleted" };
-    }
-
     try {
-        const result = await deleteApiKey(dbUser._id, keyId);
+        const response = await serverApi(
+            `/api/apps/${encodeURIComponent(keyId)}`,
+            { method: "DELETE" },
+        );
+        if (!response.ok) {
+            return { success: false, error: await errorMessage(response) };
+        }
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };
@@ -173,24 +102,27 @@ export async function editApiKeyforUser(
 ): Promise<{ success: boolean; error?: string }> {
     const name = formData.get("name") as string;
     const newName = formData.get("newName") as string;
-
-    const session = await auth();
-    if (!session || !session.user) {
-        return { success: false, error: "Invalid session" };
+    if (!newName || !name) {
+        return { success: false, error: "Bad request" };
     }
-
-    if (!newName && !name) {
-        throw new Error("Bad request");
+    const apps = await getApiKeys();
+    const match = Array.isArray(apps)
+        ? apps.find((app) => app.name === name)
+        : null;
+    if (!match) {
+        return { success: false, error: "Apikey not found" };
     }
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        return { success: false, error: "Invalid User" };
-    }
-
     try {
-        const result = await editApiKey({ userId: dbUser._id, name, newName });
+        const response = await serverApi(
+            `/api/apps/${encodeURIComponent(match.keyId)}`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({ name: newName }),
+            },
+        );
+        if (!response.ok) {
+            return { success: false, error: await errorMessage(response) };
+        }
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };

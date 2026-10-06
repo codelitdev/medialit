@@ -1,209 +1,120 @@
 ---
 title: Express
-description: Integrate MediaLit with Express
+description: Use MediaLit from an Express backend.
 ---
 
-This setup uses the `medialit` server-side SDK with Express and `multer`.
-You can find a runnable reference app in [examples/express](https://github.com/codelitdev/medialit/tree/main/examples/express).
+There are two ways to get files into MediaLit from an Express app:
 
-## 1. Install dependencies
+- **Your server uploads.** The browser sends the file to your server, which passes it on to MediaLit. This is simplest for small files and for files your server creates.
+- **The browser uploads.** Your server hands out a short-lived signature and the browser sends the file straight to MediaLit. Large files don't pass through your server, and dropped connections resume.
 
-```bash
-pnpm add express multer medialit cors
+A runnable app is in [examples/express](https://github.com/codelitdev/medialit/tree/main/examples/express).
+
+## Set up
+
+```npm
+npm install express multer medialit
 ```
 
-## 2. Add environment variables
-
-```bash
-MEDIALIT_API_KEY=your_api_key_here
-# Optional for self-hosted MediaLit
-MEDIALIT_ENDPOINT=http://localhost:3001
-PORT=4000
+```bash title=".env"
+MEDIALIT_API_KEY=your_api_key
+# Only if you self-host MediaLit
+# MEDIALIT_ENDPOINT=https://medialit.example.com
 ```
 
-## 3. Create Express server
-
-Create `server.js` (or `server.ts`) and add:
-
-```js
+```js title="server.js"
 import express from "express";
-import cors from "cors";
 import multer from "multer";
-import { readFile, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import { MediaLit } from "medialit";
 
 const app = express();
-const upload = multer({ dest: "uploads/" });
-const client = new MediaLit();
-
-app.use(cors());
 app.use(express.json());
 
-// Upload via server
-app.post("/api/medialit/upload", upload.single("file"), async (req, res) => {
-  try {
+const medialit = new MediaLit(); // reads MEDIALIT_API_KEY
+const upload = multer({ dest: "uploads/" });
+```
+
+## Upload from your server
+
+```js title="server.js"
+app.post("/photos", upload.single("file"), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "file is required" });
-    if (!process.env.MEDIALIT_API_KEY) {
-      return res.status(500).json({ error: "MEDIALIT_API_KEY is missing" });
+
+    try {
+        const media = await medialit.upload(req.file.path, {
+            fileName: req.file.originalname,
+            mimeType: req.file.mimetype,
+            access: "public",
+        });
+        // Your server decided to keep the file, so seal it right away.
+        const sealed = await medialit.seal(media.mediaId);
+        // Save sealed.mediaId and sealed.file in your database.
+        res.json(sealed);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await unlink(req.file.path).catch(() => {});
     }
-
-    const bytes = await readFile(req.file.path);
-    const formData = new FormData();
-    formData.append(
-      "file",
-      new Blob([bytes], { type: req.file.mimetype }),
-      req.file.originalname || req.file.filename,
-    );
-    formData.append("access", req.body.access === "public" ? "public" : "private");
-    if (req.body.caption) formData.append("caption", req.body.caption);
-    if (req.body.group) formData.append("group", req.body.group);
-
-    const uploadResponse = await fetch(`${client.endpoint}/media/create`, {
-      method: "POST",
-      headers: {
-        "x-medialit-apikey": process.env.MEDIALIT_API_KEY,
-      },
-      body: formData,
-    });
-    const media = await uploadResponse.json();
-    if (!uploadResponse.ok) throw new Error(media.error || "Upload failed");
-    if (!media.mediaId) throw new Error("Upload succeeded but mediaId is missing");
-
-    // Seal uploaded media so it persists and appears in list/get APIs.
-    const sealedMedia = await client.seal(media.mediaId);
-
-    // cleanup temp file
-    await unlink(req.file.path).catch(() => undefined);
-
-    return res.json(sealedMedia);
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
-// List media
-app.get("/api/medialit", async (req, res) => {
-  try {
-    const page = Number.parseInt(String(req.query.page ?? "1"));
-    const limit = Number.parseInt(String(req.query.limit ?? "10"));
-    const access = req.query.access;
-    const group = req.query.group;
-
-    const media = await client.list(page, limit, {
-      access: access === "public" || access === "private" ? access : undefined,
-      group: typeof group === "string" ? group : undefined,
-    });
-
-    return res.json(media);
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
-// Get media by id
-app.get("/api/medialit/:id", async (req, res) => {
-  try {
-    const media = await client.get(req.params.id);
-    return res.json(media);
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
-// Delete media
-app.delete("/api/medialit/:id", async (req, res) => {
-  try {
-    await client.delete(req.params.id);
-    return res.json({ success: true });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
-// Count media
-app.get("/api/medialit/count", async (_req, res) => {
-  try {
-    const count = await client.getCount();
-    return res.json({ count });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
-// Optional: signature for browser direct upload
-app.post("/api/medialit/signature", async (req, res) => {
-  try {
-    const signature = await client.getSignature({
-      group: req.body.group,
-    });
-
-    return res.json({
-      endpoint: client.endpoint,
-      signature,
-    });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
-const port = Number(process.env.PORT ?? 4000);
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
 });
 ```
 
-## 4. Start server
+Try it:
 
 ```bash
-node --env-file=.env server.js
+curl -F "file=@photo.jpg" http://localhost:4000/photos
 ```
 
-## 5. Test upload endpoint
+## Let browsers upload
 
-```bash
-curl -X POST http://localhost:4000/api/medialit/upload \
-  -F "file=@/absolute/path/to/image.jpg" \
-  -F "access=public" \
-  -F "caption=My first upload"
+Add a route that gives signed-in users an upload signature:
+
+```js title="server.js"
+app.post("/api/medialit/signature", requireUser, async (req, res) => {
+    try {
+        const signature = await medialit.getSignature({
+            group: req.user.id, // optional
+        });
+        res.json({ signature, endpoint: medialit.endpoint });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 ```
 
-This example seals uploaded media as part of the same `/api/medialit/upload` route:
+`requireUser` stands for your app's authentication middleware. Anyone who can call this route can upload to your MediaLit app.
 
-```js
-const sealedMedia = await client.seal(media.mediaId);
-return res.json(sealedMedia);
+In the browser, use [`@medialit/react`](/react) or [`@medialit/uploader`](/other-frameworks) with `signatureEndpoint: "/api/medialit/signature"`. When the user saves, send the `mediaId` to your server and seal it:
+
+```js title="server.js"
+app.post("/profile/avatar", requireUser, async (req, res) => {
+    const media = await medialit.seal(req.body.mediaId);
+    // Save media.mediaId and media.file with the user's profile.
+    res.json(media);
+});
 ```
 
-If you remove that line from the route, uploaded files may not persist or appear in list/get results.
+Files that are never sealed are deleted after 24 hours. See [sealing](/concepts#temporary-uploads-and-sealing).
 
-## 6. Get media list
+## List, get and delete
 
-```bash
-curl "http://localhost:4000/api/medialit?page=1&limit=10"
+```js title="server.js"
+app.get("/photos", async (req, res) => {
+    const page = Number(req.query.page ?? 1);
+    res.json(await medialit.list(page, 20, { access: "public" }));
+});
+
+app.get("/photos/:id", async (req, res) => {
+    // Private files get a fresh signed URL each time.
+    res.json(await medialit.get(req.params.id));
+});
+
+app.delete("/photos/:id", async (req, res) => {
+    await medialit.delete(req.params.id);
+    res.status(204).end();
+});
+
+app.listen(4000);
 ```
 
-Optional filters:
-
-```bash
-curl "http://localhost:4000/api/medialit?page=1&limit=10&access=public"
-curl "http://localhost:4000/api/medialit?page=1&limit=10&group=my-group"
-```
-
-## 7. Notes
-
-- Keep `MEDIALIT_API_KEY` server-side only.
-- `medialit` SDK is Node.js server-only and should not run in browser code.
-- For large client-side uploads, use `/api/medialit/signature` + TUS upload from the frontend.
-- Seal uploaded files (`client.seal(mediaId)`) to persist them and make them show up in list/get results.
+Run the server with `node --env-file=.env server.js`. See the [Node.js SDK](/node-sdk) for every method.

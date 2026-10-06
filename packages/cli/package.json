@@ -1,0 +1,47 @@
+{
+  "name": "@medialit/cli",
+  "version": "0.1.0",
+  "description": "Upload and manage MediaLit files from the terminal",
+  "type": "module",
+  "bin": {
+    "medialit": "dist/index.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "bun --filter medialit --filter @medialit/uploader build && node --import tsx --test '__tests__/**/*.test.ts'",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "medialit",
+    "cli",
+    "upload",
+    "storage"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codelitdev/medialit"
+  },
+  "dependencies": {
+    "@medialit/uploader": "workspace:^",
+    "medialit": "workspace:^",
+    "mime-types": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/mime-types": "^3.0.1",
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "bun@1.4.1"
+}

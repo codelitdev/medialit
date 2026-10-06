@@ -1,10 +1,11 @@
 import os from "os";
 import path from "path";
 import { writeFile, mkdir, copyFile, mkdtemp, rm } from "fs/promises";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../server";
 import { z } from "zod";
 import mediaService from "../../media/service";
 import { validateUploadConstraints } from "../../media/storage-middleware";
+import { getMcpAuth } from "../auth-context";
 import { AUTH_ERROR } from "./responses";
 import { mediaSchema } from "./schemas";
 
@@ -47,7 +48,7 @@ function isValidBase64(str: string): boolean {
     return /^[A-Za-z0-9+/]*={0,2}$/.test(str);
 }
 
-export function registerUploadTool(server: McpServer): void {
+export function registerUploadTool(server: McpToolRegistrar): void {
     server.registerTool(
         "upload_media",
         {
@@ -91,12 +92,9 @@ export function registerUploadTool(server: McpServer): void {
 }
 
 export async function handleUploadMediaTool(args: any, extra: any) {
-    const userId = extra?.authInfo?.clientId;
-    const apikey = extra?.authInfo?.token;
-    const user = extra?.authInfo?.user;
-    if (!userId || !apikey || !user) {
-        return AUTH_ERROR;
-    }
+    const auth = getMcpAuth(extra);
+    if (!auth) return AUTH_ERROR;
+    const { user, userId, apikey } = auth;
 
     // Validate base64
     if (!isValidBase64(args.fileBase64)) {

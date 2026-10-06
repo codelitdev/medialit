@@ -1,12 +1,18 @@
-import mongoose, { FilterQuery } from "mongoose";
 import { numberOfRecordsPerPage } from "../config/constants";
 import GetPageProps from "./GetPageProps";
-import MediaModel from "./model";
 import {
     AccessControl,
     Constants,
     type MediaWithUserId,
 } from "@medialit/models";
+import {
+    countMedia,
+    createMediaRecord,
+    deleteMediaRecord,
+    getMediaRecord,
+    listMedia,
+    totalMediaSize,
+} from "@/db";
 
 export function buildMediaCountQuery({
     userId,
@@ -14,31 +20,19 @@ export function buildMediaCountQuery({
     access,
     group,
 }: {
-    userId: string | mongoose.Types.ObjectId;
+    userId: string;
     apikey: string;
     access?: AccessControl;
     group?: string;
-}): FilterQuery<MediaWithUserId> {
-    const query: FilterQuery<MediaWithUserId> = {
-        apikey,
-        userId,
-        temp: { $ne: true },
-    };
-    if (access) {
-        query.accessControl =
-            access === Constants.AccessControl.PRIVATE
-                ? Constants.AccessControl.PRIVATE
-                : Constants.AccessControl.PUBLIC;
-    }
-    if (typeof group === "string" && group.trim().length > 0) {
-        query.group = { $regex: `^${escapeRegex(group.trim())}` };
-    }
-    return query;
+}) {
+    return { userId: String(userId), apikey, access, group };
 }
 
 function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+export { escapeRegex };
 
 export async function getMedia({
     userId,
@@ -49,12 +43,8 @@ export async function getMedia({
     apikey: string;
     mediaId: string;
 }): Promise<MediaWithUserId | null> {
-    return (await MediaModel.findOne({
-        mediaId,
-        apikey,
-        userId,
-        // temp: { $ne: true },
-    }).lean()) as MediaWithUserId | null;
+    const row = await getMediaRecord({ userId, apikey, mediaId });
+    return row;
 }
 
 export async function getMediaCount({
@@ -68,43 +58,27 @@ export async function getMediaCount({
     access?: AccessControl;
     group?: string;
 }): Promise<number> {
-    const query = buildMediaCountQuery({ userId, apikey, access, group });
-    return await MediaModel.countDocuments(query).lean();
+    return countMedia({
+        userId: String(userId),
+        apikey,
+        access:
+            access === Constants.AccessControl.PRIVATE
+                ? "private"
+                : access
+                  ? "public"
+                  : undefined,
+        group,
+    });
 }
 
 export async function getTotalSpace({
     userId,
     apikey,
 }: {
-    userId: mongoose.Types.ObjectId;
+    userId: string;
     apikey?: string;
 }): Promise<number> {
-    const query = apikey
-        ? { userId, apikey, temp: { $ne: true } }
-        : { userId, temp: { $ne: true } };
-    const result = await MediaModel.aggregate([
-        {
-            $match: query,
-        },
-        {
-            $group: {
-                _id: null,
-                totalSize: { $sum: "$size" },
-            },
-        },
-        {
-            $project: {
-                _id: 0,
-                totalSize: 1,
-            },
-        },
-    ]);
-
-    if (result.length === 0) {
-        return 0;
-    }
-
-    return result[0].totalSize;
+    return totalMediaSize({ userId: String(userId), apikey });
 }
 
 export async function getPaginatedMedia({
@@ -115,37 +89,45 @@ export async function getPaginatedMedia({
     group,
     recordsPerPage,
 }: GetPageProps): Promise<MediaWithUserId[]> {
-    const query = buildMediaCountQuery({ userId, apikey, access, group });
-    const limitWithFallback = recordsPerPage || numberOfRecordsPerPage;
-
-    return await MediaModel.find(query, {
-        userId: 1,
-        mediaId: 1,
-        originalFileName: 1,
-        mimeType: 1,
-        size: 1,
-        accessControl: 1,
-        thumbnailGenerated: 1,
-        caption: 1,
-        group: 1,
-    })
-        .sort({ _id: -1 })
-        .skip(page ? (page - 1) * limitWithFallback : 0)
-        .limit(limitWithFallback);
+    return listMedia({
+        userId: String(userId),
+        apikey,
+        access: access
+            ? access === Constants.AccessControl.PRIVATE
+                ? "private"
+                : "public"
+            : undefined,
+        group,
+        page,
+        recordsPerPage: recordsPerPage || numberOfRecordsPerPage,
+    });
 }
 
 export async function deleteMediaQuery(
     userId: string,
     mediaId: string,
-): Promise<any> {
-    return await MediaModel.deleteOne({ userId, mediaId });
+): Promise<void> {
+    await deleteMediaRecord(userId, mediaId);
 }
 
 export async function createMedia(
     mediaData: MediaWithUserId,
 ): Promise<MediaWithUserId> {
-    const media: MediaWithUserId = await MediaModel.create(mediaData);
-    return media;
+    return createMediaRecord({
+        fileName: mediaData.fileName,
+        mediaId: mediaData.mediaId,
+        userId: String(mediaData.userId),
+        apikey: mediaData.apikey,
+        originalFileName: mediaData.originalFileName,
+        mimeType: mediaData.mimeType,
+        size: mediaData.size,
+        thumbnailGenerated: mediaData.thumbnailGenerated,
+        accessControl:
+            mediaData.accessControl === "public" ? "public" : "private",
+        group: mediaData.group,
+        caption: mediaData.caption,
+        temp: mediaData.temp ?? true,
+    });
 }
 
 export default {

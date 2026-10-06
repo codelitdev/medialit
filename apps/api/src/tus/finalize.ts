@@ -6,7 +6,7 @@ import {
 } from "fs";
 import path from "path";
 import thumbnail from "@medialit/thumbnail";
-import mongoose from "mongoose";
+
 import {
     tempFileDirForUploads,
     imagePattern,
@@ -51,7 +51,15 @@ export default async function finalizeUpload(
         tusUpload;
 
     const user = await getUser(userId);
-    if (!(await hasEnoughStorage(uploadLength, user!))) {
+    if (!user?.id) {
+        throw new Error(`User not found: ${userId}`);
+    }
+    if (
+        !(await hasEnoughStorage(uploadLength, {
+            ...user,
+            _id: user._id || user.id,
+        }))
+    ) {
         throw new Error(NOT_ENOUGH_STORAGE);
     }
 
@@ -131,7 +139,7 @@ export default async function finalizeUpload(
     const mediaObject = {
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
-        userId: new mongoose.Types.ObjectId(userId),
+        userId,
         apikey,
         originalFileName: metadata.fileName,
         mimeType,

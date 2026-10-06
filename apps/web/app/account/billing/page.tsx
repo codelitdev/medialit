@@ -1,16 +1,11 @@
 import React, { ReactNode } from "react";
 import { CheckIcon } from "@radix-ui/react-icons";
-import {
-    LEMONSQUEEZY_STORE_ID,
-    LEMONSQUEEZY_PRODUCT_ID,
-} from "@/lib/constants";
 import CancelSubscriptionButton from "./cancel-subscription-button";
-import LemonSqueezyStartSubscriptionButton from "./lemonsqueezy-start-subscription-button";
+import DodoCheckoutButton from "./dodo-checkout-button";
 import ResumeSubscriptionButton from "./resume-subscription-button";
-import { auth } from "@/auth";
 import { getSubscriber } from "@/app/actions";
 import { redirect } from "next/navigation";
-import { User } from "@medialit/models";
+import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
@@ -38,6 +33,7 @@ const pricingPlans = [
         name: "Pro",
         description: "More storage for teams that want more",
         price: 10,
+        yearlyPrice: 100,
         icon: <CheckIcon className="h-4 w-4 text-primary" />,
         features: [
             "Everything in the Basic plan",
@@ -51,6 +47,7 @@ interface PricingPaneProps {
     name: string;
     description: string;
     price: number;
+    yearlyPrice?: number;
     icon: ReactNode;
     features: string[];
     isSecondary?: boolean;
@@ -60,16 +57,17 @@ const PricingPane = async ({
     name,
     description,
     price,
+    yearlyPrice,
     icon,
     features,
     isSecondary = false,
 }: PricingPaneProps) => {
-    const session = await auth();
-    const user: User | null = await getSubscriber();
+    const user = await getSubscriber();
 
     if (!user) {
         return redirect("/404");
     }
+    const current = user.plan === name.toLowerCase();
 
     return (
         <Card
@@ -79,8 +77,21 @@ const PricingPane = async ({
                 <CardTitle className="text-2xl font-bold">{name}</CardTitle>
                 <CardDescription>{description}</CardDescription>
                 <div className="py-2">
-                    <span className="text-3xl font-bold">${price}</span>
-                    <span className="text-muted-foreground">/month</span>
+                    <div>
+                        <span className="text-3xl font-bold">${price}</span>
+                        <span className="text-muted-foreground">/month</span>
+                    </div>
+                    {yearlyPrice != null && (
+                        <div className="mt-1">
+                            <span className="text-3xl font-bold">
+                                ${yearlyPrice}
+                            </span>
+                            <span className="text-muted-foreground">/year</span>
+                            <p className="text-sm text-muted-foreground">
+                                2 months free
+                            </p>
+                        </div>
+                    )}
                 </div>
             </CardHeader>
             <CardContent className="flex-grow">
@@ -97,67 +108,50 @@ const PricingPane = async ({
                 </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-2 mt-auto">
-                {name === "Basic"
-                    ? ["not-subscribed", "expired"].includes(
-                          user.subscriptionStatus,
-                      ) && (
-                          <>
-                              {LEMONSQUEEZY_STORE_ID &&
-                                  LEMONSQUEEZY_PRODUCT_ID && (
-                                      <LemonSqueezyStartSubscriptionButton
-                                          session={session}
-                                          storeId={LEMONSQUEEZY_STORE_ID}
-                                          productId={LEMONSQUEEZY_PRODUCT_ID}
-                                          userId={user.userId}
-                                          subscriptionStatus={
-                                              user.subscriptionStatus
-                                          }
-                                          currentPlan={name}
-                                          className={
-                                              isSecondary
-                                                  ? "pointer-events-none w-full bg-white hover:bg-white !text-muted-foreground border border-muted-foreground justify-center"
-                                                  : "w-full"
-                                          }
-                                      >
-                                          {user.subscriptionStatus ===
-                                          "not-subscribed"
-                                              ? "Current plan"
-                                              : "Downgrade to free"}
-                                      </LemonSqueezyStartSubscriptionButton>
-                                  )}
-                          </>
-                      )
-                    : ["not-subscribed", "expired"].includes(
-                          user.subscriptionStatus,
-                      ) && (
-                          <>
-                              {LEMONSQUEEZY_STORE_ID &&
-                                  LEMONSQUEEZY_PRODUCT_ID && (
-                                      <LemonSqueezyStartSubscriptionButton
-                                          session={session}
-                                          storeId={LEMONSQUEEZY_STORE_ID}
-                                          productId={LEMONSQUEEZY_PRODUCT_ID}
-                                          userId={user.userId}
-                                          subscriptionStatus={
-                                              user.subscriptionStatus
-                                          }
-                                          className="w-full"
-                                      >
-                                          Subscribe
-                                      </LemonSqueezyStartSubscriptionButton>
-                                  )}
-                          </>
-                      )}
-
-                {["subscribed", "paused"].includes(user.subscriptionStatus) && (
-                    <CancelSubscriptionButton
-                        currentPlan={name}
-                        subscriptionStatus={user.subscriptionStatus}
-                        className="w-full"
-                    />
+                {name === "Basic" && current && (
+                    <Button
+                        disabled
+                        className="w-full bg-white hover:bg-white text-muted-foreground border border-muted-foreground justify-center"
+                    >
+                        Current plan
+                    </Button>
                 )}
-
-                {user.subscriptionStatus === "cancelled" && (
+                {name === "Pro" && user.plan === "basic" && (
+                    <>
+                        <DodoCheckoutButton
+                            mode="checkout"
+                            interval="month"
+                            className="w-full"
+                        >
+                            Subscribe monthly
+                        </DodoCheckoutButton>
+                        <DodoCheckoutButton
+                            mode="checkout"
+                            interval="year"
+                            className="w-full"
+                        >
+                            Subscribe yearly
+                        </DodoCheckoutButton>
+                    </>
+                )}
+                {name === "Pro" &&
+                    user.plan === "pro" &&
+                    user.subscriptionMethod === "dodo" && (
+                        <DodoCheckoutButton mode="portal" className="w-full">
+                            Manage billing
+                        </DodoCheckoutButton>
+                    )}
+                {name === "Pro" &&
+                    ["subscribed", "paused"].includes(
+                        user.subscriptionStatus,
+                    ) && (
+                        <CancelSubscriptionButton
+                            currentPlan={name}
+                            subscriptionStatus={user.subscriptionStatus}
+                            className="w-full"
+                        />
+                    )}
+                {name === "Pro" && user.subscriptionStatus === "cancelled" && (
                     <ResumeSubscriptionButton
                         currentPlan={name}
                         subscriptionStatus={user.subscriptionStatus}
@@ -171,6 +165,32 @@ const PricingPane = async ({
 };
 
 const Billing = async () => {
+    const user = await getSubscriber();
+    if (user?.plan === "oss") {
+        return (
+            <section id="pricing" className="mb-2">
+                <p className="text-muted-foreground mb-4">
+                    This installation is unlocked. Storage and upload size are
+                    not limited by a plan.
+                </p>
+                <Card className="border-primary">
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold">
+                            OSS
+                        </CardTitle>
+                        <CardDescription>
+                            Full access, with no checkout.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-slate-700">
+                            Unlimited storage and file size.
+                        </p>
+                    </CardContent>
+                </Card>
+            </section>
+        );
+    }
     return (
         <section id="pricing" className="mb-2">
             <p className="text-muted-foreground mb-4">

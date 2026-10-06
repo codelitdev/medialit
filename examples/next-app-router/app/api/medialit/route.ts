@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { MediaLit } from "medialit";
+import { MediaLit, createSignatureHandler } from "medialit";
 
 const client = new MediaLit();
 
@@ -35,26 +35,13 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function POST() {
-    try {
-        const signature = await client.getSignature();
-        const sp = new URLSearchParams();
-        sp.append("signature", signature);
-        return Response.json({
-            endpoint: client.endpoint,
-            signature,
-        });
-    } catch (error) {
-        if (error instanceof Error) {
-            console.log("Error getting presigned URL:", error);
-            return Response.json({ error: error.message }, { status: 500 });
-        }
-        return Response.json(
-            { error: "An unknown error occurred" },
-            { status: 500 },
-        );
-    }
-}
+// Returns { signature, endpoint } for uploads from the browser.
+export const POST = createSignatureHandler({
+    client,
+    // This demo has no sign-in, so anyone who can open it may upload. In your
+    // app, check the session here and return false for anonymous requests.
+    authorize: () => true,
+});
 
 export async function DELETE(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;

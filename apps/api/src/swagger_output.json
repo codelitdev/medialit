@@ -176,6 +176,20 @@
               }
             }
           },
+          "400": {
+            "description": "More than one credential was sent, for example both a Bearer token and an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "credential_ambiguous",
+                  "error_description": "Exactly one credential mechanism is allowed."
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -429,6 +443,20 @@
               }
             }
           },
+          "400": {
+            "description": "More than one credential was sent, for example both a Bearer token and an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "credential_ambiguous",
+                  "error_description": "Exactly one credential mechanism is allowed."
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -481,6 +509,20 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MediaSizeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "More than one credential was sent, for example both a Bearer token and an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "credential_ambiguous",
+                  "error_description": "Exactly one credential mechanism is allowed."
                 }
               }
             }
@@ -548,6 +590,20 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Media"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "More than one credential was sent, for example both a Bearer token and an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "credential_ambiguous",
+                  "error_description": "Exactly one credential mechanism is allowed."
                 }
               }
             }
@@ -714,6 +770,20 @@
               }
             }
           },
+          "400": {
+            "description": "More than one credential was sent, for example both a Bearer token and an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "credential_ambiguous",
+                  "error_description": "Exactly one credential mechanism is allowed."
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -796,6 +866,20 @@
                       "example": "success"
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "More than one credential was sent, for example both a Bearer token and an API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "credential_ambiguous",
+                  "error_description": "Exactly one credential mechanism is allowed."
                 }
               }
             }

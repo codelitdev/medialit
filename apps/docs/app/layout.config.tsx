@@ -20,7 +20,12 @@ export const baseOptions: BaseLayoutProps = {
                     >
                     <circle cx={12} cy={12} r={12} fill="currentColor" />
                 </svg> */}
-                <Image src="./icon.svg" alt="Logo" width={24} height={24} />
+                <Image
+                    src="/icon.svg"
+                    alt="MediaLit logo"
+                    width={24}
+                    height={24}
+                />
                 MediaLit Docs
             </>
         ),

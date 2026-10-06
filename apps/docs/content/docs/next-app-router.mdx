@@ -1,249 +1,156 @@
 ---
-title: Nextjs App Router
-description: Integrate MediaLit with Nextjs App Router
+title: Next.js
+description: Add file uploads to a Next.js App Router app.
 ---
 
-This guide mirrors our working demo in [examples/next-app-router](https://github.com/codelitdev/medialit/tree/main/examples/next-app-router) and uses the `medialit` package.
+You will add an uploader that sends files from the browser straight to MediaLit, then keep the file when the user saves. The full app is in [examples/next-app-router](https://github.com/codelitdev/medialit/tree/main/examples/next-app-router).
 
-## 1. Install dependencies
+<Steps>
+<Step>
 
-```bash
-pnpm add medialit tus-js-client
+### Install the packages
+
+```npm
+npm install medialit @medialit/react
 ```
 
-## 2. Add environment variables
+`medialit` runs on your server and holds the API key. `@medialit/react` is the browser uploader.
 
-```bash
-MEDIALIT_API_KEY=your_api_key_here
-# Optional for self-hosted MediaLit
-MEDIALIT_ENDPOINT=http://localhost:3001
+</Step>
+<Step>
+
+### Add your API key
+
+Add the key from your app's settings in the [dashboard](https://app.medialit.cloud) to `.env.local`:
+
+```bash title=".env.local"
+MEDIALIT_API_KEY=your_api_key
+# Only if you self-host MediaLit
+# MEDIALIT_ENDPOINT=https://medialit.example.com
 ```
 
-## 3. Create API routes (server-side only)
+</Step>
+<Step>
 
-Create `app/api/medialit/route.ts`:
+### Create the signature route
+
+The uploader asks this route for a short-lived upload signature, so the API key never reaches the browser.
+
+```ts title="app/api/medialit/signature/route.ts"
+import { createSignatureHandler } from "medialit";
+import { auth } from "@/auth"; // your app's authentication
+
+export const POST = createSignatureHandler({
+    authorize: async () => {
+        const session = await auth();
+        return !!session;
+    },
+});
+```
+
+<Callout type="warning">
+  Anyone who passes `authorize` can upload to your MediaLit app. Return `false` for visitors who are not signed in.
+</Callout>
+
+To put each user's files in their own group, return a group instead of `true`:
 
 ```ts
-import { NextRequest } from "next/server";
-import { MediaLit } from "medialit";
+authorize: async () => {
+    const session = await auth();
+    return session ? { group: session.user.id } : false;
+},
+```
 
-const client = new MediaLit();
+</Step>
+<Step>
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const mediaId = searchParams.get("mediaId");
-  const page = Number.parseInt(searchParams.get("page") ?? "1");
-  const limit = Number.parseInt(searchParams.get("limit") ?? "10");
-  const access = searchParams.get("access") as "public" | "private" | undefined;
-  const group = searchParams.get("group") ?? undefined;
+### Add the uploader
 
-  try {
-    if (mediaId) {
-      const media = await client.get(mediaId);
-      return Response.json(media);
-    }
+```tsx title="app/profile/avatar-upload.tsx"
+"use client";
 
-    const media = await client.list(page, limit, { access, group });
-    return Response.json(media);
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
+import { useState } from "react";
+import { MediaLitUploader } from "@medialit/react";
+import "@medialit/react/styles.css";
+import { saveAvatar } from "./actions";
+
+export function AvatarUpload() {
+    const [mediaId, setMediaId] = useState<string>();
+
+    return (
+        <form action={() => mediaId && saveAvatar(mediaId)}>
+            <MediaLitUploader
+                signatureEndpoint="/api/medialit/signature"
+                access="public"
+                accept="image/*"
+                maxFileSize={5 * 1024 * 1024}
+                onUploadComplete={(media) => setMediaId(media.mediaId)}
+            />
+            <button type="submit" disabled={!mediaId}>
+                Save
+            </button>
+        </form>
     );
-  }
-}
-
-export async function POST() {
-  try {
-    const signature = await client.getSignature();
-
-    return Response.json({
-      endpoint: client.endpoint,
-      signature,
-    });
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  const mediaId = request.nextUrl.searchParams.get("mediaId");
-
-  if (!mediaId) {
-    return Response.json({ error: "Media ID is required" }, { status: 400 });
-  }
-
-  try {
-    await client.delete(mediaId);
-    return Response.json({ success: true });
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  const mediaId = request.nextUrl.searchParams.get("mediaId");
-
-  if (!mediaId) {
-    return Response.json({ error: "Media ID is required" }, { status: 400 });
-  }
-
-  try {
-    const media = await client.seal(mediaId);
-    return Response.json(media);
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
 }
 ```
 
-Create `app/api/medialit/[id]/route.ts`:
+The uploader shows a drop zone, upload progress with a cancel button, and the uploaded file. Read [React](/react) to change its text, style or behaviour.
 
-```ts
+</Step>
+<Step>
+
+### Seal the file when the user saves
+
+The upload is temporary until you seal it. If the user leaves without saving, MediaLit deletes it after 24 hours.
+
+```ts title="app/profile/actions.ts"
+"use server";
+
 import { MediaLit } from "medialit";
 
-const client = new MediaLit();
+const medialit = new MediaLit();
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
+export async function saveAvatar(mediaId: string) {
+    const media = await medialit.seal(mediaId);
+    // Save media.mediaId and media.file with the user's profile.
+}
+```
+
+Sealing a public file gives it its permanent URL, so save the `file` returned by `seal`, not the one from the upload.
+
+</Step>
+</Steps>
+
+## Show private files
+
+Private files have signed URLs that expire. Store the `mediaId` and get a fresh URL when you render the page:
+
+```tsx title="app/documents/[id]/page.tsx"
+import { MediaLit } from "medialit";
+
+const medialit = new MediaLit();
+
+export default async function DocumentPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
     const { id } = await params;
-    const media = await client.get(id);
-    return Response.json(media);
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
+    const document = await getDocument(id); // from your database
+    const media = await medialit.get(document.mediaId);
+
+    return <a href={media.file}>Download {media.originalFileName}</a>;
 }
 ```
 
-Create `app/api/medialit/count/route.ts`:
+## Delete files
 
 ```ts
-import { MediaLit } from "medialit";
-
-const client = new MediaLit();
-
-export async function GET() {
-  try {
-    const count = await client.getCount();
-    return Response.json({ count });
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
+await medialit.delete(mediaId);
 ```
 
-## 4. Client upload + seal (standard upload)
+## Next steps
 
-In a client component, request signature from your route, then upload to MediaLit directly:
-
-```ts
-const presigned = await fetch("/api/medialit", { method: "POST" });
-const { endpoint, signature } = await presigned.json();
-
-const formData = new FormData();
-formData.append("file", file);
-formData.append("caption", caption);
-formData.append("access", isPublic ? "public" : "private");
-
-await fetch(`${endpoint}/media/create`, {
-  method: "POST",
-  headers: {
-    "x-medialit-signature": signature,
-  },
-  body: formData,
-});
-```
-
-After upload, resolve media details and seal the file:
-
-```ts
-const uploadResponse = await fetch(`${endpoint}/media/create`, {
-  method: "POST",
-  headers: {
-    "x-medialit-signature": signature,
-  },
-  body: formData,
-});
-const uploaded = await uploadResponse.json();
-
-const mediaResponse = await fetch(`/api/medialit?mediaId=${uploaded.mediaId}`);
-const media = await mediaResponse.json();
-
-await fetch(`/api/medialit?mediaId=${media.mediaId}`, {
-  method: "PATCH",
-});
-
-window.dispatchEvent(new Event("medialit:refresh"));
-```
-
-## 5. TUS resumable upload (with seal)
-
-```ts
-import { Upload } from "tus-js-client";
-
-const { endpoint, signature } = await (await fetch("/api/medialit", {
-  method: "POST",
-})).json();
-
-const upload = new Upload(file, {
-  endpoint: `${endpoint}/media/create/resumable`,
-  chunkSize: 1024000,
-  retryDelays: [0, 3000, 5000],
-  headers: { "x-medialit-signature": signature },
-  metadata: {
-    fileName: file.name,
-    mimeType: file.type,
-    access: "private",
-    caption: "",
-  },
-  onAfterResponse: (_req, res) => {
-    const mediaHeader = res.getHeader("media");
-    if (mediaHeader) {
-      const media = JSON.parse(mediaHeader);
-      // Keep media.mediaId for sealing.
-    }
-  },
-});
-
-upload.start();
-```
-
-When upload completes, seal the returned `mediaId`:
-
-```ts
-await fetch(`/api/medialit?mediaId=${media.mediaId}`, {
-  method: "PATCH",
-});
-window.dispatchEvent(new Event("medialit:refresh"));
-```
-
-## 6. Run
-
-```bash
-pnpm dev
-```
-
-## 7. Important note
-
-Both upload methods should seal files before considering upload complete in UI.  
-Unsealed files are temporary and may not appear in normal list/get results.
-
-If you want the full working UI (standard upload + TUS upload + listing + seal flow), use `examples/next-app-router` as reference directly.
+- [React](/react) covers every prop of `MediaLitUploader` and the `useMediaLitUpload` hook for your own UI.
+- [Node.js SDK](/node-sdk) lists everything the server SDK can do.
+- [How MediaLit works](/concepts) explains sealing, access and groups.

@@ -1,93 +1,143 @@
-# Introduction
+<div align="center">
 
-MediaLit is a platform for uploading, transforming, and storing files on any S3-compatible storage provider.
+<img src="assets/logo.svg" alt="MediaLit logo" width="72" height="72" />
 
-Use it as cloud storage for your apps, a personal media drive, or a file system for AI agents. MediaLit provides both a REST API and an MCP server for managing files programmatically.
+# MediaLit
 
-## Managing your files
+**Storage for agents, apps and humans.**
 
-This repository contains:
+Upload, store and serve files on any S3-compatible storage, through a REST API,<br />
+a drop-in React uploader, an MCP server, a CLI and a dashboard.
 
-- The backend API (under `apps/api`)
-- The frontend (under `apps/web`)
+[![npm](https://img.shields.io/npm/v/medialit?label=medialit)](https://www.npmjs.com/package/medialit)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](./LICENSE.md)
+[![Discord](https://img.shields.io/badge/chat-Discord-5865F2)](https://discord.gg/AysdDP4wxe)
+[![Integration tests](https://github.com/codelitdev/medialit/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/codelitdev/medialit/actions/workflows/integration-tests.yml)
+[![Code quality](https://github.com/codelitdev/medialit/actions/workflows/code-quality.yaml/badge.svg)](https://github.com/codelitdev/medialit/actions/workflows/code-quality.yaml)
 
-### Starting the API
+[Website](https://medialit.cloud) · [Docs](https://docs.medialit.cloud) · [Quick start](https://docs.medialit.cloud/quick-start) · [Self-hosting](https://docs.medialit.cloud/self-hosting)
 
-In order to upload files to the platform, you need to have an app. You can interact with the service using the app's API key.
+</div>
 
-To create one, set up the following variable in your `.env` file:
+---
 
-```sh
-EMAIL=email@yourdomain.com
-```
+## Why MediaLit
 
-Then, start the API:
+Object storage only stores bytes. To use it for uploads in a real app you also need presigned URLs, bucket policies, CORS, thumbnails, a database of what you stored, and a way to clean up files nobody uses. MediaLit is that layer, and it gives apps, AI agents and people one place to work on the same files.
+
+- **Uploads straight from the browser.** Your server hands out a short-lived signature, so your API key never reaches the browser. Large files upload in resumable chunks.
+- **No orphaned files.** Uploads stay temporary until you seal them, and MediaLit deletes the ones nobody keeps.
+- **Built for agents.** Claude, ChatGPT, Cursor and any MCP client can save and share files over OAuth. Coding agents can run the CLI.
+- **Public and private files,** thumbnails for images and videos, optional WebP conversion, and quotas.
+- **Open source and portable.** Everything that runs [medialit.cloud](https://medialit.cloud) is in this repository. Self-host it on AWS S3, Cloudflare R2, MinIO or any S3-compatible storage, with the same API.
+
+MediaLit is the file backend for [CourseLit](https://courselit.app) and more.
+
+## Quick start
+
+Upload a file from your terminal:
 
 ```bash
-pnpm --filter @medialit/api dev
+npm install -g @medialit/cli
+medialit login
+medialit upload photo.jpg --public
 ```
 
-When the API starts for the very first time, a user with the provided email will be generated, and their subscription will be renewed for 10 years.
+Add an uploader to a React app:
 
-Additionally, a default app will be generated for the user and its API key will be printed in the application logs. The log containing the API key will look something like the following:
+```tsx
+import { MediaLitUploader } from "@medialit/react";
+import "@medialit/react/styles.css";
 
-```sh
-{"level":30,"time":1781683124417,"pid":20848,"hostname":"hostname","apiKey":"kwtwsoMX3Xs_sDNxklMfz","msg":"Admin user created"}
+<MediaLitUploader
+    signatureEndpoint="/api/medialit/signature"
+    onUploadComplete={(media) => console.log(media.file)}
+/>;
 ```
 
-> CAUTION: Keep the generated API key confidential, as anyone could use it to store files on your instance.
+```ts
+// app/api/medialit/signature/route.ts
+import { createSignatureHandler } from "medialit";
 
-### Starting the frontend
-
-The frontend is optional if you simply want to store, transform, and manage your files.
-
-Use the frontend if you want to:
-
-- Manage files through a user interface
-- Organize your files across multiple apps instead of putting everything in the default app
-
-To start the frontend:
-
-```sh
-pnpm --filter @medialit/web dev
+export const POST = createSignatureHandler({
+    authorize: async () => !!(await getSession()), // your app's auth
+});
 ```
 
-Then log in using the same email you provided above while booting up the API.
+Connect an AI agent: add `https://api.medialit.cloud/mcp` as a remote MCP server in your client and sign in.
 
-## API documentation
+See the [docs](https://docs.medialit.cloud) for the full guides, the [REST API](https://docs.medialit.cloud/api/uploadMedia) and [self-hosting](https://docs.medialit.cloud/self-hosting).
 
-To interact with the service, you can use the REST API. Our API is documented [here](https://docs.medialit.cloud/api/createUploadSignature).
+## Packages
+
+| Package                                                     | Description                                               | Version                                                                                                                       |
+| ----------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [`medialit`](packages/medialit)                             | Node.js SDK                                               | [![npm](https://img.shields.io/npm/v/medialit)](https://www.npmjs.com/package/medialit)                                       |
+| [`@medialit/react`](packages/react)                         | `MediaLitUploader` component and `useMediaLitUpload` hook | [![npm](https://img.shields.io/npm/v/@medialit/react)](https://www.npmjs.com/package/@medialit/react)                         |
+| [`@medialit/uploader`](packages/uploader)                   | Resumable uploads from the browser or Node.js             | [![npm](https://img.shields.io/npm/v/@medialit/uploader)](https://www.npmjs.com/package/@medialit/uploader)                   |
+| [`@medialit/cli`](packages/cli)                             | The `medialit` command                                    | [![npm](https://img.shields.io/npm/v/@medialit/cli)](https://www.npmjs.com/package/@medialit/cli)                             |
+| [`@medialit/integration-tests`](packages/integration-tests) | Integration tests and a production synthetic check        | [![npm](https://img.shields.io/npm/v/@medialit/integration-tests)](https://www.npmjs.com/package/@medialit/integration-tests) |
+
+The repository also contains the API (`apps/api`), which owns all product behavior; the dashboard (`apps/web`), a thin client over the API; and the docs site (`apps/docs`).
+
+## Self-hosting
+
+MediaLit needs PostgreSQL and two S3-compatible buckets, one private and one public. The [self-hosting guide](https://docs.medialit.cloud/self-hosting) covers AWS S3 with CloudFront, Cloudflare R2 and MinIO, along with upload limits and monitoring.
+
+Upgrading from v0.4.0? v0.5.0 replaces MongoDB with PostgreSQL. Follow the [upgrade guide](https://docs.medialit.cloud/upgrade-from-v0-4-0-to-v0-5-0).
 
 ## Development
 
-We build on Linux-based systems. Hence, these instructions are for those systems only. If you are on Windows, we recommend using WSL.
-
-### Install the utilities
+**Requirements:** [Bun](https://bun.sh) 1.4.1, Docker, and `ffmpeg` and `webp` for thumbnails and image conversion. We develop on Linux; on Windows, use WSL.
 
 ```bash
 sudo apt install ffmpeg webp
+bun install
+
+# Postgres, MinIO and Mailpit. The API and dashboard run on your machine.
+docker compose -f docker-compose.local.yml up -d
+
+# Configure the API (set EMAIL to your address) and create its tables.
+cp apps/api/.env.example apps/api/.env
+bun --filter @medialit/api db:migrate
+
+bun --filter @medialit/api dev   # API on http://localhost:8000
+bun --filter @medialit/web dev   # Dashboard on http://localhost:3000
+bun run dev:docs                 # Docs on http://localhost:3008
 ```
 
-### Install dependencies
+On its first start, the API creates a user for `EMAIL` and a default app, and logs the app's API key (`"msg":"Admin user created"`). Keep it private: anyone with it can upload to your instance. Sign in to the dashboard with `EMAIL`; the code arrives in Mailpit at <http://127.0.0.1:8025>. The MinIO console is at <http://127.0.0.1:9001> (`medialit` / `medialit-secret`).
+
+If you run the dashboard on another port, set `WEB_ORIGIN` in `apps/api/.env` to match, or sign-in redirects fail.
+
+### Tests
 
 ```bash
-pnpm install
+bun run test                    # Unit tests
+bun run test:integration:stack  # REST, MCP and CLI suites against a fresh stack
 ```
 
-### Build packages
+`test:integration:stack` is the check every pull request must pass. It starts its own Postgres, MinIO, Mailpit and API on separate ports, so it doesn't touch your dev stack. To run the suites against an API that's already running:
 
 ```bash
-pnpm -r build
+MEDIALIT_APIKEY=... MEDIALIT_SERVER=localhost:8000 bun run test:integration
 ```
 
-### Run the service
+## Contributing
 
-```bash
-pnpm --filter=@medialit/api dev
-```
+Contributions are welcome. For anything larger than a small fix, please open an issue first so we can agree on the approach.
 
-### Publishing a new version
+1. Fork the repository and create a branch.
+2. Make your change, with tests. If you change a published package, add a changeset with `bunx changeset`.
+3. Run `bun run lint`, `bun run prettier` and `bun run test`, and `bun run test:integration:stack` for API, MCP or CLI changes.
+4. Open a pull request. The integration tests run on every pull request and must pass.
 
-```bash
-pnpm exec changeset
-```
+Questions are welcome on [Discord](https://discord.gg/AysdDP4wxe) or in [GitHub issues](https://github.com/codelitdev/medialit/issues).
+
+## Security
+
+Please don't report security issues in public issues. Report them privately through [GitHub's security advisories](https://github.com/codelitdev/medialit/security/advisories/new).
+
+## License
+
+MediaLit is licensed under the [GNU Affero General Public License v3.0](./LICENSE.md).

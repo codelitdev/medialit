@@ -18,11 +18,15 @@ describe("MCP get_total_storage", () => {
 
         let queriedUserId: unknown;
         const response = await handleGetTotalStorageTool(
+            {},
             {
                 authInfo: {
-                    clientId: user.id,
-                    token: "test-api-key",
-                    user,
+                    extra: {
+                        authKind: "apikey",
+                        userId: user._id,
+                        user,
+                        apikey: "test-api-key",
+                    },
                 },
             },
             {

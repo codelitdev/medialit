@@ -5,10 +5,8 @@ import {
     BreadcrumbLink,
     BreadcrumbList,
 } from "@/components/ui/breadcrumb";
-import Link from "next/link";
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import Script from "next/script";
 import { auth } from "@/auth";
 
 const SchoolDetailsLayout = async ({ children }: { children: ReactNode }) => {
@@ -29,11 +27,6 @@ const SchoolDetailsLayout = async ({ children }: { children: ReactNode }) => {
                     </BreadcrumbList>
                 </Breadcrumb>
                 <h1 className="text-2xl font-bold mb-8">Billing</h1>
-                <Script
-                    src="https://app.lemonsqueezy.com/js/lemon.js"
-                    strategy="beforeInteractive"
-                    id="lemonsqueezy"
-                />
                 {children}
             </main>
         </>

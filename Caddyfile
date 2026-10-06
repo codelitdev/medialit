@@ -1,5 +1,20 @@
-{$SITE_ADDRESS} {
+# Serves plain HTTP on port 80: the http:// prefix keeps Caddy from enabling
+# HTTPS. Put your own TLS-terminating proxy in front for HTTPS.
+# SITE_ADDRESS serves the API, WEB_SITE_ADDRESS the dashboard and
+# S3_SITE_ADDRESS the MinIO S3 API. See docker-compose.yml for the matching
+# PUBLIC_API_URL and WEB_ORIGIN.
+http://{$SITE_ADDRESS} {
     reverse_proxy medialit:8000
-    
+
     encode gzip
+}
+
+http://{$WEB_SITE_ADDRESS} {
+    reverse_proxy web:3000
+
+    encode gzip
+}
+
+http://{$S3_SITE_ADDRESS} {
+    reverse_proxy minio:9000
 }

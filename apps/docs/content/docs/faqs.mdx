@@ -1,20 +1,36 @@
 ---
-title: Frequently asked questions 
-description: You asked, we answered
+title: Frequently asked questions
+description: Short answers to common questions.
 ---
 
-#### Is MediaLit just a wrapper on top of the AWS S3 API?
+#### Is MediaLit just a wrapper around S3?
 
-No! It offers much more, like ease of use, image optimization, thumbnail creation, etc.
+It stores files in S3-compatible storage, and adds what you would otherwise build around it: browser uploads without exposing keys, resumable uploads, automatic cleanup of unused uploads, public and private access, a list of your files with their details, thumbnails, quotas, an MCP server for agents, a dashboard and a CLI. See [Why MediaLit](/what-is-medialit).
 
-#### Can I build a MediaLit alternative in a weekend, since I am a developer?
+#### Why did my upload disappear?
 
-You can always try. That said, we've already done all the heavy lifting for you, so you can add file uploads to your app in under 5 minutes. If time is NOT money, knock yourself out.
+Uploads through the API and MCP are temporary until you seal them, and unsealed uploads are deleted after 24 hours. Seal a file when your app decides to keep it. The CLI seals uploads for you unless you pass `--temp`. See [who seals](/concepts#who-seals).
 
-<Callout title="Still not sold?">
-Read [why](/what-is-medialit) we created MediaLit in the first place.
-</Callout>
+#### Why did my file's URL change?
 
-#### Is the MediaLit OSS crippled in any way?
+Sealing a public file moves it to permanent public storage, which gives it a new URL. Store the URL that `seal` returns. Private files get a new signed URL each time you fetch them, so store the `mediaId` instead.
 
-No! Everything that powers [medialit.cloud](https://medialit.cloud) is contained in our GitHub [repo](https://github.com/codelitdev/medialit).
+#### Can I upload from the browser without exposing my API key?
+
+Yes. Your server creates a short-lived upload signature and the browser uploads with it. See [upload signatures](/concepts#upload-signatures) and the [React uploader](/react).
+
+#### Can I upload from the terminal, a CI job or a coding agent?
+
+Yes, with the [CLI](/cli). Run `medialit login` on your machine, and you and any coding agent running there can use it. In CI, set `MEDIALIT_API_KEY` instead of logging in.
+
+#### Which AI assistants work with MediaLit?
+
+Any client that supports remote MCP servers, including Claude, ChatGPT, Cursor and VS Code. See [MCP server](/mcp-server).
+
+#### Can I use my own S3 or R2 bucket?
+
+Yes, by [self-hosting](/self-hosting) MediaLit. The hosted service at medialit.cloud stores files in MediaLit's own storage.
+
+#### Is the open-source version limited?
+
+No. Everything that runs [medialit.cloud](https://medialit.cloud) is in the [GitHub repository](https://github.com/codelitdev/medialit).

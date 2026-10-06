@@ -25,14 +25,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install pnpm 
-        uses: pnpm/action-setup@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Configure CI Git User
@@ -42,7 +43,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}
 
       - name: Install dependencies
-        run: pnpm install 
+        run: bun install --frozen-lockfile
 
       - name: Create and publish versions
         id: changesets
@@ -50,7 +51,7 @@ jobs:
         with:
           commit: "chore: update versions"
           title: "chore: update versions"
-          publish: pnpm ci:publish 
+          publish: bun run ci:publish
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
 
