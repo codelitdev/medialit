@@ -320,7 +320,7 @@ Find out that MediaLit is down before your users do.
 MEDIALIT_APIKEY=your_monitoring_app_key \
 MEDIALIT_SERVER=https://medialit.example.com \
 MEDIALIT_SYNTHETIC_HEARTBEAT_URL=https://uptime.betterstack.com/api/v1/heartbeat/... \
-  npx @medialit/integration-tests@0.1.0 synthetic
+  npx @medialit/integration-tests@0.2.0 synthetic
 ```
 
 Create a separate app for monitoring and use its API key: the synthetic check only touches its own files. With a heartbeat URL from Better Stack or Healthchecks.io, you are alerted when a check fails and when checks stop arriving.

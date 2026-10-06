@@ -8,7 +8,7 @@ A quick check that MediaLit works end to end. It checks `/ready`, then uploads a
 
 ```bash
 MEDIALIT_APIKEY=... MEDIALIT_SERVER=https://medialit.example.com \
-  npx @medialit/integration-tests@0.1.0 synthetic
+  npx @medialit/integration-tests@0.2.0 synthetic
 ```
 
 - Use the API key of an app that exists only for monitoring. The synthetic check never changes settings and only deletes files in its own `__synthetic_` groups, including leftovers from runs that were cut short.
@@ -22,7 +22,7 @@ The suites cover the REST API, the MCP server and the CLI in depth. They upload 
 
 ```bash
 MEDIALIT_APIKEY=... MEDIALIT_SERVER=localhost:8000 \
-  npx @medialit/integration-tests@0.1.0 all
+  npx @medialit/integration-tests@0.2.0 all
 ```
 
 | Command     | Runs                                                                 |

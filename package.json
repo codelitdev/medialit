@@ -19,7 +19,7 @@
   },
   "scripts": {
     "prepare": "husky",
-    "ci:publish": "bunx changeset publish",
+    "ci:publish": "node .github/scripts/resolve-workspace-ranges.mjs && bunx changeset publish",
     "test": "bun run --filter @medialit/api test && bun run --filter medialit test && bun run --filter @medialit/uploader test && bun run --filter @medialit/react test && bun run --filter @medialit/cli test",
     "lint": "eslint --cache --quiet",
     "prettier": "prettier --check **/*.{ts,tsx,js,css,md}",
