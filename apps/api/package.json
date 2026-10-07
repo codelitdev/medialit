@@ -48,7 +48,7 @@
         "@medialit/models": "workspace:*",
         "@medialit/thumbnail": "workspace:*",
         "@medialit/utils": "workspace:*",
-        "@modelcontextprotocol/sdk": "1.30.0",
+        "@modelcontextprotocol/sdk": "1.32.1",
         "@tus/file-store": "^2.1.1",
         "@tus/server": "^2.4.5",
         "better-auth": "1.7.7",
