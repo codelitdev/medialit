@@ -1,52 +1,30 @@
 import { Apikey } from "@medialit/models";
-import ApikeyModel from "./model";
-import { getUniqueId } from "@medialit/utils";
+import {
+    createApiKey as insertApiKey,
+    getApiKeyBySecret,
+    listApiKeys,
+} from "@/db";
 
 export async function createApiKey(
     userId: string,
     name: string,
     isDefault: boolean = false,
 ): Promise<Apikey> {
-    return await ApikeyModel.create({
-        name,
-        key: getUniqueId(),
-        userId,
-        default: isDefault,
-    });
+    const created = await insertApiKey({ userId, name, isDefault });
+    return created;
 }
 
 export async function getApiKeyUsingKeyId(key: string): Promise<Apikey | null> {
-    return await ApikeyModel.findOne({ key });
+    return getApiKeyBySecret(key);
 }
 
 export async function getApiKeyByUserId(
     userId: string,
     keyId?: string,
 ): Promise<Apikey | Apikey[] | null> {
-    let result: Apikey | Apikey[] | null;
-    const projections = {
-        _id: 0,
-        name: 1,
-        key: 1,
-        httpReferrers: 1,
-        ipAddresses: 1,
-        default: 1,
-        createdAt: 1,
-        updatedAt: 1,
-    };
-    if (keyId) {
-        result = await ApikeyModel.findOne(
-            {
-                key: keyId,
-                userId,
-            },
-            projections,
-        );
-    } else {
-        result = await ApikeyModel.find({ userId }, projections);
-    }
-
-    return result;
+    const rows = await listApiKeys(userId, keyId);
+    if (keyId) return rows[0] ?? null;
+    return rows;
 }
 
 export default {

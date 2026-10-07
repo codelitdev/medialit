@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsup",
     "test": "node --import tsx --test '**/*.test.ts'",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "bun run build"
   },
   "keywords": [
     "medialit",
@@ -34,13 +34,14 @@
     "url": "https://github.com/codelitdev/medialit"
   },
   "dependencies": {
-    "form-data": "^4.0.6"
+    "mime-types": "^3.0.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
     "tsx": "^4.19.3",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@types/mime-types": "^3.0.1"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -48,5 +49,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "pnpm@10.7.1"
+  "packageManager": "bun@1.4.1"
 }

@@ -1,13 +1,10 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../server";
 import { z } from "zod";
-import {
-    maxStorageAllowedNotSubscribed,
-    maxStorageAllowedSubscribed,
-} from "../../config/constants";
 import mediaService from "../../media/service";
 import * as mediaQueries from "../../media/queries";
-import { getSubscriptionStatus } from "@medialit/models";
+import { maxStorageFor } from "../../billing/entitlements";
 import { NOT_FOUND, SUCCESS } from "../../config/strings";
+import { getMcpAuth } from "../auth-context";
 import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
 import {
     mediaListSchema,
@@ -16,7 +13,7 @@ import {
     successMessageSchema,
 } from "./schemas";
 
-export function registerMediaTools(server: McpServer): void {
+export function registerMediaTools(server: McpToolRegistrar): void {
     server.registerTool(
         "list_media",
         {
@@ -50,11 +47,9 @@ export function registerMediaTools(server: McpServer): void {
             },
         },
         async (args: any, extra: any) => {
-            const userId = extra.authInfo?.user?._id;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 const currentPage = args.page || 1;
                 const recordsPerPage = args.limit || 10;
@@ -95,11 +90,9 @@ export function registerMediaTools(server: McpServer): void {
             },
         },
         async (args: any, extra: any) => {
-            const userId = extra.authInfo?.clientId;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 const media = await mediaService.getMediaDetails({
                     userId,
@@ -133,7 +126,7 @@ export function registerMediaTools(server: McpServer): void {
         "get_media_count",
         {
             description:
-                "Returns the total number of media items in the default app.",
+                "Returns the total number of media items in the connected app.",
             outputSchema: z.object({ count: z.number() }),
             annotations: {
                 readOnlyHint: true,
@@ -142,12 +135,10 @@ export function registerMediaTools(server: McpServer): void {
                 destructiveHint: false,
             },
         },
-        async (extra: any) => {
-            const userId = extra.authInfo?.user?._id;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+        async (_args: any, extra: any) => {
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 const count = await mediaQueries.getMediaCount({
                     userId,
@@ -172,7 +163,7 @@ export function registerMediaTools(server: McpServer): void {
         "get_total_storage",
         {
             description:
-                "Returns the total storage used by the default app and the account storage limit, both in bytes.",
+                "Returns the total storage used by the connected app and the account storage limit, both in bytes.",
             outputSchema: storageSchema,
             annotations: {
                 readOnlyHint: true,
@@ -200,11 +191,9 @@ export function registerMediaTools(server: McpServer): void {
             },
         },
         async (args: any, extra: any) => {
-            const userId = extra.authInfo?.clientId;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 await mediaService.deleteMedia({
                     userId,
@@ -243,11 +232,9 @@ export function registerMediaTools(server: McpServer): void {
             },
         },
         async (args: any, extra: any) => {
-            const userId = extra.authInfo?.clientId;
-            const apikey = extra.authInfo?.token;
-            if (!userId || !apikey) {
-                return AUTH_ERROR;
-            }
+            const auth = getMcpAuth(extra);
+            if (!auth) return AUTH_ERROR;
+            const { userId, apikey } = auth;
             try {
                 const media = await mediaService.sealMedia({
                     userId,
@@ -268,22 +255,18 @@ export function registerMediaTools(server: McpServer): void {
 }
 
 export async function handleGetTotalStorageTool(
+    _args: unknown,
     extra: any,
     dependencies = { getTotalSpace: mediaQueries.getTotalSpace },
 ) {
-    const user = extra.authInfo?.user;
-    const userId = user?._id;
-    const apikey = extra.authInfo?.token;
-    if (!userId || !apikey) {
-        return AUTH_ERROR;
-    }
+    const auth = getMcpAuth(extra);
+    if (!auth) return AUTH_ERROR;
+    const { user, userId, apikey } = auth;
     try {
         const storage = await dependencies.getTotalSpace({ userId, apikey });
         const response = {
             storage,
-            maxStorage: getSubscriptionStatus(user)
-                ? maxStorageAllowedSubscribed
-                : maxStorageAllowedNotSubscribed,
+            maxStorage: maxStorageFor(user),
         };
         return {
             content: [

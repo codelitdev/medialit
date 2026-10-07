@@ -1,0 +1,96 @@
+# Local development dependencies only. The API and web app run on the host:
+#
+#   docker compose -f docker-compose.local.yml up
+#   bun --filter @medialit/api dev
+#   bun --filter @medialit/web dev
+#
+# Copy apps/api/.env.example to apps/api/.env before starting the API.
+# Do not run this file together with docker-compose.yml. Both publish
+# Postgres on 5433.
+#
+# Host ports:
+#   Postgres:       127.0.0.1:5433
+#   MinIO S3 API:   127.0.0.1:9000
+#   MinIO console:  127.0.0.1:9001
+#   Mailpit SMTP:   127.0.0.1:1025
+#   Mailpit web UI: 127.0.0.1:8025
+#
+# MinIO signs in as medialit / medialit-secret and creates the private
+# bucket `medialit` and the public bucket `medialit-public`. Mailpit accepts
+# SMTP without authentication. These values are local-only.
+name: medialit-local
+
+x-minio-env: &minio-env
+  MINIO_ROOT_USER: medialit
+  MINIO_ROOT_PASSWORD: medialit-secret
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medialit
+      POSTGRES_PASSWORD: medialit
+      POSTGRES_DB: medialit
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - medialit-local-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # MinIO no longer publishes images (quay.io/minio and Docker Hub's
+  # minio/minio are gone). Chainguard builds it from source; its image also
+  # includes a shell and mc, which the health check and minio-init use.
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      <<: *minio-env
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - medialit-local-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  minio-init:
+    image: cgr.dev/chainguard/minio:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      <<: *minio-env
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing local/medialit
+        mc mb --ignore-existing local/medialit-public
+        mc anonymous set download local/medialit-public
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_HTTP_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8025/"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  medialit-local-postgres-data:
+  medialit-local-minio-data:

@@ -30,7 +30,6 @@ import logger from "../services/log";
 import generateKey from "./utils/generate-key";
 import { getMediaSettings } from "../media-settings/queries";
 import generateFileName from "./utils/generate-file-name";
-import mongoose from "mongoose";
 import GetPageProps from "./GetPageProps";
 import {
     deleteMediaQuery,
@@ -39,7 +38,7 @@ import {
     getPaginatedMedia,
     createMedia,
 } from "./queries";
-import MediaModel from "./model";
+import { sealMediaRecord } from "@/db";
 import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
@@ -166,7 +165,7 @@ async function upload({
     const mediaObject: MediaWithUserId = {
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
-        userId: new mongoose.Types.ObjectId(userId),
+        userId,
         apikey,
         originalFileName: file.name,
         mimeType,
@@ -481,10 +480,7 @@ async function sealMedia({
     }
 
     // Update media record to remove temp flag
-    await MediaModel.updateOne(
-        { mediaId, userId, apikey },
-        { $unset: { temp: "" } },
-    );
+    await sealMediaRecord({ mediaId, userId: String(userId), apikey });
 
     // Fetch and return the updated media
     const updatedMedia = await getMedia({ userId, apikey, mediaId });

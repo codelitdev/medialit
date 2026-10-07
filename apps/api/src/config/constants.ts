@@ -1,7 +1,5 @@
 // App config
 export const appName = process.env.APP_NAME || "MediaLit";
-export const jwtSecret = process.env.JWT_SECRET || "r@nd0m1e";
-export const jwtExpire = process.env.JWT_EXPIRES_IN || "1d";
 export const tempFileDirForUploads = process.env.TEMP_FILE_DIR_FOR_UPLOADS;
 export const maxFileUploadSizeSubscribed = process.env
     .MAX_UPLOAD_SIZE_SUBSCRIBED
@@ -33,9 +31,6 @@ export const videoPattern = /video/;
 export const thumbnailWidth = 120;
 export const thumbnailHeight = 69;
 export const numberOfRecordsPerPage = 10;
-
-// Database config
-export const dbConnectionString = process.env.DB_CONNECTION_STRING;
 
 // Mail config
 export const mailHost = process.env.EMAIL_HOST;

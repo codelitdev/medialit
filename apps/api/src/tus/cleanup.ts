@@ -1,14 +1,12 @@
 import logger from "../services/log";
-import TusUploadModel, { TusUpload } from "./model";
+import { deleteTusById, listExpiredTus } from "@/db";
 import { removeTusFiles } from "./utils";
 
 export async function cleanupTUSUploads() {
     logger.info({}, "Starting the tus uploads cleanup job");
 
     const now = new Date();
-    const expiredUploads = (await TusUploadModel.find({
-        expiresAt: { $lt: now },
-    }).lean()) as unknown as TusUpload[];
+    const expiredUploads = await listExpiredTus(now);
 
     if (expiredUploads.length === 0) {
         logger.info("No expired tus uploads found to cleanup");
@@ -21,8 +19,10 @@ export async function cleanupTUSUploads() {
     );
 
     for (const expiredUpload of expiredUploads) {
-        removeTusFiles(expiredUpload.tempFilePath);
-        await TusUploadModel.deleteOne({ _id: (expiredUpload as any)._id });
+        if (expiredUpload.tempFilePath) {
+            removeTusFiles(expiredUpload.tempFilePath);
+        }
+        await deleteTusById(expiredUpload.id);
     }
 
     logger.info(

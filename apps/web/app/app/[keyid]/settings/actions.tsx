@@ -1,12 +1,8 @@
 "use server";
 
 import { auth } from "@/auth";
-import { getApikeyByUserId } from "@/lib/apikey-handlers";
-import connectToDatabase from "@/lib/connect-db";
-import { getMediaLitClient } from "@/lib/get-medialit-client";
-import { getUserFromSession } from "@/lib/user-handlers";
-import ApikeyModel from "@/models/apikey";
-import { MediaStats } from "medialit";
+import { serverApi } from "@/lib/server-api";
+type MediaStats = { storage: number; maxStorage: number };
 
 export async function updateAppName(
     previousState: Record<string, unknown>,
@@ -23,25 +19,20 @@ export async function updateAppName(
 
     try {
         const session = await auth();
-        if (!session || !session.user) {
+        if (!session?.user) {
             throw new Error("Unauthenticated");
         }
-
-        await connectToDatabase();
-
-        const dbUser = await getUserFromSession(session);
-        if (!dbUser) {
-            throw new Error("User not found");
-        }
-
-        await ApikeyModel.updateOne(
+        const response = await serverApi(
+            `/api/apps/${encodeURIComponent(keyId)}`,
             {
-                userId: dbUser._id,
-                keyId,
+                method: "PATCH",
+                body: JSON.stringify({ name: newName }),
             },
-            { $set: { name: newName } },
         );
-
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || "Request failed");
+        }
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };
@@ -52,32 +43,14 @@ export async function getTotalSpaceByApikey(
     keyid: string,
 ): Promise<MediaStats> {
     const session = await auth();
-    if (!session || !session.user) {
+    if (!session?.user) {
         throw new Error("Unauthenticated");
     }
-
-    await connectToDatabase();
-
-    const dbUser = await getUserFromSession(session);
-    if (!dbUser) {
-        throw new Error("User not found");
-    }
-
-    const apikey = await getApikeyByUserId({
-        userId: dbUser._id,
-        keyId: keyid,
-    });
-
-    if (!apikey) {
-        throw new Error("Apikey not found");
-    }
-
-    const client = getMediaLitClient(apikey.key);
-
-    try {
-        return await client.getStats();
-    } catch (e: any) {
-        console.error(e);
+    const response = await serverApi(
+        `/api/apps/${encodeURIComponent(keyid)}/stats`,
+    );
+    if (!response.ok) {
         return { storage: 0, maxStorage: 0 };
     }
+    return response.json();
 }

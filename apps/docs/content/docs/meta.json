@@ -1,19 +1,29 @@
 {
-  "title": "Meta",
-  "pages": [
-    "---Introduction---",
-    "quick-start",
-    "what-is-medialit",
-    "---Getting started---",
-    "next-app-router",
-    "express-js",
-    "---API Endpoints---",
-    "api",
-    "---MCP Server---",
-    "mcp-server",
-    "---Resources---",
-    "self-hosting",
-    "migrate-to-dual-bucket-architecture",
-    "faqs"
-  ]
+    "title": "Meta",
+    "pages": [
+        "---Introduction---",
+        "index",
+        "quick-start",
+        "what-is-medialit",
+        "concepts",
+        "---For agents---",
+        "mcp-server",
+        "cli",
+        "---For apps---",
+        "next-app-router",
+        "react",
+        "other-frameworks",
+        "express-js",
+        "node-sdk",
+        "---For humans---",
+        "dashboard",
+        "---API Endpoints---",
+        "api",
+        "---Self-hosting---",
+        "self-hosting",
+        "---Resources---",
+        "faqs",
+        "---Upgrades---",
+        "upgrade-from-v0-4-0-to-v0-5-0"
+    ]
 }

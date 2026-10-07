@@ -1,46 +1,37 @@
-FROM node:20-alpine
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-
+FROM oven/bun:1.4.1 AS deps
 WORKDIR /app
 
-# copy pnpm specific files
-COPY package.json .
-COPY pnpm-lock.yaml .
-COPY pnpm-workspace.yaml .
-
-# copy project files
-COPY tsconfig.json .
+COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/package.json
-COPY apps/web/app ./apps/web/app
-COPY apps/web/components ./apps/web/components
-COPY apps/web/lib ./apps/web/lib
-COPY apps/web/models ./apps/web/models
-COPY apps/web/public ./apps/web/public
-COPY apps/web/utils ./apps/web/utils
-COPY apps/web/auth.ts ./apps/web/auth.ts
-COPY apps/web/middleware.ts ./apps/web/middleware.ts
-COPY apps/web/components.json ./apps/web/components.json
-COPY apps/web/next.config.js ./apps/web/next.config.js
-COPY apps/web/postcss.config.js ./apps/web/postcss.config.js
-COPY apps/web/tailwind.config.ts ./apps/web/tailwind.config.ts
-COPY apps/web/tsconfig.json ./apps/web/tsconfig.json
+COPY packages/models/package.json ./packages/models/package.json
 
+RUN bun install --frozen-lockfile --filter @medialit/web
+
+FROM deps AS builder
+
+COPY tsconfig.json ./
+COPY apps/web ./apps/web
 COPY packages/models ./packages/models
-COPY packages/utils ./packages/utils
-COPY packages/medialit ./packages/medialit
 
-RUN pnpm install
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# RUN pnpm build
-RUN pnpm --filter=@medialit/utils build
-RUN pnpm --filter=@medialit/models build
-RUN pnpm --filter=medialit build
-RUN pnpm --filter=@medialit/web build
+RUN bun --filter @medialit/web build
 
-ENV NODE_ENV production 
+FROM node:22-alpine AS runner
+WORKDIR /app
 
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 --ingroup nodejs nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
+USER nextjs
 EXPOSE 3000
-
-CMD ["pnpm", "--filter=@medialit/web", "start"]
+CMD ["node", "apps/web/server.js"]

@@ -1,10 +1,16 @@
 # MCP Server for MediaLit API
 
 **Issue:** #185
-**Status:** Implemented
+**Status:** Superseded by the CodeLit Platform migration
 **Author:** Rajat Saxena
 **Date:** 2026-06-13
 **Last revised:** 2026-06-17
+
+> **Superseded (2026-10-04).** MediaLit now uses Better Auth through
+> `@codelitdev/oauth-server-kit` for OAuth and MCP discovery. The custom OAuth
+> server described below (`src/oauth/`, the `/oauth/*` endpoints, self-signed
+> JWTs, and `OAUTH_SIGNING_KEY`) has been removed. Keep this document for
+> history only; it no longer describes the code.
 
 > ## ✅ OAuth Restart-Safety Revision (2026-06-14) — implemented
 >
@@ -33,7 +39,7 @@ The MCP server uses **Streamable HTTP** transport — a single HTTP POST endpoin
 
 **Why Streamable HTTP:**
 
-- No separate process to manage — one `pnpm dev` starts everything
+- No separate process to manage — one `bun dev` starts everything
 - Reuses existing Express port, TLS certificate, and middleware stack
 - MCP clients connect via URL: `http://localhost:8000/mcp` (dev) or `https://api.medialit.cloud/mcp` (production)
 - Auth via both the existing `apikey` middleware (CLI/agent clients) and OAuth 2.0 (browser-based/ChatGPT clients)

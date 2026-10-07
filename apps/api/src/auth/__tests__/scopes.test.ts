@@ -1,0 +1,153 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { requireScope, toolScope } from "../scopes.js";
+import { createToolRegistrar, registerAllTools } from "../../mcp/server.js";
+
+const READ_ONLY_TOOLS = new Set([
+    "list_media",
+    "get_media",
+    "get_media_count",
+    "get_total_storage",
+    "get_media_settings",
+    "whoami",
+]);
+
+type Registered = {
+    name: string;
+    call: (extra: any) => any;
+};
+
+// Calls handlers the way the MCP SDK does: tools without an input schema get
+// only the request extra.
+function fakeServer() {
+    const tools: Registered[] = [];
+    const server: any = {
+        registerTool(
+            name: string,
+            config: { inputSchema?: unknown },
+            handler: any,
+        ) {
+            tools.push({
+                name,
+                call: (extra) =>
+                    config.inputSchema === undefined
+                        ? handler(extra)
+                        : handler({}, extra),
+            });
+        },
+    };
+    return { server, tools };
+}
+
+test("only tools marked read-only get the read scope", () => {
+    assert.equal(toolScope(true), "data:read");
+    assert.equal(toolScope(false), "data:write");
+    assert.equal(toolScope(undefined), "data:write");
+});
+
+test("every MCP tool rejects a token without its scope", async () => {
+    const { server, tools } = fakeServer();
+    registerAllTools(server);
+
+    assert.equal(tools.length, 11);
+    for (const tool of tools) {
+        const scope = READ_ONLY_TOOLS.has(tool.name)
+            ? "data:read"
+            : "data:write";
+        const result = await tool.call({ authInfo: { scopes: [] } });
+        assert.equal(result.isError, true, tool.name);
+        assert.match(result.content[0].text, new RegExp(scope), tool.name);
+    }
+});
+
+test("a read-only token can read but not write", async () => {
+    const { server, tools } = fakeServer();
+    const registrar = createToolRegistrar(server);
+    const calls: string[] = [];
+    registrar.registerTool(
+        "read",
+        { annotations: { readOnlyHint: true } },
+        () => calls.push("read"),
+    );
+    registrar.registerTool(
+        "write",
+        { annotations: { readOnlyHint: false } },
+        () => calls.push("write"),
+    );
+    const extra = { authInfo: { scopes: ["data:read"] } };
+
+    for (const tool of tools) await tool.call(extra);
+
+    assert.deepEqual(calls, ["read"]);
+});
+
+test("tools without input get the request extra as their second argument", async () => {
+    const { server, tools } = fakeServer();
+    const registrar = createToolRegistrar(server);
+    const received: unknown[] = [];
+    registrar.registerTool(
+        "no_input",
+        { annotations: { readOnlyHint: true } },
+        (args, extra) => received.push(args, extra),
+    );
+    registrar.registerTool(
+        "with_input",
+        { inputSchema: {}, annotations: { readOnlyHint: true } },
+        (args, extra) => received.push(args, extra),
+    );
+    const extra = { authInfo: { scopes: ["data:read"] } };
+
+    for (const tool of tools) await tool.call(extra);
+
+    assert.deepEqual(received, [{}, extra, {}, extra]);
+});
+
+function response() {
+    return {
+        statusCode: 200,
+        headers: {} as Record<string, string>,
+        body: undefined as unknown,
+        setHeader(name: string, value: string) {
+            this.headers[name] = value;
+        },
+        status(code: number) {
+            this.statusCode = code;
+            return this;
+        },
+        json(body: unknown) {
+            this.body = body;
+            return this;
+        },
+    };
+}
+
+test("REST routes reject a token without the required scope", () => {
+    const res = response();
+    let nextCalled = false;
+    requireScope("data:write")({ scopes: ["data:read"] }, res as any, () => {
+        nextCalled = true;
+    });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res.statusCode, 403);
+    assert.equal(
+        res.headers["WWW-Authenticate"],
+        'Bearer error="insufficient_scope", scope="data:write"',
+    );
+    assert.deepEqual(
+        (res.body as { error: string }).error,
+        "insufficient_scope",
+    );
+});
+
+test("REST routes pass a token with the required scope", () => {
+    let nextCalled = false;
+    requireScope("data:read")(
+        { scopes: ["data:read"] },
+        response() as any,
+        () => {
+            nextCalled = true;
+        },
+    );
+    assert.equal(nextCalled, true);
+});

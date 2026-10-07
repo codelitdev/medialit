@@ -16,9 +16,12 @@ import {
 function authInfo(user: any) {
     return {
         authInfo: {
-            clientId: user.id,
-            token: "test-api-key",
-            user,
+            extra: {
+                authKind: "apikey",
+                userId: user.id,
+                user,
+                apikey: "test-api-key",
+            },
         },
     };
 }

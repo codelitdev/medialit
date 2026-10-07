@@ -81,7 +81,7 @@ const doc = {
 };
 
 const outputFile = path.join(__dirname, "swagger_output.json");
-const routes = [path.join(__dirname, "index.ts")];
+const routes = [path.join(__dirname, "app.ts")];
 
 swaggerAutogen()(outputFile, routes, doc).then(() => {
     // Post-process to inject Joi schemas directly (avoiding autogen inference)
@@ -146,6 +146,23 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         delete content.paths["/oauth/revoke"];
         delete content.paths["/oauth/register"];
         delete content.paths["/oauth/userinfo"];
+        // The Dodo webhook router is mounted at /payment/webhook/dodo, but
+        // swagger-autogen records its route without the mount prefix.
+        delete content.paths["/"];
+        for (const apiPath of Object.keys(content.paths)) {
+            if (
+                apiPath.startsWith("/api/") ||
+                apiPath.startsWith("/oauth/") ||
+                apiPath.startsWith("/.well-known") ||
+                apiPath.startsWith("/cleanup/") ||
+                apiPath.startsWith("/payment/") ||
+                apiPath === "/mcp" ||
+                apiPath === "/ready" ||
+                apiPath === "/openapi.json"
+            ) {
+                delete content.paths[apiPath];
+            }
+        }
     }
 
     Object.entries(content.paths || {}).forEach(([apiPath, pathItem]: any) => {
@@ -201,6 +218,26 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
             }
 
             operation.responses = operation.responses || {};
+            // Authenticated routes reject requests that send more than one
+            // credential mechanism (ADR 0001 in the Platform repository).
+            if (operation.responses["401"] && !operation.responses["400"]) {
+                operation.responses["400"] = {
+                    description:
+                        "More than one credential was sent, for example both a Bearer token and an API key",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                $ref: "#/components/schemas/ErrorResponse",
+                            },
+                            example: {
+                                error: "credential_ambiguous",
+                                error_description:
+                                    "Exactly one credential mechanism is allowed.",
+                            },
+                        },
+                    },
+                };
+            }
             ["400", "401", "404", "409", "500"].forEach((statusCode) => {
                 const existingResponse = operation.responses[statusCode];
                 if (!existingResponse || existingResponse.$ref) {

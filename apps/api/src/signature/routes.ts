@@ -2,6 +2,8 @@ import express from "express";
 import apikey from "../apikey/middleware";
 import { getSignature } from "./handlers";
 import { authenticatedApiLimiter } from "../auth/limiters";
+import { DATA_WRITE_SCOPE } from "../auth/options";
+import { requireScope } from "../auth/scopes";
 
 const router = express.Router();
 router.post(
@@ -27,6 +29,7 @@ router.post(
     */
     authenticatedApiLimiter,
     apikey,
+    requireScope(DATA_WRITE_SCOPE),
     getSignature,
 );
 

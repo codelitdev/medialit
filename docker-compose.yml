@@ -1,37 +1,170 @@
+# Full stack: Postgres, MinIO for file storage, the API and the dashboard,
+# behind a Caddy reverse proxy on port 80. Caddy serves plain HTTP only. For
+# HTTPS, put your own TLS-terminating proxy in front of it. Each of these
+# needs a DNS record that points at this server, set in .env:
+#   SITE_ADDRESS      API        (PUBLIC_API_URL is http://<SITE_ADDRESS>)
+#   WEB_SITE_ADDRESS  dashboard  (WEB_ORIGIN is http://<WEB_SITE_ADDRESS>)
+#   S3_SITE_ADDRESS   MinIO API  (browsers and the CLI download files from it)
+# MINIO_ROOT_USER and MINIO_ROOT_PASSWORD are the MinIO credentials.
 version: "3"
 
+x-minio-env: &minio-env
+  MINIO_ROOT_USER: ${MINIO_ROOT_USER?'MINIO_ROOT_USER is required'}
+  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD?'MINIO_ROOT_PASSWORD is required'}
+
 services:
+  postgres:
+    image: postgres:17
+    restart: on-failure
+    environment:
+      POSTGRES_USER: medialit
+      POSTGRES_PASSWORD: medialit
+      POSTGRES_DB: medialit
+    # Reachable only from this machine. Do not publish it on all interfaces: the
+    # password is the default one.
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - medialit-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medialit -d medialit"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    restart: on-failure
+    command: server /data --console-address ":9001"
+    environment:
+      <<: *minio-env
+    volumes:
+      - medialit-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  minio-init:
+    image: cgr.dev/chainguard/minio:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      <<: *minio-env
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing local/medialit
+        mc mb --ignore-existing local/medialit-public
+        mc anonymous set download local/medialit-public
+
+  init:
+    image: codelit/medialit
+    restart: "no"
+    environment:
+      - DATABASE_URL=postgresql://medialit:medialit@postgres:5432/medialit
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["bun", "apps/api/src/db/migrate.ts"]
+
   medialit:
     image: codelit/medialit
     restart: on-failure
     environment:
+      # The API requires https:// URLs when this is production. The local trial
+      # in .env.example sets development so that it can use http://.
+      - NODE_ENV=${NODE_ENV:-production}
       - EMAIL=${EMAIL?'Email is required to set up a user'}
-      - DB_CONNECTION_STRING=${DB_CONNECTION_STRING?'Database connection string is required'}
-      - CLOUD_ENDPOINT=${CLOUD_ENDPOINT?'Cloud endpoint is required'}
-      - CLOUD_REGION=${CLOUD_REGION?'Cloud region is required'}
-      - CLOUD_KEY=${CLOUD_KEY?'Cloud key is required'}
-      - CLOUD_SECRET=${CLOUD_SECRET?'Cloud secret is required'}
-      - CLOUD_BUCKET_NAME=${CLOUD_BUCKET_NAME?'Cloud bucket name is required'}
+      - DATABASE_URL=postgresql://medialit:medialit@postgres:5432/medialit
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?'BETTER_AUTH_SECRET is required'}
+      # MinIO. The endpoint is its public address because the API signs
+      # download URLs with it.
+      # In production, replace these MinIO settings with your AWS S3
+      # credentials and bucket names.
+      - CLOUD_ENDPOINT=http://${S3_SITE_ADDRESS?'S3_SITE_ADDRESS is required, for example s3.medialit.example.com'}
+      - CLOUD_ENDPOINT_PUBLIC=http://${S3_SITE_ADDRESS}
+      - CLOUD_REGION=us-east-1
+      - CLOUD_KEY=${MINIO_ROOT_USER}
+      - CLOUD_SECRET=${MINIO_ROOT_PASSWORD}
+      - CLOUD_BUCKET_NAME=medialit
+      - CLOUD_PUBLIC_BUCKET_NAME=medialit-public
+      - CDN_ENDPOINT=http://${S3_SITE_ADDRESS}/medialit-public
       - PATH_PREFIX=${PATH_PREFIX?'Cloud prefix is required'}
       - TEMP_FILE_DIR_FOR_UPLOADS=${TEMP_FILE_DIR_FOR_UPLOADS?'A temporary directory for uploads transformations is required'}
       - PORT=8000
+      # OAuth and sign-in redirects use these, so set them to the public URLs.
+      - PUBLIC_API_URL=${PUBLIC_API_URL?'Public API URL is required, for example http://medialit.example.com'}
+      - WEB_ORIGIN=${WEB_ORIGIN?'Web origin is required, for example http://app.medialit.example.com'}
+      # SMTP server that sends sign-in codes. Without EMAIL_HOST nobody can
+      # sign in to the dashboard.
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
       - ENABLE_TRUST_PROXY=${ENABLE_TRUST_PROXY}
-      - ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT=${ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT} 
-      - CDN_ENDPOINT=${CDN_ENDPOINT} 
-      - CLOUDFRONT_KEY_PAIR_ID=${CLOUDFRONT_KEY_PAIR_ID} 
-      - CLOUDFRONT_PRIVATE_KEY=${CLOUDFRONT_PRIVATE_KEY}
       - CDN_MAX_AGE=${CDN_MAX_AGE}
     expose:
-      - 8000 
+      - 8000
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+
+  web:
+    image: codelit/medialit-web
+    restart: on-failure
+    environment:
+      - NODE_ENV=production
+      # The dashboard's server calls the API over the Compose network, and the
+      # browser calls it at its public URL.
+      - API_SERVER=http://medialit:8000
+      - PUBLIC_API_URL=${PUBLIC_API_URL?'Public API URL is required, for example http://medialit.example.com'}
+      - SITE_NAME=${SITE_NAME:-MediaLit}
+    expose:
+      - 3000
+    depends_on:
+      - medialit
+
+  # Catches the sign-in emails, which you can read at http://localhost:8025.
+  # In production, point EMAIL_HOST at a real SMTP server and remove this.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: on-failure
+    ports:
+      - "127.0.0.1:8025:8025"
 
   proxy:
     image: caddy
     restart: on-failure
     environment:
       - SITE_ADDRESS=${SITE_ADDRESS}
+      - WEB_SITE_ADDRESS=${WEB_SITE_ADDRESS?'Web site address is required, for example app.medialit.example.com'}
+      - S3_SITE_ADDRESS=${S3_SITE_ADDRESS}
     ports:
-      - "443:443"
+      - "80:80"
     volumes:
       - "./Caddyfile:/etc/caddy/Caddyfile"
     depends_on:
-      - medialit 
+      - medialit
+      - web
+      - minio
+    networks:
+      default:
+        # Lets the API reach its own public address and MinIO's without
+        # leaving the Docker network. The API verifies OAuth tokens by
+        # fetching its signing keys from its public URL.
+        aliases:
+          - ${SITE_ADDRESS}
+          - ${S3_SITE_ADDRESS}
+
+volumes:
+  medialit-postgres-data:
+  medialit-minio-data:

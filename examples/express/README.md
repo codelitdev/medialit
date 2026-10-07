@@ -17,13 +17,13 @@ MEDIALIT_API_KEY=your_api_key_here
 3. Install dependencies:
 
 ```bash
-pnpm install
+bun install
 ```
 
 4. Run:
 
 ```bash
-pnpm dev
+bun dev
 ```
 
 ## Routes

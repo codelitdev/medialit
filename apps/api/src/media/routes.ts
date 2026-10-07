@@ -19,6 +19,8 @@ import signatureMiddleware from "../signature/middleware";
 import storage from "./storage-middleware";
 import { getSignatureFromReq } from "../signature/utils";
 import { authenticatedApiLimiter } from "../auth/limiters";
+import { DATA_READ_SCOPE, DATA_WRITE_SCOPE } from "../auth/options";
+import { requireScope } from "../auth/scopes";
 
 const router = express.Router();
 
@@ -92,7 +94,9 @@ router.post(
                 next,
             );
         } else {
-            apikey(req, res, next);
+            apikey(req, res, () =>
+                requireScope(DATA_WRITE_SCOPE)(req, res, next),
+            );
         }
     },
     storage,
@@ -120,6 +124,7 @@ router.post(
     */
     authenticatedApiLimiter,
     apikey,
+    requireScope(DATA_READ_SCOPE),
     getMediaCount,
 );
 router.post(
@@ -141,6 +146,7 @@ router.post(
     */
     authenticatedApiLimiter,
     apikey,
+    requireScope(DATA_READ_SCOPE),
     getTotalSpaceOccupied,
 );
 router.post(
@@ -170,6 +176,7 @@ router.post(
     */
     authenticatedApiLimiter,
     apikey,
+    requireScope(DATA_READ_SCOPE),
     getMediaDetails,
 );
 router.post(
@@ -204,6 +211,7 @@ router.post(
     */
     authenticatedApiLimiter,
     apikey,
+    requireScope(DATA_READ_SCOPE),
     getMedia,
 );
 router.post(
@@ -233,6 +241,7 @@ router.post(
     */
     authenticatedApiLimiter,
     apikey,
+    requireScope(DATA_WRITE_SCOPE),
     sealMedia,
 );
 router.delete(
@@ -266,6 +275,7 @@ router.delete(
     */
     authenticatedApiLimiter,
     apikey,
+    requireScope(DATA_WRITE_SCOPE),
     deleteMedia,
 );
 

@@ -2,6 +2,7 @@ import type { SubscriptionStatus } from "./subscription-status";
 
 export interface User {
     id: string;
+    _id?: string;
     userId: string;
     email: string;
     active: boolean;
@@ -9,6 +10,6 @@ export interface User {
     customerId?: string;
     subscriptionId?: string;
     subscriptionEndsAfter?: Date;
-    subscriptionMethod?: "stripe" | "lemon";
+    subscriptionMethod?: "stripe" | "dodo";
     subscriptionStatus: SubscriptionStatus;
 }
