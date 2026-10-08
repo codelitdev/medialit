@@ -1,22 +1,31 @@
 import { Router, type Request, type Response } from "express";
-import { desc, eq } from "drizzle-orm";
 import { fromNodeHeaders } from "better-auth/node";
+import type { BillingAction } from "@codelitdev/billing/workflows";
 import {
-    BillingConfigurationError,
-    BillingWorkflowError,
-} from "@codelitdev/billing/core";
-import { findUserById, getDb, type AccountUser } from "@/db";
-import { billingSubscriptions } from "@/db/schema/billing.generated";
+    billingErrorResponse,
+    handleBillingWebhook,
+} from "@codelitdev/platform/billing";
+import { findUserById, type AccountUser } from "@/db";
 import type { MedialitAuth } from "../auth/better-auth";
 import logger from "../services/log";
-import { preconsumedGrant } from "./authorization";
 import {
     billingComposition,
     deploymentMode,
     proOfferKey,
     type BillingInterval,
 } from "./catalog";
-import { getBillingEngine } from "./engine";
+import { getBillingActionGrants, getBillingEngine } from "./engine";
+import { billingPlans } from "./public-plans";
+
+const ACTION_TOKEN_HEADER = "x-medialit-billing-action-token";
+
+type Intent = "checkout" | "portal" | "cancel" | "resume";
+const INTENTS: readonly Intent[] = ["checkout", "portal", "cancel", "resume"];
+
+type SessionAccount = {
+    user: AccountUser;
+    session: { id: string; createdAt: Date };
+};
 
 function webOrigin(): string {
     return (
@@ -26,52 +35,44 @@ function webOrigin(): string {
     ).replace(/\/$/, "");
 }
 
-function headerMap(req: Request): Record<string, string> {
-    const headers: Record<string, string> = {};
-    for (const [key, value] of Object.entries(req.headers)) {
-        if (value == null) continue;
-        headers[key.toLowerCase()] = Array.isArray(value)
-            ? value.join(",")
-            : value;
-    }
-    return headers;
-}
-
-async function sessionUser(
+async function sessionAccount(
     auth: MedialitAuth,
     req: Request,
     res: Response,
-): Promise<AccountUser | null> {
-    const session = await auth.auth.api.getSession({
+): Promise<SessionAccount | null> {
+    const current = await auth.auth.api.getSession({
         headers: fromNodeHeaders(req.headers),
     });
-    if (!session?.user?.id) {
+    const user = current?.user?.id
+        ? await findUserById(current.user.id)
+        : undefined;
+    if (!current || !user) {
         res.status(401).json({ error: "Unauthenticated" });
         return null;
     }
-    const user = await findUserById(session.user.id);
-    if (!user) {
-        res.status(401).json({ error: "Unauthenticated" });
-        return null;
-    }
-    return user;
+    return {
+        user,
+        session: {
+            id: current.session.id,
+            createdAt: new Date(current.session.createdAt),
+        },
+    };
 }
 
 function sendBillingError(res: Response, error: unknown) {
-    if (error instanceof BillingWorkflowError) {
-        res.status(409).json({ error: error.code });
-        return;
+    const response = billingErrorResponse(error);
+    if (response.status === 502) {
+        logger.error({ err: error }, "Billing request failed");
     }
-    if (error instanceof BillingConfigurationError) {
-        res.status(503).json({ error: "Billing is not configured" });
-        return;
-    }
-    logger.error({ err: error }, "Billing request failed");
-    res.status(502).json({ error: "Billing request failed" });
+    res.status(response.status).json(response.body);
 }
 
 function payer(user: AccountUser) {
     return { id: user.id, email: user.email, name: user.name };
+}
+
+function entity(user: AccountUser) {
+    return { kind: "user", id: user.id };
 }
 
 function readInterval(body: unknown): BillingInterval | "missing" | "invalid" {
@@ -86,29 +87,60 @@ function readInterval(body: unknown): BillingInterval | "missing" | "invalid" {
     return "invalid";
 }
 
-async function storedDodoInterval(userId: string): Promise<BillingInterval> {
-    const rows = await getDb()
-        .select({ interval: billingSubscriptions.billingInterval })
-        .from(billingSubscriptions)
-        .where(eq(billingSubscriptions.billableEntityId, userId))
-        .orderBy(desc(billingSubscriptions.updatedAt))
-        .limit(1);
-    return rows[0]?.interval === "year" ? "year" : "month";
-}
-
 function configuredBilling() {
     if (billingComposition().deploymentMode !== "cloud") return null;
     return getBillingEngine();
 }
 
-async function beginProCheckout(
-    res: Response,
+/** Resume clears a scheduled cancellation while Pro is still paid for. */
+async function resumeAction(user: AccountUser): Promise<BillingAction> {
+    const billing = configuredBilling();
+    const state = billing ? await billing.commercialState(user.id) : null;
+    return state?.activePaidPlan && state.cancelAtPeriodEnd
+        ? "cancellation"
+        : "checkout";
+}
+
+async function actionFor(
+    intent: Intent,
     user: AccountUser,
+): Promise<BillingAction> {
+    if (intent === "portal") return "portal";
+    if (intent === "cancel") return "cancellation";
+    if (intent === "resume") return resumeAction(user);
+    return "checkout";
+}
+
+/** The grant for this request, or null after sending a 401. */
+function requestGrant(
+    req: Request,
+    res: Response,
+    account: SessionAccount,
+    action: BillingAction,
+) {
+    const token = req.headers[ACTION_TOKEN_HEADER];
+    if (typeof token !== "string" || !token) {
+        res.status(401).json({ error: "billing_action_token_required" });
+        return null;
+    }
+    return getBillingActionGrants().grant({
+        token,
+        actorId: account.user.id,
+        sessionId: account.session.id,
+        action,
+        target: entity(account.user),
+    });
+}
+
+async function beginProCheckout(
+    req: Request,
+    res: Response,
+    account: SessionAccount,
     interval: BillingInterval,
 ) {
     const billing = configuredBilling();
     if (!billing) {
-        res.status(503).json({ error: "Billing is not configured" });
+        res.status(503).json({ error: "billing_not_configured" });
         return;
     }
     const catalog = await billing.publicCatalog();
@@ -116,10 +148,12 @@ async function beginProCheckout(
         res.status(409).json({ error: "checkout_unavailable" });
         return;
     }
+    const grant = requestGrant(req, res, account, "checkout");
+    if (!grant) return;
     const { checkoutUrl } = await billing.startCheckout({
-        grant: preconsumedGrant("checkout", user.id),
-        entity: { kind: "user", id: user.id },
-        payer: payer(user),
+        grant,
+        entity: entity(account.user),
+        payer: payer(account.user),
         offerKey: proOfferKey(interval),
         catalogRevision: catalog.revision,
         returnUrl: `${webOrigin()}/account/billing`,
@@ -131,9 +165,56 @@ async function beginProCheckout(
 export function createBillingRouter(auth: MedialitAuth) {
     const router = Router();
 
+    router.get("/api/account/billing/plans", async (req, res) => {
+        const account = await sessionAccount(auth, req, res);
+        if (!account) return;
+        const billing = configuredBilling();
+        try {
+            res.json(
+                billingPlans(billing ? await billing.publicCatalog() : null),
+            );
+        } catch (error) {
+            sendBillingError(res, error);
+        }
+    });
+
+    /**
+     * Issues a single-use token for one billing action. The session must have
+     * signed in recently; otherwise the dashboard asks the person to sign in
+     * again.
+     */
+    router.post("/api/account/billing/action-token", async (req, res) => {
+        const account = await sessionAccount(auth, req, res);
+        if (!account) return;
+        const intent = (req.body as { intent?: unknown } | undefined)?.intent;
+        if (!INTENTS.includes(intent as Intent)) {
+            res.status(400).json({ error: "billing_action_invalid" });
+            return;
+        }
+        try {
+            const issued = await getBillingActionGrants().issue({
+                actorId: account.user.id,
+                sessionId: account.session.id,
+                sessionCreatedAt: account.session.createdAt,
+                action: await actionFor(intent as Intent, account.user),
+                target: entity(account.user),
+            });
+            if (!issued.ok) {
+                res.status(401).json({ error: issued.error });
+                return;
+            }
+            res.json({
+                token: issued.token,
+                expiresAt: issued.expiresAt.toISOString(),
+            });
+        } catch (error) {
+            sendBillingError(res, error);
+        }
+    });
+
     router.post("/api/account/billing/checkout", async (req, res) => {
-        const user = await sessionUser(auth, req, res);
-        if (!user) return;
+        const account = await sessionAccount(auth, req, res);
+        if (!account) return;
         if (deploymentMode() === "oss") {
             res.status(404).json({ error: "Billing is not used in OSS mode" });
             return;
@@ -144,25 +225,27 @@ export function createBillingRouter(auth: MedialitAuth) {
             return;
         }
         try {
-            await beginProCheckout(res, user, interval);
+            await beginProCheckout(req, res, account, interval);
         } catch (error) {
             sendBillingError(res, error);
         }
     });
 
     router.post("/api/account/billing/portal", async (req, res) => {
-        const user = await sessionUser(auth, req, res);
-        if (!user) return;
+        const account = await sessionAccount(auth, req, res);
+        if (!account) return;
         const billing = configuredBilling();
         if (!billing) {
-            res.status(503).json({ error: "Billing is not configured" });
+            res.status(503).json({ error: "billing_not_configured" });
             return;
         }
+        const grant = requestGrant(req, res, account, "portal");
+        if (!grant) return;
         try {
             const portal = await billing.startPortal({
-                grant: preconsumedGrant("portal", user.id),
-                entity: { kind: "user", id: user.id },
-                payer: payer(user),
+                grant,
+                entity: entity(account.user),
+                payer: payer(account.user),
                 returnUrl: `${webOrigin()}/account/billing`,
             });
             res.json({ portalUrl: portal.portalUrl });
@@ -172,22 +255,20 @@ export function createBillingRouter(auth: MedialitAuth) {
     });
 
     router.post("/api/account/billing/cancel", async (req, res) => {
-        const user = await sessionUser(auth, req, res);
-        if (!user) return;
-        if (user.subscriptionMethod !== "dodo") {
-            res.status(400).json({ error: "No subscription" });
-            return;
-        }
+        const account = await sessionAccount(auth, req, res);
+        if (!account) return;
         const billing = configuredBilling();
         if (!billing) {
-            res.status(503).json({ error: "Billing is not configured" });
+            res.status(503).json({ error: "billing_not_configured" });
             return;
         }
+        const grant = requestGrant(req, res, account, "cancellation");
+        if (!grant) return;
         try {
             await billing.cancel({
-                grant: preconsumedGrant("cancellation", user.id),
-                entity: { kind: "user", id: user.id },
-                payer: payer(user),
+                grant,
+                entity: entity(account.user),
+                payer: payer(account.user),
             });
             res.json({ success: true });
         } catch (error) {
@@ -196,23 +277,38 @@ export function createBillingRouter(auth: MedialitAuth) {
     });
 
     router.post("/api/account/billing/resume", async (req, res) => {
-        const user = await sessionUser(auth, req, res);
-        if (!user) return;
-        if (user.subscriptionMethod !== "dodo") {
-            res.status(400).json({ error: "No subscription" });
-            return;
-        }
+        const account = await sessionAccount(auth, req, res);
+        if (!account) return;
         const requested = readInterval(req.body);
         if (requested === "invalid") {
             res.status(400).json({ error: "Choose monthly or yearly" });
             return;
         }
+        const billing = configuredBilling();
+        if (!billing) {
+            res.status(503).json({ error: "billing_not_configured" });
+            return;
+        }
         try {
+            const state = await billing.commercialState(account.user.id);
+            // Still paid for: clear the scheduled cancellation instead of
+            // starting a second subscription.
+            if (state.activePaidPlan && state.cancelAtPeriodEnd) {
+                const grant = requestGrant(req, res, account, "cancellation");
+                if (!grant) return;
+                await billing.resumeCancellation({
+                    grant,
+                    entity: entity(account.user),
+                    payer: payer(account.user),
+                });
+                res.json({ success: true });
+                return;
+            }
             const interval =
                 requested === "missing"
-                    ? await storedDodoInterval(user.id)
+                    ? (state.billingInterval ?? "month")
                     : requested;
-            await beginProCheckout(res, user, interval);
+            await beginProCheckout(req, res, account, interval);
         } catch (error) {
             sendBillingError(res, error);
         }
@@ -224,37 +320,16 @@ export function createBillingRouter(auth: MedialitAuth) {
 export function dodoWebhookRouter() {
     const router = Router();
     router.post("/", async (req, res) => {
-        const billing = configuredBilling();
-        if (!billing) {
-            res.status(503).json({ error: "Billing is not configured" });
-            return;
-        }
-        const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
-        if (!rawBody) {
-            res.status(400).json({ accepted: false });
-            return;
-        }
-        try {
-            const ingested = await billing.ingestWebhook({
-                provider: "dodo",
-                raw: {
-                    body: rawBody.toString("utf8"),
-                    headers: headerMap(req),
-                },
-            });
-            res.status(ingested.duplicate ? 200 : 202).json({ accepted: true });
-            void billing
-                .runWebhookInboxBatch({ workerId: `billing-${process.pid}` })
-                .catch((error) => {
-                    logger.error(
-                        { err: error },
-                        "Dodo webhook projection failed",
-                    );
-                });
-        } catch (error) {
-            logger.warn({ err: error }, "Dodo webhook rejected");
-            res.status(400).json({ accepted: false });
-        }
+        const response = await handleBillingWebhook({
+            billing: configuredBilling(),
+            provider: "dodo",
+            rawBody: (req as Request & { rawBody?: Buffer }).rawBody,
+            headers: req.headers,
+            workerId: `billing-${process.pid}`,
+            onError: (error) =>
+                logger.warn({ err: error }, "Dodo webhook not processed"),
+        });
+        res.status(response.status).json(response.body);
     });
     return router;
 }

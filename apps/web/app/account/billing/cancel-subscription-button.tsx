@@ -18,20 +18,15 @@ import {
 } from "@/components/ui/dialog";
 
 export default function CancelSubscriptionButton({
-    subscriptionStatus,
-    currentPlan,
     className,
 }: {
-    subscriptionStatus: string;
-    currentPlan: string;
     className?: string;
 }) {
     const [formState, formAction] = useActionState(cancelSubscription, {
         success: false,
-    });
+    } as Awaited<ReturnType<typeof cancelSubscription>>);
     const { toast } = useToast();
     const router = useRouter();
-
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
@@ -39,9 +34,14 @@ export default function CancelSubscriptionButton({
             setOpen(false);
             toast({
                 title: "We are sorry to see you go",
-                description: "Your subscription has been cancelled",
+                description:
+                    "Your subscription is cancelled. Pro stays active until the end of the paid period.",
             });
             router.refresh();
+        }
+        if (formState.signInUrl) {
+            window.location.assign(formState.signInUrl);
+            return;
         }
         if (formState.error) {
             toast({
@@ -52,89 +52,45 @@ export default function CancelSubscriptionButton({
     }, [formState]);
 
     return (
-        <>
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                    {currentPlan === "Basic" &&
-                    subscriptionStatus === "subscribed" ? (
-                        <Button className={`${className}`} variant="outline">
-                            Downgrade to free
-                        </Button>
-                    ) : (
-                        <Button
-                            className={`bg-red-600 hover:bg-red-700 ${className}`}
-                        >
-                            Cancel subscription
-                        </Button>
-                    )}
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                    {currentPlan === "Basic" &&
-                    subscriptionStatus === "subscribed" ? (
-                        <>
-                            <DialogHeader>
-                                <DialogTitle>Downgrade to free</DialogTitle>
-                            </DialogHeader>
-                            Are you sure, you want to cancel your current
-                            subscription?
-                        </>
-                    ) : (
-                        <>
-                            <DialogHeader>
-                                <DialogTitle>Cancel subscription</DialogTitle>
-                            </DialogHeader>
-                            Are you sure, you want to cancel subscription?
-                        </>
-                    )}
-
-                    <form action={formAction}>
-                        <DialogFooter>
-                            <DialogClose asChild>
-                                <Button>Nevermind</Button>
-                            </DialogClose>
-                            <DialogClose asChild>
-                                <Submit
-                                    currentPlan={currentPlan}
-                                    subscriptionStatus={subscriptionStatus}
-                                >
-                                    Yes! Cancel
-                                </Submit>
-                            </DialogClose>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        </>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button className={`bg-red-600 hover:bg-red-700 ${className}`}>
+                    Cancel subscription
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Cancel subscription</DialogTitle>
+                    <DialogDescription>
+                        Pro stays active until the end of the period you have
+                        paid for. You can resume before then.
+                    </DialogDescription>
+                </DialogHeader>
+                <form action={formAction}>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button>Nevermind</Button>
+                        </DialogClose>
+                        <DialogClose asChild>
+                            <Submit>Yes! Cancel</Submit>
+                        </DialogClose>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
-function Submit({
-    children,
-    currentPlan,
-    subscriptionStatus,
-}: {
-    children: React.ReactNode;
-    currentPlan: string;
-    subscriptionStatus: string;
-}) {
+function Submit({ children }: { children: React.ReactNode }) {
     const status = useFormStatus();
-
-    let buttonText = children;
-    let className;
-
-    if (currentPlan === "Basic" && subscriptionStatus === "subscribed") {
-        buttonText = "Yes! Cancel";
-        className = "bg-red-500 hover:bg-red-700";
-    }
-
     return (
         <Button
-            className={`bg-red-500 hover:bg-red-700 text-white ${className}`}
+            className="bg-red-500 hover:bg-red-700 text-white"
             type="submit"
             variant="secondary"
             disabled={status.pending}
         >
-            {buttonText}
+            {children}
         </Button>
     );
 }

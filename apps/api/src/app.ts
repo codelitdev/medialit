@@ -191,6 +191,9 @@ export function createApp(input: {
 
     app.use(createDashboardRouter(auth));
     app.use(createBillingRouter(auth));
+    // Platform convention for provider webhooks: POST /webhooks/billing/<provider>.
+    app.use("/webhooks/billing/dodo", dodoWebhookRouter());
+    // Deprecated path from v0.5.0, kept for endpoints configured against it.
     app.use("/payment/webhook/dodo", dodoWebhookRouter());
     app.use(jsonErrorHandler);
     return app;

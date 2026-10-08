@@ -19,6 +19,10 @@ export function dodoOptionsFromEnv(
                 secret: env.DODO_PAYMENTS_WEBHOOK_KEY_CURRENT?.trim() ?? "",
             },
         ],
+        // Dodo sends every brand's events to every endpoint; others are ignored.
+        ...(env.DODO_BRAND_ID?.trim()
+            ? { brandId: env.DODO_BRAND_ID.trim() }
+            : {}),
         clock,
     };
 }

@@ -45,6 +45,10 @@ Also configure the new v0.5.0 application values, including
 existing storage bucket names and credentials because this migration does not
 copy or move stored files.
 
+Subscription fields from v0.4.0 (`subscriptionStatus`, `subscriptionMethod`,
+`subscriptionEndsAfter`, `customerId`, and `subscriptionId`) are not imported.
+The Compose setup runs in OSS mode, where every account is unlimited.
+
 Pull the v0.5.0 images and start PostgreSQL:
 
 ```sh

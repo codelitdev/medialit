@@ -15,7 +15,7 @@ export async function POST(request: Request) {
         const value = request.headers.get(name);
         if (value) headers.set(name, value);
     }
-    const response = await fetch(`${apiBase()}/payment/webhook/dodo`, {
+    const response = await fetch(`${apiBase()}/webhooks/billing/dodo`, {
         method: "POST",
         headers,
         body,

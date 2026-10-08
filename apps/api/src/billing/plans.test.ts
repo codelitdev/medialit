@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { afterEach, mock } from "node:test";
 import { BillingConfigurationError } from "@codelitdev/billing/core";
-import { Constants } from "@medialit/models";
 import {
     maxFileUploadSizeNotSubscribed,
     maxFileUploadSizeSubscribed,
@@ -12,38 +11,111 @@ import { billingComposition, readCloudBillingConfig } from "./catalog";
 import { billingEngineCheckout } from "./engine";
 import { createBilling } from "@codelitdev/billing/workflows";
 import { systemClock } from "@codelitdev/billing/core";
-import { medialitBillingAuthorization } from "./authorization";
+import { MemoryAuthorizationPort } from "@codelitdev/billing/workflows";
+import type { CommercialBillingState } from "@codelitdev/billing/workflows";
 import {
     UNLIMITED_BYTES,
-    accountPlan,
+    accountSubscription,
+    billingStateSource,
     maxStorageFor,
     maxUploadFor,
+    resolveAccountBilling,
+    resolveAccountPlan,
 } from "./entitlements";
-import { profilePatchFromSubscription } from "./product-effects";
-import type { CanonicalSubscription } from "@codelitdev/billing/core";
 
-const basic = {
-    subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
-    subscriptionEndsAfter: undefined,
-};
-const pro = {
-    subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
-    subscriptionEndsAfter: undefined,
-};
+const user = { id: "user_1" };
 
-test("cloud keeps the current basic and pro limits", () => {
-    assert.equal(accountPlan(basic, "cloud"), "basic");
-    assert.equal(accountPlan(pro, "cloud"), "pro");
-    assert.equal(maxStorageFor(basic, "cloud"), maxStorageAllowedNotSubscribed);
-    assert.equal(maxStorageFor(pro, "cloud"), maxStorageAllowedSubscribed);
-    assert.equal(maxUploadFor(basic, "cloud"), maxFileUploadSizeNotSubscribed);
-    assert.equal(maxUploadFor(pro, "cloud"), maxFileUploadSizeSubscribed);
+function state(
+    patch: Partial<CommercialBillingState> = {},
+): CommercialBillingState {
+    return {
+        activePaidPlan: "pro",
+        billingInterval: "month",
+        subscriptionStatus: "active",
+        providerTrialEndsAt: null,
+        currentPeriodEndsAt: new Date("2027-07-04T10:13:39.000Z"),
+        paidThroughAt: new Date("2027-07-04T10:13:39.000Z"),
+        cancelAtPeriodEnd: false,
+        pendingCheckout: false,
+        pendingPlanChange: false,
+        projectionVersion: 1,
+        ...patch,
+    };
+}
+
+function billingReturns(value: CommercialBillingState | null) {
+    mock.method(billingStateSource, "read").mock.mockImplementation(
+        async () => value,
+    );
+}
+
+afterEach(() => mock.restoreAll());
+
+test("cloud plans and limits come only from billing", async () => {
+    billingReturns(null);
+    assert.equal(await resolveAccountPlan(user, "cloud"), "basic");
+    assert.equal(
+        await maxStorageFor(user, "cloud"),
+        maxStorageAllowedNotSubscribed,
+    );
+    assert.equal(
+        await maxUploadFor(user, "cloud"),
+        maxFileUploadSizeNotSubscribed,
+    );
+
+    billingReturns(state({ activePaidPlan: null }));
+    assert.equal(await resolveAccountPlan(user, "cloud"), "basic");
+
+    billingReturns(state());
+    assert.equal(await resolveAccountPlan(user, "cloud"), "pro");
+    assert.equal(
+        await maxStorageFor(user, "cloud"),
+        maxStorageAllowedSubscribed,
+    );
+    assert.equal(
+        await maxUploadFor(user, "cloud"),
+        maxFileUploadSizeSubscribed,
+    );
 });
 
-test("oss unlocks storage and upload size", () => {
-    assert.equal(accountPlan(basic, "oss"), "oss");
-    assert.equal(maxStorageFor(basic, "oss"), UNLIMITED_BYTES);
-    assert.equal(maxUploadFor(pro, "oss"), UNLIMITED_BYTES);
+test("oss unlocks storage and upload size without reading billing", async () => {
+    billingReturns(state());
+    assert.equal(await resolveAccountPlan(user, "oss"), "oss");
+    assert.equal(await maxStorageFor(user, "oss"), UNLIMITED_BYTES);
+    assert.equal(await maxUploadFor(user, "oss"), UNLIMITED_BYTES);
+    assert.equal(
+        (
+            billingStateSource.read as unknown as {
+                mock: { callCount(): number };
+            }
+        ).mock.callCount(),
+        0,
+    );
+});
+
+test("the dashboard shows a scheduled cancellation with its end date", async () => {
+    billingReturns(state({ cancelAtPeriodEnd: true }));
+    const account = await resolveAccountBilling(user, "cloud");
+    assert.equal(account.plan, "pro");
+    const subscription = accountSubscription(account);
+    assert.equal(subscription?.status, "cancelling");
+    assert.equal(subscription?.interval, "month");
+    assert.equal(
+        subscription?.paidThroughAt?.toISOString(),
+        "2027-07-04T10:13:39.000Z",
+    );
+
+    billingReturns(state({ subscriptionStatus: "past_due" }));
+    assert.equal(
+        accountSubscription(await resolveAccountBilling(user, "cloud"))?.status,
+        "past_due",
+    );
+
+    billingReturns(null);
+    assert.equal(
+        accountSubscription(await resolveAccountBilling(user, "cloud")),
+        null,
+    );
 });
 
 test("cloud billing config stays off until Dodo is fully set", () => {
@@ -73,7 +145,7 @@ test("cloud billing config stays off until Dodo is fully set", () => {
     assert.doesNotThrow(() =>
         createBilling({
             clock: systemClock,
-            authorization: medialitBillingAuthorization,
+            authorization: new MemoryAuthorizationPort(),
             providers: [],
             ...ossCheckout,
         }),
@@ -129,54 +201,4 @@ test("a complete Pro catalog is ten dollars a month or one hundred a year", () =
             }),
         BillingConfigurationError,
     );
-});
-
-function subscription(
-    patch: Partial<CanonicalSubscription>,
-): CanonicalSubscription {
-    return {
-        id: "sub_row",
-        billableEntityId: "user_1",
-        payerId: "user_1",
-        provider: "dodo",
-        providerCustomerId: "cus_1",
-        providerSubscriptionId: "sub_1",
-        providerProductId: "pdt_pro_month",
-        catalogRevision: 1,
-        offerKey: "pro_month",
-        plan: "pro",
-        interval: "month",
-        priceEntryId: "price_1",
-        status: "active",
-        currentPeriodStartsAt: null,
-        currentPeriodEndsAt: new Date("2027-07-04T10:13:39.000Z"),
-        paidThroughAt: null,
-        trialEndsAt: null,
-        cancelAtPeriodEnd: false,
-        isEntitlementSource: true,
-        originCheckoutAttemptId: null,
-        providerOccurredAt: null,
-        providerVersion: null,
-        lastObservedAt: null,
-        lastReconciledAt: null,
-        ...patch,
-    };
-}
-
-test("an entitled Dodo subscription projects to Pro", () => {
-    const patch = profilePatchFromSubscription(subscription({}));
-    assert.equal(patch.subscriptionStatus, "subscribed");
-    assert.equal(patch.subscriptionMethod, "dodo");
-    assert.equal(patch.subscriptionId, "sub_1");
-    assert.equal(
-        patch.subscriptionEndsAfter?.toISOString(),
-        "2027-07-04T10:13:39.000Z",
-    );
-});
-
-test("a Dodo subscription that is not the entitlement source drops to Basic", () => {
-    const patch = profilePatchFromSubscription(
-        subscription({ isEntitlementSource: false, status: "expired" }),
-    );
-    assert.equal(patch.subscriptionStatus, "not-subscribed");
 });

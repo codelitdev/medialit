@@ -9,7 +9,6 @@ import {
     findUserByEmail,
     insertAuthUser,
     listApiKeys,
-    updateSubscription,
     upsertMediaSettings,
 } from "../../../apps/api/src/db/index.js";
 
@@ -110,20 +109,12 @@ async function main() {
                   });
             importedUserIds.set(mongoId, userId);
             await importKeys(db, doc._id, userId);
-            const account = await ensureProfile({
+            // Subscriptions are not imported: paid plans come only from the
+            // billing tables, so v0.4.0 subscription fields are dropped.
+            await ensureProfile({
                 userId,
                 publicUserId: doc.userId ? String(doc.userId) : undefined,
-                subscriptionStatus: doc.subscriptionStatus,
                 active: doc.active !== false,
-            });
-            await updateSubscription(account.userId, {
-                subscriptionMethod: doc.subscriptionMethod,
-                customerId: doc.customerId ? String(doc.customerId) : undefined,
-                subscriptionId: doc.subscriptionId
-                    ? String(doc.subscriptionId)
-                    : undefined,
-                subscriptionStatus: doc.subscriptionStatus,
-                subscriptionEndsAfter: asDate(doc.subscriptionEndsAfter),
             });
             await importMediaSettings(db, doc._id, userId);
             importedUsers += 1;

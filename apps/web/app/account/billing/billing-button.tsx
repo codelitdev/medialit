@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { openBillingPortal, startProCheckout } from "./action";
 
-export default function DodoCheckoutButton({
+/** Starts a provider checkout or opens the provider's billing portal. */
+export default function BillingButton({
     mode,
     interval,
     className,
@@ -31,6 +32,10 @@ export default function DodoCheckoutButton({
                         : await startProCheckout(interval ?? "month");
                 if (result.url) {
                     window.location.href = result.url;
+                    return;
+                }
+                if (result.signInUrl) {
+                    window.location.assign(result.signInUrl);
                     return;
                 }
                 setPending(false);

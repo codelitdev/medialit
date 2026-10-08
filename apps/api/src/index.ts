@@ -80,10 +80,10 @@ checkConfig()
         );
 
         const apiShutdown = createApiShutdown({
-            stopBackgroundJobs: () => {
+            stopBackgroundJobs: async () => {
                 clearInterval(tusCleanup);
                 clearInterval(tempCleanup);
-                stopBillingMaintenance();
+                await stopBillingMaintenance();
             },
             closeMcpSessions,
             closeServer: () =>
@@ -183,7 +183,7 @@ async function createAdminUser() {
         const user: User | null = await findByEmail(email);
 
         if (!user) {
-            const user = await createUser(email, undefined, "subscribed");
+            const user = await createUser(email);
             const keys = await getApiKeyByUserId(user.id);
             const firstKey = Array.isArray(keys) ? keys[0] : keys;
             logger.info({ apiKey: firstKey?.key }, "Admin user created");

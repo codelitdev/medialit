@@ -4,35 +4,52 @@ import {
     createBilling,
     type BillingEngine,
 } from "@codelitdev/billing/workflows";
+import {
+    aesGcmSensitiveValuesFromEnv,
+    createBillingActionGrants,
+    createReturnUrlValidator,
+} from "@codelitdev/platform/billing";
+import { drizzleVerificationGrantStore } from "@codelitdev/platform/billing/drizzle";
 import { getDb } from "@/db";
+import { verification } from "@/db/schema/auth.generated";
 import * as billingSchema from "@/db/schema/billing.generated";
 import logger from "../services/log";
-import { medialitBillingAuthorization } from "./authorization";
 import {
     billingCatalogKeys,
     billingComposition,
     type BillingComposition,
 } from "./catalog";
-import { decryptBillingValue, encryptBillingValue } from "./crypto";
 import { createMedialitDodoProvider } from "./dodo";
-import { applyMedialitProjectionEffects } from "./product-effects";
 
 const clock = systemClock;
 
-function returnUrlAllowed(url: string): boolean {
-    const webOrigin = process.env.WEB_ORIGIN || process.env.WEB_CLIENT;
-    if (!webOrigin) return false;
-    try {
-        return new URL(url).origin === new URL(webOrigin).origin;
-    } catch {
-        return false;
-    }
-}
-
 let engine: BillingEngine | undefined;
+let grants: ReturnType<typeof createBillingActionGrants> | undefined;
 
 export function resetBillingEngine(): void {
     engine = undefined;
+    grants = undefined;
+}
+
+/**
+ * Single-use billing action grants, stored in Better Auth's `verification`
+ * table. A token is issued only to a session that signed in within
+ * BILLING_RECENT_AUTH_MAX_AGE_SECONDS (default 15 minutes).
+ */
+export function getBillingActionGrants() {
+    if (grants) return grants;
+    const maxAgeSeconds = Number(
+        process.env.BILLING_RECENT_AUTH_MAX_AGE_SECONDS ?? 900,
+    );
+    grants = createBillingActionGrants({
+        store: drizzleVerificationGrantStore(getDb() as never, verification),
+        clock,
+        recentAuthMaxAgeMs:
+            Number.isSafeInteger(maxAgeSeconds) && maxAgeSeconds > 0
+                ? maxAgeSeconds * 1000
+                : 900 * 1000,
+    });
+    return grants;
 }
 
 export function getBillingEngine(): BillingEngine {
@@ -43,24 +60,13 @@ export function getBillingEngine(): BillingEngine {
         schema: billingSchema,
         clock,
     });
+    const webOrigin = process.env.WEB_ORIGIN || process.env.WEB_CLIENT;
     engine = createBilling({
         database: store,
         providers: cloud ? [createMedialitDodoProvider()] : [],
         clock,
-        authorization: medialitBillingAuthorization,
-        sensitiveValues: cloud
-            ? {
-                  async encrypt(plaintext: string) {
-                      return {
-                          ciphertext: encryptBillingValue(plaintext),
-                          keyVersion: "v1",
-                      };
-                  },
-                  async decrypt(ciphertext: string, _context) {
-                      return decryptBillingValue(ciphertext);
-                  },
-              }
-            : undefined,
+        authorization: getBillingActionGrants().authorization,
+        sensitiveValues: cloud ? aesGcmSensitiveValuesFromEnv() : undefined,
         hooks: cloud
             ? {
                   audit: {
@@ -74,17 +80,12 @@ export function getBillingEngine(): BillingEngine {
                           );
                       },
                   },
-                  lifecycle: {
-                      afterProjection: (input) =>
-                          applyMedialitProjectionEffects(
-                              input,
-                              (store.getTransaction() ?? getDb()) as never,
-                          ),
-                  },
               }
             : undefined,
         ...billingEngineCheckout(composition),
-        returnUrlValidator: cloud ? returnUrlAllowed : undefined,
+        returnUrlValidator: cloud
+            ? createReturnUrlValidator(webOrigin ? [webOrigin] : [])
+            : undefined,
     });
     return engine;
 }
