@@ -60,6 +60,11 @@ export CLOUD_ENDPOINT_PUBLIC="$CLOUD_ENDPOINT"
 export CDN_ENDPOINT="${CLOUD_ENDPOINT}/medialit-public"
 export EMAIL_PORT="$MAILPIT_SMTP_PORT"
 export TEMP_FILE_DIR_FOR_UPLOADS="$workdir/uploads"
+# Cloud mode with no billing provider: the test account is on Basic, so the
+# MCP suite checks that the storage limit comes from the account's plan.
+# The limit is set to an unusual value so it can't match by accident.
+export MEDIALIT_DEPLOYMENT_MODE=cloud
+export MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED=1234567890
 mkdir -p "$TEMP_FILE_DIR_FOR_UPLOADS"
 
 echo "--- Migrating the database"
@@ -98,4 +103,5 @@ bun --filter medialit --filter @medialit/uploader --filter @medialit/cli build >
 
 echo "--- Running the integration tests"
 MEDIALIT_APIKEY="$api_key" MEDIALIT_SERVER="http://localhost:${api_port}" \
+    MEDIALIT_EXPECTED_MAX_STORAGE="$MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED" \
     bun --filter @medialit/integration-tests test:all

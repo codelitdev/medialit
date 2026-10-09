@@ -1,4 +1,3 @@
-import { Constants } from "@medialit/models";
 import test, { afterEach, describe, mock } from "node:test";
 import { uploadMedia } from "../../src/media/handlers";
 import assert from "node:assert";
@@ -18,7 +17,6 @@ describe("Media handlers", () => {
             },
             user: {
                 id: "123",
-                subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
             },
             socket: {
                 setTimeout: () => {},

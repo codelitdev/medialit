@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { safeNextPath } from "@/lib/safe-next-path";
 
 const SESSION_COOKIES = [
     "medialit.session_token",
@@ -55,7 +56,6 @@ export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
     const isPublic =
         pathname.startsWith("/api/") ||
-        pathname.startsWith("/payment/webhook") ||
         pathname.startsWith("/_next") ||
         pathname.includes(".");
 
@@ -68,8 +68,18 @@ export async function proxy(request: NextRequest) {
         : "invalid";
 
     if (pathname.startsWith("/login")) {
-        if (check === "valid") {
-            return NextResponse.redirect(new URL("/", request.url));
+        // `reauth=1`: billing asked a signed-in person to sign in again.
+        const reauth = request.nextUrl.searchParams.get("reauth") === "1";
+        if (check === "valid" && !reauth) {
+            return NextResponse.redirect(
+                new URL(
+                    safeNextPath(
+                        request.nextUrl.searchParams.get("next"),
+                        request.nextUrl.origin,
+                    ),
+                    request.url,
+                ),
+            );
         }
         const response = NextResponse.next();
         if (check === "invalid" && hasSessionCookie(request)) {

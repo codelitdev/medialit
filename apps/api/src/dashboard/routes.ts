@@ -16,7 +16,11 @@ import {
     type ApiKeyRecord,
 } from "@/db";
 import type { MedialitAuth } from "../auth/better-auth";
-import { accountPlan, maxStorageFor } from "../billing/entitlements";
+import {
+    accountSubscription,
+    maxStorageFor,
+    resolveAccountBilling,
+} from "../billing/entitlements";
 import { deploymentMode } from "../billing/catalog";
 import mediaService from "../media/service";
 import { getMediaCount, getTotalSpace } from "../media/queries";
@@ -84,18 +88,15 @@ export function createDashboardRouter(auth: MedialitAuth) {
     router.get("/api/account", async (req, res) => {
         const user = await sessionUser(auth, req, res);
         if (!user) return;
+        const account = await resolveAccountBilling(user);
         res.json({
             id: user.id,
             email: user.email,
             name: user.name,
             userId: user.userId,
             active: user.active,
-            subscriptionStatus: user.subscriptionStatus,
-            subscriptionEndsAfter: user.subscriptionEndsAfter ?? null,
-            subscriptionMethod: user.subscriptionMethod,
-            customerId: user.customerId,
-            subscriptionId: user.subscriptionId,
-            plan: accountPlan(user),
+            plan: account.plan,
+            subscription: accountSubscription(account),
             deploymentMode: deploymentMode(),
         });
     });
@@ -146,7 +147,7 @@ export function createDashboardRouter(auth: MedialitAuth) {
         });
         res.json({
             storage,
-            maxStorage: maxStorageFor(owned.user),
+            maxStorage: await maxStorageFor(owned.user),
         });
     });
 

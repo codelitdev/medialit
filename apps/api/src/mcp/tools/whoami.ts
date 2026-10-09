@@ -54,7 +54,7 @@ export async function handleWhoamiTool(
             },
             files,
             storage,
-            maxStorage: maxStorageFor(user),
+            maxStorage: await maxStorageFor(user),
         };
         return {
             content: [

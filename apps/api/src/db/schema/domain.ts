@@ -16,15 +16,6 @@ export const profiles = pgTable("profiles", {
         .references(() => user.id, { onDelete: "cascade" }),
     publicUserId: text("public_user_id").notNull().unique(),
     active: boolean("active").notNull().default(true),
-    customerId: text("customer_id").unique(),
-    subscriptionId: text("subscription_id").unique(),
-    subscriptionEndsAfter: timestamp("subscription_ends_after", {
-        withTimezone: true,
-    }),
-    subscriptionMethod: text("subscription_method"),
-    subscriptionStatus: text("subscription_status")
-        .notNull()
-        .default("not-subscribed"),
 });
 
 export const apiKeys = pgTable(

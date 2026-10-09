@@ -287,7 +287,9 @@ CDN_ENDPOINT=https://<your_minio_api_endpoint> # For accessing public bucket con
 
 ## Set upload limits
 
-These variables set the largest file and the total storage per account, in bytes. "Subscribed" applies to accounts with an active subscription. The first user created from `EMAIL` has one.
+The Docker Compose setup runs in OSS mode (`MEDIALIT_DEPLOYMENT_MODE=oss`), where accounts have no upload or storage limits and there is no billing.
+
+With `MEDIALIT_DEPLOYMENT_MODE=cloud`, these variables set the largest file and the total storage per account, in bytes. "Subscribed" applies to accounts with an active paid subscription, which comes only from billing checkout.
 
 ```sh
 MAX_UPLOAD_SIZE_SUBSCRIBED=2147483648        # 2 GB

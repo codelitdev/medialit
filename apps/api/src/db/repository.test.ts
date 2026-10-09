@@ -40,7 +40,6 @@ describe("repository", () => {
         const user = await createAccount({
             email: "owner@example.com",
             name: "Owner",
-            subscriptionStatus: "subscribed",
         });
         const extra = await createApiKey({
             userId: user.id,

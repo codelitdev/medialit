@@ -9,7 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@codelitdev/observability": "0.3.0",
+    "@codelitdev/observability": "0.4.1",
     "@medialit/models": "workspace:*",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-avatar": "^1.0.4",

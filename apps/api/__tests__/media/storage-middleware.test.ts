@@ -1,4 +1,3 @@
-import { Constants } from "@medialit/models";
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
 import {
@@ -11,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import storageValidation from "../../src/media/storage-middleware";
+import { billingStateSource } from "../../src/billing/entitlements";
 import mediaQueries from "../../src/media/queries";
 import {
     maxFileUploadSizeNotSubscribed,
@@ -32,7 +32,6 @@ function truncatedUploadRequest(tempFilePath: string) {
     return {
         user: {
             id: "test-user-id",
-            subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
         },
         files: {
             file: {
@@ -44,6 +43,25 @@ function truncatedUploadRequest(tempFilePath: string) {
     };
 }
 
+/** The billing engine reports an active Pro subscription. */
+function mockPaidPlan() {
+    mock.method(billingStateSource, "read").mock.mockImplementation(
+        async () => ({
+            activePaidPlan: "pro",
+            provider: "lemonsqueezy",
+            billingInterval: "month" as const,
+            subscriptionStatus: "active",
+            providerTrialEndsAt: null,
+            currentPeriodEndsAt: null,
+            paidThroughAt: null,
+            cancelAtPeriodEnd: false,
+            pendingCheckout: false,
+            pendingPlanChange: false,
+            projectionVersion: 1,
+        }),
+    );
+}
+
 describe("storageValidation middleware", () => {
     afterEach(() => {
         mock.restoreAll();
@@ -53,7 +71,6 @@ describe("storageValidation middleware", () => {
         const req = {
             user: {
                 id: "test-user-id",
-                subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
             },
             files: {
                 file: {
@@ -83,10 +100,10 @@ describe("storageValidation middleware", () => {
     });
 
     test("should allow upload when user has enough space (subscribed)", async () => {
+        mockPaidPlan();
         const req = {
             user: {
                 id: "test-user-id",
-                subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
             },
             files: {
                 file: {
@@ -119,7 +136,6 @@ describe("storageValidation middleware", () => {
         const req = {
             user: {
                 id: "test-user-id",
-                subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
             },
             files: {
                 file: {
@@ -153,7 +169,6 @@ describe("storageValidation middleware", () => {
         const req = {
             user: {
                 id: "test-user-id",
-                subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
             },
             files: {
                 file: {
@@ -183,10 +198,10 @@ describe("storageValidation middleware", () => {
     });
 
     test("should reject upload when user exceeds storage limit (subscribed)", async () => {
+        mockPaidPlan();
         const req = {
             user: {
                 id: "test-user-id",
-                subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
             },
             files: {
                 file: {
@@ -270,7 +285,6 @@ describe("storageValidation middleware", () => {
         const req = {
             user: {
                 id: "test-user-id",
-                subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
             },
             files: {},
         };

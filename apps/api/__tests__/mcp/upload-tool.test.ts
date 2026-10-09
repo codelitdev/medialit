@@ -1,4 +1,3 @@
-import { Constants } from "@medialit/models";
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
 import { handleUploadMediaTool } from "../../src/mcp/tools/upload";
@@ -42,7 +41,6 @@ describe("MCP upload_media", () => {
     test("rejects uploads that exceed the account file size limit", async () => {
         const user = {
             id: "test-user-id",
-            subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
         };
 
         mock.method(mediaService, "upload").mock.mockImplementation(() => {
@@ -64,7 +62,6 @@ describe("MCP upload_media", () => {
     test("rejects uploads that exceed remaining account storage", async () => {
         const user = {
             id: "test-user-id",
-            subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
         };
 
         mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(

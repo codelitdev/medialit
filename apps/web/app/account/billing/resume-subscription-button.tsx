@@ -8,20 +8,16 @@ import { useEffect, useActionState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function ResumeSubscriptionButton({
-    expiresAt,
-    currentPlan,
-    subscriptionStatus,
+    paidThroughAt,
     className,
 }: {
-    expiresAt?: Date;
-    currentPlan: string;
-    subscriptionStatus: string;
+    /** When paid access ends, as returned by the API. */
+    paidThroughAt: string | Date | null;
     className?: string;
 }) {
     const [formState, formAction] = useActionState(resumeSubscription, {
         success: false,
-        url: undefined as string | undefined,
-    });
+    } as Awaited<ReturnType<typeof resumeSubscription>>);
     const { toast } = useToast();
     const router = useRouter();
 
@@ -37,6 +33,10 @@ export default function ResumeSubscriptionButton({
             });
             router.refresh();
         }
+        if (formState.signInUrl) {
+            window.location.assign(formState.signInUrl);
+            return;
+        }
         if (formState.error) {
             toast({
                 title: "Uh oh!",
@@ -46,62 +46,41 @@ export default function ResumeSubscriptionButton({
     }, [formState]);
 
     return (
-        <form action={formAction}>
-            <Submit
-                currentPlan={currentPlan}
-                subscriptionStatus={subscriptionStatus}
-                className={className}
-            >
-                Resume subscription
-            </Submit>
-
-            {currentPlan !== "Basic" &&
-                subscriptionStatus === "cancelled" &&
-                expiresAt && (
-                    <p
-                        className="text-center text-sm text-slate-500"
-                        suppressHydrationWarning={true}
-                    >
-                        Expires at{" "}
-                        {new Date(expiresAt).toLocaleDateString(undefined, {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                        })}
-                    </p>
-                )}
+        <form action={formAction} className="w-full">
+            <Submit className={className}>Resume subscription</Submit>
+            {paidThroughAt && (
+                <p
+                    className="text-center text-sm text-slate-500"
+                    suppressHydrationWarning={true}
+                >
+                    Cancelled. Pro stays active until{" "}
+                    {new Date(paidThroughAt).toLocaleDateString(undefined, {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                    })}
+                </p>
+            )}
         </form>
     );
 }
 
 function Submit({
     children,
-    currentPlan,
-    subscriptionStatus,
     className,
 }: {
     children: React.ReactNode;
-    currentPlan: string;
-    subscriptionStatus: string;
     className?: string;
 }) {
     const status = useFormStatus();
-    let buttonText = children;
-
-    if (currentPlan === "Basic" && subscriptionStatus === "cancelled") {
-        buttonText = "Current plan";
-        className =
-            "pointer-events-none w-full mb-5 bg-white hover:bg-white !text-muted-foreground border border-muted-foreground";
-    }
-
     return (
         <Button
-            className={`bg-red-500 hover:bg-red-700 w-full text-white mb-1 ${className}`}
+            className={`w-full mb-1 ${className ?? ""}`}
             type="submit"
-            variant="secondary"
+            variant="outline"
             disabled={status.pending}
         >
-            {buttonText}
+            {children}
         </Button>
     );
 }

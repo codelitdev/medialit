@@ -266,7 +266,7 @@ export async function handleGetTotalStorageTool(
         const storage = await dependencies.getTotalSpace({ userId, apikey });
         const response = {
             storage,
-            maxStorage: maxStorageFor(user),
+            maxStorage: await maxStorageFor(user),
         };
         return {
             content: [
