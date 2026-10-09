@@ -1,6 +1,6 @@
 {
   "name": "@medialit/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Upload and manage MediaLit files from the terminal",
   "type": "module",
   "bin": {
