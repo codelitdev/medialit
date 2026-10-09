@@ -30,11 +30,11 @@
         "@aws-sdk/s3-request-presigner": "^3.1146.0",
         "@better-auth/cimd": "1.7.7",
         "@better-auth/oauth-provider": "1.7.7",
-        "@codelitdev/billing": "file:../../../platform/packages/billing/codelitdev-billing-local-3.tgz",
+        "@codelitdev/billing": "0.4.0",
         "@codelitdev/mcp-server-kit": "0.3.0",
         "@codelitdev/oauth-server-kit": "0.3.0",
         "@codelitdev/observability": "0.3.0",
-        "@codelitdev/platform": "file:../../../platform/packages/platform/codelitdev-platform-local-1.tgz",
+        "@codelitdev/platform": "0.4.0",
         "@medialit/images": "workspace:*",
         "@medialit/models": "workspace:*",
         "@medialit/thumbnail": "workspace:*",
@@ -582,7 +582,7 @@
 
     "@cnakazawa/watch": ["@cnakazawa/watch@1.0.4", "", { "dependencies": { "exec-sh": "0.3.6", "minimist": "1.2.8" }, "bin": { "watch": "cli.js" } }, "sha512-v9kIhKwjeZThiWrLmj0y17CWoyddASLj9O2yvbZkbvw/N3rWOYy9zkV66ursAoVr0mV15bL8g0c4QZUE6cdDoQ=="],
 
-    "@codelitdev/billing": ["@codelitdev/billing@../../../platform/packages/billing/codelitdev-billing-local-3.tgz", { "dependencies": { "drizzle-orm": "^0.45.2", "nanoid": "^5.1.6", "zod": "^3.25.76" }, "peerDependencies": { "dodopayments": "^2.48.0" }, "optionalPeers": ["dodopayments"], "bin": { "codelit-billing": "./bin/codelit-billing.js" } }, "sha512-3nQ6dnhtgLQpq5rz39RkAGSWo22k2Ae2bRVSV6yTB7cpMfVah404lQd5mTDHLX1p1i27qxhK2qxp7lVovp5s7g=="],
+    "@codelitdev/billing": ["@codelitdev/billing@0.4.0", "", { "dependencies": { "drizzle-orm": "^0.45.2", "nanoid": "^5.1.6", "zod": "^3.25.76" }, "peerDependencies": { "dodopayments": "^2.48.0" }, "optionalPeers": ["dodopayments"], "bin": { "codelit-billing": "bin/codelit-billing.js" } }, "sha512-sP5qMksPelTqDwc1JhAL8dgLyTAK+MCCmL/bCTFzz8Jge1nvjGNUjGM0OI8FY2nMy3NLq6kKs/9T8kH00MtGYQ=="],
 
     "@codelitdev/design-system": ["@codelitdev/design-system@0.3.0", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-z9+0VSd9oB89Dgi9lfpX211TVa7mE8vrEpDp5++4Z3RMvk4E51iEOLLemo+wrYACROXhH++jYxYnKZGE3EHlpg=="],
 
@@ -592,7 +592,7 @@
 
     "@codelitdev/observability": ["@codelitdev/observability@0.3.0", "", { "dependencies": { "pino": "^9.6.0" }, "peerDependencies": { "express": "^4.21.2", "posthog-js": "^1.200.0", "posthog-node": "^4.0.0" }, "optionalPeers": ["express", "posthog-js", "posthog-node"] }, "sha512-QWEsI1667kCu01FLcx+70BS/fmxx1qeNX68lnmCiz5KJfKOg8OtuDVPolZq6fyqsrzqN1Sd2t1AYHkFGsTIQfA=="],
 
-    "@codelitdev/platform": ["@codelitdev/platform@../../../platform/packages/platform/codelitdev-platform-local-1.tgz", { "peerDependencies": { "@codelitdev/billing": "0.3.0", "drizzle-orm": "^0.45.2" }, "optionalPeers": ["@codelitdev/billing", "drizzle-orm"] }, "sha512-GHyt8ebJy2dFlTnv4VV7HzsSjMaN3oOIGwpkFwvO7vt4eBUMM7jrp5XTA5RilAwmMxxF+I6Iu9i/Mq4UuzqZwA=="],
+    "@codelitdev/platform": ["@codelitdev/platform@0.4.0", "", { "peerDependencies": { "@codelitdev/billing": "workspace:*", "drizzle-orm": "^0.45.2" }, "optionalPeers": ["@codelitdev/billing", "drizzle-orm"] }, "sha512-HyOCfmH5d0iOnZZ/W1P2tURGhUyqhvz6vbvTKe0gcU5px9ZKqKwhBtd3oU2N1x5R1cCKUHOuoDFuX1mFlU1CKg=="],
 
     "@codelitdev/platform-conformance": ["@codelitdev/platform-conformance@0.3.0", "", { "peerDependencies": { "@codelitdev/platform": ">=0.3.0" } }, "sha512-N7JsCQF4TRQ4A+Y3nu9bkXj6WEXZN2IrSIEU9glgQH0N+KBgGi/rlP2rtrnSK61jrbf1tbZn8yE7bZWTO08b2g=="],
 
@@ -3289,10 +3289,6 @@
     "@changesets/write/prettier": ["prettier@2.8.8", "", { "bin": { "prettier": "bin-prettier.js" } }, "sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q=="],
 
     "@codelitdev/billing/nanoid": ["nanoid@5.1.16", "", { "bin": { "nanoid": "bin/nanoid.js" } }, "sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ=="],
-
-    "@codelitdev/mcp-server-kit/@codelitdev/platform": ["@codelitdev/platform@0.3.0", "", {}, "sha512-Yp3nCYlqEMbHv2usZFWCSrMtGp5/zI/ZT/bGT0LYEnvxgk0YJReYktiMpjfTKajEuWKl+WmiZvT8iZMcDy6c3A=="],
-
-    "@codelitdev/platform-conformance/@codelitdev/platform": ["@codelitdev/platform@0.3.0", "", {}, "sha512-Yp3nCYlqEMbHv2usZFWCSrMtGp5/zI/ZT/bGT0LYEnvxgk0YJReYktiMpjfTKajEuWKl+WmiZvT8iZMcDy6c3A=="],
 
     "@esbuild-kit/core-utils/esbuild": ["esbuild@0.18.20", "", { "optionalDependencies": { "@esbuild/android-arm": "0.18.20", "@esbuild/android-arm64": "0.18.20", "@esbuild/android-x64": "0.18.20", "@esbuild/darwin-arm64": "0.18.20", "@esbuild/darwin-x64": "0.18.20", "@esbuild/freebsd-arm64": "0.18.20", "@esbuild/freebsd-x64": "0.18.20", "@esbuild/linux-arm": "0.18.20", "@esbuild/linux-arm64": "0.18.20", "@esbuild/linux-ia32": "0.18.20", "@esbuild/linux-loong64": "0.18.20", "@esbuild/linux-mips64el": "0.18.20", "@esbuild/linux-ppc64": "0.18.20", "@esbuild/linux-riscv64": "0.18.20", "@esbuild/linux-s390x": "0.18.20", "@esbuild/linux-x64": "0.18.20", "@esbuild/netbsd-x64": "0.18.20", "@esbuild/openbsd-x64": "0.18.20", "@esbuild/sunos-x64": "0.18.20", "@esbuild/win32-arm64": "0.18.20", "@esbuild/win32-ia32": "0.18.20", "@esbuild/win32-x64": "0.18.20" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-ceqxoedUrcayh7Y7ZX6NdbbDzGROiyVBgC4PriJThBKSVPWnnFHZAkfI1lJT8QFkOwH4qOS2SJkS4wvpGl8BpA=="],
 
