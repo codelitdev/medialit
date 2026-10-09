@@ -1,6 +1,6 @@
-# medialit
+# @medialit/cli
 
-## 0.3.0
+## 0.2.0
 
 ### Minor Changes
 
@@ -16,22 +16,7 @@
 
 ### Patch Changes
 
-- c1b050b: `get()`, `seal()` and `delete()` now reject media IDs that aren't nanoids. Previously an ID such as `../signature/create` from a user changed which API endpoint the request reached, using your API key.
-
-## 0.2.0
-
-### Minor Changes
-
-- 2e18d2b: Uploads are temporary by default
-
-## 0.1.0
-
-### Minor Changes
-
-- c7d0050: API key and signature are passed via header instead of request body
-
-## 0.0.1
-
-### Patch Changes
-
-- 2190697: First version of MediaLit nodejs sdk
+- Updated dependencies [c3e3bd3]
+- Updated dependencies [c1b050b]
+    - medialit@0.3.0
+    - @medialit/uploader@0.2.0

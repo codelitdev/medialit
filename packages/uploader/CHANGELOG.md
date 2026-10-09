@@ -1,6 +1,6 @@
-# medialit
+# @medialit/uploader
 
-## 0.3.0
+## 0.2.0
 
 ### Minor Changes
 
@@ -13,25 +13,3 @@
     `medialit`: `list()` now sends paging and filters in the body, where the API reads them. They were previously ignored. The client also takes an OAuth `accessToken` instead of an API key.
 
     `@medialit/uploader`: uploads a Node.js file stream, and takes a `mimeType` option.
-
-### Patch Changes
-
-- c1b050b: `get()`, `seal()` and `delete()` now reject media IDs that aren't nanoids. Previously an ID such as `../signature/create` from a user changed which API endpoint the request reached, using your API key.
-
-## 0.2.0
-
-### Minor Changes
-
-- 2e18d2b: Uploads are temporary by default
-
-## 0.1.0
-
-### Minor Changes
-
-- c7d0050: API key and signature are passed via header instead of request body
-
-## 0.0.1
-
-### Patch Changes
-
-- 2190697: First version of MediaLit nodejs sdk
