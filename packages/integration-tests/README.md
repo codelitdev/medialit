@@ -33,6 +33,8 @@ MEDIALIT_APIKEY=... MEDIALIT_SERVER=localhost:8000 \
 | `mcp`       | The MCP server suite                                                 |
 | `cli`       | The CLI suite. Set `MEDIALIT_CLI` to the `medialit` command to test. |
 
+Set `MEDIALIT_EXPECTED_MAX_STORAGE` to the storage limit, in bytes, that the test account's plan grants, and the MCP suite checks that `get_total_storage` and `whoami` report it.
+
 In the MediaLit repository, run them with `bun run test:integration`, or `bun --filter @medialit/integration-tests <script>` with `synthetic`, `test:rest`, `test:mcp` or `test:cli`.
 
 To run all three suites against a fresh local stack (Postgres, MinIO and Mailpit from `docker-compose.local.yml`, plus the API), the same way the pull request check does, run `bun run test:integration:stack` from the repository root. It needs Docker, uses its own ports, and leaves your dev stack and `apps/api/.env` alone.
