@@ -9,7 +9,7 @@
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
-    "@codelitdev/design-system": "0.3.0",
+    "@codelitdev/design-system": "0.4.1",
     "fumadocs-core": "16.7.1",
     "fumadocs-mdx": "14.2.10",
     "fumadocs-openapi": "^10.4.1",
