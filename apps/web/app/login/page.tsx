@@ -5,14 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-/** Where to go after signing in: a same-site path from `?next=`, or home. */
-function safeNextPath(): string {
-    const next = new URLSearchParams(window.location.search).get("next");
-    return next && /^\/(?![/\\])/.test(next) && !next.includes("\\")
-        ? next
-        : "/";
-}
+import { safeNextPath } from "@/lib/safe-next-path";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -65,7 +58,12 @@ export default function LoginPage() {
             setError("That code is invalid or expired.");
             return;
         }
-        window.location.assign(safeNextPath());
+        window.location.assign(
+            safeNextPath(
+                new URLSearchParams(window.location.search).get("next"),
+                window.location.origin,
+            ),
+        );
     }
 
     return (

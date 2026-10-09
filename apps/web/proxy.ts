@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { safeNextPath } from "@/lib/safe-next-path";
 
 const SESSION_COOKIES = [
     "medialit.session_token",
@@ -51,13 +52,6 @@ async function checkSession(request: NextRequest): Promise<SessionCheck> {
     }
 }
 
-/** A same-site path from `?next=`, or home. */
-function safeNextPath(next: string | null): string {
-    return next && /^\/(?![/\\])/.test(next) && !next.includes("\\")
-        ? next
-        : "/";
-}
-
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
     const isPublic =
@@ -79,7 +73,10 @@ export async function proxy(request: NextRequest) {
         if (check === "valid" && !reauth) {
             return NextResponse.redirect(
                 new URL(
-                    safeNextPath(request.nextUrl.searchParams.get("next")),
+                    safeNextPath(
+                        request.nextUrl.searchParams.get("next"),
+                        request.nextUrl.origin,
+                    ),
                     request.url,
                 ),
             );
