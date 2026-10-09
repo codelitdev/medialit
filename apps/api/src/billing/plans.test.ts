@@ -9,6 +9,7 @@ import {
 } from "../config/constants";
 import { billingComposition, readCloudBillingConfig } from "./catalog";
 import { billingEngineCheckout } from "./engine";
+import { acceptsWebhookFrom } from "./routes";
 import { createBilling } from "@codelitdev/billing/workflows";
 import { systemClock } from "@codelitdev/billing/core";
 import { MemoryAuthorizationPort } from "@codelitdev/billing/workflows";
@@ -30,6 +31,7 @@ function state(
 ): CommercialBillingState {
     return {
         activePaidPlan: "pro",
+        provider: "lemonsqueezy",
         billingInterval: "month",
         subscriptionStatus: "active",
         providerTrialEndsAt: null,
@@ -118,7 +120,7 @@ test("the dashboard shows a scheduled cancellation with its end date", async () 
     );
 });
 
-test("cloud billing config stays off until Dodo is fully set", () => {
+test("cloud billing config stays off until billing is fully set", () => {
     assert.equal(
         readCloudBillingConfig({ MEDIALIT_DEPLOYMENT_MODE: "cloud" }),
         null,
@@ -154,51 +156,107 @@ test("cloud billing config stays off until Dodo is fully set", () => {
         () =>
             readCloudBillingConfig({
                 MEDIALIT_DEPLOYMENT_MODE: "cloud",
-                DODO_PAYMENTS_API_KEY: "test",
+                BILLING_PROVIDER: "lemonsqueezy",
             }),
         BillingConfigurationError,
     );
 });
 
+const lemonSqueezyEnv = {
+    MEDIALIT_DEPLOYMENT_MODE: "cloud",
+    BILLING_PROVIDER: "lemonsqueezy",
+    BILLING_CATALOG_REVISION: "1",
+    BILLING_CURRENCY: "usd",
+    BILLING_PRO_MONTH_AMOUNT_MINOR: "1000",
+    BILLING_PRO_YEAR_AMOUNT_MINOR: "10000",
+    BILLING_PRO_MONTH_PRODUCT_ID: "77",
+    BILLING_PRO_YEAR_PRODUCT_ID: "78",
+    BILLING_DATA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
+    LEMONSQUEEZY_API_KEY: "ls_key",
+    LEMONSQUEEZY_STORE_ID: "123",
+    LEMONSQUEEZY_WEBHOOK_SECRET: "secret",
+};
+
 test("a complete Pro catalog is ten dollars a month or one hundred a year", () => {
-    const config = readCloudBillingConfig({
-        MEDIALIT_DEPLOYMENT_MODE: "cloud",
-        BILLING_CATALOG_REVISION: "1",
-        BILLING_CURRENCY: "usd",
-        BILLING_PRO_MONTH_AMOUNT_MINOR: "1000",
-        BILLING_PRO_YEAR_AMOUNT_MINOR: "10000",
-        DODO_PRO_MONTH_PRODUCT_ID: "pdt_pro_month",
-        DODO_PRO_YEAR_PRODUCT_ID: "pdt_pro_year",
-        DODO_PAYMENTS_API_KEY: "test_key",
-        DODO_PAYMENTS_WEBHOOK_KEY_CURRENT: "whsec_test",
-        BILLING_DATA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
-    });
+    const config = readCloudBillingConfig(lemonSqueezyEnv);
+    assert.equal(config?.provider, "lemonsqueezy");
     const month = config?.offers.find((offer) => offer.key === "pro_month");
     const year = config?.offers.find((offer) => offer.key === "pro_year");
     assert.equal(month?.plan, "pro");
     assert.equal(month?.interval, "month");
     assert.equal(month?.amountMinor, 1000);
     assert.equal(month?.currency, "USD");
-    assert.equal(month?.provider, "dodo");
+    assert.equal(month?.provider, "lemonsqueezy");
     assert.equal(year?.interval, "year");
     assert.equal(year?.amountMinor, 10000);
-    assert.equal(year?.providerProductId, "pdt_pro_year");
+    assert.equal(year?.providerProductId, "78");
     assert.throws(
         () =>
             readCloudBillingConfig({
-                MEDIALIT_DEPLOYMENT_MODE: "cloud",
-                BILLING_CATALOG_REVISION: "1",
-                BILLING_CURRENCY: "USD",
-                BILLING_PRO_MONTH_AMOUNT_MINOR: "1000",
-                BILLING_PRO_YEAR_AMOUNT_MINOR: "10000",
-                DODO_PRO_MONTH_PRODUCT_ID: "pdt_same",
-                DODO_PRO_YEAR_PRODUCT_ID: "pdt_same",
-                DODO_PAYMENTS_API_KEY: "test_key",
-                DODO_PAYMENTS_WEBHOOK_KEY_CURRENT: "whsec_test",
-                BILLING_DATA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString(
-                    "base64",
-                ),
+                ...lemonSqueezyEnv,
+                BILLING_PRO_YEAR_PRODUCT_ID: "77",
             }),
         BillingConfigurationError,
+    );
+});
+
+test("billing config needs a known provider and its credentials", () => {
+    assert.throws(
+        () =>
+            readCloudBillingConfig({
+                ...lemonSqueezyEnv,
+                BILLING_PROVIDER: "paypal",
+            }),
+        BillingConfigurationError,
+    );
+    assert.throws(
+        () =>
+            readCloudBillingConfig({
+                ...lemonSqueezyEnv,
+                LEMONSQUEEZY_STORE_ID: "",
+            }),
+        BillingConfigurationError,
+    );
+    const dodo = readCloudBillingConfig({
+        ...lemonSqueezyEnv,
+        BILLING_PROVIDER: "dodo",
+        DODO_PAYMENTS_API_KEY: "dodo_key",
+        DODO_PAYMENTS_WEBHOOK_KEY_CURRENT: "whsec_test",
+    });
+    assert.equal(dodo?.provider, "dodo");
+    assert.equal(dodo?.offers[0]?.provider, "dodo");
+});
+
+test("providers with credentials stay connected after checkout moves", () => {
+    const lemonSqueezyOnly = readCloudBillingConfig(lemonSqueezyEnv);
+    assert.deepEqual(lemonSqueezyOnly?.providers, ["lemonsqueezy"]);
+
+    const switched = readCloudBillingConfig({
+        ...lemonSqueezyEnv,
+        BILLING_PROVIDER: "dodo",
+        BILLING_CATALOG_REVISION: "3",
+        BILLING_PRO_MONTH_PRODUCT_ID: "pdt_month",
+        BILLING_PRO_YEAR_PRODUCT_ID: "pdt_year",
+        DODO_PAYMENTS_API_KEY: "dodo_key",
+        DODO_PAYMENTS_WEBHOOK_KEY_CURRENT: "whsec_test",
+    });
+    assert.equal(switched?.provider, "dodo");
+    assert.deepEqual(switched?.providers, ["dodo", "lemonsqueezy"]);
+    assert.ok(switched?.offers.every((offer) => offer.provider === "dodo"));
+    assert.equal(acceptsWebhookFrom(switched!, "lemonsqueezy"), true);
+    assert.equal(acceptsWebhookFrom(switched!, "dodo"), true);
+    assert.equal(acceptsWebhookFrom(lemonSqueezyOnly!, "dodo"), false);
+    assert.equal(
+        acceptsWebhookFrom({ deploymentMode: "oss" }, "lemonsqueezy"),
+        false,
+    );
+
+    assert.throws(
+        () =>
+            readCloudBillingConfig({
+                ...lemonSqueezyEnv,
+                DODO_PAYMENTS_API_KEY: "dodo_key",
+            }),
+        /dodo_config_incomplete/,
     );
 });

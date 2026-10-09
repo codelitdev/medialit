@@ -317,17 +317,41 @@ export function createBillingRouter(auth: MedialitAuth) {
     return router;
 }
 
-export function dodoWebhookRouter() {
+export function acceptsWebhookFrom(
+    composition: ReturnType<typeof billingComposition>,
+    provider: string,
+): boolean {
+    return (
+        composition.deploymentMode === "cloud" &&
+        composition.providers.some((name) => name === provider)
+    );
+}
+
+/**
+ * POST /webhooks/billing/:provider. Accepts every connected provider, so one
+ * that no longer takes checkouts still reports renewals and cancellations.
+ * Any other provider gets 404.
+ */
+export function billingWebhookRouter() {
     const router = Router();
-    router.post("/", async (req, res) => {
+    router.post("/:provider", async (req, res) => {
+        const composition = billingComposition();
+        const provider = req.params.provider;
+        if (!acceptsWebhookFrom(composition, provider)) {
+            res.status(404).json({ accepted: false });
+            return;
+        }
         const response = await handleBillingWebhook({
             billing: configuredBilling(),
-            provider: "dodo",
+            provider,
             rawBody: (req as Request & { rawBody?: Buffer }).rawBody,
             headers: req.headers,
             workerId: `billing-${process.pid}`,
             onError: (error) =>
-                logger.warn({ err: error }, "Dodo webhook not processed"),
+                logger.warn(
+                    { err: error, provider },
+                    "Billing webhook not processed",
+                ),
         });
         res.status(response.status).json(response.body);
     });

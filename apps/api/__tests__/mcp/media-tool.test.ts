@@ -8,6 +8,7 @@ function mockPaidPlan() {
     mock.method(billingStateSource, "read").mock.mockImplementation(
         async () => ({
             activePaidPlan: "pro",
+            provider: "lemonsqueezy",
             billingInterval: "month" as const,
             subscriptionStatus: "active",
             providerTrialEndsAt: null,

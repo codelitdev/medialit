@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { openBillingPortal, startProCheckout } from "./action";
@@ -19,6 +19,16 @@ export default function BillingButton({
 }) {
     const { toast } = useToast();
     const [pending, setPending] = useState(false);
+
+    // Pressing back from the provider's page can restore this page from the
+    // browser's back-forward cache with the button still disabled.
+    useEffect(() => {
+        const reset = (event: PageTransitionEvent) => {
+            if (event.persisted) setPending(false);
+        };
+        window.addEventListener("pageshow", reset);
+        return () => window.removeEventListener("pageshow", reset);
+    }, []);
 
     return (
         <Button

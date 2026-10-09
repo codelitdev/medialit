@@ -146,9 +146,10 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         delete content.paths["/oauth/revoke"];
         delete content.paths["/oauth/register"];
         delete content.paths["/oauth/userinfo"];
-        // The Dodo webhook router is mounted at /webhooks/billing/dodo, but
+        // The billing webhook router is mounted at /webhooks/billing, but
         // swagger-autogen records its route without the mount prefix.
         delete content.paths["/"];
+        delete content.paths["/{provider}"];
         for (const apiPath of Object.keys(content.paths)) {
             if (
                 apiPath.startsWith("/api/") ||

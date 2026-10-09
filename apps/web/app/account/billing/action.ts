@@ -13,7 +13,7 @@ type BillingResult = {
     signInUrl?: string;
 };
 
-const SIGN_IN_AGAIN = `/login?next=${encodeURIComponent("/account/billing")}`;
+const SIGN_IN_AGAIN = `/login?reauth=1&next=${encodeURIComponent("/account/billing")}`;
 
 /**
  * Billing actions need a single-use token from the API, issued only to a

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,12 @@ export default function LoginPage() {
     const [sent, setSent] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
+    const [reauth, setReauth] = useState(false);
+    useEffect(() => {
+        setReauth(
+            new URLSearchParams(window.location.search).get("reauth") === "1",
+        );
+    }, []);
 
     async function sendCode(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -66,6 +72,11 @@ export default function LoginPage() {
         <Card className="max-w-md mx-auto">
             <CardHeader>
                 <CardTitle>Sign in</CardTitle>
+                {reauth && (
+                    <p className="text-sm text-muted-foreground">
+                        For your security, sign in again to change your billing.
+                    </p>
+                )}
             </CardHeader>
             <CardContent>
                 {!sent ? (

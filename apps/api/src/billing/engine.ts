@@ -19,7 +19,7 @@ import {
     billingComposition,
     type BillingComposition,
 } from "./catalog";
-import { createMedialitDodoProvider } from "./dodo";
+import { createConfiguredProviders } from "./providers";
 
 const clock = systemClock;
 
@@ -63,7 +63,10 @@ export function getBillingEngine(): BillingEngine {
     const webOrigin = process.env.WEB_ORIGIN || process.env.WEB_CLIENT;
     engine = createBilling({
         database: store,
-        providers: cloud ? [createMedialitDodoProvider()] : [],
+        providers:
+            composition.deploymentMode === "cloud"
+                ? createConfiguredProviders(composition.providers)
+                : [],
         clock,
         authorization: getBillingActionGrants().authorization,
         sensitiveValues: cloud ? aesGcmSensitiveValuesFromEnv() : undefined,
@@ -102,7 +105,7 @@ export function billingEngineCheckout(composition: BillingComposition) {
     }
     return {
         mode: "cloud" as const,
-        checkoutProvider: "dodo",
+        checkoutProvider: composition.provider,
         requestedRevision: composition.catalogRevision,
         requiredOfferKeys: [...billingCatalogKeys],
         offers: composition.offers,

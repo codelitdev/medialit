@@ -31,7 +31,8 @@
         "db:generate": "drizzle-kit generate",
         "db:migrate": "bun --env-file=.env src/db/migrate.ts",
         "db:push": "drizzle-kit push",
-        "db:studio": "drizzle-kit studio"
+        "db:studio": "drizzle-kit studio",
+        "billing:adopt": "bun --env-file=.env src/billing/adopt.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1146.0",
@@ -39,11 +40,11 @@
         "@aws-sdk/s3-request-presigner": "^3.1146.0",
         "@better-auth/cimd": "1.7.7",
         "@better-auth/oauth-provider": "1.7.7",
-        "@codelitdev/billing": "file:../../../platform/packages/billing/codelitdev-billing-local-3.tgz",
+        "@codelitdev/billing": "0.4.0",
         "@codelitdev/mcp-server-kit": "0.3.0",
         "@codelitdev/oauth-server-kit": "0.3.0",
         "@codelitdev/observability": "0.3.0",
-        "@codelitdev/platform": "file:../../../platform/packages/platform/codelitdev-platform-local-1.tgz",
+        "@codelitdev/platform": "0.4.0",
         "@medialit/images": "workspace:*",
         "@medialit/models": "workspace:*",
         "@medialit/thumbnail": "workspace:*",

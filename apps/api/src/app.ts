@@ -23,7 +23,7 @@ import { setBearerAuth } from "./auth/bearer";
 import { createOAuthAppPages } from "./auth/oauth-app-pages";
 import { oauthAppSelectionAdapter } from "./auth/oauth-app-selection";
 import { createDashboardRouter } from "./dashboard/routes";
-import { createBillingRouter, dodoWebhookRouter } from "./billing/routes";
+import { billingWebhookRouter, createBillingRouter } from "./billing/routes";
 
 type ReadinessReport = Awaited<ReturnType<typeof apiReadiness>>;
 
@@ -192,9 +192,7 @@ export function createApp(input: {
     app.use(createDashboardRouter(auth));
     app.use(createBillingRouter(auth));
     // Platform convention for provider webhooks: POST /webhooks/billing/<provider>.
-    app.use("/webhooks/billing/dodo", dodoWebhookRouter());
-    // Deprecated path from v0.5.0, kept for endpoints configured against it.
-    app.use("/payment/webhook/dodo", dodoWebhookRouter());
+    app.use("/webhooks/billing", billingWebhookRouter());
     app.use(jsonErrorHandler);
     return app;
 }
