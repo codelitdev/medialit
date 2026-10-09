@@ -12,7 +12,7 @@
     "@medialit/react": "workspace:^",
     "lucide-react": "^0.487.0",
     "medialit": "workspace:^",
-    "next": "16.3.6",
+    "next": "16.3.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
