@@ -1,0 +1,187 @@
+---
+title: MCP Server
+slug: mcp-server
+nav_order: 10
+---
+
+## Introduction
+
+Agents create files: reports, images, exports and screenshots. The MediaLit MCP server gives any MCP client a place to keep them and a link to share. Files an agent keeps appear in your [dashboard](/docs/dashboard) and are available to your apps through the API.
+
+Once connected, you can ask things like:
+
+- "Upload this chart as a public file and give me the link."
+- "List the files I uploaded this week."
+- "Delete the drafts you made earlier."
+- "How much storage am I using?"
+
+Uploads from agents are [temporary until sealed](#two-step-upload-flow-drafts-sealing), so an agent's scratch files are cleaned up unless it, or you, decides to keep them. The [CLI](/docs/cli) is different: it seals uploads right away unless the agent passes `--temp`.
+
+The server is at `https://api.medialit.cloud/mcp` and uses the Streamable HTTP transport, so there is nothing to install or run locally.
+
+---
+
+## How to Connect
+
+MediaLit supports two ways to authenticate your MCP client. **Using the OAuth 2.0 setup is recommended** as it is the easiest and most secure option.
+
+### 1. OAuth 2.0 Setup (Recommended)
+
+Connecting with OAuth is straightforward:
+1. **Enter the Connection URL:** Provide the client with the MediaLit MCP server URL: `https://api.medialit.cloud/mcp`
+2. **Redirect & Login:** The client will redirect you to the MediaLit login screen.
+3. **Authorize:** Enter your email address to log in, and authorize the connection. 
+
+Once approved, you are logged in and the client will automatically handle connection keys in the background.
+
+MediaLit supports Client ID Metadata Documents (CIMD) for current MCP clients and keeps Dynamic Client Registration (DCR) enabled for compatible clients. Registration identifies the client; users still sign in and approve access before it receives a token.
+
+> **Info:** If you have more than one app, MediaLit asks which one to connect after you sign in. The agent's uploads and changes all happen in that app. Connect again to choose a different one. The [CLI](/docs/cli) uses the same sign-in.
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http medialit https://api.medialit.cloud/mcp
+```
+
+Then run `/mcp` in Claude Code to sign in.
+
+### 2. API Key Setup (Alternative)
+
+If you are using developer-focused tools like Cursor or Claude Code and prefer a quick configuration, you can use your MediaLit account API key instead.
+
+Add the following config to your client:
+- **Header:** `x-medialit-apikey`
+- **Value:** `YOUR_API_KEY`
+
+**Claude Desktop Configuration (`claude_desktop_config.json`):**
+
+Since Claude Desktop communicates via standard input/output (stdio), you must use a proxy/bridge tool like `mcp-remote` to connect to the remote Streamable HTTP server:
+
+```json
+{
+  "mcpServers": {
+    "medialit": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://api.medialit.cloud/mcp",
+        "--header",
+        "x-medialit-apikey: ${API_KEY}"
+      ],
+      "env": {
+        "API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+**VS Code configuration (`mcp.json`):**
+```
+{
+    "servers": {
+        "medialit": {
+            "type": "http",
+            "url": "https://api.medialit.cloud/mcp",
+            "headers": {
+                "x-medialit-apikey": "YOUR_API_KEY"
+            }
+        }
+    }
+}
+```
+
+---
+
+## Two-Step Upload Flow (Drafts & Sealing)
+
+To prevent cluttering of the media registry with unfinished uploads, MediaLit enforces a **two-step upload pattern** across both REST and MCP interfaces:
+
+1. **Upload (`upload_media`):** The file is written to storage, and a record is created with `temp: true`. In this temporary state, the file does **not** appear in paginated listings (`list_media`), count queries (`get_media_count`), or storage totals (`get_total_storage`).
+2. **Seal (`seal_media`):** The client verifies the upload and seals it. Sealing removes the `temp` flag, finalizing the record and making it globally visible to listing tools.
+
+> **Warning:** Files left in the `temp: true` state for more than 24 hours are automatically purged by a background cleanup worker. Always ensure you call `seal_media` once the upload is completed successfully.
+
+---
+
+## Tools Reference
+
+The MediaLit MCP server exposes the following tools to connected agents:
+
+### Media Management
+
+#### `list_media`
+Returns a paginated list of finalized (sealed) media items.
+- **Inputs:**
+  - `page` *(number, optional)*: Page offset (default: `1`).
+  - `limit` *(number, optional)*: Items per page (default: `10`).
+  - `access` *("public" or "private", optional)*: Filter by accessibility level.
+  - `group` *(string, optional)*: Filter by custom group label.
+- **Output:** `{ mediaItems: Array, total: number, page: number }`
+
+#### `get_media`
+Fetches complete metadata for a single media item by its ID.
+- **Inputs:**
+  - `mediaId` *(string, required)*: The unique ID of the media item.
+- **Output:** The media document.
+- **Note:** Unlike `list_media`, this tool can fetch `temp: true` (unsealed) media items, allowing validation before sealing.
+
+#### `get_media_count`
+Returns the total count of finalized media items in the account.
+- **Output:** `{ count: number }`
+
+#### `get_total_storage`
+Returns the total storage space consumed by the account, along with the allowed maximum limit in bytes.
+- **Output:** `{ storage: number, maxStorage: number }`
+
+#### `seal_media`
+Finalizes a temporary media upload, allowing it to persist and show up in lists/tallies.
+- **Inputs:**
+  - `mediaId` *(string, required)*: The unique ID of the media item to seal.
+- **Output:** The updated media document.
+
+#### `delete_media`
+Permanently deletes a media file and all generated derivatives (thumbnails, WebP conversions) from storage.
+- **Inputs:**
+  - `mediaId` *(string, required)*: The unique ID of the media item to delete.
+- **Output:** `{ deleted: true, mediaId: string }`
+
+---
+
+### File Uploading & Access
+
+#### `upload_media`
+Uploads a new file directly using base64-encoded payload parameters.
+- **Inputs:**
+  - `fileBase64` *(string, required)*: Base64-encoded string of the file bytes.
+  - `fileName` *(string, required)*: Filename with extension (e.g. `image.png`).
+  - `mimeType` *(string, required)*: The MIME type of the file (e.g. `image/png`).
+  - `caption` *(string, optional)*: Text description or caption.
+  - `access` *("public" or "private", optional)*: Access controls (default: `private`).
+  - `group` *(string, optional)*: Custom folder/group tag.
+- **Output:** `{ mediaId: string }`
+- **Limits:** Requests to the MCP server are limited to 2 MB, and base64 makes a file about a third larger, so this tool works for files up to about 1.5 MB. For larger files, an agent that can run commands can use the [CLI](/docs/cli), which uploads in resumable chunks. Otherwise, use `create_upload_signature` and upload the file with [`@medialit/uploader`](/docs/other-frameworks) or the REST API.
+
+#### `create_upload_signature`
+Creates a short-lived [upload signature](/docs/concepts#upload-signatures) that lets a browser or script upload one file to MediaLit without an API key.
+- **Inputs:**
+  - `group` *(string, optional)*: Optional group to associate with the uploaded file.
+- **Output:** `{ signature: string }`
+
+---
+
+### Media Settings
+
+#### `get_media_settings`
+Retrieves the active image processing configurations for the account, such as auto-conversion behaviors.
+- **Output:** Active configurations (WebP defaults, thumbnail dimensions).
+
+#### `update_media_settings`
+Overwrites specific image processing defaults. Supply only the properties you wish to modify.
+- **Inputs:**
+  - `useWebP` *(boolean, optional)*: Auto-convert uploaded images to WebP.
+  - `webpOutputQuality` *(number, optional)*: Output quality between `0` and `100`.
+  - `thumbnailWidth` *(number, optional)*: Default width of generated thumbnails.
+  - `thumbnailHeight` *(number, optional)*: Default height of generated thumbnails.
+- **Output:** `{ updated: true }`

@@ -1,0 +1,98 @@
+---
+title: CLI
+slug: cli
+nav_order: 20
+---
+
+The MediaLit CLI works for you in a terminal and for coding agents that run commands, such as Claude Code, Codex and Cursor's agent. It logs in with your browser, like the [MCP server](/docs/mcp-server), and works with medialit.cloud and self-hosted servers.
+
+```bash
+npm install -g @medialit/cli
+```
+
+## Log in
+
+```bash
+medialit login
+```
+
+Your browser opens to sign in. If you have more than one app, you choose the app the CLI works with. Run `medialit login` again to choose a different one.
+
+### medialit.cloud
+
+```bash
+medialit login
+```
+
+### Self-hosted
+
+```bash
+medialit login --endpoint https://medialit.example.com
+```
+
+Later commands use the server you last logged in to. You can be logged in to several servers and pick one with `--endpoint`.
+
+On a machine without a browser, add `--no-browser` and open the printed URL in a browser that can reach the machine's `127.0.0.1`, for example through an SSH tunnel.
+
+## Upload files
+
+```bash
+medialit upload photo.jpg --public
+```
+
+The CLI prints each file's URL. Uploads are private unless you pass `--public`.
+
+Unlike the API and the MCP server, the CLI [seals](/docs/concepts#temporary-uploads-and-sealing) each upload right away, because running the command is the decision to keep the file. Pass `--temp` to leave uploads temporary, so MediaLit deletes them after 24 hours unless you run `medialit seal <id>`. Agents should use `--temp` for scratch files.
+
+Large files are sent in chunks and retried if the connection drops.
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `--public` | flag | Anyone with the link can open the file. |
+| `--caption <text>` | string | Stored with every file in this upload. |
+| `--group <name>` | string | Puts the files in a group. |
+| `--temp` | flag | Don't seal the files. |
+
+## Manage files
+
+```bash
+medialit ls                    # newest first, 20 at a time
+medialit ls --public --page 2
+medialit ls --group invoices
+medialit get <id>              # prints the URL, a fresh one for private files
+medialit seal <id>
+medialit rm <id>
+medialit whoami                # server, account, app and storage used
+medialit logout
+```
+
+## Use it from a coding agent
+
+Log in once yourself with `medialit login`. A coding agent running on the same machine can then run `medialit` like any other command, so you can ask it things like:
+
+> Take a screenshot of the new settings page, upload it to MediaLit as a public file and add the link to the pull request description.
+
+Tell the agent to add `--json` when it needs to read the result, for example the `mediaId` to delete the file later, and `--temp` for files it may not keep.
+
+**CLI or MCP?** Use the [MCP server](/docs/mcp-server) for assistants that can't run commands, such as Claude or ChatGPT in the browser. Use the CLI for agents that can, especially for larger files: MCP uploads are limited to about 1.5 MB, while the CLI uploads files of any size your plan allows, in resumable chunks.
+
+## Use it in scripts
+
+Every command takes `--json`. URLs and JSON go to standard output and messages to standard error, so you can pipe the result:
+
+```bash
+url=$(medialit upload build/report.pdf --public)
+medialit ls --json | jq '.[].mediaId'
+```
+
+In CI, where nobody can open a browser, set an API key instead of logging in:
+
+```bash
+export MEDIALIT_API_KEY=your_api_key
+export MEDIALIT_ENDPOINT=https://medialit.example.com # only if you self-host
+medialit upload dist/app.zip
+```
+
+## Where your login is stored
+
+In `~/.config/medialit/credentials.json`, or `%APPDATA%\medialit` on Windows. Only your user can read it. Set `MEDIALIT_CONFIG_DIR` to use another folder. `medialit logout` revokes the login on the server and removes it from the file.
