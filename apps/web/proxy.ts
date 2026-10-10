@@ -90,7 +90,10 @@ export async function proxy(request: NextRequest) {
 
     if (check !== "valid") {
         const url = request.nextUrl.clone();
+        const nextPath = `${url.pathname}${url.search}`;
         url.pathname = "/login";
+        url.search = "";
+        url.searchParams.set("next", nextPath);
         const response = NextResponse.redirect(url);
         if (check === "invalid" && hasSessionCookie(request)) {
             clearSessionCookies(request, response);

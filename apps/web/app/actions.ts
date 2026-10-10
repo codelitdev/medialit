@@ -42,6 +42,45 @@ export async function getApiKeys() {
     return response.json();
 }
 
+export type AppsDashboardData = {
+    apps: Array<{
+        keyId: string;
+        name: string;
+        default: boolean;
+        count: number;
+        storage: number;
+        images: number;
+        videos: number;
+        pdfs: number;
+        imageStorage: number;
+        videoStorage: number;
+        pdfStorage: number;
+        otherStorage: number;
+        lastUpload: string | null;
+        share: number;
+    }>;
+    appCount: number;
+    totalFiles: number;
+    totalStorage: number;
+    totalImages: number;
+    totalVideos: number;
+    totalPdfs: number;
+    largestApp: {
+        keyId: string;
+        name: string;
+        storage: number;
+        share: number;
+    } | null;
+};
+
+export async function getAppsDashboard(): Promise<AppsDashboardData | null> {
+    const session = await auth();
+    if (!session?.user) return null;
+    const response = await serverApi("/api/apps/overview");
+    if (!response.ok) return null;
+    return response.json();
+}
+
 export async function getApikeyUsingKeyId(
     keyId: string,
 ): Promise<Pick<Apikey, "name" | "key" | "keyId" | "default"> | null> {
@@ -60,7 +99,7 @@ export async function getApikeyUsingKeyId(
 export async function createNewApiKey(
     prevState: Record<string, unknown>,
     formData: FormData,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; keyId?: string }> {
     const name = formData.get("apiKey") as string;
     try {
         const response = await serverApi("/api/apps", {
@@ -70,7 +109,8 @@ export async function createNewApiKey(
         if (!response.ok) {
             return { success: false, error: await errorMessage(response) };
         }
-        return { success: true };
+        const data = await response.json();
+        return { success: true, keyId: data.keyId };
     } catch (err: any) {
         return { success: false, error: err.message };
     }

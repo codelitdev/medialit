@@ -1,6 +1,6 @@
 export default function Terms() {
     return (
-        <div className="flex flex-col gap-8">
+        <div className="legal-document flex flex-col gap-8">
             <h1 className="text-2xl font-bold">Terms and Conditions</h1>
             <p>Welcome to WebLit!</p>
             <p>

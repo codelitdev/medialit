@@ -35,6 +35,7 @@ export interface MediaListItemResponse {
     thumbnail: string;
     caption?: string;
     group?: string;
+    createdAt: Date;
 }
 
 export const mediaResponseSchema = Joi.object<MediaResponse>({
@@ -58,6 +59,7 @@ export const mediaListItemResponseSchema = Joi.object<MediaListItemResponse>({
     thumbnail: Joi.string().uri().optional().allow(""),
     caption: Joi.string().optional().allow(""),
     group: Joi.string().optional(),
+    createdAt: Joi.date().iso().required(),
 });
 
 export const mediaCountResponseSchema = Joi.object({

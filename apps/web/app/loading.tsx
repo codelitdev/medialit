@@ -1,7 +1,10 @@
-import React from "react";
+import { Loader } from "@codelitdev/design-system";
 
-const Loading = () => {
-    return <div>Loading...</div>;
-};
-
-export default Loading;
+export default function Loading() {
+    return (
+        <div className="loading-state">
+            <Loader product="medialit" size={30} />
+            <span>Loading your workspace…</span>
+        </div>
+    );
+}

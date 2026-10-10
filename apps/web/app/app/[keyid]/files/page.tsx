@@ -1,161 +1,187 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft, ArrowRight, Files, Youtube } from "lucide-react";
 import { auth } from "@/auth";
-import { getMediaFiles, getCount } from "./actions";
-import type { Media } from "@medialit/models";
-import FilePreview from "./file-preview";
-import {
-    Pagination,
-    PaginationContent,
-    PaginationItem,
-    PaginationLink,
-    PaginationNext,
-    PaginationPrevious,
-} from "@/components/ui/pagination";
-import {
-    DoubleArrowLeftIcon,
-    DoubleArrowRightIcon,
-} from "@radix-ui/react-icons";
-import { FileText, Youtube } from "lucide-react";
+import { getCount, getMediaFiles } from "./actions";
+import { getAppsDashboard } from "@/app/actions";
+import { formatAppStorage, formatRelativeUpload } from "@/lib/media-format";
+import type { MediaListItem } from "@/lib/media";
+import MediaLibrary from "./media-library";
+import UploadButton from "./upload-button";
+
+const filesPerPage = 16;
 
 export default async function Media(props: {
     params: Promise<{ keyid: string }>;
-    searchParams: Promise<{ page: string }>;
+    searchParams: Promise<{
+        page?: string;
+        q?: string;
+        kind?: string;
+        sort?: string;
+    }>;
 }) {
-    const searchParams = await props.searchParams;
-    const params = await props.params;
-    const session = await auth();
-    if (!session) {
-        redirect("/login");
-    }
+    const [{ keyid }, searchParams, session] = await Promise.all([
+        props.params,
+        props.searchParams,
+        auth(),
+    ]);
+    if (!session) redirect("/login");
 
-    const keyid = params.keyid;
-    const page = searchParams.page || "1";
-    let medias: Media[] = [];
-    const mediasPerPage = 10;
-    let totalPages = 0;
-    let totalMediaCount;
+    const requestedPage = Number.parseInt(searchParams.page ?? "1", 10);
+    const safeRequestedPage =
+        Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const search = (searchParams.q ?? "").trim().slice(0, 200);
+    const kind = ["image", "video", "pdf", "other"].includes(
+        searchParams.kind ?? "",
+    )
+        ? (searchParams.kind as "image" | "video" | "pdf" | "other")
+        : undefined;
+    const sort = ["newest", "oldest", "name", "largest"].includes(
+        searchParams.sort ?? "",
+    )
+        ? (searchParams.sort as "newest" | "oldest" | "name" | "largest")
+        : "newest";
+    const filters = { search, kind, sort };
+
+    let totalCount: number;
+    let appSummary: NonNullable<
+        Awaited<ReturnType<typeof getAppsDashboard>>
+    >["apps"][number];
     try {
-        totalMediaCount = await getCount(keyid);
-        medias = await getMediaFiles(keyid, +page);
-        totalPages = medias
-            ? Math.ceil(totalMediaCount / Number(mediasPerPage))
-            : 0;
-
-        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-        totalPages === 0 ? (totalPages = 1) : totalPages;
-    } catch (error: any) {
-        return <div>Something went wrong: {error.message}</div>;
+        const [dashboard, filteredCount] = await Promise.all([
+            getAppsDashboard(),
+            getCount(keyid, filters),
+        ]);
+        const matchedApp = dashboard?.apps.find((app) => app.keyId === keyid);
+        if (!matchedApp) throw new Error("Could not load app overview");
+        appSummary = matchedApp;
+        totalCount = filteredCount;
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : "Could not load files";
+        return (
+            <div className="inline-error" role="alert">
+                {message}
+            </div>
+        );
     }
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / filesPerPage));
+    const page = Math.min(safeRequestedPage, totalPages);
+    let medias: MediaListItem[];
+    try {
+        medias = await getMediaFiles(keyid, page, filesPerPage, filters);
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : "Could not load files";
+        return (
+            <div className="inline-error" role="alert">
+                {message}
+            </div>
+        );
+    }
+
+    const firstResult = totalCount ? (page - 1) * filesPerPage + 1 : 0;
+    const lastResult = Math.min(page * filesPerPage, totalCount);
+    const pageHref = (nextPage: number) => {
+        const params = new URLSearchParams();
+        if (search) params.set("q", search);
+        if (kind) params.set("kind", kind);
+        if (sort !== "newest") params.set("sort", sort);
+        params.set("page", String(nextPage));
+        return `/app/${keyid}/files?${params.toString()}`;
+    };
 
     return (
         <>
-            {medias.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-                    <FileText className="h-12 w-12 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold">
-                        Upload your first file
-                    </h3>
-                    <div className="flex gap-2">
-                        <a
-                            href="https://www.youtube.com/watch?v=QrYn82zK4es"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-                        >
-                            <Youtube className="w-4 h-4 mr-2" />
-                            Watch tutorial
-                        </a>
-                        <a
-                            href="https://medialit.cloud/blog/getting-started/MRAoM_zAiywn_d4Lnqm0A"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-                        >
-                            Open Docs
-                        </a>
+            <div className="workspace-page-heading">
+                <div>
+                    <div className="files-title-row">
+                        <h1>Files</h1>
+                        {appSummary.default ? (
+                            <span className="cl-badge cl-badge--default">
+                                Default app
+                            </span>
+                        ) : null}
+                    </div>
+                    <p>
+                        {appSummary.count}{" "}
+                        {appSummary.count === 1 ? "file" : "files"} ·{" "}
+                        {formatAppStorage(appSummary.storage)} · Last upload{" "}
+                        {formatRelativeUpload(appSummary.lastUpload)}
+                    </p>
+                </div>
+                <UploadButton keyid={keyid} />
+            </div>
+
+            {appSummary.count === 0 ? (
+                <div className="empty-state">
+                    <div>
+                        <Files
+                            className="empty-state-icon"
+                            aria-hidden="true"
+                        />
+                        <h2>Upload your first file</h2>
+                        <p>
+                            Choose Upload to add an image, video, or document to
+                            this library.
+                        </p>
+                        <div className="file-empty-actions">
+                            <a
+                                className="workspace-button secondary"
+                                href="https://www.youtube.com/watch?v=QrYn82zK4es"
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <Youtube aria-hidden="true" />
+                                Watch tutorial
+                            </a>
+                        </div>
                     </div>
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 items-start mb-8">
-                        {medias.map((media: any, index: number) => (
-                            <FilePreview
-                                key={media.mediaId}
-                                media={media}
-                                keyid={keyid}
-                            />
-                        ))}
+                    <MediaLibrary
+                        medias={medias}
+                        keyid={keyid}
+                        totalCount={appSummary.count}
+                        globalCounts={{
+                            Images: appSummary.images,
+                            Videos: appSummary.videos,
+                            PDFs: appSummary.pdfs,
+                        }}
+                        initialSearch={search}
+                        initialKind={kind ?? "all"}
+                        initialSort={sort}
+                    />
+                    <div className="file-pagination">
+                        <span>
+                            {totalCount
+                                ? `Showing ${firstResult}–${lastResult} of ${totalCount} files`
+                                : "No files match this search and filter"}
+                        </span>
+                        <div className="file-pagination-actions">
+                            <Link
+                                className="pager-button"
+                                href={pageHref(Math.max(1, page - 1))}
+                                aria-disabled={page <= 1}
+                            >
+                                <ArrowLeft aria-hidden="true" />
+                                Previous
+                            </Link>
+                            <span className="pager-button" aria-current="page">
+                                {page} / {totalPages}
+                            </span>
+                            <Link
+                                className="pager-button"
+                                href={pageHref(Math.min(totalPages, page + 1))}
+                                aria-disabled={page >= totalPages}
+                            >
+                                Next
+                                <ArrowRight aria-hidden="true" />
+                            </Link>
+                        </div>
                     </div>
-                    <Pagination>
-                        <PaginationContent>
-                            <PaginationItem>
-                                <PaginationLink
-                                    href={`/app/${keyid}/files?page=${1}`}
-                                    className={`
-                         ${
-                             parseInt(page) === 1
-                                 ? "pointer-events-none text-slate-400"
-                                 : ""
-                         }
-                     `}
-                                >
-                                    <DoubleArrowLeftIcon className="h-4 w-4" />
-                                </PaginationLink>
-                            </PaginationItem>
-                            <PaginationItem
-                                className={`
-                                    ${
-                                        parseInt(page) === 1
-                                            ? "pointer-events-none text-slate-400"
-                                            : ""
-                                    }
-                                `}
-                            >
-                                <PaginationPrevious
-                                    href={
-                                        parseInt(page) === 1
-                                            ? `/app/${keyid}/files?page=${Number(page)}`
-                                            : `/app/${keyid}/files?page=${
-                                                  Number(page) - 1
-                                              }`
-                                    }
-                                />
-                            </PaginationItem>
-                            <PaginationItem className="text-sm">
-                                <span className="font-bold">{page}</span> of{" "}
-                                {totalPages} ({totalMediaCount} Files)
-                            </PaginationItem>
-                            <PaginationItem
-                                className={`
-                                    ${
-                                        parseInt(page) === totalPages
-                                            ? "pointer-events-none text-slate-400"
-                                            : ""
-                                    }
-                                `}
-                            >
-                                <PaginationNext
-                                    href={`/app/${keyid}/files?page=${
-                                        Number(page) + 1
-                                    }`}
-                                />
-                            </PaginationItem>
-                            <PaginationItem>
-                                <PaginationLink
-                                    href={`/app/${keyid}/files?page=${totalPages}`}
-                                    className={`
-                        ${
-                            parseInt(page) === totalPages
-                                ? "pointer-events-none text-slate-400"
-                                : ""
-                        }
-                    `}
-                                >
-                                    <DoubleArrowRightIcon className="h-4 w-4" />
-                                </PaginationLink>
-                            </PaginationItem>
-                        </PaginationContent>
-                    </Pagination>
                 </>
             )}
         </>

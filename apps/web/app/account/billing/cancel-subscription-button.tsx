@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { useFormStatus } from "react-dom";
 import { cancelSubscription } from "./action";
 import { useEffect, useState, useActionState } from "react";
-import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
     Dialog,
     DialogContent,
@@ -25,15 +25,13 @@ export default function CancelSubscriptionButton({
     const [formState, formAction] = useActionState(cancelSubscription, {
         success: false,
     } as Awaited<ReturnType<typeof cancelSubscription>>);
-    const { toast } = useToast();
     const router = useRouter();
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
         if (formState.success) {
             setOpen(false);
-            toast({
-                title: "We are sorry to see you go",
+            toast.success("We are sorry to see you go", {
                 description:
                     "Your subscription is cancelled. Pro stays active until the end of the paid period.",
             });
@@ -44,8 +42,7 @@ export default function CancelSubscriptionButton({
             return;
         }
         if (formState.error) {
-            toast({
-                title: "Uh oh!",
+            toast.error("Uh oh!", {
                 description: formState.error,
             });
         }
@@ -54,7 +51,7 @@ export default function CancelSubscriptionButton({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className={`bg-red-600 hover:bg-red-700 ${className}`}>
+                <Button variant="destructive" className={className}>
                     Cancel subscription
                 </Button>
             </DialogTrigger>
@@ -84,12 +81,7 @@ export default function CancelSubscriptionButton({
 function Submit({ children }: { children: React.ReactNode }) {
     const status = useFormStatus();
     return (
-        <Button
-            className="bg-red-500 hover:bg-red-700 text-white"
-            type="submit"
-            variant="secondary"
-            disabled={status.pending}
-        >
+        <Button type="submit" variant="destructive" disabled={status.pending}>
             {children}
         </Button>
     );

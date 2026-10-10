@@ -198,6 +198,7 @@ type MappedMedia = Partial<
 > & {
     access: AccessControl;
     thumbnail: string;
+    createdAt: Date;
 };
 
 async function getPage({
@@ -207,6 +208,9 @@ async function getPage({
     page,
     group,
     recordsPerPage,
+    search,
+    kind,
+    sort,
 }: GetPageProps): Promise<MappedMedia[]> {
     const result = await getPaginatedMedia({
         userId,
@@ -215,6 +219,9 @@ async function getPage({
         page,
         group,
         recordsPerPage,
+        search,
+        kind,
+        sort,
     });
     const mappedResult = result.map(
         (media): MappedMedia => ({
@@ -229,6 +236,7 @@ async function getPage({
             thumbnail: media.thumbnailGenerated ? getThumbnailUrl(media) : "",
             caption: media.caption,
             group: media.group,
+            createdAt: media.createdAt,
         }),
     );
 

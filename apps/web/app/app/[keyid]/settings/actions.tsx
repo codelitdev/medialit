@@ -39,6 +39,33 @@ export async function updateAppName(
     }
 }
 
+export async function makeDefaultApp(
+    previousState: Record<string, unknown>,
+    formData: FormData,
+) {
+    const keyId = formData.get("keyId") as string;
+    if (!keyId) return { success: false, error: "Bad request" };
+
+    try {
+        const session = await auth();
+        if (!session?.user) throw new Error("Unauthenticated");
+        const response = await serverApi(
+            `/api/apps/${encodeURIComponent(keyId)}/default`,
+            { method: "PATCH" },
+        );
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || "Request failed");
+        }
+        return { success: true };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Request failed",
+        };
+    }
+}
+
 export async function getTotalSpaceByApikey(
     keyid: string,
 ): Promise<MediaStats> {

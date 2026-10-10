@@ -140,7 +140,7 @@ function PricingPane({
                     {features.map((feature) => (
                         <div
                             key={feature}
-                            className="flex items-center gap-2 text-slate-700 text-sm"
+                            className="flex items-center gap-2 text-foreground text-sm"
                         >
                             <CheckIcon className="h-4 w-4 text-primary" />
                             <p>{feature}</p>
@@ -152,7 +152,8 @@ function PricingPane({
                 {name === "Basic" && current && (
                     <Button
                         disabled
-                        className="w-full bg-white hover:bg-white text-muted-foreground border border-muted-foreground justify-center"
+                        variant="secondary"
+                        className="w-full justify-center"
                     >
                         Current plan
                     </Button>
