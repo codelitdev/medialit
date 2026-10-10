@@ -1,0 +1,33 @@
+---
+title: Dashboard
+slug: dashboard
+nav_order: 10
+---
+
+The [MediaLit dashboard](https://app.medialit.cloud) is where you manage apps and look at your files. Sign in with your email address. MediaLit sends you a one-time code, so there is no password to remember.
+
+## Apps
+
+Create an app for each project or environment. In an app's settings you can:
+
+- copy the app's API key
+- rename the app
+- delete the app
+
+## Files
+
+Open an app to browse its files, whether your app, an agent or a script uploaded them. Click a file to preview it and copy its link.
+
+Only sealed files are listed. Files that are still [temporary](/docs/concepts#temporary-uploads-and-sealing) appear once they are sealed.
+
+## Account
+
+Your account page shows your plan and lets you manage billing.
+
+## Work with files from your terminal
+
+The [CLI](/docs/cli) signs in the same way and works on the same files: `medialit upload report.pdf --public` prints the file's link.
+
+## Work with files through an AI assistant
+
+To upload, organise or delete files by asking in plain language, connect Claude, ChatGPT or another assistant to the [MCP server](/docs/mcp-server). It works on the same files you see in the dashboard.

@@ -1,0 +1,35 @@
+---
+title: Why MediaLit
+slug: what-is-medialit
+nav_order: 30
+---
+
+Object storage such as AWS S3 or Cloudflare R2 is cheap and reliable, but it only stores bytes. To use it for uploads in a real app, you also need presigned URLs, bucket policies, CORS, a CDN, thumbnails, a database of what you stored, and a way to clean up files nobody uses. MediaLit is that layer, already built.
+
+## One place for agents, apps and humans
+
+Most file tools are built for one kind of user. MediaLit gives the same files three ways in:
+
+- **Apps** use the [REST API](https://medialit.cloud/docs/api/uploadMedia), the [Node.js SDK](/docs/node-sdk) and the [React uploader](/docs/react).
+- **Agents** use the [MCP server](/docs/mcp-server), so Claude, ChatGPT or Cursor can save a file and hand you a link. Agents that run in a terminal, such as Claude Code or Codex, can also run the [CLI](/docs/cli).
+- **Humans** use the [dashboard](/docs/dashboard) to browse, preview and share, and the same [CLI](/docs/cli) to upload and manage files from a terminal or a CI job.
+
+An agent can create a report, you can check it in the dashboard, and your app can serve it from the same URL.
+
+## What you don't have to build
+
+| You need | With plain object storage | With MediaLit |
+| --- | --- | --- |
+| Uploads from the browser | Presigned URLs, CORS rules, a policy per bucket | A signature route and a drop-in component |
+| Resumable uploads | Multipart upload logic | Built in |
+| Cleaning up abandoned uploads | A database of what is used, and a job to delete the rest | Unsealed uploads are deleted after 24 hours |
+| Public and private files | Bucket policies, signed URLs | `access: "public"` or `"private"` |
+| Listing files with their details | `ListObjects` and your own database | Paginated listing, filtered by group or access |
+| Thumbnails | A processing pipeline | Generated for images and videos |
+| Upload size and storage limits | Your own accounting | Enforced on every upload |
+
+## Open source, and portable
+
+All of MediaLit is open source, including what runs [medialit.cloud](https://medialit.cloud). Start on the hosted service, and if you outgrow it or need your data elsewhere, [run the same API yourself](/docs/self-hosting) on AWS S3, Cloudflare R2, MinIO or any S3-compatible storage. Point `MEDIALIT_ENDPOINT` at your server and your code keeps working, because the API is the same.
+
+MediaLit only uses storage features that S3-compatible providers have in common, so you can also move between storage providers.

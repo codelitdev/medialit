@@ -1,0 +1,144 @@
+---
+title: Upgrade from v0.4.0 to v0.5.0
+slug: upgrade-from-v0-4-0-to-v0-5-0
+nav_order: 10
+---
+
+MediaLit v0.5.0 uses PostgreSQL instead of MongoDB. This upgrade requires a
+one-time database import. Your files remain in their existing S3-compatible
+buckets; the import moves MediaLit users, API keys, media metadata, media
+settings, and upload signatures.
+
+> **Warning:**   Stop MediaLit v0.4.0 before starting the import so that no records are
+    written to MongoDB during the migration. Keep MongoDB and your object
+    storage available until you have verified the v0.5.0 deployment.
+
+The steps below use the Docker Compose setup in the MediaLit repository and run the
+data import from your local computer. If you manage PostgreSQL separately, use
+the equivalent commands for your deployment.
+
+## 1. Back up the existing installation
+
+Back up the v0.4.0 MongoDB database and your MediaLit environment file. Keep a
+copy of the current Docker Compose configuration so that you can return to
+v0.4.0 if needed.
+
+Stop the v0.4.0 API and web containers, but leave MongoDB running and reachable
+from the computer that will run the import.
+
+## 2. Prepare the v0.5.0 deployment
+
+Replace the v0.4.0 Compose configuration with the v0.5.0 configuration from the
+[`docker-compose.yml`](https://github.com/codelitdev/medialit/blob/main/docker-compose.yml)
+in the MediaLit repository and create a `.env` file for it. Review every value before continuing and
+set `TAG=v0.5.0` to pin both application images to this release.
+
+The database variables have changed:
+
+- `DB_CONNECTION_STRING` and `MONGODB_URI` are no longer used by the application.
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` configure the bundled PostgreSQL service.
+- `DATABASE_URL` is assembled by the Compose file for the API and migration containers.
+
+Also configure the new v0.5.0 application values, including
+`BETTER_AUTH_SECRET`, `EMAIL`, `PUBLIC_API_URL`, and `WEB_ORIGIN`. Keep the
+existing storage bucket names and credentials because this migration does not
+copy or move stored files.
+
+Subscription fields from v0.4.0 (`subscriptionStatus`, `subscriptionMethod`,
+`subscriptionEndsAfter`, `customerId`, and `subscriptionId`) are not imported.
+The Compose setup runs in OSS mode, where every account is unlimited.
+
+Pull the v0.5.0 images and start PostgreSQL:
+
+```sh
+docker compose pull
+docker compose up -d postgres
+```
+
+Create the PostgreSQL schema with the one-time `init` service:
+
+```sh
+docker compose run --rm init
+```
+
+Do not start the v0.5.0 API or web application yet.
+
+## 3. Prepare the importer locally
+
+The importer is included in the MediaLit repository and requires Bun 1.4.1.
+Run these commands on your local computer:
+
+```sh
+git clone https://github.com/codelitdev/medialit.git
+cd medialit
+git checkout v0.5.0
+bun install --frozen-lockfile
+```
+
+Create `packages/scripts/.env` with the source MongoDB and destination
+PostgreSQL URLs:
+
+```dotenv
+MONGO_URL=mongodb://<mongo-user>:<mongo-password>@<mongo-host>:27017/<mongo-database>
+DATABASE_URL=postgresql://medialit:<postgres-password>@<postgres-host>:<postgres-port>/medialit
+```
+
+Both databases must be reachable from your local computer. Keep database ports
+private.
+
+## 4. Import MongoDB data
+
+> **Warning:**   Run the importer once against a newly migrated PostgreSQL database. The
+    command is intended for a one-time migration and is not safe to rerun
+    against a database that already contains imported records.
+
+From the MediaLit repository on your local computer, run:
+
+```sh
+bun --filter @medialit/scripts import:mongo
+```
+
+The importer checks that the PostgreSQL schema exists before writing data. It
+preserves MongoDB user IDs, public user IDs, API key secrets, and media IDs. If
+a legacy record belongs to a user that no longer exists in MongoDB, the importer
+skips it and reports the count instead of creating an ownerless PostgreSQL row.
+
+TUS upload session state is not imported. Complete any active uploads before the
+maintenance window or restart them after the upgrade. Completed media library
+records are imported normally.
+
+The command ends with a summary similar to this:
+
+```json
+{
+    "users": 5,
+    "media": 250,
+    "signatures": 4,
+    "skippedMedia": 0,
+    "skippedSignatures": 0
+}
+```
+
+Review any skipped-record warnings before continuing. A skipped record usually
+means its MongoDB owner had already been deleted.
+
+If the command fails after it starts inserting rows, recreate the empty
+PostgreSQL destination, run the `init` service again, fix the reported problem,
+and restart the import. Do not rerun it against the partially imported database.
+
+## 5. Start and verify v0.5.0
+
+Start the complete deployment:
+
+```sh
+docker compose up -d
+docker compose ps
+```
+
+Verify that the PostgreSQL, init, API, and web services are healthy. Then sign
+in and confirm that users, API keys, media totals, groups, captions, and media
+settings match the v0.4.0 installation. Test both a public media URL and a
+private media URL before reopening the service to users.
+
+Keep the MongoDB backup until the upgraded installation has been running
+successfully and you are satisfied with the imported data.
