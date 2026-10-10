@@ -1,6 +1,6 @@
 export default function Privacy() {
     return (
-        <div className="flex flex-col gap-8">
+        <div className="legal-document flex flex-col gap-8">
             <h1 className="text-xl font-bold">Privacy Policy</h1>
             <p>
                 This document explains what personal data we collect and how it

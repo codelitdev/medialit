@@ -1,15 +1,24 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import "./globals.css";
-import { NavBar } from "../components/nav-bar";
-import { Toaster } from "@/components/ui/toaster";
+import DashboardShell from "@/components/dashboard-shell";
+import { Toaster } from "@/components/ui/sonner";
 import Scripts from "./scripts";
+import { auth } from "@/auth";
+import { getApiKeys, getAppsDashboard } from "./actions";
 
-const inter = Inter({ subsets: ["latin"] });
+const hankenGrotesk = Hanken_Grotesk({
+    subsets: ["latin"],
+    variable: "--font-sans",
+});
+const splineSansMono = Spline_Sans_Mono({
+    subsets: ["latin"],
+    variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
-    title: "Medialit",
-    description: "",
+    title: "MediaLit",
+    description: "Manage and serve your app’s media from one place.",
 };
 
 export default async function RootLayout({
@@ -17,16 +26,25 @@ export default async function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const session = await auth();
+    const dashboard = session ? await getAppsDashboard() : null;
+    const apps = dashboard?.apps ?? (session ? await getApiKeys() : []);
+
     return (
-        <html lang="en">
+        <html
+            lang="en"
+            data-product="medialit"
+            className={`${hankenGrotesk.variable} ${splineSansMono.variable}`}
+        >
             <head></head>
-            <body className={inter.className}>
-                <NavBar />
-                <main className="mx-auto max-w-[1024px] min-h-screen">
-                    <div className="px-2 py-8 ">{children}</div>
-                </main>
+            <body>
+                <DashboardShell
+                    apps={Array.isArray(apps) ? apps : []}
+                    user={session?.user ?? null}
+                >
+                    {children}
+                </DashboardShell>
                 <Toaster />
-                {/* <Footer /> */}
                 <Scripts />
             </body>
         </html>

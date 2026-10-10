@@ -123,6 +123,9 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -203,6 +206,9 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -271,6 +277,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "500": {
             "description": "Internal Server Error",
@@ -470,6 +479,9 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -539,6 +551,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "500": {
             "description": "Internal Server Error",
@@ -620,6 +635,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Media not found",
@@ -705,6 +723,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "500": {
             "description": "Internal Server Error",
@@ -796,6 +817,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Media not found",
@@ -896,6 +920,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "500": {
             "description": "Internal Server Error",
@@ -1019,6 +1046,10 @@
           },
           "group": {
             "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
@@ -1026,7 +1057,8 @@
           "originalFileName",
           "mimeType",
           "size",
-          "access"
+          "access",
+          "createdAt"
         ],
         "additionalProperties": false
       },

@@ -10,7 +10,9 @@ import {
     findUserById,
     getApiKeyByKeyId,
     listApiKeys,
+    listApiKeyMediaSummaries,
     renameApiKey,
+    setDefaultApiKey,
     softDeleteApiKey,
     type AccountUser,
     type ApiKeyRecord,
@@ -108,6 +110,84 @@ export function createDashboardRouter(auth: MedialitAuth) {
         res.json(rows.map((row) => publicApp(row, false)));
     });
 
+    // Session-only dashboard data; the public OpenAPI spec covers customer API routes.
+    router.get("/api/apps/overview", async (req, res) => {
+        const user = await sessionUser(auth, req, res);
+        if (!user) return;
+
+        const [keys, summaries] = await Promise.all([
+            listApiKeys(user.id),
+            listApiKeyMediaSummaries(user.id),
+        ]);
+        const summaryByKey = new Map(
+            summaries.map((summary) => [summary.apikey, summary]),
+        );
+        const apps = keys.map((key) => {
+            const summary = summaryByKey.get(key.key);
+            return {
+                keyId: key.keyId,
+                name: key.name,
+                default: key.default,
+                count: summary?.count ?? 0,
+                storage: summary?.storage ?? 0,
+                images: summary?.images ?? 0,
+                videos: summary?.videos ?? 0,
+                pdfs: summary?.pdfs ?? 0,
+                imageStorage: summary?.imageStorage ?? 0,
+                videoStorage: summary?.videoStorage ?? 0,
+                pdfStorage: summary?.pdfStorage ?? 0,
+                otherStorage: summary?.otherStorage ?? 0,
+                lastUpload: summary?.lastUpload ?? null,
+            };
+        });
+        const totals = apps.reduce(
+            (result, app) => ({
+                files: result.files + app.count,
+                storage: result.storage + app.storage,
+                images: result.images + app.images,
+                videos: result.videos + app.videos,
+                pdfs: result.pdfs + app.pdfs,
+            }),
+            { files: 0, storage: 0, images: 0, videos: 0, pdfs: 0 },
+        );
+        const storageShare = (storage: number) => {
+            if (!totals.storage) return 0;
+            return Number(((storage / totals.storage) * 100).toFixed(1));
+        };
+        const largest = apps.reduce<(typeof apps)[number] | null>(
+            (current, app) =>
+                !current || app.storage > current.storage ? app : current,
+            null,
+        );
+
+        apps.sort((left, right) => {
+            const leftUpload = left.lastUpload?.getTime() ?? 0;
+            const rightUpload = right.lastUpload?.getTime() ?? 0;
+            return rightUpload - leftUpload;
+        });
+
+        res.json({
+            apps: apps.map((app) => ({
+                ...app,
+                share: storageShare(app.storage),
+            })),
+            appCount: apps.length,
+            totalFiles: totals.files,
+            totalStorage: totals.storage,
+            totalImages: totals.images,
+            totalVideos: totals.videos,
+            totalPdfs: totals.pdfs,
+            largestApp: largest
+                ? {
+                      keyId: largest.keyId,
+                      name: largest.name,
+                      storage: largest.storage,
+                      share: storageShare(largest.storage),
+                  }
+                : null,
+        });
+    });
+
     router.post("/api/apps", async (req, res) => {
         const user = await sessionUser(auth, req, res);
         if (!user) return;
@@ -131,9 +211,19 @@ export function createDashboardRouter(auth: MedialitAuth) {
     router.get("/api/apps/:keyId/media/count", async (req, res) => {
         const owned = await ownedApp(auth, req, res);
         if (!owned) return;
+        const kind = ["image", "video", "pdf", "other"].includes(
+            String(req.query.kind),
+        )
+            ? (String(req.query.kind) as "image" | "video" | "pdf" | "other")
+            : undefined;
         const count = await getMediaCount({
             userId: owned.user.id,
             apikey: owned.key.key,
+            search:
+                typeof req.query.search === "string"
+                    ? req.query.search
+                    : undefined,
+            kind,
         });
         res.json({ count });
     });
@@ -171,11 +261,31 @@ export function createDashboardRouter(auth: MedialitAuth) {
         if (!owned) return;
         const page = Number(req.query.page || 1);
         const limit = Number(req.query.limit || 10);
+        const kind = ["image", "video", "pdf", "other"].includes(
+            String(req.query.kind),
+        )
+            ? (String(req.query.kind) as "image" | "video" | "pdf" | "other")
+            : undefined;
+        const sort = ["newest", "oldest", "name", "largest"].includes(
+            String(req.query.sort),
+        )
+            ? (String(req.query.sort) as
+                  | "newest"
+                  | "oldest"
+                  | "name"
+                  | "largest")
+            : undefined;
         const result = await mediaService.getPage({
             userId: owned.user.id,
             apikey: owned.key.key,
             page: Number.isFinite(page) ? page : 1,
             recordsPerPage: Number.isFinite(limit) ? limit : 10,
+            search:
+                typeof req.query.search === "string"
+                    ? req.query.search
+                    : undefined,
+            kind,
+            sort,
         });
         res.json(result);
     });
@@ -200,6 +310,17 @@ export function createDashboardRouter(auth: MedialitAuth) {
                 keyId: owned.key.keyId,
                 newName: name,
             });
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
+        }
+    });
+
+    router.patch("/api/apps/:keyId/default", async (req, res) => {
+        const owned = await ownedApp(auth, req, res);
+        if (!owned) return;
+        try {
+            await setDefaultApiKey(owned.user.id, owned.key.keyId);
             res.json({ success: true });
         } catch (error: any) {
             res.status(400).json({ error: error.message });

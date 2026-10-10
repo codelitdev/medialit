@@ -3,21 +3,19 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { Media } from "@medialit/models";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export default function FileInteractivity({
     media,
     keyid,
 }: {
-    media: Media & {
+    media: Pick<import("@medialit/models").Media, "mediaId"> & {
         access: "public" | "private";
     };
     keyid: string;
 }) {
-    const { toast } = useToast();
-    const [fileDirectLink, setFileDirectLink] = useState();
+    const [fileDirectLink, setFileDirectLink] = useState("");
     const [loading, setLoading] = useState(false);
 
     const directLink = async () => {
@@ -44,12 +42,12 @@ export default function FileInteractivity({
             if (data?.media?.file) {
                 setFileDirectLink(data.media.file);
                 navigator.clipboard.writeText(data.media.file);
-                toast({
+                toast.success("Success", {
                     description: "Direct link has been copied to the clipboard",
                 });
             }
         } catch (e) {
-            toast({
+            toast.error("Uh oh!", {
                 description: "Error in fetching direct link",
             });
         } finally {
@@ -58,17 +56,23 @@ export default function FileInteractivity({
     };
 
     return (
-        <div className="flex flex-col gap-2">
-            <div>
-                <Label htmlFor="apikey" className="mb-2">
+        <div className="file-interactivity">
+            <div className="file-id-field">
+                <Label htmlFor="media-id" className="mb-2">
                     Media ID
                 </Label>
                 <div className="flex gap-2">
-                    <Input value={media.mediaId} name="mediaId" disabled />
+                    <Input
+                        id="media-id"
+                        value={media.mediaId}
+                        name="mediaId"
+                        disabled
+                    />
                     <Button
+                        className="workspace-button secondary"
                         onClick={() => {
                             navigator.clipboard.writeText(media.mediaId);
-                            toast({
+                            toast.success("Success", {
                                 description:
                                     "Media id has been copied to the clipboard",
                             });
@@ -79,12 +83,21 @@ export default function FileInteractivity({
                 </div>
             </div>
             <div>
-                <Label htmlFor="apikey" className="mb-2">
+                <Label htmlFor="direct-link" className="mb-2">
                     Direct Link
                 </Label>
                 <div className="flex gap-2">
-                    <Input value={fileDirectLink} name="file" disabled />
-                    <Button onClick={directLink} disabled={loading}>
+                    <Input
+                        id="direct-link"
+                        value={fileDirectLink}
+                        name="file"
+                        disabled
+                    />
+                    <Button
+                        className="workspace-button secondary"
+                        onClick={directLink}
+                        disabled={loading}
+                    >
                         {loading ? "Fetching..." : "Get direct link"}
                     </Button>
                 </div>
