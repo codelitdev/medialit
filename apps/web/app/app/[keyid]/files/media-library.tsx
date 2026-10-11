@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Checkbox } from "@codelitdev/design-system";
 import { Grid2X2, List, Search } from "lucide-react";
 import type { MediaListItem } from "@/lib/media";
 import FilePreview from "./file-preview";

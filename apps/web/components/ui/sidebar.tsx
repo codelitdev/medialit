@@ -65,23 +65,20 @@ export function SidebarProvider({
         return () => mediaQuery.removeEventListener("change", updateIsMobile);
     }, []);
 
-    function setOpen(value: boolean | ((current: boolean) => boolean)) {
-        const nextValue = typeof value === "function" ? value(open) : value;
+    function setOpen(update: (current: boolean) => boolean) {
+        const nextValue = update(open);
         if (controlledOpen === undefined) setInternalOpen(nextValue);
         onOpenChange?.(nextValue);
     }
 
-    function setOpenMobile(value: boolean | ((current: boolean) => boolean)) {
-        const nextValue =
-            typeof value === "function" ? value(openMobile) : value;
-        if (controlledOpenMobile === undefined)
-            setInternalOpenMobile(nextValue);
-        onOpenMobileChange?.(nextValue);
+    function setOpenMobile(value: boolean) {
+        if (controlledOpenMobile === undefined) setInternalOpenMobile(value);
+        onOpenMobileChange?.(value);
     }
 
     function toggleSidebar() {
         if (isMobile) {
-            setOpenMobile((value) => !value);
+            setOpenMobile(!openMobile);
         } else {
             setOpen((value) => !value);
         }
