@@ -43,6 +43,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta_api.outputs.tags }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
 
       - name: Image digest
         run: echo ${{ steps.docker_build_api.outputs.digest }}
@@ -62,6 +64,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta_web.outputs.tags }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
 
       - name: Image digest
         run: echo ${{ steps.docker_build_web.outputs.digest }}
