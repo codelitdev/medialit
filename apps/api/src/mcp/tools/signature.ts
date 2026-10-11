@@ -21,6 +21,7 @@ export function registerSignatureTool(server: McpToolRegistrar): void {
             },
             outputSchema: signatureSchema,
             annotations: {
+                title: "Create upload signature",
                 readOnlyHint: false,
                 idempotentHint: true,
                 openWorldHint: false,

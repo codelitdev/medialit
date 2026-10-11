@@ -14,6 +14,7 @@ export function registerWhoamiTool(server: McpToolRegistrar): void {
                 "Returns the signed-in account, the app this connection manages files in, and that app's file count and storage use against the account limit (bytes).",
             outputSchema: whoamiSchema,
             annotations: {
+                title: "Who am I",
                 readOnlyHint: true,
                 idempotentHint: true,
                 openWorldHint: false,
