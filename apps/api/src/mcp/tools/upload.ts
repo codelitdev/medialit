@@ -82,6 +82,7 @@ export function registerUploadTool(server: McpToolRegistrar): void {
             },
             outputSchema: mediaSchema,
             annotations: {
+                title: "Upload media",
                 readOnlyHint: false,
                 destructiveHint: false,
                 openWorldHint: true,
