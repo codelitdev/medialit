@@ -2,6 +2,7 @@
     "name": "@medialit/scripts",
     "version": "0.0.1",
     "private": true,
+    "license": "AGPL-3.0-or-later",
     "type": "module",
     "scripts": {
         "import:mongo": "bun src/import-mongo.ts"

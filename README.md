@@ -138,6 +138,11 @@ Questions are welcome on [Discord](https://discord.gg/AysdDP4wxe) or in [GitHub 
 
 Please don't report security issues in public issues. Report them privately through [GitHub's security advisories](https://github.com/codelitdev/medialit/security/advisories/new).
 
-## License
+## Licensing
 
-MediaLit is licensed under the [GNU Affero General Public License v3.0](./LICENSE.md).
+MediaLit is split into two licenses:
+
+- **AGPL-3.0-or-later** covers the server (`apps/api`), the dashboard (`apps/web`), the docs site (`apps/docs`) and internal tooling. If you run a modified MediaLit as a hosted service, you must share your changes under the same license. Self-hosting is free.
+- **MIT** covers the client packages you embed in your own products: `medialit`, `@medialit/react`, `@medialit/uploader`, and `@medialit/cli`. Each published MIT package ships its own `LICENSE` file.
+
+The AGPL license text is in [LICENSE.md](./LICENSE.md).
