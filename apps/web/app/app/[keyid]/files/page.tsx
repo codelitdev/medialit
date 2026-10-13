@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ArrowRight, Files, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { getCount, getMediaFiles } from "./actions";
-import { getAppsDashboard } from "@/app/actions";
-import { formatAppStorage, formatRelativeUpload } from "@/lib/media-format";
+import { getAppSummary, type AppSummary } from "@/app/actions";
+import { cliNeedsEndpoint, getPublicApiBase } from "@/lib/api-base";
+import { formatAppStorage, formatLastUpload } from "@/lib/media-format";
 import type { MediaListItem } from "@/lib/media";
 import MediaLibrary from "./media-library";
 import UploadButton from "./upload-button";
+import EmptyFiles from "./empty-files";
 
 const filesPerPage = 16;
 
@@ -44,18 +47,12 @@ export default async function Media(props: {
     const filters = { search, kind, sort };
 
     let totalCount: number;
-    let appSummary: NonNullable<
-        Awaited<ReturnType<typeof getAppsDashboard>>
-    >["apps"][number];
+    let appSummary: AppSummary;
     try {
-        const [dashboard, filteredCount] = await Promise.all([
-            getAppsDashboard(),
+        [appSummary, totalCount] = await Promise.all([
+            getAppSummary(keyid),
             getCount(keyid, filters),
         ]);
-        const matchedApp = dashboard?.apps.find((app) => app.keyId === keyid);
-        if (!matchedApp) throw new Error("Could not load app overview");
-        appSummary = matchedApp;
-        totalCount = filteredCount;
     } catch (error) {
         const message =
             error instanceof Error ? error.message : "Could not load files";
@@ -81,6 +78,9 @@ export default async function Media(props: {
         );
     }
 
+    const apiBase = getPublicApiBase(await headers());
+    const includeCliEndpoint = cliNeedsEndpoint(apiBase);
+
     const firstResult = totalCount ? (page - 1) * filesPerPage + 1 : 0;
     const lastResult = Math.min(page * filesPerPage, totalCount);
     const pageHref = (nextPage: number) => {
@@ -105,40 +105,22 @@ export default async function Media(props: {
                         ) : null}
                     </div>
                     <p>
-                        {appSummary.count}{" "}
-                        {appSummary.count === 1 ? "file" : "files"} ·{" "}
-                        {formatAppStorage(appSummary.storage)} · Last upload{" "}
-                        {formatRelativeUpload(appSummary.lastUpload)}
+                        {appSummary.count === 0
+                            ? "No files yet"
+                            : `${appSummary.count} ${appSummary.count === 1 ? "file" : "files"} · ${formatAppStorage(appSummary.storage)} · ${formatLastUpload(appSummary.lastUpload)}`}
                     </p>
                 </div>
                 <UploadButton keyid={keyid} />
             </div>
 
             {appSummary.count === 0 ? (
-                <div className="empty-state">
-                    <div>
-                        <Files
-                            className="empty-state-icon"
-                            aria-hidden="true"
-                        />
-                        <h2>Upload your first file</h2>
-                        <p>
-                            Choose Upload to add an image, video, or document to
-                            this library.
-                        </p>
-                        <div className="file-empty-actions">
-                            <a
-                                className="workspace-button secondary"
-                                href="https://www.youtube.com/watch?v=QrYn82zK4es"
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                <Youtube aria-hidden="true" />
-                                Watch tutorial
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                <EmptyFiles
+                    keyid={keyid}
+                    appName={appSummary.name || "this app"}
+                    serverUrl={`${apiBase}/mcp`}
+                    apiEndpoint={apiBase}
+                    includeCliEndpoint={includeCliEndpoint}
+                />
             ) : (
                 <>
                     <MediaLibrary
@@ -146,9 +128,10 @@ export default async function Media(props: {
                         keyid={keyid}
                         totalCount={appSummary.count}
                         globalCounts={{
-                            Images: appSummary.images,
-                            Videos: appSummary.videos,
-                            PDFs: appSummary.pdfs,
+                            image: appSummary.images,
+                            video: appSummary.videos,
+                            pdf: appSummary.pdfs,
+                            other: appSummary.others,
                         }}
                         initialSearch={search}
                         initialKind={kind ?? "all"}

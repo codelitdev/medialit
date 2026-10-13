@@ -4,11 +4,12 @@
 
 - Do not implement login related UI or API routes (which contains authorization related business logic) in the web app. All auth related stuff is controlled by the apps/api microservice
 - Use Bun 1.4.1 and run package-specific commands with `bun --filter @medialit/web <command>`.
-- Keep the web app a thin client; product behavior and authorization belong to the API.
+- Keep the web app a thin client; all product behavior and authorization belong to the API.
 - Use `@codelitdev/design-system` for shared visual components and styles.
 - Run local dependencies from the repository root with `docker compose -f docker-compose.local.yml up`. Run the API and web app on the host, and do not run this compose file alongside `docker-compose.yml`.
 - Use the API and Postgres for product data; do not add another store for the same records.
 - Start the web app with `bun --filter @medialit/web dev`.
+- Always use Tailwind for styling. Use custom CSS only when it is technically challenging to achieve the same result with Tailwind.
 
 ## PR Review
 

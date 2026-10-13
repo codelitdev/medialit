@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Files, Folder, HardDrive, Search } from "lucide-react";
 import NewApp from "@/components/new-app-button";
 import type { AppsDashboardData } from "@/app/actions";
-import { formatAppStorage, formatRelativeUpload } from "@/lib/media-format";
+import { formatAppStorage, formatLastUpload } from "@/lib/media-format";
 
 export default function AppsDashboard({ data }: { data: AppsDashboardData }) {
     const [query, setQuery] = useState("");
@@ -116,10 +116,7 @@ export default function AppsDashboard({ data }: { data: AppsDashboardData }) {
                             <span style={{ width: `${app.share}%` }} />
                         </span>
                         <span className="app-overview-meta">
-                            <span>
-                                Last upload{" "}
-                                {formatRelativeUpload(app.lastUpload)}
-                            </span>
+                            <span>{formatLastUpload(app.lastUpload)}</span>
                             <span>{app.share}% of storage</span>
                         </span>
                     </Link>

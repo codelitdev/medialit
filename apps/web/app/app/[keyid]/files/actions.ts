@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "@/auth";
 import { serverApi } from "@/lib/server-api";
 import type { MediaListItem } from "@/lib/media";
 
@@ -25,10 +24,6 @@ export async function getMediaFiles(
     limit = 16,
     filters: MediaFilters = {},
 ): Promise<MediaListItem[]> {
-    const session = await auth();
-    if (!session?.user) {
-        throw new Error("Unauthenticated");
-    }
     const query = filtersQuery(filters);
     query.set("page", String(page || 1));
     query.set("limit", String(limit));
@@ -43,10 +38,6 @@ export async function getMediaFiles(
 }
 
 export async function getCount(keyid: string, filters: MediaFilters = {}) {
-    const session = await auth();
-    if (!session?.user) {
-        throw new Error("Unauthenticated");
-    }
     const query = filtersQuery(filters);
     const suffix = query.size ? `?${query.toString()}` : "";
     const response = await serverApi(

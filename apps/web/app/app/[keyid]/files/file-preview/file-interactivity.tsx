@@ -1,106 +1,85 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
 import { toast } from "sonner";
+import { Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 export default function FileInteractivity({
     media,
-    keyid,
+    fileUrl,
+    loadError,
 }: {
-    media: Pick<import("@medialit/models").Media, "mediaId"> & {
-        access: "public" | "private";
-    };
-    keyid: string;
+    media: { access: "public" | "private" };
+    fileUrl: string;
+    loadError: boolean;
 }) {
-    const [fileDirectLink, setFileDirectLink] = useState("");
-    const [loading, setLoading] = useState(false);
+    const isPublic = media.access !== "private";
 
-    const directLink = async () => {
-        setLoading(true);
-        try {
-            const response = await fetch(`/app/${keyid}/files/get-media`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    mediaId: media.mediaId,
-                    keyId: keyid,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error(
-                    `Some error occured while fetching direct link`,
-                );
-            }
-            const data = await response.json();
-
-            if (data?.media?.file) {
-                setFileDirectLink(data.media.file);
-                navigator.clipboard.writeText(data.media.file);
-                toast.success("Success", {
-                    description: "Direct link has been copied to the clipboard",
-                });
-            }
-        } catch (e) {
-            toast.error("Uh oh!", {
-                description: "Error in fetching direct link",
-            });
-        } finally {
-            setLoading(false);
-        }
+    const copyUrl = () => {
+        navigator.clipboard.writeText(fileUrl);
+        toast.success("Success", {
+            description: isPublic
+                ? "Link has been copied to the clipboard"
+                : "Temporary link has been copied to the clipboard",
+        });
     };
 
     return (
-        <div className="file-interactivity">
-            <div className="file-id-field">
-                <Label htmlFor="media-id" className="mb-2">
-                    Media ID
-                </Label>
-                <div className="flex gap-2">
-                    <Input
-                        id="media-id"
-                        value={media.mediaId}
-                        name="mediaId"
-                        disabled
-                    />
-                    <Button
-                        className="workspace-button secondary"
-                        onClick={() => {
-                            navigator.clipboard.writeText(media.mediaId);
-                            toast.success("Success", {
-                                description:
-                                    "Media id has been copied to the clipboard",
-                            });
-                        }}
-                    >
-                        Copy
-                    </Button>
+        <div className="file-actions">
+            {isPublic ? (
+                <div className="file-url-field">
+                    <Label htmlFor="file-url">File URL</Label>
+                    <div className="file-url-row">
+                        <input
+                            id="file-url"
+                            className="file-url-input"
+                            readOnly
+                            value={
+                                fileUrl ||
+                                (loadError ? "Could not load the file URL" : "")
+                            }
+                            placeholder="Loading…"
+                        />
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={copyUrl}
+                            disabled={!fileUrl}
+                            aria-label="Copy file URL"
+                        >
+                            <Copy aria-hidden="true" />
+                        </Button>
+                    </div>
                 </div>
+            ) : null}
+
+            <div className="file-access-row">
+                <div>
+                    <p className="file-access-title">
+                        {isPublic ? "Public" : "Private"}
+                    </p>
+                    <p>
+                        {isPublic
+                            ? "Anyone with the URL can view this file. Access is set at upload and can’t be changed."
+                            : "Only signed links that expire can open this file. Access is set at upload and can’t be changed."}
+                    </p>
+                </div>
+                <span className={`file-badge${isPublic ? " is-public" : ""}`}>
+                    {isPublic ? "Public" : "Private"}
+                </span>
             </div>
-            <div>
-                <Label htmlFor="direct-link" className="mb-2">
-                    Direct Link
-                </Label>
-                <div className="flex gap-2">
-                    <Input
-                        id="direct-link"
-                        value={fileDirectLink}
-                        name="file"
-                        disabled
-                    />
-                    <Button
-                        className="workspace-button secondary"
-                        onClick={directLink}
-                        disabled={loading}
-                    >
-                        {loading ? "Fetching..." : "Get direct link"}
-                    </Button>
-                </div>
+
+            <div className="file-dialog-buttons">
+                <Button variant="outline" onClick={copyUrl} disabled={!fileUrl}>
+                    <Copy aria-hidden="true" />
+                    {isPublic ? "Copy direct link" : "Copy temporary link"}
+                </Button>
+                {isPublic ? null : (
+                    <p className="w-full text-xs text-muted-foreground">
+                        This link stops working after a short time.
+                    </p>
+                )}
             </div>
         </div>
     );

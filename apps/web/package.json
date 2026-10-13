@@ -12,6 +12,7 @@
     "@codelitdev/design-system": "0.4.1",
     "@codelitdev/observability": "0.4.1",
     "@medialit/models": "workspace:*",
+    "@medialit/uploader": "workspace:*",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-avatar": "^1.0.4",
     "@radix-ui/react-dialog": "^1.0.5",

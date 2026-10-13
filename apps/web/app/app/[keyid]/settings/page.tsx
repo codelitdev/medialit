@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { AlertTriangle, Database, KeyRound, Settings2 } from "lucide-react";
 import { auth } from "@/auth";
-import { getApikeyUsingKeyId, getAppsDashboard } from "@/app/actions";
+import { getApikeyUsingKeyId, getAppSummary } from "@/app/actions";
 import { formatAppStorage } from "@/lib/media-format";
 import ApiKeyControl from "./api-key-control";
 import DeleteAppButton from "./delete-app-button";
@@ -14,13 +14,12 @@ export default async function Settings(props: {
     const [{ keyid }, session] = await Promise.all([props.params, auth()]);
     if (!session) redirect("/login");
 
-    const [apikey, dashboard] = await Promise.all([
+    const [apikey, appSummary] = await Promise.all([
         getApikeyUsingKeyId(keyid),
-        getAppsDashboard(),
+        getAppSummary(keyid).catch(() => null),
     ]);
     if (!apikey) redirect("/");
 
-    const appSummary = dashboard?.apps.find((app) => app.keyId === keyid);
     if (!appSummary) {
         return (
             <div className="inline-error" role="alert">

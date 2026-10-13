@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "@/auth";
 import { serverApi } from "@/lib/server-api";
 type MediaStats = { storage: number; maxStorage: number };
 
@@ -18,10 +17,6 @@ export async function updateAppName(
     }
 
     try {
-        const session = await auth();
-        if (!session?.user) {
-            throw new Error("Unauthenticated");
-        }
         const response = await serverApi(
             `/api/apps/${encodeURIComponent(keyId)}`,
             {
@@ -47,8 +42,6 @@ export async function makeDefaultApp(
     if (!keyId) return { success: false, error: "Bad request" };
 
     try {
-        const session = await auth();
-        if (!session?.user) throw new Error("Unauthenticated");
         const response = await serverApi(
             `/api/apps/${encodeURIComponent(keyId)}/default`,
             { method: "PATCH" },
@@ -69,10 +62,6 @@ export async function makeDefaultApp(
 export async function getTotalSpaceByApikey(
     keyid: string,
 ): Promise<MediaStats> {
-    const session = await auth();
-    if (!session?.user) {
-        throw new Error("Unauthenticated");
-    }
     const response = await serverApi(
         `/api/apps/${encodeURIComponent(keyid)}/stats`,
     );

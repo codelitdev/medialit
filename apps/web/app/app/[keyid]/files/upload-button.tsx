@@ -3,12 +3,22 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { uploadFilesToApp, type UploadStatus } from "./upload-files";
+
+function uploadLabel(status: UploadStatus | null) {
+    if (!status?.progress) return "Uploading…";
+    const percent = Math.round(status.progress.percentage);
+    return status.total > 1
+        ? `Uploading ${status.index} of ${status.total} · ${percent}%`
+        : `Uploading · ${percent}%`;
+}
 
 export default function UploadButton({ keyid }: { keyid: string }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
     const [busy, setBusy] = useState(false);
-    const [message, setMessage] = useState("");
+    const [status, setStatus] = useState<UploadStatus | null>(null);
     const [error, setError] = useState("");
 
     async function uploadFiles(event: ChangeEvent<HTMLInputElement>) {
@@ -18,40 +28,19 @@ export default function UploadButton({ keyid }: { keyid: string }) {
 
         setBusy(true);
         setError("");
-        setMessage("");
-        let uploaded = 0;
-
-        for (const file of files) {
-            const formData = new FormData();
-            formData.append("file", file);
-            try {
-                const response = await fetch(
-                    `/app/${encodeURIComponent(keyid)}/files/upload`,
-                    { method: "POST", body: formData },
-                );
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(
-                        data.error || `Could not upload ${file.name}`,
-                    );
-                }
-                uploaded += 1;
-            } catch (uploadError) {
-                setError(
-                    uploadError instanceof Error
-                        ? uploadError.message
-                        : `Could not upload ${file.name}`,
-                );
-                break;
-            }
-        }
+        setStatus(null);
+        const { uploaded, error: uploadError } = await uploadFilesToApp(
+            keyid,
+            files,
+            setStatus,
+        );
+        setStatus(null);
+        if (uploadError) setError(uploadError);
 
         setBusy(false);
         if (uploaded) {
-            setMessage(
-                uploaded === 1
-                    ? "File uploaded."
-                    : `${uploaded} files uploaded.`,
+            toast.success(
+                uploaded === 1 ? "File uploaded" : `${uploaded} files uploaded`,
             );
             router.refresh();
         }
@@ -74,13 +63,8 @@ export default function UploadButton({ keyid }: { keyid: string }) {
                 onClick={() => inputRef.current?.click()}
             >
                 {busy ? <LoaderCircle className="animate-spin" /> : <Upload />}
-                {busy ? "Uploading…" : "Upload"}
+                {busy ? uploadLabel(status) : "Upload"}
             </button>
-            {message ? (
-                <span className="inline-feedback" role="status">
-                    {message}
-                </span>
-            ) : null}
             {error ? (
                 <span className="inline-error" role="alert">
                     {error}

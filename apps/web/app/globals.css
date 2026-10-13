@@ -216,7 +216,7 @@ a {
 .workspace-app-copy strong,
 .workspace-user-copy strong {
     overflow: hidden;
-    font-weight: 650;
+    font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -226,7 +226,7 @@ a {
 }
 
 .workspace-user-copy strong {
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .workspace-app-copy span,
@@ -303,7 +303,7 @@ a {
     align-items: center;
     min-width: 0;
     gap: 9px;
-    padding: 12px 5px 3px;
+    padding: 8px;
 }
 
 .workspace-user-menu {
@@ -337,7 +337,7 @@ a {
 .workspace-user-avatar {
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: 8px;
     background: var(--muted);
     color: var(--foreground);
     font-size: 12px;
@@ -383,8 +383,7 @@ a {
     gap: 8px;
     padding: 0 16px;
     border-bottom: 1px solid var(--border);
-    background: color-mix(in oklch, var(--background), transparent 5%);
-    backdrop-filter: blur(16px);
+    background: var(--background);
 }
 
 .workspace-topbar-divider {
@@ -398,8 +397,8 @@ a {
     display: inline-grid;
     flex: none;
     place-items: center;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     border: 1px solid transparent;
     border-radius: 8px;
@@ -414,8 +413,8 @@ a {
 }
 
 .icon-control svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
 }
 
 .workspace-sidebar-trigger {
@@ -455,45 +454,83 @@ a {
 }
 
 .account-menu {
-    width: 320px;
+    width: 256px;
     max-width: calc(100vw - 24px);
-    padding: 7px;
+    padding: 4px;
     border: 1px solid var(--border);
-    border-radius: 11px;
+    border-radius: 8px;
     background: var(--popover);
     box-shadow: var(--shadow-popover);
 }
 
-.account-menu-email {
-    overflow: hidden;
-    padding: 8px 9px 10px;
-    color: var(--muted-foreground);
-    font-size: 11px;
+.account-menu-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
     font-weight: 400;
+}
+
+.account-menu-avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--muted);
+    color: var(--foreground);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.account-menu-copy {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.account-menu-copy strong {
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.account-menu a,
-.account-menu button {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    gap: 9px;
-    min-height: 36px;
-    padding: 0 9px;
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    color: var(--foreground);
+.account-menu-copy > span {
+    overflow: hidden;
+    color: var(--muted-foreground);
     font-size: 12px;
-    text-align: left;
-    cursor: pointer;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.account-menu a:hover,
-.account-menu button:hover,
-.account-menu [data-highlighted] {
+.account-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 32px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--foreground);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    outline: none;
+}
+
+.account-menu-item svg {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    color: var(--muted-foreground);
+}
+
+.account-menu-item:hover,
+.account-menu-item[data-highlighted] {
     background: var(--muted);
     color: var(--foreground);
 }
@@ -630,145 +667,6 @@ a {
 
 .workspace-sidebar[data-state="closed"] {
     animation: workspace-sidebar-exit 200ms ease-in-out both;
-}
-
-.workspace-switcher {
-    z-index: 51;
-    display: block;
-    width: min(360px, calc(100vw - 24px));
-    max-height: min(
-        calc(100dvh - 24px),
-        var(--radix-popover-content-available-height, calc(100dvh - 24px))
-    );
-    overflow: auto;
-    padding: 14px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    background: var(--popover);
-    box-shadow: var(--shadow-popover);
-    transform-origin: var(--radix-popover-content-transform-origin);
-}
-
-.workspace-switcher h2 {
-    margin: 0 0 12px;
-    padding-right: 28px;
-    font-size: 15px;
-}
-
-.workspace-switcher-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 36px;
-    padding: 0 10px;
-    border: 1px solid var(--input);
-    border-radius: 8px;
-    background: var(--card);
-    color: var(--muted-foreground);
-}
-
-.workspace-switcher-search svg {
-    width: 15px;
-    height: 15px;
-}
-
-.workspace-switcher-search input {
-    width: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--foreground);
-    font-size: 13px;
-}
-
-.workspace-app-list {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    margin: 10px -4px;
-}
-
-.workspace-app-option {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    gap: 10px;
-    padding: 8px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--foreground);
-    text-align: left;
-    cursor: pointer;
-}
-
-.workspace-app-option:hover,
-.workspace-app-option.is-selected {
-    background: var(--muted);
-}
-
-.workspace-app-option .workspace-app-avatar {
-    width: 30px;
-    height: 30px;
-    font-size: 12px;
-}
-
-.workspace-app-option-main {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-width: 0;
-    gap: 3px;
-}
-
-.workspace-app-option-main strong {
-    overflow: hidden;
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.workspace-app-option-main span {
-    color: var(--muted-foreground);
-    font-size: 11px;
-}
-
-.workspace-switcher-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding-top: 9px;
-    border-top: 1px solid var(--border);
-}
-
-.workspace-switcher-action {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-height: 38px;
-    gap: 9px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--foreground);
-    font-size: 13px;
-    text-align: left;
-    cursor: pointer;
-}
-
-.workspace-switcher-action:hover {
-    background: var(--muted);
-}
-
-.workspace-switcher-action svg {
-    width: 16px;
-    height: 16px;
-    color: var(--muted-foreground);
-}
-
-.workspace-switcher-actions .workspace-button {
-    width: 100%;
 }
 
 .new-app-plus {
@@ -1017,16 +915,16 @@ a {
 
 .apps-stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 16px;
     margin: 4px 0 2px;
 }
 
 .apps-stat-card {
     min-width: 0;
-    padding: 20px 22px;
+    padding: 20px 24px;
     border: 1px solid var(--border);
-    border-radius: 15px;
+    border-radius: 16px;
     background: var(--card);
     box-shadow: var(--shadow-card);
 }
@@ -1036,9 +934,9 @@ a {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    color: var(--muted-foreground);
-    font-size: 12px;
-    font-weight: 600;
+    color: var(--foreground);
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .apps-stat-label svg {
@@ -1051,23 +949,20 @@ a {
 .apps-stat-card > strong {
     display: block;
     overflow: hidden;
-    margin-top: 12px;
-    font-size: 25px;
-    font-weight: 650;
-    letter-spacing: -0.03em;
+    margin-top: 8px;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.apps-stat-card > strong.apps-largest-name {
-    font-size: 21px;
-}
-
 .apps-stat-card > p {
     overflow: hidden;
-    margin: 4px 0 0;
+    margin: 8px 0 0;
     color: var(--muted-foreground);
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1093,18 +988,18 @@ a {
 
 .apps-overview-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 16px;
 }
 
 .app-overview-card {
     display: flex;
     min-width: 0;
-    min-height: 194px;
     flex-direction: column;
-    padding: 17px 18px 15px;
+    gap: 10px;
+    padding: 20px;
     border: 1px solid var(--border);
-    border-radius: 15px;
+    border-radius: 16px;
     background: var(--card);
     box-shadow: var(--shadow-card);
     transition:
@@ -1142,9 +1037,9 @@ a {
 
 .app-overview-name {
     overflow: hidden;
-    margin-top: 13px;
-    font-size: 14px;
-    font-weight: 650;
+    margin-top: 0;
+    font-size: 16px;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1275,6 +1170,35 @@ a {
     gap: 9px;
 }
 
+/* Desktop: search, filters, sort and layout toggle share one row, as in the
+   design. Narrow screens still wrap. */
+@media (min-width: 900px) {
+    .file-toolbar {
+        flex-wrap: nowrap;
+    }
+
+    .file-toolbar-main {
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
+        min-width: 0;
+    }
+
+    .file-toolbar-actions {
+        flex: none;
+        flex-wrap: nowrap;
+    }
+
+    .file-toolbar .file-search {
+        flex: 0 1 280px;
+        width: auto;
+        min-width: 180px;
+    }
+
+    .file-toolbar .filter-group {
+        flex: none;
+    }
+}
+
 .file-search {
     position: relative;
     width: min(280px, 100%);
@@ -1364,31 +1288,80 @@ a {
 }
 
 .file-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     height: 36px;
-    padding: 0 10px;
+    min-width: 170px;
+    padding: 0 12px;
     border: 1px solid var(--input);
     border-radius: 8px;
     background: var(--card);
     color: var(--foreground);
-    font-size: 12px;
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
+}
+
+.file-sort:hover,
+.file-sort[data-state="open"] {
+    border-color: var(--primary);
+}
+
+.file-sort:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+.file-sort > svg:first-child {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    color: var(--muted-foreground);
+}
+
+.file-sort > span {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.file-sort > svg:last-child {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    color: var(--muted-foreground);
+}
+
+.file-sort-menu {
+    min-width: 200px;
+}
+
+.file-sort-menu [role="menuitemradio"].file-sort-item {
+    justify-content: space-between;
+    padding: 8px 10px;
+    font-size: 14px;
+}
+
+.file-sort-menu [role="menuitemradio"].file-sort-item > span:first-child {
+    display: none;
+}
+
+.file-sort-check {
+    width: 16px;
+    height: 16px;
+    color: var(--foreground);
 }
 
 .file-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
 }
 
 .file-card-shell {
     position: relative;
     min-width: 0;
-}
-
-.file-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
 }
 
 .file-card {
@@ -1446,6 +1419,11 @@ a {
     margin: 0;
 }
 
+/* Keep the accessible label, but take it out of layout so the box centers. */
+.file-select-control .cl-check__label {
+    position: absolute;
+}
+
 .file-preview-area {
     position: relative;
     display: grid;
@@ -1461,71 +1439,230 @@ a {
     object-fit: cover;
 }
 
+/* File details dialog: preview beside details on desktop, stacked with a
+   scrolling body on mobile. */
+.file-dialog {
+    display: grid;
+    grid-template-areas:
+        "title"
+        "preview"
+        "body";
+    grid-template-rows: auto 300px minmax(0, 1fr);
+    max-height: calc(100dvh - 24px);
+}
+
+@media (min-width: 760px) {
+    .file-dialog {
+        grid-template-columns: minmax(0, 1fr) 476px;
+        grid-template-areas:
+            "preview title"
+            "preview body";
+        grid-template-rows: auto minmax(0, 1fr);
+        height: min(760px, calc(100dvh - 48px));
+        max-height: none;
+    }
+}
+
+.file-dialog-title {
+    grid-area: title;
+    display: flex;
+    align-items: center;
+    min-height: 64px;
+    margin: 0;
+    padding: 0 56px 0 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 16px;
+    font-weight: 600;
+}
+
 .file-dialog-preview {
     position: relative;
+    grid-area: preview;
     display: grid;
-    height: 230px;
+    min-height: 0;
     place-items: center;
     overflow: hidden;
-    background: var(--muted);
+    background: var(--primary-soft);
+}
+
+.file-dialog-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--card);
+    object-fit: contain;
+}
+
+.file-dialog-loading {
+    display: grid;
+    place-items: center;
+    color: var(--primary);
+}
+
+.file-dialog-audio {
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    width: min(360px, calc(100% - 32px));
+    color: var(--primary);
+}
+
+.file-dialog-audio svg {
+    width: 56px;
+    height: 56px;
+}
+
+.file-dialog-preview .file-type-icon {
+    width: 72px;
+    height: 72px;
+    color: var(--primary);
+}
+
+.file-dialog-preview .file-preview-caption {
+    left: 12px;
+    bottom: 12px;
 }
 
 .file-dialog-body {
-    padding: 22px 24px 24px;
+    grid-area: body;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px 24px 24px;
 }
 
-.file-dialog-body h2 {
+.file-dialog-name {
+    margin: 0;
     overflow-wrap: anywhere;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
 }
 
-.file-detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px 20px;
-    margin-top: 18px;
+.file-dialog-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
 }
 
-.file-detail-grid p {
-    overflow-wrap: anywhere;
-    margin: 5px 0 0;
-    color: var(--foreground);
+.file-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--muted);
+    color: var(--muted-foreground);
     font-size: 12px;
+    font-weight: 500;
+}
+
+.file-badge.is-public {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.file-dialog-facts {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.file-dialog-facts > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.file-dialog-facts dt {
+    flex: none;
+    color: var(--muted-foreground);
+    font-size: 14px;
+}
+
+.file-dialog-facts dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--foreground);
+    font-size: 14px;
+    text-align: right;
+}
+
+.file-dialog-facts dd.mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+.file-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: auto;
+}
+
+.file-url-field > label,
+.file-access-row label {
+    display: block;
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.file-url-row {
+    display: flex;
+    gap: 8px;
+}
+
+.file-url-input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--input);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--foreground);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-overflow: ellipsis;
 }
 
 .file-access-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-top: 17px;
+    gap: 16px;
+    padding: 18px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
 }
 
-.file-interactivity {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.file-access-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
 }
 
-.file-interactivity > div {
-    min-width: 0;
+.file-access-row p {
+    margin: 6px 0 0;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    line-height: 1.5;
 }
 
-.file-interactivity label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-}
-
-.file-interactivity .flex {
-    align-items: center;
-}
-
-.file-interactivity input {
-    min-width: 0;
-    font-size: 12px;
-}
-
-.file-interactivity button {
+.file-access-row .file-badge {
     flex: none;
+}
+
+.file-dialog-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
 }
 
 .file-empty-actions {
@@ -1567,22 +1704,23 @@ a {
     position: absolute;
     left: 10px;
     bottom: 10px;
-    padding: 4px 7px;
-    border-radius: 5px;
+    padding: 5px 7px;
+    border-radius: 6px;
     background: var(--card);
     color: var(--foreground);
-    font-size: 10px;
-    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
     box-shadow: var(--shadow-card);
 }
 
 .file-card-private {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 10px;
+    right: 10px;
     display: grid;
-    width: 25px;
-    height: 25px;
+    width: 26px;
+    height: 26px;
     place-items: center;
     padding: 0;
     border: 1px solid color-mix(in oklch, var(--border), transparent 15%);
@@ -1599,65 +1737,163 @@ a {
 }
 
 .file-card-copy {
-    padding: 11px 12px 12px;
+    display: block;
+    padding: 12px 14px 14px;
 }
 
 .file-card-copy strong {
     display: block;
     overflow: hidden;
-    font-size: 12px;
-    font-weight: 650;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .file-card-copy span {
     display: block;
-    margin-top: 5px;
+    overflow: hidden;
+    margin-top: 2px;
     color: var(--muted-foreground);
-    font-size: 11px;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.file-row {
-    display: flex;
-    align-items: center;
-    min-height: 66px;
-    gap: 12px;
-    padding: 9px 12px;
+.file-table-box {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card);
 }
 
-.file-row .file-preview-area {
-    flex: none;
-    width: 62px;
-    height: 46px;
-    aspect-ratio: auto;
-    border-radius: 7px;
+.file-table {
+    width: 100%;
+    min-width: 720px;
+    border-collapse: collapse;
+    font-size: 14px;
 }
 
-.file-row .file-type-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
+.file-table th {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
 }
 
-.file-row .file-type-icon svg {
-    width: 18px;
-    height: 18px;
+.file-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    white-space: nowrap;
 }
 
-.file-row .file-card-copy {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    min-width: 0;
-    justify-content: space-between;
-    gap: 20px;
+.file-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.file-table tbody tr:hover td {
+    background: var(--muted);
+}
+
+.file-table tbody tr.is-selected td {
+    background: var(--primary-soft);
+}
+
+.file-table td.muted {
+    color: var(--muted-foreground);
+}
+
+.file-table .file-table-check {
+    width: 52px;
     padding: 0;
+    text-align: center;
 }
 
-.file-row .file-card-copy span {
-    flex: none;
+.file-table .file-table-check .cl-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 40px;
+}
+
+.file-table .file-table-check .cl-check__box {
     margin: 0;
+}
+
+.file-table .file-table-check .cl-check__label {
+    position: absolute;
+}
+
+.file-table-name {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 340px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--foreground);
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+}
+
+.file-table-name .ell {
+    min-width: 0;
+}
+
+.file-table-tile {
+    display: grid;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+.file-table-tile[data-kind="video"] {
+    background: var(--neutral-800);
+    color: oklch(0.93 0.008 80);
+}
+
+.file-table-tile[data-kind="pdf"] {
+    background: var(--destructive-soft);
+    color: var(--destructive);
+}
+
+.file-table-tile[data-kind="file"] {
+    background: var(--muted);
+    color: var(--muted-foreground);
+}
+
+.file-table-tile svg {
+    width: 16px;
+    height: 16px;
+}
+
+.file-table-size {
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+.file-table-access {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted-foreground);
+}
+
+.file-table-access svg {
+    width: 14px;
+    height: 14px;
 }
 
 .file-empty-filter {
@@ -1670,37 +1906,27 @@ a {
     text-align: center;
 }
 
-.file-selection-bar {
+.file-bulk-bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    min-height: 38px;
-    margin: -12px 0 14px;
-    padding: 0 12px;
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    background: var(--card);
-    font-size: 12px;
+    margin-bottom: 16px;
+    padding: 10px 12px 10px 16px;
+    border-radius: 10px;
+    background: var(--primary-soft);
+    font-size: 14px;
 }
 
-.file-selection-bar strong {
-    font-weight: 650;
+.file-bulk-bar > strong {
+    font-weight: 600;
 }
 
-.file-selection-clear {
-    min-height: 27px;
-    padding: 0 9px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--muted-foreground);
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.file-selection-clear:hover {
-    background: var(--muted);
-    color: var(--foreground);
+.file-bulk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
 }
 
 .file-pagination {
@@ -1967,8 +2193,9 @@ a {
 }
 
 .settings-default-control .workspace-button svg {
-    width: 15px;
-    height: 15px;
+    flex: none;
+    width: 16px;
+    height: 16px;
 }
 
 .settings-field {
@@ -2224,13 +2451,13 @@ a {
     justify-content: center;
     min-height: 36px;
     gap: 8px;
-    padding: 0 13px;
+    padding: 0 14px;
     border: 1px solid transparent;
     border-radius: 8px;
     background: var(--primary);
     color: var(--primary-foreground);
-    font-size: 12px;
-    font-weight: 650;
+    font-size: 14px;
+    font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
     transition:
@@ -2249,8 +2476,9 @@ a {
 }
 
 .workspace-button svg {
-    width: 15px;
-    height: 15px;
+    flex: none;
+    width: 16px;
+    height: 16px;
 }
 
 .workspace-button.secondary {

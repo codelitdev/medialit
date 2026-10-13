@@ -42,3 +42,10 @@ export function formatRelativeUpload(value: string | Date | null) {
                 : "numeric",
     });
 }
+
+/* "Last upload 5 min ago", or "No uploads yet" when there's none. */
+export function formatLastUpload(value: string | Date | null) {
+    return value
+        ? `Last upload ${formatRelativeUpload(value)}`
+        : "No uploads yet";
+}
