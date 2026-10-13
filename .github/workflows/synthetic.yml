@@ -1,6 +1,6 @@
 name: Synthetic check
 
-# Checks every 10 minutes that MediaLit can upload, seal, serve and delete a
+# Checks every 2 hours that MediaLit can upload, seal, serve and delete a
 # file. Set up before it does anything:
 # - secret MEDIALIT_SYNTHETIC_APIKEY: the API key of an app used only for
 #   monitoring
@@ -10,11 +10,11 @@ name: Synthetic check
 #
 # GitHub can delay scheduled runs and disables them in repositories without
 # recent activity. The heartbeat alerts you when that happens too, so give
-# it a period of about 30 minutes.
+# it a period of about 3 hours (the 2-hour interval plus a grace margin).
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 */2 * * *"
   workflow_dispatch:
 
 concurrency:

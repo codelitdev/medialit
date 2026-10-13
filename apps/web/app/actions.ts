@@ -15,17 +15,14 @@ export async function getUser(): Promise<Session["user"] | null> {
 }
 
 export async function getSubscriber(): Promise<
-    | (Pick<
-          User,
-          | "id"
-          | "active"
-          | "userId"
-          | "email"
-          | "subscriptionEndsAfter"
-          | "subscriptionStatus"
-          | "subscriptionMethod"
-      > & {
+    | (Pick<User, "id" | "active" | "userId" | "email"> & {
           plan: "oss" | "basic" | "pro";
+          /** The paid subscription, whatever provider holds it, or null. */
+          subscription: {
+              status: "active" | "past_due" | "cancelling";
+              interval: "month" | "year" | null;
+              paidThroughAt: string | null;
+          } | null;
           deploymentMode: "oss" | "cloud";
       })
     | null

@@ -40,6 +40,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
             },
             outputSchema: mediaListSchema,
             annotations: {
+                title: "List media",
                 readOnlyHint: true,
                 idempotentHint: true,
                 openWorldHint: false,
@@ -83,6 +84,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
             },
             outputSchema: mediaSchema,
             annotations: {
+                title: "Get media",
                 readOnlyHint: true,
                 idempotentHint: true,
                 openWorldHint: false,
@@ -129,6 +131,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
                 "Returns the total number of media items in the connected app.",
             outputSchema: z.object({ count: z.number() }),
             annotations: {
+                title: "Get media count",
                 readOnlyHint: true,
                 idempotentHint: true,
                 openWorldHint: false,
@@ -166,6 +169,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
                 "Returns the total storage used by the connected app and the account storage limit, both in bytes.",
             outputSchema: storageSchema,
             annotations: {
+                title: "Get total storage",
                 readOnlyHint: true,
                 idempotentHint: true,
                 openWorldHint: false,
@@ -185,6 +189,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
             },
             outputSchema: successMessageSchema,
             annotations: {
+                title: "Delete media",
                 readOnlyHint: false,
                 destructiveHint: true,
                 openWorldHint: true,
@@ -226,6 +231,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
             },
             outputSchema: mediaSchema,
             annotations: {
+                title: "Seal media",
                 readOnlyHint: false,
                 destructiveHint: false,
                 openWorldHint: true,
@@ -266,7 +272,7 @@ export async function handleGetTotalStorageTool(
         const storage = await dependencies.getTotalSpace({ userId, apikey });
         const response = {
             storage,
-            maxStorage: maxStorageFor(user),
+            maxStorage: await maxStorageFor(user),
         };
         return {
             content: [

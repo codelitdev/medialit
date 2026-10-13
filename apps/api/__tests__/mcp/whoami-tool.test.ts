@@ -1,14 +1,31 @@
-import { Constants } from "@medialit/models";
-import test, { describe } from "node:test";
+import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
 import { handleWhoamiTool } from "../../src/mcp/tools/whoami";
 import { maxStorageAllowedSubscribed } from "../../src/config/constants";
+import { billingStateSource } from "../../src/billing/entitlements";
+
+function mockPaidPlan() {
+    mock.method(billingStateSource, "read").mock.mockImplementation(
+        async () => ({
+            activePaidPlan: "pro",
+            provider: "lemonsqueezy",
+            billingInterval: "month" as const,
+            subscriptionStatus: "active",
+            providerTrialEndsAt: null,
+            currentPeriodEndsAt: null,
+            paidThroughAt: null,
+            cancelAtPeriodEnd: false,
+            pendingCheckout: false,
+            pendingPlanChange: false,
+            projectionVersion: 1,
+        }),
+    );
+}
 
 const user = {
     id: "user-1",
     _id: "user-1",
     email: "hi@example.com",
-    subscriptionStatus: Constants.SubscriptionStatus.SUBSCRIBED,
 };
 
 function extra(authKind: "oauth" | "apikey") {
@@ -20,7 +37,10 @@ function extra(authKind: "oauth" | "apikey") {
 }
 
 describe("MCP whoami", () => {
+    afterEach(() => mock.restoreAll());
+
     test("reports the account, the connected app and its usage", async () => {
+        mockPaidPlan();
         const queried: unknown[] = [];
         const response = await handleWhoamiTool({}, extra("oauth"), {
             getApiKey: async (key: string) => {

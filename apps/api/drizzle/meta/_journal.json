@@ -50,6 +50,13 @@
       "when": 1791128530445,
       "tag": "0006_oauth_app_selections",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791427536182,
+      "tag": "0007_drop_legacy_subscription",
+      "breakpoints": true
     }
   ]
 }

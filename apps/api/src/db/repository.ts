@@ -14,13 +14,6 @@ import {
     user,
 } from "./schema/index.js";
 
-export type SubscriptionStatus =
-    | "not-subscribed"
-    | "subscribed"
-    | "cancelled"
-    | "paused"
-    | "expired";
-
 const SIGNATURE_LENGTH = 100;
 const SIGNATURE_VALIDITY_MINUTES = Number(
     process.env.SIGNATURE_VALIDITY_MINUTES || "1440",
@@ -33,11 +26,6 @@ export type AccountUser = {
     email: string;
     active: boolean;
     name?: string;
-    customerId?: string;
-    subscriptionId?: string;
-    subscriptionEndsAfter?: Date;
-    subscriptionMethod?: "stripe" | "dodo";
-    subscriptionStatus: SubscriptionStatus;
 };
 
 const API_KEY_RESTRICTIONS = ["referrer", "ipaddress", "custom"] as const;
@@ -134,13 +122,6 @@ function mapUser(
         email: account.email,
         active: profile.active,
         name: account.name || undefined,
-        customerId: profile.customerId || undefined,
-        subscriptionId: profile.subscriptionId || undefined,
-        subscriptionEndsAfter: profile.subscriptionEndsAfter || undefined,
-        subscriptionMethod:
-            (profile.subscriptionMethod as "stripe" | "dodo" | null) ||
-            undefined,
-        subscriptionStatus: profile.subscriptionStatus as SubscriptionStatus,
     };
 }
 
@@ -267,7 +248,6 @@ export async function insertAuthUser(input: {
 export async function ensureProfile(input: {
     userId: string;
     publicUserId?: string;
-    subscriptionStatus?: SubscriptionStatus;
     active?: boolean;
 }): Promise<AccountUser> {
     const db = getDb();
@@ -281,13 +261,7 @@ export async function ensureProfile(input: {
             userId: input.userId,
             publicUserId: input.publicUserId || getUniqueId(),
             active: input.active ?? true,
-            subscriptionStatus: input.subscriptionStatus || "not-subscribed",
         });
-    } else if (input.subscriptionStatus) {
-        await db
-            .update(profiles)
-            .set({ subscriptionStatus: input.subscriptionStatus })
-            .where(eq(profiles.userId, input.userId));
     }
     const keys = await db
         .select({ id: apiKeys.id })
@@ -313,37 +287,12 @@ export async function createAccount(input: {
     email: string;
     name?: string;
     publicUserId?: string;
-    subscriptionStatus?: SubscriptionStatus;
 }): Promise<AccountUser> {
     const userId = await insertAuthUser(input);
     return ensureProfile({
         userId,
         publicUserId: input.publicUserId,
-        subscriptionStatus: input.subscriptionStatus,
     });
-}
-
-export async function updateSubscription(
-    publicUserId: string,
-    patch: {
-        subscriptionMethod?: "stripe" | "dodo";
-        customerId?: string;
-        subscriptionId?: string;
-        subscriptionStatus?: SubscriptionStatus;
-        subscriptionEndsAfter?: Date;
-    },
-): Promise<void> {
-    const db = getDb();
-    await db
-        .update(profiles)
-        .set({
-            subscriptionMethod: patch.subscriptionMethod,
-            customerId: patch.customerId,
-            subscriptionId: patch.subscriptionId,
-            subscriptionStatus: patch.subscriptionStatus,
-            subscriptionEndsAfter: patch.subscriptionEndsAfter,
-        })
-        .where(eq(profiles.publicUserId, publicUserId));
 }
 
 export async function createApiKey(input: {

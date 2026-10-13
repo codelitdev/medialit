@@ -1,12 +1,21 @@
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import { User } from "@medialit/models";
-import { maxStorageFor } from "../billing/entitlements";
+import {
+    maxUploadFor,
+    resolveAccountPlan,
+    storageLimitFor,
+    uploadLimitFor,
+} from "../billing/entitlements";
 import mediaQueries from "./queries";
 import { FILE_SIZE_EXCEEDED, NOT_ENOUGH_STORAGE } from "../config/strings";
 import { tempFileDirForUploads } from "../config/constants";
 
-import getMaxFileUploadSize from "./utils/get-max-file-upload-size";
+type UploadUser = User & { _id: string };
+
+function planUser(user: UploadUser) {
+    return { id: user._id };
+}
 
 export type UploadValidationResult =
     | { valid: true }
@@ -33,7 +42,7 @@ export default async function storageValidation(
     if (req.files.file.truncated) {
         await removeTempFile(req.files.file.tempFilePath);
         return res.status(400).json({
-            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${getMaxFileUploadSize({ user: req.user })} bytes`,
+            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${await maxUploadFor(planUser(req.user))} bytes`,
         });
     }
 
@@ -56,9 +65,10 @@ export async function validateUploadConstraints({
     user,
 }: {
     size: number;
-    user: User & { _id: string };
+    user: UploadUser;
 }): Promise<UploadValidationResult> {
-    const allowedFileSize = getMaxFileUploadSize({ user });
+    const plan = await resolveAccountPlan(planUser(user));
+    const allowedFileSize = uploadLimitFor(plan);
     if (size > allowedFileSize) {
         return {
             valid: false,
@@ -68,7 +78,7 @@ export async function validateUploadConstraints({
         };
     }
 
-    if (!(await hasEnoughStorage(size, user))) {
+    if (!(await hasEnoughStorage(size, user, storageLimitFor(plan)))) {
         return {
             valid: false,
             reason: "not_enough_storage",
@@ -81,12 +91,16 @@ export async function validateUploadConstraints({
 
 export async function hasEnoughStorage(
     size: number,
-    user: User & { _id: string },
+    user: UploadUser,
+    /** Pass when the caller already resolved the plan. */
+    storageLimit?: number,
 ): Promise<boolean> {
     const totalSpaceOccupied = await mediaQueries.getTotalSpace({
         userId: user._id,
     });
-    const maxStorageAllowed = maxStorageFor(user);
+    const maxStorageAllowed =
+        storageLimit ??
+        storageLimitFor(await resolveAccountPlan(planUser(user)));
 
     return totalSpaceOccupied + size <= maxStorageAllowed;
 }

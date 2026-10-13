@@ -98,6 +98,8 @@ services:
       - PATH_PREFIX=${PATH_PREFIX?'Cloud prefix is required'}
       - TEMP_FILE_DIR_FOR_UPLOADS=${TEMP_FILE_DIR_FOR_UPLOADS?'A temporary directory for uploads transformations is required'}
       - PORT=8000
+      # Self-hosted MediaLit has no billing: every account is unlimited.
+      - MEDIALIT_DEPLOYMENT_MODE=${MEDIALIT_DEPLOYMENT_MODE:-oss}
       # OAuth and sign-in redirects use these, so set them to the public URLs.
       - PUBLIC_API_URL=${PUBLIC_API_URL?'Public API URL is required, for example http://medialit.example.com'}
       - WEB_ORIGIN=${WEB_ORIGIN?'Web origin is required, for example http://app.medialit.example.com'}

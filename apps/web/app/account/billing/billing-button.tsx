@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { openBillingPortal, startProCheckout } from "./action";
 
-export default function DodoCheckoutButton({
+/** Starts a provider checkout or opens the provider's billing portal. */
+export default function BillingButton({
     mode,
     interval,
     className,
@@ -19,6 +20,16 @@ export default function DodoCheckoutButton({
     const { toast } = useToast();
     const [pending, setPending] = useState(false);
 
+    // Pressing back from the provider's page can restore this page from the
+    // browser's back-forward cache with the button still disabled.
+    useEffect(() => {
+        const reset = (event: PageTransitionEvent) => {
+            if (event.persisted) setPending(false);
+        };
+        window.addEventListener("pageshow", reset);
+        return () => window.removeEventListener("pageshow", reset);
+    }, []);
+
     return (
         <Button
             className={className}
@@ -31,6 +42,10 @@ export default function DodoCheckoutButton({
                         : await startProCheckout(interval ?? "month");
                 if (result.url) {
                     window.location.href = result.url;
+                    return;
+                }
+                if (result.signInUrl) {
+                    window.location.assign(result.signInUrl);
                     return;
                 }
                 setPending(false);

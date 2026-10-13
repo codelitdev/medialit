@@ -1,4 +1,4 @@
-import { SubscriptionStatus, User } from "@medialit/models";
+import { User } from "@medialit/models";
 import { createAccount, findUserByEmail, findUserById } from "@/db";
 
 export async function getUser(id: string): Promise<User | null> {
@@ -9,14 +9,6 @@ export async function findByEmail(email: string): Promise<User | null> {
     return findUserByEmail(email);
 }
 
-export async function createUser(
-    email: string,
-    name?: string,
-    subscriptionStatus?: SubscriptionStatus,
-): Promise<User> {
-    return createAccount({
-        email,
-        name,
-        subscriptionStatus,
-    });
+export async function createUser(email: string, name?: string): Promise<User> {
+    return createAccount({ email, name });
 }

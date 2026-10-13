@@ -1,4 +1,3 @@
-import { Constants } from "@medialit/models";
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
 import { handleTusUploadCreate, uploadGroup } from "../../src/tus/tus-server";
@@ -40,7 +39,6 @@ describe("TUS upload creation", () => {
     test("rejects uploads that exceed the account file size limit", async () => {
         const user = {
             id: "test-user-id",
-            subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
         };
 
         mock.fn(createTusUpload).mock.mockImplementation(() => {
@@ -63,7 +61,6 @@ describe("TUS upload creation", () => {
     test("rejects uploads that exceed remaining account storage", async () => {
         const user = {
             id: "test-user-id",
-            subscriptionStatus: Constants.SubscriptionStatus.NOT_SUBSCRIBED,
         };
 
         mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(

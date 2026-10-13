@@ -10,7 +10,8 @@ export const SHUTDOWN_TIMEOUT_MS = 8_000;
 
 export type ShutdownSteps = {
     /** Stops timers that start new work (cleanup jobs, billing batches). */
-    stopBackgroundJobs: () => void;
+    /** May return a promise, for example to let a running billing batch finish. */
+    stopBackgroundJobs: () => void | Promise<void>;
     /** Ends open MCP streams, which would otherwise keep the server open. */
     closeMcpSessions: () => Promise<void>;
     /** Stops accepting connections and waits for in-flight requests. */
@@ -31,7 +32,7 @@ export function createApiShutdown(
         timeoutMs,
         hooks: [
             async () => {
-                steps.stopBackgroundJobs();
+                await steps.stopBackgroundJobs();
                 await steps.closeMcpSessions();
                 await steps.closeServer();
                 await steps.closeDatabase();

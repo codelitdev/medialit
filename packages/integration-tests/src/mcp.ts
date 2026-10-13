@@ -239,10 +239,23 @@ export async function runMcpIntegrationTests(
     options: {
         apiKey?: string;
         server?: string;
+        /** The storage limit the account's plan grants, when the caller knows it. */
+        expectedMaxStorage?: number;
         log?: (message: string) => void;
     } = {},
 ): Promise<void> {
     const apiKey = options.apiKey ?? process.env.MEDIALIT_APIKEY;
+    const expectedMaxStorage =
+        options.expectedMaxStorage ??
+        (process.env.MEDIALIT_EXPECTED_MAX_STORAGE
+            ? Number(process.env.MEDIALIT_EXPECTED_MAX_STORAGE)
+            : undefined);
+    assert(
+        expectedMaxStorage === undefined ||
+            (Number.isSafeInteger(expectedMaxStorage) &&
+                expectedMaxStorage > 0),
+        "MEDIALIT_EXPECTED_MAX_STORAGE must be a positive integer",
+    );
     assert(
         typeof apiKey === "string" && apiKey.trim(),
         "MEDIALIT_APIKEY is required",
@@ -413,6 +426,14 @@ export async function runMcpIntegrationTests(
 
         baseline = await storage();
         baselineCount = await count();
+        if (expectedMaxStorage !== undefined) {
+            assert.equal(
+                baseline.maxStorage,
+                expectedMaxStorage,
+                "maxStorage must be the storage limit of the account's plan",
+            );
+            log("PASS maxStorage matches the account's plan");
+        }
         assert(
             baseline.maxStorage - baseline.storage >= png.length,
             "Insufficient available storage for the MCP upload",

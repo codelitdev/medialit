@@ -13,8 +13,19 @@ export const PRO_YEAR_OFFER_KEY = "pro_year";
 
 export type BillingDeploymentMode = "oss" | "cloud";
 
+/**
+ * Payment providers MediaLit can use. New checkout goes to BILLING_PROVIDER;
+ * every provider with credentials set keeps serving its subscriptions.
+ */
+export const BILLING_PROVIDERS = ["lemonsqueezy", "dodo"] as const;
+export type BillingProviderName = (typeof BILLING_PROVIDERS)[number];
+
 export type CloudBillingConfig = {
     deploymentMode: "cloud";
+    /** Where new checkout goes. */
+    provider: BillingProviderName;
+    /** The checkout provider first, then every other provider with credentials. */
+    providers: BillingProviderName[];
     catalogRevision: number;
     currency: string;
     offers: PackageBillingOffer[];
@@ -28,27 +39,36 @@ const offerEnv: Record<
 > = {
     pro_month: {
         amount: "BILLING_PRO_MONTH_AMOUNT_MINOR",
-        product: "DODO_PRO_MONTH_PRODUCT_ID",
+        product: "BILLING_PRO_MONTH_PRODUCT_ID",
         interval: "month",
     },
     pro_year: {
         amount: "BILLING_PRO_YEAR_AMOUNT_MINOR",
-        product: "DODO_PRO_YEAR_PRODUCT_ID",
+        product: "BILLING_PRO_YEAR_PRODUCT_ID",
         interval: "year",
     },
 };
 
 const CLOUD_ENV = [
+    "BILLING_PROVIDER",
     "BILLING_CATALOG_REVISION",
     "BILLING_CURRENCY",
     "BILLING_PRO_MONTH_AMOUNT_MINOR",
     "BILLING_PRO_YEAR_AMOUNT_MINOR",
-    "DODO_PRO_MONTH_PRODUCT_ID",
-    "DODO_PRO_YEAR_PRODUCT_ID",
-    "DODO_PAYMENTS_API_KEY",
-    "DODO_PAYMENTS_WEBHOOK_KEY_CURRENT",
+    "BILLING_PRO_MONTH_PRODUCT_ID",
+    "BILLING_PRO_YEAR_PRODUCT_ID",
     "BILLING_DATA_ENCRYPTION_KEY",
 ] as const;
+
+/** Credentials each provider needs, on top of CLOUD_ENV. */
+export const PROVIDER_ENV: Record<BillingProviderName, readonly string[]> = {
+    lemonsqueezy: [
+        "LEMONSQUEEZY_API_KEY",
+        "LEMONSQUEEZY_STORE_ID",
+        "LEMONSQUEEZY_WEBHOOK_SECRET",
+    ],
+    dodo: ["DODO_PAYMENTS_API_KEY", "DODO_PAYMENTS_WEBHOOK_KEY_CURRENT"],
+};
 
 export function deploymentMode(
     env: NodeJS.ProcessEnv = process.env,
@@ -71,6 +91,26 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
     return value;
 }
 
+/**
+ * Providers other than the checkout one, kept while they still hold
+ * subscriptions. A provider counts when any of its credentials is set; then
+ * all of them must be.
+ */
+function servingProviders(
+    env: NodeJS.ProcessEnv,
+    checkout: BillingProviderName,
+): BillingProviderName[] {
+    return BILLING_PROVIDERS.filter((name) => {
+        if (name === checkout) return false;
+        const set = PROVIDER_ENV[name].filter((key) => env[key]?.trim());
+        if (set.length === 0) return false;
+        if (set.length !== PROVIDER_ENV[name].length) {
+            throw new BillingConfigurationError(`${name}_config_incomplete`);
+        }
+        return true;
+    });
+}
+
 function positiveSafeInteger(value: string, name: string): number {
     if (!/^(0|[1-9][0-9]*)$/.test(value)) {
         throw new BillingConfigurationError(`${name}_must_be_decimal_integer`);
@@ -87,9 +127,8 @@ function positiveSafeInteger(value: string, name: string): number {
 }
 
 /**
- * Paid Dodo catalog. Returns null for OSS and for a cloud process with no
- * billing env vars. A partial cloud configuration throws. Quotas stay on the
- * profile either way.
+ * Paid catalog for the configured provider. Returns null for OSS and for a
+ * cloud process with no billing env vars. A partial configuration throws.
  */
 export function readCloudBillingConfig(
     env: NodeJS.ProcessEnv = process.env,
@@ -103,6 +142,12 @@ export function readCloudBillingConfig(
     if (present.length !== CLOUD_ENV.length) {
         throw new BillingConfigurationError("billing_cloud_config_incomplete");
     }
+    const provider = required(env, "BILLING_PROVIDER") as BillingProviderName;
+    if (!BILLING_PROVIDERS.includes(provider)) {
+        throw new BillingConfigurationError("BILLING_PROVIDER_invalid");
+    }
+    for (const name of PROVIDER_ENV[provider]) required(env, name);
+    const providers = [provider, ...servingProviders(env, provider)];
 
     const revision = positiveSafeInteger(
         required(env, "BILLING_CATALOG_REVISION"),
@@ -131,7 +176,7 @@ export function readCloudBillingConfig(
                 required(env, definition.amount),
                 definition.amount,
             ),
-            provider: "dodo",
+            provider,
             providerProductId,
             providerTrialDays: 0,
         } satisfies PackageBillingOffer;
@@ -146,17 +191,19 @@ export function readCloudBillingConfig(
         offers,
         requiredOfferKeys: [...billingCatalogKeys],
         revision,
-        checkoutProvider: "dodo",
+        checkoutProvider: provider,
     });
     return {
         deploymentMode: "cloud",
+        provider,
+        providers,
         catalogRevision: revision,
         currency,
         offers,
     };
 }
 
-/** OSS, and cloud with no Dodo settings, compose an engine with no checkout. */
+/** OSS, and cloud with no billing settings, compose an engine with no checkout. */
 export function billingComposition(
     env: NodeJS.ProcessEnv = process.env,
 ): BillingComposition {

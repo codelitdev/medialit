@@ -109,7 +109,7 @@ export async function getTotalSpaceOccupied(req: any, res: any) {
         const totalSpaceOccupied = await getTotalSpace({ userId, apikey });
         return res.status(200).json({
             storage: totalSpaceOccupied,
-            maxStorage: maxStorageFor(req.user),
+            maxStorage: await maxStorageFor(req.user),
         });
     } catch (err: any) {
         return res.status(500).json({ error: err.message });

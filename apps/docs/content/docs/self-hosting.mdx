@@ -287,7 +287,9 @@ CDN_ENDPOINT=https://<your_minio_api_endpoint> # For accessing public bucket con
 
 ## Set upload limits
 
-These variables set the largest file and the total storage per account, in bytes. "Subscribed" applies to accounts with an active subscription. The first user created from `EMAIL` has one.
+The Docker Compose setup runs in OSS mode (`MEDIALIT_DEPLOYMENT_MODE=oss`), where accounts have no upload or storage limits and there is no billing.
+
+With `MEDIALIT_DEPLOYMENT_MODE=cloud`, these variables set the largest file and the total storage per account, in bytes. "Subscribed" applies to accounts with an active paid subscription, which comes only from billing checkout.
 
 ```sh
 MAX_UPLOAD_SIZE_SUBSCRIBED=2147483648        # 2 GB
@@ -314,7 +316,7 @@ If your server reaches MediaLit on a different URL than browsers do, for example
 Find out that MediaLit is down before your users do.
 
 1. **Uptime:** point an uptime monitor such as Better Stack or UptimeRobot at `https://medialit.example.com/ready`. It returns 200 when the API is running and can reach its database, and 503 otherwise.
-2. **End to end:** run the synthetic check every 10 to 15 minutes from a machine other than your MediaLit server. It uploads a tiny file, seals it, downloads it and deletes it, so it also catches storage and CDN problems that `/ready` can't see.
+2. **End to end:** run the synthetic check every 2 hours from a machine other than your MediaLit server. It uploads a tiny file, seals it, downloads it and deletes it, so it also catches storage and CDN problems that `/ready` can't see.
 
 ```bash
 MEDIALIT_APIKEY=your_monitoring_app_key \

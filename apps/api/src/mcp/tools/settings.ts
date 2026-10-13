@@ -16,6 +16,7 @@ export function registerSettingsTools(server: McpToolRegistrar): void {
                 "Returns the current image processing configuration for the connected app, including WebP conversion settings and thumbnail dimensions.",
             outputSchema: mediaSettingsSchema,
             annotations: {
+                title: "Get media settings",
                 readOnlyHint: true,
                 idempotentHint: true,
                 openWorldHint: false,
@@ -76,6 +77,7 @@ export function registerSettingsTools(server: McpToolRegistrar): void {
             },
             outputSchema: successMessageSchema,
             annotations: {
+                title: "Update media settings",
                 readOnlyHint: false,
                 destructiveHint: true,
                 openWorldHint: false,
