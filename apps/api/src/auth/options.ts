@@ -51,6 +51,10 @@ export function medialitAuthOptions(input: {
         .split(",")
         .map((origin) => origin.trim())
         .filter(Boolean);
+    // The sign-in page lives on the API host, but the dashboard reads the
+    // session cookie on its own host. Set this to the shared parent domain
+    // (for example `medialit.cloud`) when the two are different subdomains.
+    const cookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim();
     return {
         appName: "MediaLit",
         baseURL: urls.publicApiUrl,
@@ -59,6 +63,14 @@ export function medialitAuthOptions(input: {
         trustedOrigins: [urls.webOrigin, urls.publicApiUrl, ...extraOrigins],
         advanced: {
             cookiePrefix: AUTH_COOKIE_PREFIX,
+            ...(cookieDomain
+                ? {
+                      crossSubDomainCookies: {
+                          enabled: true,
+                          domain: cookieDomain,
+                      },
+                  }
+                : {}),
         },
         emailAndPassword: { enabled: false },
         ...(input.database ? { database: input.database } : {}),
