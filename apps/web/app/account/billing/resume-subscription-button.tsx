@@ -3,9 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { useFormStatus } from "react-dom";
 import { resumeSubscription } from "./action";
-import { useToast } from "@/components/ui/use-toast";
 import { useEffect, useActionState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function ResumeSubscriptionButton({
     paidThroughAt,
@@ -18,7 +18,6 @@ export default function ResumeSubscriptionButton({
     const [formState, formAction] = useActionState(resumeSubscription, {
         success: false,
     } as Awaited<ReturnType<typeof resumeSubscription>>);
-    const { toast } = useToast();
     const router = useRouter();
 
     useEffect(() => {
@@ -27,8 +26,7 @@ export default function ResumeSubscriptionButton({
                 window.location.href = formState.url;
                 return;
             }
-            toast({
-                title: "Welcome back!",
+            toast.success("Welcome back!", {
                 description: "Your subscription has been resumed",
             });
             router.refresh();
@@ -38,8 +36,7 @@ export default function ResumeSubscriptionButton({
             return;
         }
         if (formState.error) {
-            toast({
-                title: "Uh oh!",
+            toast.error("Uh oh!", {
                 description: formState.error,
             });
         }

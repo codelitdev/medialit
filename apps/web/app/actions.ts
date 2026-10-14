@@ -14,6 +14,8 @@ export async function getUser(): Promise<Session["user"] | null> {
     return session?.user ?? null;
 }
 
+/* Server actions below leave the session check to the API: it answers 401
+   without one, so checking here first would only add a round trip. */
 export async function getSubscriber(): Promise<
     | (Pick<User, "id" | "active" | "userId" | "email"> & {
           plan: "oss" | "basic" | "pro";
@@ -27,28 +29,72 @@ export async function getSubscriber(): Promise<
       })
     | null
 > {
-    const session = await auth();
-    if (!session?.user) return null;
     const response = await serverApi("/api/account");
     if (!response.ok) return null;
     return response.json();
 }
 
 export async function getApiKeys() {
-    const session = await auth();
-    if (!session?.user) return;
     const response = await serverApi("/api/apps");
     if (!response.ok) return;
+    return response.json();
+}
+
+export type AppSummary = {
+    keyId: string;
+    name: string;
+    default: boolean;
+    count: number;
+    storage: number;
+    images: number;
+    videos: number;
+    pdfs: number;
+    others: number;
+    imageStorage: number;
+    videoStorage: number;
+    pdfStorage: number;
+    otherStorage: number;
+    lastUpload: string | null;
+    /** Percent of the account's storage. */
+    share: number;
+};
+
+export type AppsDashboardData = {
+    apps: AppSummary[];
+    appCount: number;
+    totalFiles: number;
+    totalStorage: number;
+    totalImages: number;
+    totalVideos: number;
+    totalPdfs: number;
+    totalOthers: number;
+    largestApp: {
+        keyId: string;
+        name: string;
+        storage: number;
+        share: number;
+    } | null;
+};
+
+export async function getAppsDashboard(): Promise<AppsDashboardData | null> {
+    const response = await serverApi("/api/apps/overview");
+    if (!response.ok) return null;
+    return response.json();
+}
+
+export async function getAppSummary(keyId: string): Promise<AppSummary> {
+    const response = await serverApi(
+        `/api/apps/${encodeURIComponent(keyId)}/summary`,
+    );
+    if (!response.ok) {
+        throw new Error(await errorMessage(response));
+    }
     return response.json();
 }
 
 export async function getApikeyUsingKeyId(
     keyId: string,
 ): Promise<Pick<Apikey, "name" | "key" | "keyId" | "default"> | null> {
-    const session = await auth();
-    if (!session?.user) {
-        throw new Error("Unauthenticated");
-    }
     const response = await serverApi(`/api/apps/${encodeURIComponent(keyId)}`);
     if (response.status === 404) return null;
     if (!response.ok) {
@@ -60,7 +106,7 @@ export async function getApikeyUsingKeyId(
 export async function createNewApiKey(
     prevState: Record<string, unknown>,
     formData: FormData,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; keyId?: string }> {
     const name = formData.get("apiKey") as string;
     try {
         const response = await serverApi("/api/apps", {
@@ -70,7 +116,8 @@ export async function createNewApiKey(
         if (!response.ok) {
             return { success: false, error: await errorMessage(response) };
         }
-        return { success: true };
+        const data = await response.json();
+        return { success: true, keyId: data.keyId };
     } catch (err: any) {
         return { success: false, error: err.message };
     }

@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "@/auth";
 import { serverApi } from "@/lib/server-api";
 
 type BillingIntent = "checkout" | "portal" | "cancel" | "resume";
@@ -25,10 +24,6 @@ async function postBilling(
     body: Record<string, unknown> = {},
 ): Promise<BillingResult> {
     try {
-        const session = await auth();
-        if (!session?.user) {
-            throw new Error("Unauthorized");
-        }
         const tokenResponse = await serverApi(
             "/api/account/billing/action-token",
             { method: "POST", body: JSON.stringify({ intent }) },

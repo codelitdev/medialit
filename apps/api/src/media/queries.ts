@@ -19,13 +19,17 @@ export function buildMediaCountQuery({
     apikey,
     access,
     group,
+    search,
+    kind,
 }: {
     userId: string;
     apikey: string;
     access?: AccessControl;
     group?: string;
+    search?: string;
+    kind?: GetPageProps["kind"];
 }) {
-    return { userId: String(userId), apikey, access, group };
+    return { userId: String(userId), apikey, access, group, search, kind };
 }
 
 function escapeRegex(value: string): string {
@@ -52,11 +56,15 @@ export async function getMediaCount({
     apikey,
     access,
     group,
+    search,
+    kind,
 }: {
     userId: string;
     apikey: string;
     access?: AccessControl;
     group?: string;
+    search?: string;
+    kind?: GetPageProps["kind"];
 }): Promise<number> {
     return countMedia({
         userId: String(userId),
@@ -68,6 +76,8 @@ export async function getMediaCount({
                   ? "public"
                   : undefined,
         group,
+        search,
+        kind,
     });
 }
 
@@ -88,7 +98,10 @@ export async function getPaginatedMedia({
     page,
     group,
     recordsPerPage,
-}: GetPageProps): Promise<MediaWithUserId[]> {
+    search,
+    kind,
+    sort,
+}: GetPageProps): Promise<Array<MediaWithUserId & { createdAt: Date }>> {
     return listMedia({
         userId: String(userId),
         apikey,
@@ -100,6 +113,9 @@ export async function getPaginatedMedia({
         group,
         page,
         recordsPerPage: recordsPerPage || numberOfRecordsPerPage,
+        search,
+        kind,
+        sort,
     });
 }
 

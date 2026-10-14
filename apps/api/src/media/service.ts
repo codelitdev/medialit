@@ -38,7 +38,7 @@ import {
     getPaginatedMedia,
     createMedia,
 } from "./queries";
-import { sealMediaRecord } from "@/db";
+import { listMediaRecordsByIds, sealMediaRecord } from "@/db";
 import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
@@ -198,6 +198,7 @@ type MappedMedia = Partial<
 > & {
     access: AccessControl;
     thumbnail: string;
+    createdAt: Date;
 };
 
 async function getPage({
@@ -207,6 +208,9 @@ async function getPage({
     page,
     group,
     recordsPerPage,
+    search,
+    kind,
+    sort,
 }: GetPageProps): Promise<MappedMedia[]> {
     const result = await getPaginatedMedia({
         userId,
@@ -215,6 +219,9 @@ async function getPage({
         page,
         group,
         recordsPerPage,
+        search,
+        kind,
+        sort,
     });
     const mappedResult = result.map(
         (media): MappedMedia => ({
@@ -229,6 +236,7 @@ async function getPage({
             thumbnail: media.thumbnailGenerated ? getThumbnailUrl(media) : "",
             caption: media.caption,
             group: media.group,
+            createdAt: media.createdAt,
         }),
     );
 
@@ -330,18 +338,8 @@ async function getPrivateFileUrl(media: MediaWithUserId, thumb?: boolean) {
         : await generateSignedUrl(key, bucket);
 }
 
-async function deleteMedia({
-    userId,
-    apikey,
-    mediaId,
-}: {
-    userId: string;
-    apikey: string;
-    mediaId: string;
-}): Promise<void> {
-    const media = await getMedia({ userId, apikey, mediaId });
-    if (!media) return;
-
+/* Removes a media item's main file and thumbnail from storage. */
+async function removeStoredFiles(media: MediaWithUserId): Promise<void> {
     // Determine which bucket the main file is in
     const mainBucket =
         media.temp || media.accessControl === Constants.AccessControl.PRIVATE
@@ -355,7 +353,7 @@ async function deleteMedia({
 
     const fileExtension = path.extname(media.fileName).replace(".", "");
     const key = generateKey({
-        mediaId,
+        mediaId: media.mediaId,
         path: mainPath,
         filename: `main.${fileExtension}`,
     });
@@ -368,14 +366,71 @@ async function deleteMedia({
             ? Constants.PathKey.PRIVATE
             : Constants.PathKey.PUBLIC;
         const thumbKey = generateKey({
-            mediaId,
+            mediaId: media.mediaId,
             path: thumbPath,
             filename: "thumb.webp",
         });
         await deleteObject({ Key: thumbKey, Bucket: thumbBucket });
     }
+}
 
+async function deleteMedia({
+    userId,
+    apikey,
+    mediaId,
+}: {
+    userId: string;
+    apikey: string;
+    mediaId: string;
+}): Promise<void> {
+    const media = await getMedia({ userId, apikey, mediaId });
+    if (!media) return;
+
+    await mediaService.removeStoredFiles(media);
     await deleteMediaQuery(userId, mediaId);
+}
+
+const DELETE_CONCURRENCY = 10;
+
+/* Deletes several media items of one app. Looks them all up in one query;
+   an id that doesn't exist, or whose files can't be removed, counts as
+   failed. */
+async function deleteMediaMany({
+    userId,
+    apikey,
+    mediaIds,
+}: {
+    userId: string;
+    apikey: string;
+    mediaIds: string[];
+}): Promise<{ deleted: number; failed: number }> {
+    const uniqueIds = Array.from(new Set(mediaIds));
+    const found = await listMediaRecordsByIds({
+        userId,
+        apikey,
+        mediaIds: uniqueIds,
+    });
+
+    let deleted = 0;
+    for (let start = 0; start < found.length; start += DELETE_CONCURRENCY) {
+        const results = await Promise.allSettled(
+            found
+                .slice(start, start + DELETE_CONCURRENCY)
+                .map(async (media) => {
+                    await mediaService.removeStoredFiles(media);
+                    await deleteMediaQuery(userId, media.mediaId);
+                }),
+        );
+        for (const result of results) {
+            if (result.status === "fulfilled") {
+                deleted++;
+            } else {
+                logger.error({ err: result.reason }, "Failed to delete media");
+            }
+        }
+    }
+
+    return { deleted, failed: uniqueIds.length - deleted };
 }
 
 async function sealMedia({
@@ -490,11 +545,15 @@ async function sealMedia({
     return await getMediaResponse(updatedMedia);
 }
 
-export default {
+const mediaService = {
     upload,
     getPage,
     getMediaCount: getMediaCountWithFilter,
     getMediaDetails,
     deleteMedia,
+    deleteMediaMany,
+    removeStoredFiles,
     sealMedia,
 };
+
+export default mediaService;

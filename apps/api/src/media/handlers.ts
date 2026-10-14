@@ -153,6 +153,14 @@ export async function deleteMedia(req: any, res: any) {
     }
 }
 
+/* HTTP status for an error from mediaService.sealMedia. Shared by the
+   API-key route and the dashboard's session route. */
+export function sealErrorStatus(err: { message?: string }): number {
+    if (err.message === "Media not found") return 404;
+    if (err.message === "Media is already sealed") return 409;
+    return 500;
+}
+
 export async function sealMedia(req: any, res: any) {
     const { mediaId } = req.params;
 
@@ -165,12 +173,7 @@ export async function sealMedia(req: any, res: any) {
 
         return res.status(200).json(media);
     } catch (err: any) {
-        const statusCode =
-            err.message === "Media not found"
-                ? 404
-                : err.message === "Media is already sealed"
-                  ? 409
-                  : 500;
+        const statusCode = sealErrorStatus(err);
         if (statusCode === 500) {
             logger.error({ err }, err.message);
         }
