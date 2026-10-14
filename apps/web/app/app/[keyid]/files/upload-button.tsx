@@ -4,15 +4,11 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { uploadFilesToApp, type UploadStatus } from "./upload-files";
-
-function uploadLabel(status: UploadStatus | null) {
-    if (!status?.progress) return "Uploading…";
-    const percent = Math.round(status.progress.percentage);
-    return status.total > 1
-        ? `Uploading ${status.index} of ${status.total} · ${percent}%`
-        : `Uploading · ${percent}%`;
-}
+import {
+    uploadFilesToApp,
+    uploadLabel,
+    type UploadStatus,
+} from "./upload-files";
 
 export default function UploadButton({ keyid }: { keyid: string }) {
     const inputRef = useRef<HTMLInputElement>(null);

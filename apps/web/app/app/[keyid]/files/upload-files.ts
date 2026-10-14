@@ -7,6 +7,15 @@ export type UploadStatus = {
     progress: UploadProgress | null;
 };
 
+/* "Uploading 2 of 3 · 42%" while an upload runs. */
+export function uploadLabel(status: UploadStatus | null) {
+    if (!status?.progress) return "Uploading…";
+    const percent = Math.round(status.progress.percentage);
+    return status.total > 1
+        ? `Uploading ${status.index} of ${status.total} · ${percent}%`
+        : `Uploading · ${percent}%`;
+}
+
 /* Uploads each file with MediaLit's resumable (tus) uploader, then seals it.
    Sealing makes the upload permanent; until then it stays temporary. The API
    signs and seals for the signed-in user, so the app's key never leaves it. */

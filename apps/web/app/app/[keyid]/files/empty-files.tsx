@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, LoaderCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { uploadFilesToApp } from "./upload-files";
+import {
+    uploadFilesToApp,
+    uploadLabel,
+    type UploadStatus,
+} from "./upload-files";
 
 type ToolTab = "mcp" | "cli" | "sdk";
 
@@ -39,6 +43,7 @@ export default function EmptyFiles({
     const router = useRouter();
     const [dragging, setDragging] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [status, setStatus] = useState<UploadStatus | null>(null);
     const [error, setError] = useState("");
     const [tab, setTab] = useState<ToolTab>("mcp");
     const [copied, setCopied] = useState<string | null>(null);
@@ -48,7 +53,9 @@ export default function EmptyFiles({
 
         setBusy(true);
         setError("");
-        const result = await uploadFilesToApp(keyid, files);
+        setStatus(null);
+        const result = await uploadFilesToApp(keyid, files, setStatus);
+        setStatus(null);
         if (result.error) setError(result.error);
         setBusy(false);
         if (result.uploaded) {
@@ -152,8 +159,13 @@ export default function EmptyFiles({
                         <Upload aria-hidden="true" />
                     )}
                 </div>
-                <h2 className="m-0 text-[17px] font-semibold">
-                    Drop files to upload to {appName}
+                <h2
+                    className="m-0 text-[17px] font-semibold"
+                    aria-live="polite"
+                >
+                    {busy
+                        ? uploadLabel(status)
+                        : `Drop files to upload to ${appName}`}
                 </h2>
                 <p className="m-0 text-muted-foreground">
                     or{" "}
