@@ -1,13 +1,11 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { updateAppName } from "./actions";
-import { useEffect, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/use-toast";
+import { updateAppName } from "./actions";
+
+type UpdateState = { success: boolean; error?: string };
 
 export default function UpdateSettingsForm({
     keyId,
@@ -18,54 +16,52 @@ export default function UpdateSettingsForm({
 }) {
     const [state, updateNameAction] = useActionState(updateAppName, {
         success: false,
-    });
+    } as UpdateState);
     const [newName, setNewName] = useState(name);
     const router = useRouter();
-    const { toast } = useToast();
 
     useEffect(() => {
-        function refresh() {
-            router.refresh();
-        }
-
-        if (state.success) {
-            refresh();
-        }
-
-        if (state.error) {
-            toast({
-                title: "Error",
-                description:
-                    "There was a problem saving your changes. Please try again.",
-                variant: "destructive",
-            });
-        }
-    }, [state]);
+        if (state.success) router.refresh();
+    }, [router, state]);
 
     return (
-        <div>
-            <Label htmlFor="newName" className="mb-2">
-                App name
-            </Label>
-            <form action={updateNameAction} className="flex gap-2">
-                <Input
+        <div className="settings-field">
+            <label htmlFor="new-app-name">App name</label>
+            <form action={updateNameAction} className="settings-control-row">
+                <input
+                    id="new-app-name"
+                    className="settings-input"
                     name="newName"
                     value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
+                    onChange={(event) => setNewName(event.target.value)}
+                    required
                 />
-                <Input name="keyId" value={keyId} type="hidden" />
-                <Submit>Save</Submit>
+                <input name="keyId" value={keyId} type="hidden" readOnly />
+                <SubmitButton />
             </form>
+            {state.error ? (
+                <p className="inline-error" role="alert">
+                    {String(state.error)}
+                </p>
+            ) : null}
+            {state.success ? (
+                <p className="inline-feedback" role="status">
+                    App name saved.
+                </p>
+            ) : null}
         </div>
     );
 }
 
-function Submit({ children }: { children: React.ReactNode }) {
+function SubmitButton() {
     const status = useFormStatus();
-
     return (
-        <Button type="submit" disabled={status.pending}>
-            {children}
-        </Button>
+        <button
+            className="workspace-button"
+            type="submit"
+            disabled={status.pending}
+        >
+            {status.pending ? "Saving…" : "Save"}
+        </button>
     );
 }

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { openBillingPortal, startProCheckout } from "./action";
+import { toast } from "sonner";
 
 /** Starts a provider checkout or opens the provider's billing portal. */
 export default function BillingButton({
@@ -17,7 +17,6 @@ export default function BillingButton({
     className?: string;
     children: React.ReactNode;
 }) {
-    const { toast } = useToast();
     const [pending, setPending] = useState(false);
 
     // Pressing back from the provider's page can restore this page from the
@@ -50,8 +49,7 @@ export default function BillingButton({
                 }
                 setPending(false);
                 if (!result.success) {
-                    toast({
-                        title: "Uh oh!",
+                    toast.error("Uh oh!", {
                         description: result.error || "Billing request failed",
                     });
                 }

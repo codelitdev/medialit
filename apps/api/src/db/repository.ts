@@ -1,6 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { getUniqueId } from "@medialit/utils";
-import { and, asc, desc, eq, like, lt, sql } from "drizzle-orm";
+import {
+    and,
+    asc,
+    desc,
+    eq,
+    ilike,
+    inArray,
+    like,
+    lt,
+    sql,
+    type SQL,
+} from "drizzle-orm";
 import { getDb } from "./client.js";
 import {
     apiKeys,
@@ -63,6 +74,21 @@ export type MediaRecord = {
     temp: boolean;
     createdAt: Date;
     updatedAt: Date;
+};
+
+export type ApiKeyMediaSummary = {
+    apikey: string;
+    count: number;
+    storage: number;
+    images: number;
+    videos: number;
+    pdfs: number;
+    others: number;
+    imageStorage: number;
+    videoStorage: number;
+    pdfStorage: number;
+    otherStorage: number;
+    lastUpload: Date | null;
 };
 
 export type MediaSettingsRecord = {
@@ -383,6 +409,44 @@ export async function renameApiKey(input: {
         .where(and(...filters));
 }
 
+export async function setDefaultApiKey(
+    userId: string,
+    keyId: string,
+): Promise<void> {
+    const db = getDb();
+    await db.transaction(async (tx) => {
+        const [target] = await tx
+            .select({ id: apiKeys.id, isDefault: apiKeys.isDefault })
+            .from(apiKeys)
+            .where(
+                and(
+                    eq(apiKeys.userId, userId),
+                    eq(apiKeys.keyId, keyId),
+                    eq(apiKeys.deleted, false),
+                ),
+            )
+            .limit(1);
+        if (!target) throw new Error("Apikey not found");
+        if (target.isDefault) return;
+
+        const timestamp = now();
+        await tx
+            .update(apiKeys)
+            .set({ isDefault: false, updatedAt: timestamp })
+            .where(
+                and(
+                    eq(apiKeys.userId, userId),
+                    eq(apiKeys.isDefault, true),
+                    eq(apiKeys.deleted, false),
+                ),
+            );
+        await tx
+            .update(apiKeys)
+            .set({ isDefault: true, updatedAt: timestamp })
+            .where(eq(apiKeys.id, target.id));
+    });
+}
+
 export async function softDeleteApiKey(
     userId: string,
     keyId: string,
@@ -439,6 +503,24 @@ export async function getOAuthAppSelection(
 
 function escapeLike(value: string): string {
     return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+export type MediaKindFilter = "image" | "video" | "pdf" | "other";
+
+/* SQL twin of mediaKind() in media/kind.ts; keep the two in step. The kinds
+   never overlap: image and video go by type prefix, pdf is any other type
+   that names pdf, and other is everything left. */
+function mediaKindCondition(kind: MediaKindFilter): SQL {
+    const mimeType = sql`lower(${media.mimeType})`;
+    const isImage = sql`${mimeType} like 'image/%'`;
+    const isVideo = sql`${mimeType} like 'video/%'`;
+    const namesPdf = sql`${mimeType} like '%pdf%'`;
+    if (kind === "image") return sql`(${isImage})`;
+    if (kind === "video") return sql`(${isVideo})`;
+    if (kind === "pdf") {
+        return sql`(not (${isImage}) and not (${isVideo}) and ${namesPdf})`;
+    }
+    return sql`(not (${isImage}) and not (${isVideo}) and not (${namesPdf}))`;
 }
 
 export async function createMediaRecord(
@@ -498,6 +580,8 @@ export async function countMedia(input: {
     apikey: string;
     access?: "public" | "private";
     group?: string;
+    search?: string;
+    kind?: MediaKindFilter;
 }): Promise<number> {
     const db = getDb();
     const filters = [
@@ -509,6 +593,15 @@ export async function countMedia(input: {
     if (input.group && input.group.trim()) {
         filters.push(like(media.group, `${escapeLike(input.group.trim())}%`));
     }
+    if (input.search?.trim()) {
+        filters.push(
+            ilike(
+                media.originalFileName,
+                `%${escapeLike(input.search.trim())}%`,
+            ),
+        );
+    }
+    if (input.kind) filters.push(mediaKindCondition(input.kind));
     const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(media)
@@ -523,6 +616,9 @@ export async function listMedia(input: {
     group?: string;
     page?: number;
     recordsPerPage?: number;
+    search?: string;
+    kind?: MediaKindFilter;
+    sort?: "newest" | "oldest" | "name" | "largest";
 }): Promise<MediaRecord[]> {
     const db = getDb();
     const limit = input.recordsPerPage || 10;
@@ -536,11 +632,28 @@ export async function listMedia(input: {
     if (input.group && input.group.trim()) {
         filters.push(like(media.group, `${escapeLike(input.group.trim())}%`));
     }
+    if (input.search?.trim()) {
+        filters.push(
+            ilike(
+                media.originalFileName,
+                `%${escapeLike(input.search.trim())}%`,
+            ),
+        );
+    }
+    if (input.kind) filters.push(mediaKindCondition(input.kind));
+    const orderBy =
+        input.sort === "oldest"
+            ? asc(media.createdAt)
+            : input.sort === "name"
+              ? asc(media.originalFileName)
+              : input.sort === "largest"
+                ? desc(media.size)
+                : desc(media.createdAt);
     const rows = await db
         .select()
         .from(media)
         .where(and(...filters))
-        .orderBy(desc(media.createdAt), desc(media.mediaId))
+        .orderBy(orderBy, desc(media.mediaId))
         .limit(limit)
         .offset(offset);
     return rows.map(mapMedia);
@@ -558,6 +671,72 @@ export async function totalMediaSize(input: {
         .from(media)
         .where(and(...filters));
     return Number(row?.total ?? 0);
+}
+
+export async function listApiKeyMediaSummaries(
+    userId: string,
+    apikey?: string,
+): Promise<ApiKeyMediaSummary[]> {
+    const db = getDb();
+    const filters = [eq(media.userId, userId), eq(media.temp, false)];
+    if (apikey) filters.push(eq(media.apikey, apikey));
+    const countOf = (kind: MediaKindFilter) =>
+        sql<number>`count(*) filter (where ${mediaKindCondition(kind)})::int`;
+    const storageOf = (kind: MediaKindFilter) =>
+        sql<number>`coalesce(sum(${media.size}) filter (where ${mediaKindCondition(kind)}), 0)::float8`;
+    const rows = await db
+        .select({
+            apikey: media.apikey,
+            count: sql<number>`count(*)::int`,
+            storage: sql<number>`coalesce(sum(${media.size}), 0)::float8`,
+            images: countOf("image"),
+            videos: countOf("video"),
+            pdfs: countOf("pdf"),
+            others: countOf("other"),
+            imageStorage: storageOf("image"),
+            videoStorage: storageOf("video"),
+            pdfStorage: storageOf("pdf"),
+            otherStorage: storageOf("other"),
+            lastUpload: sql<Date | null>`max(${media.createdAt})`,
+        })
+        .from(media)
+        .where(and(...filters))
+        .groupBy(media.apikey);
+
+    return rows.map((row) => ({
+        ...row,
+        count: Number(row.count),
+        storage: Number(row.storage),
+        images: Number(row.images),
+        videos: Number(row.videos),
+        pdfs: Number(row.pdfs),
+        others: Number(row.others),
+        imageStorage: Number(row.imageStorage),
+        videoStorage: Number(row.videoStorage),
+        pdfStorage: Number(row.pdfStorage),
+        otherStorage: Number(row.otherStorage),
+        lastUpload: row.lastUpload ? new Date(row.lastUpload) : null,
+    }));
+}
+
+export async function listMediaRecordsByIds(input: {
+    userId: string;
+    apikey: string;
+    mediaIds: string[];
+}): Promise<MediaRecord[]> {
+    if (input.mediaIds.length === 0) return [];
+    const db = getDb();
+    const rows = await db
+        .select()
+        .from(media)
+        .where(
+            and(
+                eq(media.userId, input.userId),
+                eq(media.apikey, input.apikey),
+                inArray(media.mediaId, input.mediaIds),
+            ),
+        );
+    return rows.map(mapMedia);
 }
 
 export async function deleteMediaRecord(

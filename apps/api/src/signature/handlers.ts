@@ -3,12 +3,15 @@ import Joi from "joi";
 import logger from "../services/log";
 import * as preSignedUrlService from "./service";
 
-function validatePresigningOptions(req: Request): Joi.ValidationResult {
+/* Checks the options a signature can carry. Shared by the API-key route
+   and the dashboard's session route. */
+export function validatePresigningOptions(
+    body: Request["body"],
+): Joi.ValidationResult {
     const uploadSchema = Joi.object({
         group: Joi.string().optional(),
     });
-    const { group } = req.body;
-    return uploadSchema.validate({ group });
+    return uploadSchema.validate({ group: body?.group });
 }
 
 export async function getSignature(
@@ -16,7 +19,7 @@ export async function getSignature(
     res: any,
     next: (...args: any[]) => void,
 ) {
-    const { error } = validatePresigningOptions(req);
+    const { error } = validatePresigningOptions(req.body);
     if (error) {
         return res.status(400).json({ error: error.message });
     }

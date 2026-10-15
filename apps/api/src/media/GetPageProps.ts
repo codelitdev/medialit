@@ -7,4 +7,7 @@ export default interface GetPageProps {
     access?: AccessControl;
     group?: string;
     recordsPerPage?: number;
+    search?: string;
+    kind?: "image" | "video" | "pdf" | "other";
+    sort?: "newest" | "oldest" | "name" | "largest";
 }

@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/models/package.json ./packages/models/package.json
+COPY packages/uploader/package.json ./packages/uploader/package.json
 
 RUN bun install --frozen-lockfile --filter @medialit/web
 
@@ -12,9 +13,12 @@ FROM deps AS builder
 COPY tsconfig.json ./
 COPY apps/web ./apps/web
 COPY packages/models ./packages/models
+COPY packages/uploader ./packages/uploader
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# The uploader resolves to its built dist, which is not checked in.
+RUN bun --filter @medialit/uploader build
 RUN bun --filter @medialit/web build
 
 FROM node:22-alpine AS runner
