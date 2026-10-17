@@ -24,7 +24,7 @@
         "dev": "bun --watch --env-file=.env src/index.ts",
         "start": "bun src/index.ts",
         "test": "node --require ./test-preload.cjs --import tsx --test '**/*.test.ts'",
-        "test:conformance": "node --require ./test-preload.cjs --import tsx --test --test-name-pattern \"platform conformance\" '**/*.test.ts'",
+        "test:conformance": "node --require ./test-preload.cjs --import tsx --test src/__tests__/platform-conformance.test.ts",
         "billing:generate": "codelit-billing generate --config billing.config.ts",
         "billing:generate:check": "codelit-billing generate --check --config billing.config.ts",
         "check:drift": "bun run billing:generate:check",
