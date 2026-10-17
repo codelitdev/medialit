@@ -106,7 +106,7 @@ bun --filter @medialit/web dev   # Dashboard on http://localhost:3000
 bun run dev:docs                 # Docs on http://localhost:3008
 ```
 
-On its first start, the API creates a user for `EMAIL` and a default app, and logs the app's API key (`"msg":"Admin user created"`). Keep it private: anyone with it can upload to your instance. Sign in to the dashboard with `EMAIL`; the code arrives in Mailpit at <http://127.0.0.1:8025>. The MinIO console is at <http://127.0.0.1:9001> (`medialit` / `medialit-secret`).
+On its first start, the API creates a user for `EMAIL` and a default app. Sign in to the dashboard with `EMAIL`; the code arrives in Mailpit at <http://127.0.0.1:8025>. Create an API key in the app's settings, or set `MEDIALIT_BOOTSTRAP_API_KEY` in `apps/api/.env` to have the API create one at startup. The MinIO console is at <http://127.0.0.1:9001> (`medialit` / `medialit-secret`).
 
 If you run the dashboard on another port, set `WEB_ORIGIN` in `apps/api/.env` to match, or sign-in redirects fail.
 
