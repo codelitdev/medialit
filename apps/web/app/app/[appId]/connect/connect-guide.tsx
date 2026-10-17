@@ -168,8 +168,8 @@ export default function ConnectGuide({
                 <div>
                     <strong>SDK and REST API</strong>
                     <p>
-                        Use this app’s API key to upload and serve files from
-                        your own product.
+                        Create an API key in this app’s settings to upload and
+                        serve files from your own product.
                     </p>
                 </div>
                 <a

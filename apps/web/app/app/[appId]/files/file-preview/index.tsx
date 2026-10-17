@@ -129,12 +129,12 @@ function FilePreviewMedia({
    fetched each time the details are opened. */
 function FileDetailsContent({
     media,
-    keyid,
+    appId,
 }: {
     media: MediaListItem;
-    keyid: string;
+    appId: string;
 }) {
-    const { url, error } = useFileUrl(keyid, media.mediaId);
+    const { url, error } = useFileUrl(appId, media.mediaId);
     const kind = kindLabels[media.kind];
     const fileLabel =
         media.originalFileName.split(".").at(-1)?.toUpperCase() || kind;
@@ -201,18 +201,18 @@ function FileDetailsContent({
 /* The details dialog shared by grid cards and table rows. */
 function FileDetailsDialog({
     media,
-    keyid,
+    appId,
     children,
 }: {
     media: MediaListItem;
-    keyid: string;
+    appId: string;
     children: ReactNode;
 }) {
     return (
         <Dialog>
             <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent className="file-dialog sm:max-w-[960px] max-w-[calc(100vw-24px)] gap-0 overflow-hidden p-0">
-                <FileDetailsContent media={media} keyid={keyid} />
+                <FileDetailsContent media={media} appId={appId} />
             </DialogContent>
         </Dialog>
     );
@@ -220,13 +220,13 @@ function FileDetailsDialog({
 
 export default function FilePreview({
     media,
-    keyid,
+    appId,
     layout = "grid",
     selected,
     onSelectionChange,
 }: {
     media: MediaListItem;
-    keyid: string;
+    appId: string;
     layout?: "grid" | "list";
     selected: boolean;
     onSelectionChange: () => void;
@@ -253,7 +253,7 @@ export default function FilePreview({
 
     return (
         <div className={`file-card-shell${selected ? " is-selected" : ""}`}>
-            <FileDetailsDialog media={media} keyid={keyid}>
+            <FileDetailsDialog media={media} appId={appId}>
                 <button
                     type="button"
                     className="file-card"
@@ -301,12 +301,12 @@ export default function FilePreview({
 /* One row of the table view, matching the design's columns. */
 export function FileTableRow({
     media,
-    keyid,
+    appId,
     selected,
     onSelectionChange,
 }: {
     media: MediaListItem;
-    keyid: string;
+    appId: string;
     selected: boolean;
     onSelectionChange: () => void;
 }) {
@@ -327,7 +327,7 @@ export function FileTableRow({
                 />
             </td>
             <td>
-                <FileDetailsDialog media={media} keyid={keyid}>
+                <FileDetailsDialog media={media} appId={appId}>
                     <button type="button" className="file-table-name">
                         <span
                             className="file-table-tile"

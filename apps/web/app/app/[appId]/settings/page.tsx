@@ -1,29 +1,30 @@
 import { redirect } from "next/navigation";
 import { AlertTriangle, Database, KeyRound, Settings2 } from "lucide-react";
 import { auth } from "@/auth";
-import { getApikeyUsingKeyId, getAppSummary } from "@/app/actions";
+import { getApp, getAppSummary, listApiKeys } from "@/app/actions";
 import { formatAppStorage } from "@/lib/media-format";
-import ApiKeyControl from "./api-key-control";
+import ApiKeysSection from "./api-keys-section";
 import DeleteAppButton from "./delete-app-button";
 import UpdateSettingsForm from "./update-settings-form";
 import DefaultAppControl from "./default-app-control";
 
 export default async function Settings(props: {
-    params: Promise<{ keyid: string }>;
+    params: Promise<{ appId: string }>;
 }) {
-    const [{ keyid }, session] = await Promise.all([props.params, auth()]);
+    const [{ appId }, session] = await Promise.all([props.params, auth()]);
     if (!session) redirect("/login");
 
-    const [apikey, appSummary] = await Promise.all([
-        getApikeyUsingKeyId(keyid),
-        getAppSummary(keyid).catch(() => null),
+    const [app, appSummary, apiKeys] = await Promise.all([
+        getApp(appId),
+        getAppSummary(appId).catch(() => null),
+        listApiKeys(appId).catch(() => null),
     ]);
-    if (!apikey) redirect("/");
+    if (!app) redirect("/");
 
-    if (!appSummary) {
+    if (!appSummary || !apiKeys) {
         return (
             <div className="inline-error" role="alert">
-                Could not load app storage details.
+                Could not load this app’s settings.
             </div>
         );
     }
@@ -34,8 +35,8 @@ export default async function Settings(props: {
                 <div>
                     <h1>App settings</h1>
                     <p>
-                        Storage, API key, and options for{" "}
-                        {apikey.name || "this app"}.
+                        Storage, API keys, and options for{" "}
+                        {app.name || "this app"}.
                     </p>
                 </div>
             </div>
@@ -84,17 +85,19 @@ export default async function Settings(props: {
                             <KeyRound aria-hidden="true" />
                         </span>
                         <div>
-                            <h2>API key</h2>
+                            <h2>API keys</h2>
                             <p className="settings-subtle">
-                                Use this key with the MediaLit SDK or REST API.
-                                Keep it out of client-side code.
+                                Use a key with the MediaLit SDK or REST API.
+                                Keep keys out of client-side code; browsers
+                                upload with signatures instead.
                             </p>
                         </div>
                     </div>
-                    <div className="settings-field">
-                        <label>API key</label>
-                        <ApiKeyControl apiKey={apikey.key} />
-                    </div>
+                    <ApiKeysSection
+                        appId={app.appId}
+                        keys={apiKeys.items}
+                        limit={apiKeys.limit}
+                    />
                 </section>
 
                 <section className="settings-card">
@@ -111,8 +114,8 @@ export default async function Settings(props: {
                         </div>
                     </div>
                     <UpdateSettingsForm
-                        keyId={apikey.keyId}
-                        name={apikey.name || ""}
+                        appId={app.appId}
+                        name={app.name || ""}
                     />
                     <div className="settings-default-row">
                         <div>
@@ -123,8 +126,8 @@ export default async function Settings(props: {
                             </p>
                         </div>
                         <DefaultAppControl
-                            keyId={apikey.keyId}
-                            isDefault={apikey.default}
+                            appId={app.appId}
+                            isDefault={app.default}
                         />
                     </div>
                 </section>
@@ -139,15 +142,15 @@ export default async function Settings(props: {
                             <p className="settings-subtle">
                                 Deleting this app removes its {appSummary.count}{" "}
                                 {appSummary.count === 1 ? "file" : "files"} and
-                                revokes its API key.
+                                revokes its API keys.
                             </p>
                         </div>
                     </div>
                     <div className="settings-danger-action">
                         <p>This action cannot be undone.</p>
                         <DeleteAppButton
-                            appName={apikey.name || "this app"}
-                            keyId={apikey.keyId}
+                            appName={app.name || "this app"}
+                            appId={app.appId}
                         />
                     </div>
                 </section>
