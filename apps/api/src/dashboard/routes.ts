@@ -24,7 +24,7 @@ import {
     type AppRecord,
 } from "@/db";
 import type { ApiKey } from "@medialit/models";
-import { createApiKey } from "../apikey/queries";
+import { createApiKey, MAX_ACTIVE_API_KEYS_PER_APP } from "../apikey/queries";
 import { configuredBootstrapKeyHash } from "../apikey/bootstrap-config";
 import type { MedialitAuth } from "../auth/better-auth";
 import {
@@ -91,6 +91,18 @@ function parseNewKey(
         return { error: "expiresAt must be in the future" };
     }
     return { name, expiresAt };
+}
+
+const DUPLICATE_APP_NAME = "You already have an app with this name";
+
+/* Postgres unique violations, however deep Drizzle wraps them. Anything else
+   is unexpected and must not reach the client: its message can contain the
+   failed SQL. */
+function isUniqueViolation(error: unknown): boolean {
+    for (let current: any = error; current; current = current.cause) {
+        if (current.code === "23505") return true;
+    }
+    return false;
 }
 
 /* An audit line for key changes. Never logs a secret. */
@@ -353,8 +365,9 @@ export function createDashboardRouter(auth: MedialitAuth) {
         let app: AppRecord;
         try {
             app = await createApp({ userId: user.id, name });
-        } catch (error: any) {
-            res.status(400).json({ error: error.message });
+        } catch (error) {
+            if (!isUniqueViolation(error)) throw error;
+            res.status(409).json({ error: DUPLICATE_APP_NAME });
             return;
         }
         // The first key comes with the app; its secret is only shown now.
@@ -534,6 +547,7 @@ export function createDashboardRouter(auth: MedialitAuth) {
         const keys = await listActiveApiKeys(owned.app.id);
         res.json({
             items: keys.map((key) => publicApiKey(key, bootstrapKeyHash)),
+            limit: MAX_ACTIVE_API_KEYS_PER_APP,
         });
     });
 
@@ -611,8 +625,9 @@ export function createDashboardRouter(auth: MedialitAuth) {
                 newName: name,
             });
             res.json({ success: true });
-        } catch (error: any) {
-            res.status(400).json({ error: error.message });
+        } catch (error) {
+            if (!isUniqueViolation(error)) throw error;
+            res.status(409).json({ error: DUPLICATE_APP_NAME });
         }
     });
 

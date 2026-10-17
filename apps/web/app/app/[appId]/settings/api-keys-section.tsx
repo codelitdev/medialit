@@ -14,13 +14,18 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 
+/* A fixed locale and time zone, so the server and the browser render the
+   same text and hydration doesn't mismatch. */
+const dateFormat = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+});
+
 function formatDate(value: string | null): string {
     if (!value) return "Never";
-    return new Date(value).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    });
+    return dateFormat.format(new Date(value));
 }
 
 export default function ApiKeysSection({

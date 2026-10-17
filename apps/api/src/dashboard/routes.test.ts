@@ -479,6 +479,27 @@ describe("dashboard routes: apps", () => {
         assert.equal(JSON.stringify(keys.body).includes(body.key), false);
     });
 
+    test("a duplicate name is a clear 409, never a database error", async () => {
+        const created = await json("POST", "/api/apps", {
+            body: { name: "Twin" },
+        });
+        const twin = await json("POST", "/api/apps", {
+            body: { name: "Twin" },
+        });
+        assert.equal(twin.status, 409);
+        assert.equal(twin.body.error, "You already have an app with this name");
+
+        const renamed = await json("PATCH", `/api/apps/${ownerApp.appId}`, {
+            body: { name: "Twin" },
+        });
+        assert.equal(renamed.status, 409);
+        assert.doesNotMatch(
+            JSON.stringify(renamed.body),
+            /insert|update|apps/i,
+        );
+        assert.equal(created.status, 201);
+    });
+
     test("deleting an app revokes its keys", async () => {
         const created = await json("POST", "/api/apps", {
             body: { name: "Short-lived" },
@@ -511,6 +532,7 @@ describe("dashboard routes: API keys", () => {
             [created.body.keyId],
         );
         assert.equal(listed.body.items[0].key, undefined);
+        assert.equal(listed.body.limit, 10);
 
         const revoked = await call(
             "DELETE",

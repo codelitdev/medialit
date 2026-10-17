@@ -128,6 +128,10 @@ export default function NewApp({
                     <>
                         <DialogHeader>
                             <DialogTitle>Create new app</DialogTitle>
+                            <DialogDescription>
+                                Each app has its own files, settings and API
+                                keys.
+                            </DialogDescription>
                         </DialogHeader>
                         <form action={createAppFormAction}>
                             <div className="grid gap-4 py-4">
