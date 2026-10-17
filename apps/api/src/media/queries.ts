@@ -16,20 +16,20 @@ import {
 
 export function buildMediaCountQuery({
     userId,
-    apikey,
+    appId,
     access,
     group,
     search,
     kind,
 }: {
     userId: string;
-    apikey: string;
+    appId: string;
     access?: AccessControl;
     group?: string;
     search?: string;
     kind?: GetPageProps["kind"];
 }) {
-    return { userId: String(userId), apikey, access, group, search, kind };
+    return { userId: String(userId), appId, access, group, search, kind };
 }
 
 function escapeRegex(value: string): string {
@@ -40,27 +40,27 @@ export { escapeRegex };
 
 export async function getMedia({
     userId,
-    apikey,
+    appId,
     mediaId,
 }: {
     userId: string;
-    apikey: string;
+    appId: string;
     mediaId: string;
 }): Promise<MediaWithUserId | null> {
-    const row = await getMediaRecord({ userId, apikey, mediaId });
+    const row = await getMediaRecord({ userId, appId, mediaId });
     return row;
 }
 
 export async function getMediaCount({
     userId,
-    apikey,
+    appId,
     access,
     group,
     search,
     kind,
 }: {
     userId: string;
-    apikey: string;
+    appId: string;
     access?: AccessControl;
     group?: string;
     search?: string;
@@ -68,7 +68,7 @@ export async function getMediaCount({
 }): Promise<number> {
     return countMedia({
         userId: String(userId),
-        apikey,
+        appId,
         access:
             access === Constants.AccessControl.PRIVATE
                 ? "private"
@@ -83,17 +83,17 @@ export async function getMediaCount({
 
 export async function getTotalSpace({
     userId,
-    apikey,
+    appId,
 }: {
     userId: string;
-    apikey?: string;
+    appId?: string;
 }): Promise<number> {
-    return totalMediaSize({ userId: String(userId), apikey });
+    return totalMediaSize({ userId: String(userId), appId });
 }
 
 export async function getPaginatedMedia({
     userId,
-    apikey,
+    appId,
     access,
     page,
     group,
@@ -104,7 +104,7 @@ export async function getPaginatedMedia({
 }: GetPageProps): Promise<Array<MediaWithUserId & { createdAt: Date }>> {
     return listMedia({
         userId: String(userId),
-        apikey,
+        appId,
         access: access
             ? access === Constants.AccessControl.PRIVATE
                 ? "private"
@@ -133,7 +133,7 @@ export async function createMedia(
         fileName: mediaData.fileName,
         mediaId: mediaData.mediaId,
         userId: String(mediaData.userId),
-        apikey: mediaData.apikey,
+        appId: mediaData.appId,
         originalFileName: mediaData.originalFileName,
         mimeType: mediaData.mimeType,
         size: mediaData.size,

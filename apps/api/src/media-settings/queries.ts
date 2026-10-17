@@ -4,14 +4,14 @@ import { getMediaSettingsRecord, upsertMediaSettings } from "@/db";
 
 export async function getMediaSettings(
     userId: string,
-    apikey: string,
+    appId: string,
 ): Promise<MediaSettings | null> {
-    return getMediaSettingsRecord(userId, apikey);
+    return getMediaSettingsRecord(userId, appId);
 }
 
 export async function updateMediaSettings({
     userId,
-    apikey,
+    appId,
     useWebP,
     webpOutputQuality,
     thumbnailWidth,
@@ -19,7 +19,7 @@ export async function updateMediaSettings({
 }: UpdateMediaSettingsProps): Promise<void> {
     await upsertMediaSettings({
         userId,
-        apikey,
+        appId,
         useWebP,
         webpOutputQuality,
         thumbnailWidth,

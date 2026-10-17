@@ -1,6 +1,6 @@
 export interface MediaSettings {
     userId: string | undefined;
-    apikey: string;
+    appId: string;
     useWebP?: boolean;
     webpOutputQuality?: number;
     thumbnailWidth?: number;

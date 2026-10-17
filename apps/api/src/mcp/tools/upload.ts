@@ -95,7 +95,7 @@ export function registerUploadTool(server: McpToolRegistrar): void {
 export async function handleUploadMediaTool(args: any, extra: any) {
     const auth = getMcpAuth(extra);
     if (!auth) return AUTH_ERROR;
-    const { user, userId, apikey } = auth;
+    const { user, userId, appId } = auth;
 
     // Validate base64
     if (!isValidBase64(args.fileBase64)) {
@@ -143,7 +143,7 @@ export async function handleUploadMediaTool(args: any, extra: any) {
 
         const mediaId = await mediaService.upload({
             userId,
-            apikey,
+            appId,
             file: uploadedFile,
             access: args.access || "private",
             caption: args.caption || "",
@@ -151,7 +151,7 @@ export async function handleUploadMediaTool(args: any, extra: any) {
         });
         const media = await mediaService.getMediaDetails({
             userId,
-            apikey,
+            appId,
             mediaId,
         });
 

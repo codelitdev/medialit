@@ -18,6 +18,7 @@ describe("missingImportTables", () => {
         expect(missingImportTables([])).toEqual([
             "user",
             "profiles",
+            "apps",
             "api_keys",
             "media",
             "media_settings",
@@ -30,6 +31,7 @@ describe("missingImportTables", () => {
             missingImportTables([
                 "user",
                 "profiles",
+                "apps",
                 "api_keys",
                 "media",
                 "media_settings",

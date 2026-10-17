@@ -22,9 +22,6 @@ export const SIGNATURE_VALIDITY_MINUTES = +(
 ); // 1 day
 export const SIGNATURE_LENGTH = 100;
 export const MEDIA_ID_LENGTH = 40;
-export const APIKEY_RESTRICTION_REFERRER = "referrer";
-export const APIKEY_RESTRICTION_IP = "ipaddress";
-export const APIKEY_RESTRICTION_CUSTOM = "custom";
 export const imagePattern = /^image\/(jpe?g|png)$/;
 export const imagePatternForThumbnailGeneration = /^image\/(jpe?g|png|webp)$/;
 export const videoPattern = /video/;

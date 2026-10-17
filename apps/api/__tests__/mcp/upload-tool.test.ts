@@ -19,7 +19,7 @@ function authInfo(user: any) {
                 authKind: "apikey",
                 userId: user.id,
                 user,
-                apikey: "test-api-key",
+                appId: "test-app",
             },
         },
     };

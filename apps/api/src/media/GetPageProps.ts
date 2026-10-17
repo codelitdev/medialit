@@ -2,7 +2,7 @@ import { AccessControl } from "@medialit/models";
 
 export default interface GetPageProps {
     userId: string;
-    apikey: string;
+    appId: string;
     page?: number;
     access?: AccessControl;
     group?: string;
