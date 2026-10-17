@@ -225,7 +225,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         "seal_media",
         {
             description:
-                "Locks a media item to mark it for persistence. Once sealed, the item can no longer be modified.",
+                "Finalizes a temporary upload for retention, preventing automatic cleanup. Public uploads become publicly accessible. Already sealed items are returned unchanged.",
             inputSchema: {
                 mediaId: z.string().describe("ID of the media item to seal"),
             },
@@ -233,7 +233,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
             annotations: {
                 title: "Seal media",
                 readOnlyHint: false,
-                destructiveHint: false,
+                destructiveHint: true,
                 openWorldHint: true,
             },
         },
