@@ -1,5 +1,12 @@
 # @medialit/web
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [c3e3bd3]
+    - @medialit/uploader@0.2.0
+
 ## 0.1.2
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @example/next-app-router
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [c3e3bd3]
+- Updated dependencies [c1b050b]
+    - medialit@0.3.0
+    - @medialit/react@0.2.0
+
 ## 0.1.3
 
 ### Patch Changes
