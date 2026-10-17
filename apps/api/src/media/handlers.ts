@@ -30,14 +30,16 @@ export async function uploadMedia(
     }
 
     const { file } = req.files;
-    const { access, caption, group } = req.body;
+    const { access, caption } = req.body;
+    // A signature's group wins over the form's.
+    const group = req.group ?? req.body.group;
     const userId = req.user.id;
-    const apikey = req.apikey;
+    const appId = req.appId;
 
     try {
         const mediaId = await mediaService.upload({
             userId,
-            apikey,
+            appId,
             file,
             access,
             caption,
@@ -47,7 +49,7 @@ export async function uploadMedia(
 
         const media = await mediaService.getMediaDetails({
             userId: req.user.id,
-            apikey,
+            appId,
             mediaId,
         });
 
@@ -76,7 +78,7 @@ export async function getMedia(
     try {
         const result = await mediaService.getPage({
             userId: req.user._id,
-            apikey: req.apikey,
+            appId: req.appId,
             access,
             page,
             group,
@@ -91,10 +93,10 @@ export async function getMedia(
 
 export async function getMediaCount(req: any, res: any) {
     const userId = req.user._id;
-    const apikey = req.apikey;
+    const appId = req.appId;
 
     try {
-        const totalMediaFiles = await getCount({ userId, apikey });
+        const totalMediaFiles = await getCount({ userId, appId });
         return res.status(200).json({ count: totalMediaFiles });
     } catch (err: any) {
         return res.status(500).json({ error: err.message });
@@ -103,10 +105,10 @@ export async function getMediaCount(req: any, res: any) {
 
 export async function getTotalSpaceOccupied(req: any, res: any) {
     const userId = req.user._id;
-    const apikey = req.apikey;
+    const appId = req.appId;
 
     try {
-        const totalSpaceOccupied = await getTotalSpace({ userId, apikey });
+        const totalSpaceOccupied = await getTotalSpace({ userId, appId });
         return res.status(200).json({
             storage: totalSpaceOccupied,
             maxStorage: await maxStorageFor(req.user),
@@ -122,7 +124,7 @@ export async function getMediaDetails(req: any, res: any) {
     try {
         const media = await mediaService.getMediaDetails({
             userId: req.user.id,
-            apikey: req.apikey,
+            appId: req.appId,
             mediaId,
         });
         if (!media) {
@@ -142,7 +144,7 @@ export async function deleteMedia(req: any, res: any) {
     try {
         await mediaService.deleteMedia({
             userId: req.user.id,
-            apikey: req.apikey,
+            appId: req.appId,
             mediaId,
         });
 
@@ -167,7 +169,7 @@ export async function sealMedia(req: any, res: any) {
     try {
         const media = await mediaService.sealMedia({
             userId: req.user.id,
-            apikey: req.apikey,
+            appId: req.appId,
             mediaId,
         });
 

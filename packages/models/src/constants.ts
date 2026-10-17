@@ -1,4 +1,3 @@
-export const apikeyRestriction = ["referrer", "ipaddress", "custom"];
 export const AccessControl = {
     PRIVATE: "private",
     PUBLIC: "public",

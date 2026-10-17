@@ -31,11 +31,12 @@ export function registerSignatureTool(server: McpToolRegistrar): void {
         async (args: any, extra: any) => {
             const auth = getMcpAuth(extra);
             if (!auth) return AUTH_ERROR;
-            const { userId, apikey } = auth;
+            const { userId, appId, apiKeyId } = auth;
             try {
                 const signature = await generateSignature({
                     userId,
-                    apikey,
+                    appId,
+                    apiKeyId,
                     group: args.group,
                 });
                 return {

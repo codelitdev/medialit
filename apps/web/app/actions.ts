@@ -2,7 +2,7 @@
 
 import { auth, type Session } from "@/auth";
 import { serverApi } from "@/lib/server-api";
-import { Apikey, User } from "@medialit/models";
+import type { ApiKey, App, User } from "@medialit/models";
 
 async function errorMessage(response: Response) {
     const data = await response.json().catch(() => ({}));
@@ -34,14 +34,14 @@ export async function getSubscriber(): Promise<
     return response.json();
 }
 
-export async function getApiKeys() {
+export async function getApps(): Promise<App[] | undefined> {
     const response = await serverApi("/api/apps");
     if (!response.ok) return;
     return response.json();
 }
 
 export type AppSummary = {
-    keyId: string;
+    appId: string;
     name: string;
     default: boolean;
     count: number;
@@ -69,7 +69,7 @@ export type AppsDashboardData = {
     totalPdfs: number;
     totalOthers: number;
     largestApp: {
-        keyId: string;
+        appId: string;
         name: string;
         storage: number;
         share: number;
@@ -82,9 +82,9 @@ export async function getAppsDashboard(): Promise<AppsDashboardData | null> {
     return response.json();
 }
 
-export async function getAppSummary(keyId: string): Promise<AppSummary> {
+export async function getAppSummary(appId: string): Promise<AppSummary> {
     const response = await serverApi(
-        `/api/apps/${encodeURIComponent(keyId)}/summary`,
+        `/api/apps/${encodeURIComponent(appId)}/summary`,
     );
     if (!response.ok) {
         throw new Error(await errorMessage(response));
@@ -92,10 +92,8 @@ export async function getAppSummary(keyId: string): Promise<AppSummary> {
     return response.json();
 }
 
-export async function getApikeyUsingKeyId(
-    keyId: string,
-): Promise<Pick<Apikey, "name" | "key" | "keyId" | "default"> | null> {
-    const response = await serverApi(`/api/apps/${encodeURIComponent(keyId)}`);
+export async function getApp(appId: string): Promise<App | null> {
+    const response = await serverApi(`/api/apps/${encodeURIComponent(appId)}`);
     if (response.status === 404) return null;
     if (!response.ok) {
         throw new Error(await errorMessage(response));
@@ -103,11 +101,19 @@ export async function getApikeyUsingKeyId(
     return response.json();
 }
 
-export async function createNewApiKey(
-    prevState: Record<string, unknown>,
+export type CreateAppState = {
+    success: boolean;
+    error?: string;
+    appId?: string;
+    /** The new app's first API key. Shown once, then never available again. */
+    key?: string;
+};
+
+export async function createNewApp(
+    prevState: CreateAppState,
     formData: FormData,
-): Promise<{ success: boolean; error?: string; keyId?: string }> {
-    const name = formData.get("apiKey") as string;
+): Promise<CreateAppState> {
+    const name = formData.get("name") as string;
     try {
         const response = await serverApi("/api/apps", {
             method: "POST",
@@ -117,18 +123,18 @@ export async function createNewApiKey(
             return { success: false, error: await errorMessage(response) };
         }
         const data = await response.json();
-        return { success: true, keyId: data.keyId };
+        return { success: true, appId: data.appId, key: data.key };
     } catch (err: any) {
         return { success: false, error: err.message };
     }
 }
 
-export async function deleteApiKeyOfUser(
-    keyId: string,
+export async function deleteApp(
+    appId: string,
 ): Promise<{ success: boolean; error?: string }> {
     try {
         const response = await serverApi(
-            `/api/apps/${encodeURIComponent(keyId)}`,
+            `/api/apps/${encodeURIComponent(appId)}`,
             { method: "DELETE" },
         );
         if (!response.ok) {
@@ -140,32 +146,65 @@ export async function deleteApiKeyOfUser(
     }
 }
 
-export async function editApiKeyforUser(
-    prevState: Record<string, unknown>,
-    formData: FormData,
-): Promise<{ success: boolean; error?: string }> {
-    const name = formData.get("name") as string;
-    const newName = formData.get("newName") as string;
-    if (!newName || !name) {
-        return { success: false, error: "Bad request" };
+export async function listApiKeys(
+    appId: string,
+): Promise<{ items: ApiKey[]; limit: number }> {
+    const response = await serverApi(
+        `/api/apps/${encodeURIComponent(appId)}/keys`,
+    );
+    if (!response.ok) {
+        throw new Error(await errorMessage(response));
     }
-    const apps = await getApiKeys();
-    const match = Array.isArray(apps)
-        ? apps.find((app) => app.name === name)
-        : null;
-    if (!match) {
-        return { success: false, error: "Apikey not found" };
-    }
+    return response.json();
+}
+
+export async function createApiKey(
+    appId: string,
+    name: string,
+): Promise<
+    | { success: true; key: string; apiKey: ApiKey }
+    | { success: false; error: string }
+> {
     try {
         const response = await serverApi(
-            `/api/apps/${encodeURIComponent(match.keyId)}`,
-            {
-                method: "PATCH",
-                body: JSON.stringify({ name: newName }),
-            },
+            `/api/apps/${encodeURIComponent(appId)}/keys`,
+            { method: "POST", body: JSON.stringify({ name }) },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return {
+                success: false,
+                error:
+                    data.error === "api_key_limit_reached"
+                        ? "This app already has the most keys it can have. Revoke one you no longer use first."
+                        : data.error || "Could not create the key.",
+            };
+        }
+        const { key, ...apiKey } = data;
+        return { success: true, key, apiKey };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function revokeApiKey(
+    appId: string,
+    keyId: string,
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const response = await serverApi(
+            `/api/apps/${encodeURIComponent(appId)}/keys/${encodeURIComponent(keyId)}`,
+            { method: "DELETE" },
         );
         if (!response.ok) {
-            return { success: false, error: await errorMessage(response) };
+            const data = await response.json().catch(() => ({}));
+            return {
+                success: false,
+                error:
+                    data.error_description ||
+                    data.error ||
+                    "Could not revoke the key.",
+            };
         }
         return { success: true };
     } catch (err: any) {

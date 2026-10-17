@@ -4,20 +4,16 @@ import {
     deleteSignatureById,
     deleteSignatureValue,
     getSignature,
+    type ActiveSignatureRecord,
+    type SignatureRecord,
 } from "@/db";
 
-export interface PreSignedUrl {
-    id: string;
-    userId: string;
-    apikey: string;
-    signature: string;
-    validTill: Date;
-    group?: string;
-}
+export type PreSignedUrl = SignatureRecord;
 
+/** The signature, unless its app is deleted or its key revoked. */
 export async function getPresignedUrl(
     signature: string,
-): Promise<PreSignedUrl | null> {
+): Promise<ActiveSignatureRecord | null> {
     return getSignature(signature);
 }
 
@@ -25,12 +21,13 @@ export async function deletePresignedUrl(id: string): Promise<void> {
     await deleteSignatureById(id);
 }
 
-export async function createPresignedUrl(
-    userId: string,
-    apikey: string,
-    group?: string,
-): Promise<PreSignedUrl> {
-    return createSignature({ userId, apikey, group });
+export async function createPresignedUrl(input: {
+    userId: string;
+    appId: string;
+    apiKeyId?: string;
+    group?: string;
+}): Promise<PreSignedUrl> {
+    return createSignature(input);
 }
 
 export async function cleanupExpiredLinks(userId: string): Promise<void> {

@@ -8,10 +8,10 @@ import { updateAppName } from "./actions";
 type UpdateState = { success: boolean; error?: string };
 
 export default function UpdateSettingsForm({
-    keyId,
+    appId,
     name,
 }: {
-    keyId: string;
+    appId: string;
     name: string;
 }) {
     const [state, updateNameAction] = useActionState(updateAppName, {
@@ -36,7 +36,7 @@ export default function UpdateSettingsForm({
                     onChange={(event) => setNewName(event.target.value)}
                     required
                 />
-                <input name="keyId" value={keyId} type="hidden" readOnly />
+                <input name="appId" value={appId} type="hidden" readOnly />
                 <SubmitButton />
             </form>
             {state.error ? (

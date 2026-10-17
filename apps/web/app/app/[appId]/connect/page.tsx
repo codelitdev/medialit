@@ -1,17 +1,17 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/auth";
-import { getApikeyUsingKeyId } from "@/app/actions";
+import { getApp } from "@/app/actions";
 import { cliNeedsEndpoint, getPublicApiBase } from "@/lib/api-base";
 import ConnectGuide from "./connect-guide";
 
 export default async function ConnectPage(props: {
-    params: Promise<{ keyid: string }>;
+    params: Promise<{ appId: string }>;
 }) {
-    const [{ keyid }, session] = await Promise.all([props.params, auth()]);
+    const [{ appId }, session] = await Promise.all([props.params, auth()]);
     if (!session) redirect("/login");
 
-    const app = await getApikeyUsingKeyId(keyid);
+    const app = await getApp(appId);
     if (!app) redirect("/");
 
     const apiBase = getPublicApiBase(await headers());

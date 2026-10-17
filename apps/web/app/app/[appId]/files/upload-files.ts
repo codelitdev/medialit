@@ -20,11 +20,11 @@ export function uploadLabel(status: UploadStatus | null) {
    Sealing makes the upload permanent; until then it stays temporary. The API
    signs and seals for the signed-in user, so the app's key never leaves it. */
 export async function uploadFilesToApp(
-    keyid: string,
+    appId: string,
     files: File[],
     onStatus?: (status: UploadStatus) => void,
 ) {
-    const appPath = `/api/apps/${encodeURIComponent(keyid)}/media`;
+    const appPath = `/api/apps/${encodeURIComponent(appId)}/media`;
     let uploaded = 0;
 
     for (let position = 0; position < files.length; position++) {

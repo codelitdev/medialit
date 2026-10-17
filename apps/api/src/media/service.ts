@@ -87,7 +87,7 @@ const generateAndUploadThumbnail = async ({
 
 interface UploadProps {
     userId: string;
-    apikey: string;
+    appId: string;
     file: any;
     access: string;
     caption: string;
@@ -97,7 +97,7 @@ interface UploadProps {
 
 async function upload({
     userId,
-    apikey,
+    appId,
     file,
     access,
     caption,
@@ -105,7 +105,7 @@ async function upload({
     signature,
 }: UploadProps): Promise<string> {
     const fileName = generateFileName(file.name);
-    const mediaSettings = await getMediaSettings(userId, apikey);
+    const mediaSettings = await getMediaSettings(userId, appId);
     const useWebP = mediaSettings?.useWebP || false;
     const webpOutputQuality = mediaSettings?.webpOutputQuality || 0;
 
@@ -166,7 +166,7 @@ async function upload({
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
         userId,
-        apikey,
+        appId,
         originalFileName: file.name,
         mimeType,
         size: file.size,
@@ -203,7 +203,7 @@ type MappedMedia = Partial<
 
 async function getPage({
     userId,
-    apikey,
+    appId,
     access,
     page,
     group,
@@ -214,7 +214,7 @@ async function getPage({
 }: GetPageProps): Promise<MappedMedia[]> {
     const result = await getPaginatedMedia({
         userId,
-        apikey,
+        appId,
         access,
         page,
         group,
@@ -245,13 +245,13 @@ async function getPage({
 
 async function getMediaCountWithFilter({
     userId,
-    apikey,
+    appId,
     access,
     group,
 }: GetPageProps): Promise<number> {
     return await getMediaCount({
         userId: String(userId),
-        apikey,
+        appId,
         access,
         group,
     });
@@ -259,16 +259,16 @@ async function getMediaCountWithFilter({
 
 async function getMediaDetails({
     userId,
-    apikey,
+    appId,
     mediaId,
 }: {
     userId: string;
-    apikey: string;
+    appId: string;
     mediaId: string;
 }): Promise<MediaResponse | null> {
     const media: MediaWithUserId | null = await getMedia({
         userId,
-        apikey,
+        appId,
         mediaId,
     });
     if (!media) {
@@ -376,14 +376,14 @@ async function removeStoredFiles(media: MediaWithUserId): Promise<void> {
 
 async function deleteMedia({
     userId,
-    apikey,
+    appId,
     mediaId,
 }: {
     userId: string;
-    apikey: string;
+    appId: string;
     mediaId: string;
 }): Promise<void> {
-    const media = await getMedia({ userId, apikey, mediaId });
+    const media = await getMedia({ userId, appId, mediaId });
     if (!media) return;
 
     await mediaService.removeStoredFiles(media);
@@ -397,17 +397,17 @@ const DELETE_CONCURRENCY = 10;
    failed. */
 async function deleteMediaMany({
     userId,
-    apikey,
+    appId,
     mediaIds,
 }: {
     userId: string;
-    apikey: string;
+    appId: string;
     mediaIds: string[];
 }): Promise<{ deleted: number; failed: number }> {
     const uniqueIds = Array.from(new Set(mediaIds));
     const found = await listMediaRecordsByIds({
         userId,
-        apikey,
+        appId,
         mediaIds: uniqueIds,
     });
 
@@ -435,14 +435,14 @@ async function deleteMediaMany({
 
 async function sealMedia({
     userId,
-    apikey,
+    appId,
     mediaId,
 }: {
     userId: string;
-    apikey: string;
+    appId: string;
     mediaId: string;
 }): Promise<MediaResponse> {
-    const media = await getMedia({ userId, apikey, mediaId });
+    const media = await getMedia({ userId, appId, mediaId });
     if (!media) {
         throw new Error("Media not found");
     }
@@ -535,10 +535,10 @@ async function sealMedia({
     }
 
     // Update media record to remove temp flag
-    await sealMediaRecord({ mediaId, userId: String(userId), apikey });
+    await sealMediaRecord({ mediaId, userId: String(userId), appId });
 
     // Fetch and return the updated media
-    const updatedMedia = await getMedia({ userId, apikey, mediaId });
+    const updatedMedia = await getMedia({ userId, appId, mediaId });
     if (!updatedMedia) {
         throw new Error("Failed to retrieve updated media");
     }

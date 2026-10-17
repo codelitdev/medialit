@@ -4,12 +4,12 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default function Tabs({ keyid }: { keyid: string }) {
+export default function Tabs({ appId }: { appId: string }) {
     const currentPathName = usePathname();
 
     const tabs = [
-        { name: "Files", href: `/app/${keyid}/files` },
-        { name: "Settings", href: `/app/${keyid}/settings` },
+        { name: "Files", href: `/app/${appId}/files` },
+        { name: "Settings", href: `/app/${appId}/settings` },
     ];
 
     return (

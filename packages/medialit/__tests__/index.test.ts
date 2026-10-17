@@ -88,7 +88,6 @@ describe("MediaLit", () => {
                 size: 12,
                 thumbnailGenerated: false,
                 accessControl: "private",
-                apikey: mockApiKey,
             };
 
             const fetchMock = mock.fn(
@@ -159,7 +158,6 @@ describe("MediaLit", () => {
                 size: 12,
                 thumbnailGenerated: false,
                 accessControl: "private",
-                apikey: mockApiKey,
             };
 
             const fetchMock = mock.fn(
@@ -191,7 +189,6 @@ describe("MediaLit", () => {
                 size: 12,
                 thumbnailGenerated: false,
                 accessControl: "private",
-                apikey: mockApiKey,
             };
 
             const fetchMock = mock.fn(

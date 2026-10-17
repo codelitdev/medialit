@@ -31,7 +31,7 @@ const user = {
 function extra(authKind: "oauth" | "apikey") {
     return {
         authInfo: {
-            extra: { authKind, userId: user._id, user, apikey: "app-secret" },
+            extra: { authKind, userId: user._id, user, appId: "internal-app" },
         },
     };
 }
@@ -43,24 +43,25 @@ describe("MCP whoami", () => {
         mockPaidPlan();
         const queried: unknown[] = [];
         const response = await handleWhoamiTool({}, extra("oauth"), {
-            getApiKey: async (key: string) => {
-                queried.push(key);
+            getApp: async (id: string) => {
+                queried.push(id);
                 return {
-                    key,
-                    keyId: "app-1",
+                    id,
+                    appId: "app-1",
                     name: "My Store",
                     default: true,
+                    deleted: false,
                     userId: user._id,
                 } as any;
             },
-            getMediaCount: async ({ userId, apikey }: any) => {
-                queried.push([userId, apikey]);
+            getMediaCount: async ({ userId, appId }: any) => {
+                queried.push([userId, appId]);
                 return 3;
             },
             getTotalSpace: async () => 2048,
         });
 
-        assert.deepEqual(queried, ["app-secret", ["user-1", "app-secret"]]);
+        assert.deepEqual(queried, ["internal-app", ["user-1", "internal-app"]]);
         assert.deepEqual((response as any).structuredContent, {
             auth: "oauth",
             email: "hi@example.com",
@@ -69,7 +70,8 @@ describe("MCP whoami", () => {
             storage: 2048,
             maxStorage: maxStorageAllowedSubscribed,
         });
-        assert.doesNotMatch(response.content[0].text, /app-secret/);
+        // The app is named by its public ID, never the internal one.
+        assert.doesNotMatch(response.content[0].text, /internal-app/);
     });
 
     test("rejects calls without auth", async () => {

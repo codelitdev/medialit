@@ -6,7 +6,6 @@ import { API_KEY_SCOPES } from "./scopes";
 type AuthResolver = (input: {
     authorization?: unknown;
     apiKeyHeader?: unknown;
-    bodyApiKey?: unknown;
 }) => Promise<AuthResult>;
 
 type AuthMiddlewareMode = "rest" | "mcp";
@@ -19,7 +18,9 @@ function applyAuthToRequest(
     if (auth.status !== "authenticated") return;
 
     req.user = auth.user;
-    req.apikey = auth.apiKey;
+    // Internal IDs only; no secret ever reaches the request.
+    req.appId = auth.appId;
+    req.apiKeyId = auth.kind === "apikey" ? auth.apiKeyId : undefined;
     req.scopes = auth.kind === "oauth" ? auth.scopes : API_KEY_SCOPES;
 
     if (mode === "mcp") {
@@ -43,7 +44,6 @@ export function createAuthMiddleware(
         const auth = await authResolver({
             authorization: req.headers.authorization,
             apiKeyHeader: req.headers["x-medialit-apikey"],
-            bodyApiKey: req.body?.apikey,
         });
 
         if (
