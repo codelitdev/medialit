@@ -1,0 +1,30 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "medialit": {
+      "type": "streamable-http",
+      "url": "https://api.medialit.cloud/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth",
+            "client": {
+              "mode": "provided",
+              "clientId": "aXhBxoyPsPmhQuRNYnKJRNWjmaKrCFwp",
+              "tokenEndpointAuthMethod": "none"
+            },
+            "baseScopes": [
+              "data:read",
+              "data:write"
+            ],
+            "defaultScopes": [
+              "data:read",
+              "data:write",
+              "offline_access"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

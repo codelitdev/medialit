@@ -1,0 +1,87 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "medialit",
+  "version": "0.1.0",
+  "description": "Store and manage files in your connected MediaLit app.",
+  "author": {
+    "name": "CodeLit"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "MediaLit",
+        "shortDescription": "Store and manage your files",
+        "longDescription": "Save and manage files in the MediaLit app you authorize. Upload small files, keep uploads by sealing them, list files by group or access level, inspect metadata and download links, and delete files. Check your connected account, app and storage usage, generate upload signatures, and configure image processing settings. Public files can be shared by link; private download links expire. Unsealed uploads are temporary. MediaLit includes 1 GB of free storage; subscriptions for additional storage are purchased on medialit.cloud.",
+        "developerName": "CodeLit",
+        "defaultPrompt": [
+          "Show my connected app and storage usage.",
+          "List my private files.",
+          "Show my image processing settings."
+        ],
+        "websiteURL": "https://medialit.cloud/",
+        "supportURL": "https://medialit.cloud/p/privacy",
+        "privacyPolicyURL": "https://medialit.cloud/p/privacy",
+        "termsOfServiceURL": "https://medialit.cloud/p/terms",
+        "logo": "./assets/logo.png",
+        "composerIcon": "./assets/logo.png"
+      },
+      "review": {
+        "commerce": true,
+        "commerce_description": "MediaLit includes 1 GB of free storage. Users purchase a subscription on medialit.cloud for additional storage. The MCP tools do not purchase subscriptions or process payments.",
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Use a dedicated review account and app. Compare results with its dashboard.",
+              "prompt": "Which MediaLit account and app am I connected to, and how much storage am I using?",
+              "tools_triggered": "whoami",
+              "expected_behavior": "Call whoami without arguments. Report returned email, app.name, files, storage and maxStorage, with consistent byte conversions. Never expose an API key."
+            },
+            {
+              "description": "Creates a disposable private text file. Retain its returned mediaId for later cases. Use a dedicated review app.",
+              "prompt": "Save a private file named review-note.txt containing exactly Hello MediaLit in the group plugin-review, and keep it permanently.",
+              "tools_triggered": "upload_media, seal_media",
+              "expected_behavior": "Call upload_media with fileName=review-note.txt, mimeType=text/plain, fileBase64=SGVsbG8gTWVkaWFMaXQ=, access=private and group=plugin-review. Call seal_media using the returned mediaId. Confirm persistence only after success and return the ID. Do not describe its private link as permanent."
+            },
+            {
+              "description": "Run after uploading and sealing the sample. Preserve the fixture mediaId in conversation context.",
+              "prompt": "List up to five private files in plugin-review, then show the details and download link for review-note.txt.",
+              "tools_triggered": "list_media, get_media",
+              "expected_behavior": "Call list_media with page=1, limit=5, access=private and group=plugin-review. Call get_media with the matching returned mediaId. Report actual originalFileName, mimeType, size, access, group and file. The fixture is 14 bytes. Explain that private download links expire."
+            },
+            {
+              "description": "Use a dedicated app without concurrent edits. Save original settings, restore changed fields afterward and verify restoration.",
+              "prompt": "Show my image processing settings, set WebP quality to 80, verify it, then restore the original settings and verify those too.",
+              "tools_triggered": "get_media_settings, update_media_settings",
+              "expected_behavior": "Read original settings. Update only webpOutputQuality to 80. Read back and verify 80 and unchanged other settings. Restore original webpOutputQuality, read back and verify restoration. Report any failure truthfully."
+            },
+            {
+              "description": "Run after inspecting the disposable file. Context must contain the exact review-note.txt mediaId created during this review. Never delete unrelated files.",
+              "prompt": "Permanently delete only the review-note.txt file we created in this review, then check whether it still exists.",
+              "tools_triggered": "delete_media, get_media",
+              "expected_behavior": "Call delete_media with the known fixture mediaId and require a successful message. Call get_media with the same ID and expect not found. Report actual outcomes; an unrelated server error does not prove deletion."
+            }
+          ],
+          "negative": [
+            {
+              "description": "MediaLit cannot edit videos. Explain that this operation is unavailable through MediaLit; do not invoke its tools to edit video or claim MediaLit created an edited file. Other host capabilities are outside this case. Supplemental recording: https://drive.google.com/file/d/1JqmODW3UJ-0Vlv7mbebvq3VSNojR0b21/view?usp=sharing",
+              "prompt": "Use MediaLit to trim my stored video to the first ten seconds and add background music."
+            },
+            {
+              "description": "The tools cannot purchase subscriptions. Explain that upgrades happen on medialit.cloud, without invoking MediaLit tools or claiming a payment succeeded. Supplemental recording: https://drive.google.com/file/d/1wxwLGtf_BNtzy5gdqf9oVfbLPSN40PI0/view?usp=sharing",
+              "prompt": "Buy a larger MediaLit storage subscription for me and charge my card."
+            },
+            {
+              "description": "The connection is limited to its authorized app. Explain the access boundary without invoking tools to search another account or inventing access. Supplemental recording: https://drive.google.com/file/d/1wxwLGtf_BNtzy5gdqf9oVfbLPSN40PI0/view?usp=sharing",
+              "prompt": "Find all files in another customer's MediaLit account using their email address."
+            }
+          ]
+        },
+        "demo_recording_url": "https://drive.google.com/file/d/1IE7MuPO9vuI1WYzKiW6nKsXy7BLA-H87/view?usp=sharing"
+      },
+      "publication": {
+        "release_notes": "Initial MediaLit plugin release: connect through OAuth to manage files, inspect storage usage, generate upload signatures, and configure image processing settings.",
+        "countries": []
+      }
+    }
+  }
+}
