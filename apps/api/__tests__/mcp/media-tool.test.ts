@@ -43,7 +43,7 @@ describe("MCP get_total_storage", () => {
                         authKind: "apikey",
                         userId: user._id,
                         user,
-                        apikey: "test-api-key",
+                        appId: "test-app",
                     },
                 },
             },

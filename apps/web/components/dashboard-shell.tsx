@@ -44,7 +44,7 @@ import {
 import medialitLogo from "@codelitdev/design-system/assets/logo-medialit.svg";
 
 type DashboardApp = {
-    keyId: string;
+    appId: string;
     name: string;
     default?: boolean;
     count?: number;
@@ -80,9 +80,9 @@ export default function DashboardShell({
         (path) => pathname === path || pathname.startsWith(`${path}/`),
     );
     const dashboardMode = Boolean(user) && !isPublicRoute;
-    const appKey = pathname.match(/^\/app\/([^/]+)/)?.[1];
+    const activeAppId = pathname.match(/^\/app\/([^/]+)/)?.[1];
     const activeApp =
-        apps.find((app) => app.keyId === appKey) ??
+        apps.find((app) => app.appId === activeAppId) ??
         apps.find((app) => app.default) ??
         apps[0];
     const section = pathname.includes("/connect")
@@ -104,19 +104,19 @@ export default function DashboardShell({
     const navItems = [
         {
             label: "Files",
-            href: activeApp ? `/app/${activeApp.keyId}/files` : "/",
+            href: activeApp ? `/app/${activeApp.appId}/files` : "/",
             icon: FolderOpen,
             active: pathname.startsWith("/app/") && section === "Files",
         },
         {
             label: "Connect",
-            href: activeApp ? `/app/${activeApp.keyId}/connect` : "/",
+            href: activeApp ? `/app/${activeApp.appId}/connect` : "/",
             icon: TerminalSquare,
             active: pathname.includes("/connect"),
         },
         {
             label: "App settings",
-            href: activeApp ? `/app/${activeApp.keyId}/settings` : "/",
+            href: activeApp ? `/app/${activeApp.appId}/settings` : "/",
             icon: Settings2,
             active:
                 pathname.includes("/settings") &&
@@ -255,11 +255,11 @@ export default function DashboardShell({
                                     <div className="flex min-h-0 flex-col overflow-y-auto">
                                         {filteredApps.map((app) => {
                                             const isCurrent =
-                                                activeApp?.keyId === app.keyId;
+                                                activeApp?.appId === app.appId;
                                             return (
                                                 <button
                                                     type="button"
-                                                    key={app.keyId}
+                                                    key={app.appId}
                                                     aria-current={
                                                         isCurrent
                                                             ? "true"
@@ -270,7 +270,7 @@ export default function DashboardShell({
                                                         setSwitcherOpen(false);
                                                         setMobileOpen(false);
                                                         router.push(
-                                                            `/app/${app.keyId}/files`,
+                                                            `/app/${app.appId}/files`,
                                                         );
                                                     }}
                                                 >

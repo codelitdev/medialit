@@ -1,46 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Eye, EyeOff } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 
-export default function ApiKeyControl({ apiKey }: { apiKey: string }) {
-    const [visible, setVisible] = useState(false);
+/** Shows a newly created API key once, with a copy button. The key can't be
+ * displayed again after this. */
+export default function ApiKeyReveal({ secret }: { secret: string }) {
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState("");
 
     async function copyKey() {
         try {
-            await navigator.clipboard.writeText(apiKey);
+            await navigator.clipboard.writeText(secret);
             setCopied(true);
             setError("");
             window.setTimeout(() => setCopied(false), 1800);
         } catch {
-            setError("Could not copy the API key. Select and copy it instead.");
+            setError("Could not copy the key. Select and copy it instead.");
         }
     }
 
     return (
-        <>
+        <div className="grid gap-3">
+            <p className="text-sm" role="status">
+                Store this key now. It won’t be shown again.
+            </p>
             <div className="settings-control-row">
                 <input
                     className="settings-input settings-mono-input"
-                    value={apiKey}
-                    type={visible ? "text" : "password"}
+                    value={secret}
                     readOnly
-                    aria-label="API key"
+                    aria-label="New API key"
+                    onFocus={(event) => event.currentTarget.select()}
                 />
-                <button
-                    type="button"
-                    className="icon-control settings-icon-control"
-                    aria-label={visible ? "Hide API key" : "Show API key"}
-                    onClick={() => setVisible((current) => !current)}
-                >
-                    {visible ? (
-                        <EyeOff aria-hidden="true" />
-                    ) : (
-                        <Eye aria-hidden="true" />
-                    )}
-                </button>
                 <button
                     type="button"
                     className="workspace-button secondary"
@@ -59,6 +51,6 @@ export default function ApiKeyControl({ apiKey }: { apiKey: string }) {
                     {error}
                 </p>
             ) : null}
-        </>
+        </div>
     );
 }

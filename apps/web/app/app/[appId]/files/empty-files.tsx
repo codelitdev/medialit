@@ -27,13 +27,13 @@ const stepNumberClass =
     "grid h-[26px] w-[26px] place-items-center rounded-full bg-muted text-[13px] font-semibold text-muted-foreground";
 
 export default function EmptyFiles({
-    keyid,
+    appId,
     appName,
     serverUrl,
     apiEndpoint,
     includeCliEndpoint,
 }: {
-    keyid: string;
+    appId: string;
     appName: string;
     serverUrl: string;
     apiEndpoint: string;
@@ -54,7 +54,7 @@ export default function EmptyFiles({
         setBusy(true);
         setError("");
         setStatus(null);
-        const result = await uploadFilesToApp(keyid, files, setStatus);
+        const result = await uploadFilesToApp(appId, files, setStatus);
         setStatus(null);
         if (result.error) setError(result.error);
         setBusy(false);
@@ -197,7 +197,7 @@ export default function EmptyFiles({
                         Or upload from your tools
                     </h2>
                     <Link
-                        href={`/app/${encodeURIComponent(keyid)}/connect`}
+                        href={`/app/${encodeURIComponent(appId)}/connect`}
                         className="text-sm text-primary no-underline"
                     >
                         All options in Connect →

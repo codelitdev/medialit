@@ -5,7 +5,7 @@ import DashboardShell from "@/components/dashboard-shell";
 import { Toaster } from "@/components/ui/sonner";
 import Scripts from "./scripts";
 import { auth } from "@/auth";
-import { getApiKeys, getAppsDashboard } from "./actions";
+import { getApps, getAppsDashboard } from "./actions";
 
 const hankenGrotesk = Hanken_Grotesk({
     subsets: ["latin"],
@@ -28,7 +28,7 @@ export default async function RootLayout({
 }) {
     const session = await auth();
     const dashboard = session ? await getAppsDashboard() : null;
-    const apps = dashboard?.apps ?? (session ? await getApiKeys() : []);
+    const apps = dashboard?.apps ?? (session ? await getApps() : []);
 
     return (
         <html

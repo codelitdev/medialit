@@ -4,9 +4,7 @@ loadDotFile();
 import { checkDatabaseConnection } from "./config/db";
 import { closeMcpSessions } from "./mcp/routes";
 import logger, { shutdownObservability } from "./services/log";
-import { createUser, findByEmail } from "./user/queries";
-import { User } from "@medialit/models";
-import { getApiKeyByUserId } from "./apikey/queries";
+import { bootstrap, checkBootstrapConfig } from "./bootstrap";
 import { closeDb, getDb, seedWebOAuthClient } from "@/db";
 import { sql } from "drizzle-orm";
 import type { GracefulShutdown } from "@codelitdev/platform";
@@ -54,8 +52,22 @@ checkConfig()
         await seedWebOAuthClient({
             redirectUris: [`${webOrigin}/api/auth/callback/medialit`],
         });
-        if (process.env.EMAIL) {
-            await createAdminUser();
+        // Before listening: a bundled product must find its key working as
+        // soon as this API reports healthy.
+        try {
+            const result = await bootstrap();
+            if (result.key) {
+                logger.info(
+                    { appId: result.appId, outcome: result.key },
+                    "Bootstrap API key ready",
+                );
+            }
+        } catch (error) {
+            logger.error(
+                { error: error instanceof Error ? error.message : error },
+                "Bootstrap failed",
+            );
+            process.exit(1);
         }
         const stopBillingMaintenance = startBillingMaintenance();
         const server = app.listen(port, () => {
@@ -137,6 +149,7 @@ async function checkConfig() {
             "If CDN_ENDPOINT is not set, both CLOUD_ENDPOINT and CLOUD_ENDPOINT_PUBLIC must be provided",
         );
     }
+    checkBootstrapConfig();
     if (
         !process.env.BETTER_AUTH_SECRET ||
         Buffer.byteLength(process.env.BETTER_AUTH_SECRET, "utf8") < 32
@@ -174,21 +187,5 @@ async function checkDependencies() {
     } catch (error: any) {
         logger.error({ error: error.message });
         process.exit(1);
-    }
-}
-
-async function createAdminUser() {
-    try {
-        const email = process.env.EMAIL!.toLowerCase();
-        const user: User | null = await findByEmail(email);
-
-        if (!user) {
-            const user = await createUser(email);
-            const keys = await getApiKeyByUserId(user.id);
-            const firstKey = Array.isArray(keys) ? keys[0] : keys;
-            logger.info({ apiKey: firstKey?.key }, "Admin user created");
-        }
-    } catch (error) {
-        logger.error({ error }, "Failed to create admin user");
     }
 }

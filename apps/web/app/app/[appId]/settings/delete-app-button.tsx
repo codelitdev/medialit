@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteApiKeyOfUser } from "@/app/actions";
+import { deleteApp as deleteAppAction } from "@/app/actions";
 import {
     Dialog,
     DialogContent,
@@ -15,10 +15,10 @@ import {
 
 export default function DeleteAppButton({
     appName,
-    keyId,
+    appId,
 }: {
     appName: string;
-    keyId: string;
+    appId: string;
 }) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -28,7 +28,7 @@ export default function DeleteAppButton({
     async function deleteApp() {
         setPending(true);
         setError("");
-        const result = await deleteApiKeyOfUser(keyId);
+        const result = await deleteAppAction(appId);
         setPending(false);
         if (!result.success) {
             setError(result.error || "Could not delete this app.");
@@ -51,7 +51,7 @@ export default function DeleteAppButton({
                     <DialogTitle>Delete {appName}?</DialogTitle>
                     <DialogDescription>
                         This removes the app and its files and revokes its API
-                        key. This can’t be undone.
+                        keys. This can’t be undone.
                     </DialogDescription>
                 </DialogHeader>
                 {error ? (

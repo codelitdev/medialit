@@ -26,9 +26,9 @@ export function registerSettingsTools(server: McpToolRegistrar): void {
         async (_args: any, extra: any) => {
             const auth = getMcpAuth(extra);
             if (!auth) return AUTH_ERROR;
-            const { userId, apikey } = auth;
+            const { userId, appId } = auth;
             try {
-                const settings = await getMediaSettings(userId, apikey);
+                const settings = await getMediaSettings(userId, appId);
                 return {
                     content: [
                         {
@@ -86,11 +86,11 @@ export function registerSettingsTools(server: McpToolRegistrar): void {
         async (args: any, extra: any) => {
             const auth = getMcpAuth(extra);
             if (!auth) return AUTH_ERROR;
-            const { userId, apikey } = auth;
+            const { userId, appId } = auth;
             try {
                 await updateMediaSettings({
                     userId,
-                    apikey,
+                    appId,
                     useWebP: args.useWebP,
                     webpOutputQuality: args.webpOutputQuality,
                     thumbnailWidth: args.thumbnailWidth,

@@ -9,10 +9,10 @@ import { makeDefaultApp } from "./actions";
 type DefaultAppState = { success: boolean; error?: string };
 
 export default function DefaultAppControl({
-    keyId,
+    appId,
     isDefault,
 }: {
-    keyId: string;
+    appId: string;
     isDefault: boolean;
 }) {
     const [state, action] = useActionState(makeDefaultApp, {
@@ -27,7 +27,7 @@ export default function DefaultAppControl({
     return (
         <div className="settings-default-control">
             <form action={action}>
-                <input name="keyId" value={keyId} type="hidden" readOnly />
+                <input name="appId" value={appId} type="hidden" readOnly />
                 <SubmitButton isDefault={isDefault} />
             </form>
             {state.error ? (

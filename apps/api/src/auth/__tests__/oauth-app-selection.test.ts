@@ -9,13 +9,13 @@ import {
 const NOW = Date.parse("2026-10-04T12:00:00Z");
 const input = { user: { id: "user-1" }, session: { id: "session-1" } };
 
-function app(keyId: string, isDefault = false): OAuthApp {
-    return { id: `id-${keyId}`, keyId, name: keyId, isDefault };
+function app(appId: string, isDefault = false): OAuthApp {
+    return { id: `id-${appId}`, appId, name: appId, isDefault };
 }
 
 function hooks(
     apps: OAuthApp[],
-    selection: { keyId: string; updatedAt: Date } | null = null,
+    selection: { appId: string; updatedAt: Date } | null = null,
 ) {
     const adapter: OAuthAppSelectionAdapter = {
         listAppsForUser: async () => apps,
@@ -45,7 +45,7 @@ test("a user with several apps is sent to the picker", async () => {
 
 test("a fresh selection continues the flow with the picked app", async () => {
     const { postLogin } = hooks([app("a", true), app("b")], {
-        keyId: "b",
+        appId: "b",
         updatedAt: new Date(NOW - 60_000),
     });
 
@@ -55,7 +55,7 @@ test("a fresh selection continues the flow with the picked app", async () => {
 
 test("a selection from an earlier authorization shows the picker again", async () => {
     const { postLogin } = hooks([app("a", true), app("b")], {
-        keyId: "b",
+        appId: "b",
         updatedAt: new Date(NOW - 60 * 60_000),
     });
 
@@ -64,7 +64,7 @@ test("a selection from an earlier authorization shows the picker again", async (
 
 test("a selection of an app the user no longer has is ignored", async () => {
     const { postLogin } = hooks([app("a", true), app("b")], {
-        keyId: "gone",
+        appId: "gone",
         updatedAt: new Date(NOW),
     });
 

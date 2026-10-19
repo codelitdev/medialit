@@ -47,7 +47,7 @@ export default async function finalizeUpload(
         return "";
     }
 
-    const { userId, apikey, metadata, uploadLength, tempFilePath, signature } =
+    const { userId, appId, metadata, uploadLength, tempFilePath, signature } =
         tusUpload;
 
     const user = await getUser(userId);
@@ -74,7 +74,7 @@ export default async function finalizeUpload(
         throw new Error(`Tus file not found: ${tusFilePath}`);
     }
 
-    const mediaSettings = await getMediaSettings(userId, apikey);
+    const mediaSettings = await getMediaSettings(userId, appId);
     const useWebP = mediaSettings?.useWebP || false;
     const webpOutputQuality = mediaSettings?.webpOutputQuality || 0;
 
@@ -140,7 +140,7 @@ export default async function finalizeUpload(
         fileName: `main.${fileExtension}`,
         mediaId: fileName.name,
         userId,
-        apikey,
+        appId,
         originalFileName: metadata.fileName,
         mimeType,
         size: uploadLength,

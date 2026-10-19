@@ -14,7 +14,7 @@ const clearModuleCache = () => {
 const createMockMedia = (overrides: Partial<Media> = {}): Media => ({
     fileName: "main.jpg",
     mediaId: "test-media-id-123",
-    apikey: "test-apikey",
+    appId: "test-app",
     originalFileName: "original.jpg",
     mimeType: "image/jpeg",
     size: 1024,

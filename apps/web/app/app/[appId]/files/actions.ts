@@ -19,7 +19,7 @@ function filtersQuery(filters: MediaFilters = {}) {
 }
 
 export async function getMediaFiles(
-    keyid: string,
+    appId: string,
     page: number,
     limit = 16,
     filters: MediaFilters = {},
@@ -28,7 +28,7 @@ export async function getMediaFiles(
     query.set("page", String(page || 1));
     query.set("limit", String(limit));
     const response = await serverApi(
-        `/api/apps/${encodeURIComponent(keyid)}/media?${query.toString()}`,
+        `/api/apps/${encodeURIComponent(appId)}/media?${query.toString()}`,
     );
     if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -37,11 +37,11 @@ export async function getMediaFiles(
     return response.json();
 }
 
-export async function getCount(keyid: string, filters: MediaFilters = {}) {
+export async function getCount(appId: string, filters: MediaFilters = {}) {
     const query = filtersQuery(filters);
     const suffix = query.size ? `?${query.toString()}` : "";
     const response = await serverApi(
-        `/api/apps/${encodeURIComponent(keyid)}/media/count${suffix}`,
+        `/api/apps/${encodeURIComponent(appId)}/media/count${suffix}`,
     );
     if (!response.ok) {
         const data = await response.json().catch(() => ({}));

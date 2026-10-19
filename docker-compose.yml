@@ -81,6 +81,8 @@ services:
       # in .env.example sets development so that it can use http://.
       - NODE_ENV=${NODE_ENV:-production}
       - EMAIL=${EMAIL?'Email is required to set up a user'}
+      # Optional key for EMAIL's default app, created at startup. See .env.example.
+      - MEDIALIT_BOOTSTRAP_API_KEY=${MEDIALIT_BOOTSTRAP_API_KEY:-}
       - DATABASE_URL=postgresql://medialit:medialit@postgres:5432/medialit
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?'BETTER_AUTH_SECRET is required'}
       # MinIO. The endpoint is its public address because the API signs

@@ -53,7 +53,7 @@ const kindLabels: Record<FileKind, string> = {
 
 export default function MediaLibrary({
     medias,
-    keyid,
+    appId,
     totalCount,
     globalCounts,
     initialSearch,
@@ -61,7 +61,7 @@ export default function MediaLibrary({
     initialSort,
 }: {
     medias: MediaListItem[];
-    keyid: string;
+    appId: string;
     totalCount: number;
     globalCounts: Record<Exclude<FileKind, "all">, number>;
     initialSearch: string;
@@ -139,7 +139,7 @@ export default function MediaLibrary({
         setDeleting(true);
         try {
             const response = await fetch(
-                `/api/apps/${encodeURIComponent(keyid)}/media/delete`,
+                `/api/apps/${encodeURIComponent(appId)}/media/delete`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -400,7 +400,7 @@ export default function MediaLibrary({
                                 <FileTableRow
                                     key={media.mediaId}
                                     media={media}
-                                    keyid={keyid}
+                                    appId={appId}
                                     selected={selectedIds.has(media.mediaId)}
                                     onSelectionChange={() =>
                                         toggleSelected(media.mediaId)
@@ -416,7 +416,7 @@ export default function MediaLibrary({
                         <FilePreview
                             key={media.mediaId}
                             media={media}
-                            keyid={keyid}
+                            appId={appId}
                             layout={layout}
                             selected={selectedIds.has(media.mediaId)}
                             onSelectionChange={() =>

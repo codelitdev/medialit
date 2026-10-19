@@ -10,7 +10,7 @@ import {
     type UploadStatus,
 } from "./upload-files";
 
-export default function UploadButton({ keyid }: { keyid: string }) {
+export default function UploadButton({ appId }: { appId: string }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
     const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export default function UploadButton({ keyid }: { keyid: string }) {
         setError("");
         setStatus(null);
         const { uploaded, error: uploadError } = await uploadFilesToApp(
-            keyid,
+            appId,
             files,
             setStatus,
         );

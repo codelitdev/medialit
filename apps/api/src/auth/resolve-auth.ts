@@ -4,8 +4,8 @@ import {
     type PresentedCredential,
     selectSingleCredential,
 } from "@codelitdev/platform";
-import { Apikey } from "@medialit/models";
-import { getApiKeyByUserId, getApiKeyUsingKeyId } from "../apikey/queries";
+import { getApiKeyBySecret } from "../apikey/queries";
+import { listApps, type ApiKeyAuthRecord, type AppRecord } from "@/db";
 import { validateBearerToken } from "./bearer";
 import { getUser } from "../user/queries";
 
@@ -15,23 +15,21 @@ type OAuthClaims = {
     userId: string;
     clientId: string;
     scopes: string[];
+    /** Public app ID from the token's `app_id` claim. */
     appId?: string;
 };
 
 export type AuthInput = {
     authorization?: unknown;
     apiKeyHeader?: unknown;
-    bodyApiKey?: unknown;
 };
 
 export type AuthDependencies = {
     validateBearerToken: (bearer: string) => Promise<OAuthClaims | null>;
     getUser: (id: string) => Promise<UserRecord | null>;
-    getApiKeyByUserId: (
-        userId: string,
-        keyId?: string,
-    ) => Promise<Apikey | Apikey[] | null>;
-    getApiKeyUsingKeyId: (key: string) => Promise<Apikey | null>;
+    /** The user's apps that aren't deleted, optionally by public ID. */
+    listApps: (userId: string, appId?: string) => Promise<AppRecord[]>;
+    getApiKeyBySecret: (secret: string) => Promise<ApiKeyAuthRecord | null>;
 };
 
 export type AuthResult =
@@ -42,17 +40,22 @@ export type AuthResult =
           userId: string;
           clientId: string;
           scopes: string[];
-          apiKey?: string;
+          /** Internal ID of the app the token acts on, if the user has one. */
+          appId?: string;
       }
     | {
           status: "authenticated";
           kind: "apikey";
           user: UserRecord;
           userId: string;
-          apiKey: string;
+          /** Internal ID of the key's app. */
+          appId: string;
+          /** Internal ID of the key. Never the secret. */
+          apiKeyId: string;
       }
     | { status: "invalid_token" }
     | { status: "unauthorized" }
+    | { status: "forbidden"; error: "account_inactive" }
     | { status: "ambiguous" }
     | { status: "missing" };
 
@@ -89,6 +92,14 @@ export function sendAuthError(
         return true;
     }
 
+    if (auth.status === "forbidden") {
+        res.status(403).json({
+            error: auth.error,
+            error_description: "This account is deactivated",
+        });
+        return true;
+    }
+
     if (auth.status === "ambiguous") {
         res.status(PLATFORM_ERROR_HTTP_STATUS.credential_ambiguous).json({
             error: "credential_ambiguous",
@@ -103,8 +114,8 @@ export function sendAuthError(
 const defaultDependencies: AuthDependencies = {
     validateBearerToken,
     getUser,
-    getApiKeyByUserId,
-    getApiKeyUsingKeyId,
+    listApps,
+    getApiKeyBySecret,
 };
 
 function getHeaderValue(value: unknown): string | undefined {
@@ -114,42 +125,41 @@ function getHeaderValue(value: unknown): string | undefined {
     return typeof value === "string" ? value : undefined;
 }
 
-export function selectEffectiveApiKey(
-    keys: Apikey | Apikey[] | null,
-): Apikey | null {
-    if (!keys) return null;
-    if (!Array.isArray(keys)) return keys;
-    return keys.find((key) => key.default === true) || keys[0] || null;
+export function selectEffectiveApp(apps: AppRecord[]): AppRecord | null {
+    return apps.find((app) => app.default) || apps[0] || null;
 }
 
 /**
- * The app an OAuth token acts on: the one picked at authorization, or the
- * user's default app for tokens issued before the picker existed. `null`
- * means the picked app no longer exists.
+ * The internal ID of the app an OAuth token acts on: the one picked at
+ * authorization, or the user's default app for tokens issued before the picker
+ * existed. `null` means the picked app no longer exists.
  */
-async function getEffectiveOAuthApiKey(
+async function getEffectiveOAuthApp(
     userId: string,
     appId: string | undefined,
     dependencies: AuthDependencies,
 ): Promise<string | undefined | null> {
     try {
         if (appId) {
-            const key = selectEffectiveApiKey(
-                await dependencies.getApiKeyByUserId(userId, appId),
-            );
-            return key && key.keyId === appId ? key.key : null;
+            const [app] = await dependencies.listApps(userId, appId);
+            return app && app.appId === appId ? app.id : null;
         }
-        const keys = await dependencies.getApiKeyByUserId(userId);
-        return selectEffectiveApiKey(keys)?.key;
+        return selectEffectiveApp(await dependencies.listApps(userId))?.id;
     } catch {
         return undefined;
     }
 }
 
+const ACCOUNT_INACTIVE = {
+    status: "forbidden",
+    error: "account_inactive",
+} as const;
+
 /**
  * Follows the Platform credential contract (ADR 0001): a request carries
  * exactly one mechanism, and a malformed or invalid credential is rejected
- * rather than falling back to another one.
+ * rather than falling back to another one. API keys come only from the
+ * `x-medialit-apikey` header.
  */
 export async function resolveAuth(
     input: AuthInput,
@@ -157,7 +167,6 @@ export async function resolveAuth(
 ): Promise<AuthResult> {
     const authorization = getHeaderValue(input.authorization);
     const headerApiKey = getHeaderValue(input.apiKeyHeader);
-    const bodyApiKey = getHeaderValue(input.bodyApiKey);
 
     let bearer: string | undefined;
     if (authorization) {
@@ -165,17 +174,11 @@ export async function resolveAuth(
         if (!match) return { status: "invalid_token" };
         bearer = match[1];
     }
-    // The header and the legacy body field are one mechanism; two different
-    // keys are ambiguous.
-    if (headerApiKey && bodyApiKey && headerApiKey !== bodyApiKey) {
-        return { status: "ambiguous" };
-    }
 
     const presented: PresentedCredential[] = [];
     if (bearer) presented.push({ kind: "oauth", secret: bearer });
-    const submittedApiKey = bodyApiKey || headerApiKey;
-    if (submittedApiKey) {
-        presented.push({ kind: "api_key", secret: submittedApiKey });
+    if (headerApiKey) {
+        presented.push({ kind: "api_key", secret: headerApiKey });
     }
     const selection = selectSingleCredential(presented);
     if (selection.kind === "absent") return { status: "missing" };
@@ -192,15 +195,16 @@ export async function resolveAuth(
 
         const user = await dependencies.getUser(claims.userId);
         if (!user) return { status: "unauthorized" };
+        if (user.active === false) return ACCOUNT_INACTIVE;
 
-        const apiKey = await getEffectiveOAuthApiKey(
+        const appId = await getEffectiveOAuthApp(
             claims.userId,
             claims.appId,
             dependencies,
         );
         // The picked app was deleted; the client must re-authorize and pick
         // another rather than silently act on a different app.
-        if (apiKey === null) return { status: "invalid_token" };
+        if (appId === null) return { status: "invalid_token" };
 
         return {
             status: "authenticated",
@@ -209,23 +213,26 @@ export async function resolveAuth(
             userId: claims.userId,
             clientId: claims.clientId,
             scopes: claims.scopes,
-            apiKey,
+            appId,
         };
     }
 
-    const submitted = selection.credential.secret;
-    const apiKey = await dependencies.getApiKeyUsingKeyId(submitted);
-    if (!apiKey) return { status: "unauthorized" };
+    const found = await dependencies.getApiKeyBySecret(
+        selection.credential.secret,
+    );
+    if (!found) return { status: "unauthorized" };
 
-    const userId = apiKey.userId.toString();
+    const userId = found.app.userId;
     const user = await dependencies.getUser(userId);
     if (!user) return { status: "unauthorized" };
+    if (!found.ownerActive || user.active === false) return ACCOUNT_INACTIVE;
 
     return {
         status: "authenticated",
         kind: "apikey",
         user,
         userId,
-        apiKey: submitted,
+        appId: found.app.id,
+        apiKeyId: found.key.id,
     };
 }

@@ -15,7 +15,7 @@ import EmptyFiles from "./empty-files";
 const filesPerPage = 16;
 
 export default async function Media(props: {
-    params: Promise<{ keyid: string }>;
+    params: Promise<{ appId: string }>;
     searchParams: Promise<{
         page?: string;
         q?: string;
@@ -23,7 +23,7 @@ export default async function Media(props: {
         sort?: string;
     }>;
 }) {
-    const [{ keyid }, searchParams, session] = await Promise.all([
+    const [{ appId }, searchParams, session] = await Promise.all([
         props.params,
         props.searchParams,
         auth(),
@@ -50,8 +50,8 @@ export default async function Media(props: {
     let appSummary: AppSummary;
     try {
         [appSummary, totalCount] = await Promise.all([
-            getAppSummary(keyid),
-            getCount(keyid, filters),
+            getAppSummary(appId),
+            getCount(appId, filters),
         ]);
     } catch (error) {
         const message =
@@ -67,7 +67,7 @@ export default async function Media(props: {
     const page = Math.min(safeRequestedPage, totalPages);
     let medias: MediaListItem[];
     try {
-        medias = await getMediaFiles(keyid, page, filesPerPage, filters);
+        medias = await getMediaFiles(appId, page, filesPerPage, filters);
     } catch (error) {
         const message =
             error instanceof Error ? error.message : "Could not load files";
@@ -89,7 +89,7 @@ export default async function Media(props: {
         if (kind) params.set("kind", kind);
         if (sort !== "newest") params.set("sort", sort);
         params.set("page", String(nextPage));
-        return `/app/${keyid}/files?${params.toString()}`;
+        return `/app/${appId}/files?${params.toString()}`;
     };
 
     return (
@@ -110,12 +110,12 @@ export default async function Media(props: {
                             : `${appSummary.count} ${appSummary.count === 1 ? "file" : "files"} · ${formatAppStorage(appSummary.storage)} · ${formatLastUpload(appSummary.lastUpload)}`}
                     </p>
                 </div>
-                <UploadButton keyid={keyid} />
+                <UploadButton appId={appId} />
             </div>
 
             {appSummary.count === 0 ? (
                 <EmptyFiles
-                    keyid={keyid}
+                    appId={appId}
                     appName={appSummary.name || "this app"}
                     serverUrl={`${apiBase}/mcp`}
                     apiEndpoint={apiBase}
@@ -125,7 +125,7 @@ export default async function Media(props: {
                 <>
                     <MediaLibrary
                         medias={medias}
-                        keyid={keyid}
+                        appId={appId}
                         totalCount={appSummary.count}
                         globalCounts={{
                             image: appSummary.images,

@@ -1,55 +1,73 @@
 import logger from "../services/log";
 import { getUser } from "../user/queries";
 import * as queries from "./queries";
-import { PreSignedUrl } from "./queries";
 import { User } from "@medialit/models";
 
-interface PresignedUrlProps {
-    user: User;
-    apikey: string;
-    group?: string;
-}
+export type SignatureAuth =
+    | {
+          status: "ok";
+          user: User;
+          /** Internal ID of the signature's app. */
+          appId: string;
+          group?: string;
+      }
+    /** Unknown, expired, its app deleted, or its key revoked. */
+    | { status: "invalid" }
+    | { status: "account_inactive" };
 
 export async function getUserAndGroupFromPresignedUrl(
     signature: string,
-): Promise<PresignedUrlProps | null> {
-    const signedUrl: PreSignedUrl | null =
-        await queries.getPresignedUrl(signature);
+): Promise<SignatureAuth> {
+    const signedUrl = await queries.getPresignedUrl(signature);
 
     if (!signedUrl) {
-        return null;
+        return { status: "invalid" };
     }
 
     if (signedUrl.validTill.getTime() <= new Date().getTime()) {
         await queries.deletePresignedUrl(signedUrl.id);
-        return null;
+        return { status: "invalid" };
     }
 
     const user: User | null = await getUser(String(signedUrl.userId));
 
     if (!user) {
-        return null;
+        return { status: "invalid" };
+    }
+    if (!signedUrl.ownerActive || user.active === false) {
+        return { status: "account_inactive" };
     }
 
-    return { user, apikey: signedUrl.apikey, group: signedUrl.group };
+    return {
+        status: "ok",
+        user,
+        appId: signedUrl.appId,
+        group: signedUrl.group,
+    };
 }
 
 interface GenerateSignedUrlProps {
     userId: string;
-    apikey: string;
+    /** Internal app ID. */
+    appId: string;
+    /** Internal ID of the API key minting it, so revoking the key revokes
+     * the signature. Omitted for OAuth and dashboard callers. */
+    apiKeyId?: string;
     group?: string;
 }
 
 export async function generateSignature({
     userId,
-    apikey,
+    appId,
+    apiKeyId,
     group,
 }: GenerateSignedUrlProps): Promise<string> {
-    const presignedUrl = await queries.createPresignedUrl(
+    const presignedUrl = await queries.createPresignedUrl({
         userId,
-        apikey,
+        appId,
+        apiKeyId,
         group,
-    );
+    });
 
     queries.cleanupExpiredLinks(userId).catch((err: any) => {
         logger.error(
