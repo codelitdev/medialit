@@ -1,5 +1,11 @@
 # medialit
 
+## 0.3.1
+
+### Patch Changes
+
+- 55a39d8: The `Media` type no longer has an `apikey` field. The API never returned it, and keys are now stored only as hashes.
+
 ## 0.3.0
 
 ### Minor Changes
