@@ -1,5 +1,12 @@
 # @medialit/cli
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [55a39d8]
+    - medialit@0.3.1
+
 ## 0.2.0
 
 ### Minor Changes
