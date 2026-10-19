@@ -349,14 +349,9 @@ If your server reaches MediaLit on a different URL than browsers do, for example
   Back up the database before upgrading. Migrations can't be rolled back, and the hashed API keys migration removes plaintext keys for good.
 </Callout>
 
-### Upgrading to hashed API keys
+### Upgrading from v0.5.x to v0.6.0
 
-This release stores API keys as hashes and lets an app have several keys.
-
-- Existing keys keep working. They can no longer be shown in the dashboard, so make sure you have them saved.
-- Send keys in the `x-medialit-apikey` header. A key in the request body is no longer accepted.
-- Requests from a deactivated account now get `403 account_inactive`.
-- If the migration finds media whose key matches no app, it stops and changes nothing. Fix or delete those rows, then upgrade again.
+v0.6.0 stores API keys as hashes. Follow the [upgrade guide](/upgrade-from-v0-5-x-to-v0-6-0) before you upgrade, because it needs a backup and a check for media that belongs to no app.
 
 ## Monitor your server
 
