@@ -25,7 +25,7 @@ An app can have up to 10 keys.
 Send the key in the `x-medialit-apikey` header:
 
 ```sh
-curl https://api.medialit.cloud/media/get/count \
+curl -X POST https://api.medialit.cloud/media/get/count \
   -H "x-medialit-apikey: $MEDIALIT_API_KEY"
 ```
 
