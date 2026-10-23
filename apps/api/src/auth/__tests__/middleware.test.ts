@@ -18,7 +18,7 @@ function response() {
     };
 }
 
-test("REST middleware maps successful OAuth auth to req.user and req.apikey", async () => {
+test("REST middleware maps successful OAuth auth to req.user and req.appId", async () => {
     const req: any = { headers: { authorization: "Bearer token" }, body: {} };
     const res = response();
     let nextCalled = false;
@@ -29,7 +29,7 @@ test("REST middleware maps successful OAuth auth to req.user and req.apikey", as
         userId: "user-1",
         clientId: "client-1",
         scopes: ["read"],
-        apiKey: "default-key",
+        appId: "internal-default",
     }));
 
     await middleware(req, res as any, () => {
@@ -38,10 +38,11 @@ test("REST middleware maps successful OAuth auth to req.user and req.apikey", as
 
     assert.equal(nextCalled, true);
     assert.deepEqual(req.user, { id: "user-1" });
-    assert.equal(req.apikey, "default-key");
+    assert.equal(req.appId, "internal-default");
+    assert.equal(req.apiKeyId, undefined);
 });
 
-test("REST middleware maps API-key auth to the submitted API key", async () => {
+test("REST middleware maps API-key auth to internal IDs, never the secret", async () => {
     const req: any = {
         headers: { "x-medialit-apikey": "submitted-key" },
         body: {},
@@ -53,7 +54,8 @@ test("REST middleware maps API-key auth to the submitted API key", async () => {
         kind: "apikey",
         user: { id: "user-1" },
         userId: "user-1",
-        apiKey: "submitted-key",
+        appId: "internal-app",
+        apiKeyId: "internal-key",
     }));
 
     await middleware(req, res as any, () => {
@@ -62,7 +64,9 @@ test("REST middleware maps API-key auth to the submitted API key", async () => {
 
     assert.equal(nextCalled, true);
     assert.deepEqual(req.user, { id: "user-1" });
-    assert.equal(req.apikey, "submitted-key");
+    assert.equal(req.appId, "internal-app");
+    assert.equal(req.apiKeyId, "internal-key");
+    assert.equal(req.apikey, undefined);
 });
 
 test("REST middleware uses shared invalid Bearer 401 behavior", async () => {
@@ -94,7 +98,7 @@ test("MCP middleware maps OAuth auth fields", async () => {
         userId: "user-1",
         clientId: "client-1",
         scopes: ["read"],
-        apiKey: "default-key",
+        appId: "internal-default",
     }));
 
     await middleware(req, res as any, () => {
@@ -106,7 +110,7 @@ test("MCP middleware maps OAuth auth fields", async () => {
     assert.equal(req.userId, "user-1");
     assert.equal(req.clientId, "client-1");
     assert.deepEqual(req.scopes, ["read"]);
-    assert.equal(req.apikey, "default-key");
+    assert.equal(req.appId, "internal-default");
 });
 
 test("MCP middleware maps API-key auth fields with full data scopes", async () => {
@@ -121,7 +125,8 @@ test("MCP middleware maps API-key auth fields with full data scopes", async () =
         kind: "apikey",
         user: { id: "user-1" },
         userId: "user-1",
-        apiKey: "submitted-key",
+        appId: "internal-app",
+        apiKeyId: "internal-key",
     }));
 
     await middleware(req, res as any, () => {
@@ -131,7 +136,8 @@ test("MCP middleware maps API-key auth fields with full data scopes", async () =
     assert.equal(nextCalled, true);
     assert.deepEqual(req.user, { id: "user-1" });
     assert.equal(req.userId, "user-1");
-    assert.equal(req.apikey, "submitted-key");
+    assert.equal(req.appId, "internal-app");
+    assert.equal(req.apiKeyId, "internal-key");
     assert.equal(req.clientId, undefined);
     // API keys predate scopes and keep full access.
     assert.deepEqual(req.scopes, ["data:read", "data:write"]);

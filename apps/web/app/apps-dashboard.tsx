@@ -91,8 +91,8 @@ export default function AppsDashboard({ data }: { data: AppsDashboardData }) {
             <section className="apps-overview-grid" aria-label="Apps">
                 {filteredApps.map((app) => (
                     <Link
-                        key={app.keyId}
-                        href={`/app/${app.keyId}/files`}
+                        key={app.appId}
+                        href={`/app/${app.appId}/files`}
                         className="app-overview-card"
                     >
                         <span className="app-overview-top">

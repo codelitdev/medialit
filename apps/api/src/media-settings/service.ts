@@ -7,9 +7,9 @@ import {
 
 export async function getMediaSettings(
     userId: string,
-    apikey: string,
+    appId: string,
 ): Promise<MediaSettingsResponse> {
-    const mediaSettings = await queries.getMediaSettings(userId, apikey);
+    const mediaSettings = await queries.getMediaSettings(userId, appId);
 
     if (!mediaSettings) {
         return {
@@ -31,7 +31,7 @@ export async function getMediaSettings(
 
 export interface UpdateMediaSettingsProps {
     userId: string;
-    apikey: string;
+    appId: string;
     useWebP: boolean;
     webpOutputQuality: number;
     thumbnailWidth: number;
@@ -40,7 +40,7 @@ export interface UpdateMediaSettingsProps {
 
 export async function updateMediaSettings({
     userId,
-    apikey,
+    appId,
     useWebP,
     webpOutputQuality,
     thumbnailWidth,
@@ -48,7 +48,7 @@ export async function updateMediaSettings({
 }: UpdateMediaSettingsProps): Promise<void> {
     await queries.updateMediaSettings({
         userId,
-        apikey,
+        appId,
         useWebP,
         webpOutputQuality,
         thumbnailWidth,

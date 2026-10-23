@@ -66,6 +66,13 @@ export TEMP_FILE_DIR_FOR_UPLOADS="$workdir/uploads"
 export MEDIALIT_DEPLOYMENT_MODE=cloud
 export MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED=1234567890
 mkdir -p "$TEMP_FILE_DIR_FOR_UPLOADS"
+# The API seeds this key for the EMAIL user at startup, the same way a bundled
+# self-hosted install gets its key. It is never logged.
+api_key="ml_live_$(openssl rand -hex 32)"
+export MEDIALIT_BOOTSTRAP_API_KEY="$api_key"
+if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    echo "::add-mask::$api_key"
+fi
 
 echo "--- Migrating the database"
 (cd apps/api && bun src/db/migrate.ts)
@@ -87,16 +94,6 @@ curl -sf "http://localhost:${api_port}/ready" >/dev/null || {
     echo "The API was not ready after 60 seconds"
     exit 1
 }
-
-# On first start, the API creates the EMAIL user and logs its API key.
-api_key="$(grep -o '"apiKey":"[^"]*"' "$api_log" | head -n 1 | cut -d '"' -f 4)"
-if [[ -z "$api_key" ]]; then
-    echo "The API did not log an API key for the admin user"
-    exit 1
-fi
-if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    echo "::add-mask::$api_key"
-fi
 
 echo "--- Building the SDK, uploader and CLI"
 bun --filter medialit --filter @medialit/uploader --filter @medialit/cli build >/dev/null

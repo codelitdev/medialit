@@ -59,7 +59,7 @@ function pickerPage(apps: OAuthApp[], authBasePath: string): string {
     const choices = apps
         .map(
             (app) =>
-                `<label class="app"><input type="radio" name="app" value="${escapeHtml(app.keyId)}"${app === defaultApp ? " checked" : ""}><span class="app-name">${escapeHtml(app.name)}</span>${app.isDefault ? '<span class="badge">Default</span>' : ""}</label>`,
+                `<label class="app"><input type="radio" name="app" value="${escapeHtml(app.appId)}"${app === defaultApp ? " checked" : ""}><span class="app-name">${escapeHtml(app.name)}</span>${app.isDefault ? '<span class="badge">Default</span>' : ""}</label>`,
         )
         .join("");
     return page(
@@ -144,7 +144,7 @@ export function createOAuthAppPages(options: {
                 return;
             }
             const apps = await options.adapter.listAppsForUser(session.user.id);
-            const selected = apps.find((app) => app.keyId === appId);
+            const selected = apps.find((app) => app.appId === appId);
             if (!selected) {
                 response.status(404).json({
                     error: "app_not_found",

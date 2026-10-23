@@ -5,9 +5,14 @@ import logger from "../services/log";
 import finalizeUpload from "./finalize";
 import * as preSignedUrlService from "../signature/service";
 import { PRESIGNED_URL_INVALID, UNAUTHORISED } from "../config/strings";
-import { Apikey, User } from "@medialit/models";
-import { getApiKeyUsingKeyId } from "../apikey/queries";
-import { getUser } from "../user/queries";
+import { User } from "@medialit/models";
+import { resolveAuth } from "../auth/resolve-auth";
+import { DATA_WRITE_SCOPE } from "../auth/options";
+import {
+    API_KEY_SCOPES,
+    hasScope,
+    insufficientScopeMessage,
+} from "../auth/scopes";
 import { validateUploadConstraints } from "../media/storage-middleware";
 import { createTusUpload, updateTusUploadOffset } from "./queries";
 import mediaService from "../media/service";
@@ -23,12 +28,12 @@ export const server = new Server({
     exposedHeaders: ["media"],
     onIncomingRequest: async (req: any) => {
         try {
-            const response = await getUserAndAPIKey(req);
+            const response = await getUploadAuth(req);
             if (!isUser(response)) {
                 throw response;
             }
             req.user = response.user;
-            req.apikey = response.apikey;
+            req.appId = response.appId;
             req.group = response.group;
         } catch (err) {
             logger.error({ err }, "Error validating user creds");
@@ -43,7 +48,7 @@ export const server = new Server({
             console.timeEnd("finalize");
             const media = await mediaService.getMediaDetails({
                 userId: req.user._id,
-                apikey: req.apikey,
+                appId: req.appId,
                 mediaId,
             });
             return {
@@ -77,7 +82,7 @@ export function uploadGroup(
 
 export async function handleTusUploadCreate(req: any, upload: any) {
     const metadata = upload.metadata;
-    const { user, apikey, group } = req;
+    const { user, appId, group } = req;
 
     try {
         const validation = await validateUploadConstraints({
@@ -94,7 +99,7 @@ export async function handleTusUploadCreate(req: any, upload: any) {
         await createTusUpload({
             uploadId: upload.id,
             userId: user.id,
-            apikey: apikey!,
+            appId: appId!,
             uploadLength: upload.size,
             metadata: {
                 fileName: metadata.fileName || "unknown",
@@ -120,50 +125,58 @@ server.on(EVENTS.POST_RECEIVE, async (req: any, upload: any) => {
     }
 });
 
-async function getUserAndAPIKey(req: any): Promise<UserWithAPIKey | TusError> {
+/**
+ * Authenticates every TUS request: a signature, otherwise the same API key or
+ * Bearer token resolution as the REST API, so revoked keys, deleted apps and
+ * deactivated accounts are rejected here too.
+ */
+async function getUploadAuth(req: any): Promise<UploadAuth | TusError> {
     const signature = req.headers.get("x-medialit-signature");
-    let user, apikey, group;
     if (signature) {
         const response =
             await preSignedUrlService.getUserAndGroupFromPresignedUrl(
                 signature as string,
             );
-        if (!response) {
+        if (response.status === "account_inactive") {
+            return { status_code: 403, body: "This account is deactivated" };
+        }
+        if (response.status !== "ok") {
             return {
                 status_code: 401,
                 body: PRESIGNED_URL_INVALID,
             };
         }
-
-        user = response.user;
-        apikey = response.apikey;
-        group = response.group;
-    } else {
-        const apikeyFromHeader = req.headers.get("x-medialit-apikey");
-        const apikeyFromDB: Apikey | null =
-            await getApiKeyUsingKeyId(apikeyFromHeader);
-        if (!apikeyFromDB) {
-            return {
-                status_code: 401,
-                body: UNAUTHORISED,
-            };
-        }
-        user = await getUser(apikeyFromDB.userId.toString());
-        if (!user) {
-            return {
-                status_code: 401,
-                body: UNAUTHORISED,
-            };
-        }
-        apikey = apikeyFromHeader;
+        return {
+            user: response.user,
+            appId: response.appId,
+            group: response.group,
+        };
     }
 
-    return { user, apikey, group };
+    const auth = await resolveAuth({
+        authorization: req.headers.get("authorization") ?? undefined,
+        apiKeyHeader: req.headers.get("x-medialit-apikey") ?? undefined,
+    });
+    if (auth.status === "forbidden") {
+        return { status_code: 403, body: "This account is deactivated" };
+    }
+    if (auth.status !== "authenticated" || !auth.appId) {
+        return { status_code: 401, body: UNAUTHORISED };
+    }
+    const scopes = auth.kind === "oauth" ? auth.scopes : API_KEY_SCOPES;
+    if (!hasScope(scopes, DATA_WRITE_SCOPE)) {
+        return {
+            status_code: 403,
+            body: insufficientScopeMessage(DATA_WRITE_SCOPE),
+        };
+    }
+    return { user: auth.user, appId: auth.appId };
 }
 
-interface UserWithAPIKey {
+interface UploadAuth {
     user: User;
-    apikey: string;
+    /** Internal app ID. */
+    appId: string;
     group?: string;
 }
 
@@ -172,8 +185,6 @@ interface TusError {
     body: string;
 }
 
-function isUser(
-    response: UserWithAPIKey | TusError,
-): response is UserWithAPIKey {
-    return (response as UserWithAPIKey).user?.userId !== undefined;
+function isUser(response: UploadAuth | TusError): response is UploadAuth {
+    return (response as UploadAuth).user?.userId !== undefined;
 }

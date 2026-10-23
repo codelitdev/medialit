@@ -6,6 +6,7 @@
         "quick-start",
         "what-is-medialit",
         "concepts",
+        "api-keys",
         "---For agents---",
         "mcp-server",
         "cli",
@@ -24,6 +25,7 @@
         "---Resources---",
         "faqs",
         "---Upgrades---",
-        "upgrade-from-v0-4-0-to-v0-5-0"
+        "upgrade-from-v0-4-0-to-v0-5-0",
+        "upgrade-from-v0-5-x-to-v0-6-0"
     ]
 }

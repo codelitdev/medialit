@@ -12,7 +12,7 @@ import {
 export interface TusUpload {
     uploadId: string;
     userId: string;
-    apikey: string;
+    appId: string;
     uploadLength: number;
     uploadOffset: number;
     metadata: Pick<
@@ -51,7 +51,7 @@ export async function createTusUpload(
     const created = await createTusUploadRecord({
         uploadId: data.uploadId,
         userId: data.userId,
-        apikey: data.apikey,
+        appId: data.appId,
         uploadLength: data.uploadLength,
         metadata: {
             fileName: data.metadata.fileName,
@@ -67,7 +67,7 @@ export async function createTusUpload(
     return {
         uploadId: created.uploadId,
         userId: created.userId,
-        apikey: created.apikey,
+        appId: created.appId,
         uploadLength: created.uploadLength,
         uploadOffset: created.uploadOffset,
         metadata: toTusMetadata(created.metadata),
@@ -86,7 +86,7 @@ export async function getTusUpload(
     return {
         uploadId: row.uploadId,
         userId: row.userId,
-        apikey: row.apikey,
+        appId: row.appId,
         uploadLength: row.uploadLength,
         uploadOffset: row.uploadOffset,
         metadata: toTusMetadata(row.metadata),
@@ -119,7 +119,7 @@ export async function getTusUploadsByUserId(
     return rows.map((row) => ({
         uploadId: row.uploadId,
         userId: row.userId,
-        apikey: row.apikey,
+        appId: row.appId,
         uploadLength: row.uploadLength,
         uploadOffset: row.uploadOffset,
         metadata: toTusMetadata(row.metadata),

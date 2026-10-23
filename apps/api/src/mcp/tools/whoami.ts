@@ -1,4 +1,4 @@
-import { getApiKeyUsingKeyId } from "../../apikey/queries";
+import { getAppById } from "@/db";
 import { maxStorageFor } from "../../billing/entitlements";
 import * as mediaQueries from "../../media/queries";
 import { getMcpAuth } from "../auth-context";
@@ -29,27 +29,27 @@ export async function handleWhoamiTool(
     _args: unknown,
     extra: any,
     dependencies = {
-        getApiKey: getApiKeyUsingKeyId,
+        getApp: getAppById,
         getMediaCount: mediaQueries.getMediaCount,
         getTotalSpace: mediaQueries.getTotalSpace,
     },
 ) {
     const auth = getMcpAuth(extra);
     if (!auth) return AUTH_ERROR;
-    const { authKind, user, userId, apikey } = auth;
+    const { authKind, user, userId, appId } = auth;
     try {
         const [app, files, storage] = await Promise.all([
-            dependencies.getApiKey(apikey),
-            dependencies.getMediaCount({ userId, apikey }),
-            dependencies.getTotalSpace({ userId, apikey }),
+            dependencies.getApp(appId),
+            dependencies.getMediaCount({ userId, appId }),
+            dependencies.getTotalSpace({ userId, appId }),
         ]);
-        if (!app) return AUTH_ERROR;
-        // Identify the app by its public id; never return the key itself.
+        if (!app || app.deleted) return AUTH_ERROR;
+        // Identify the app by its public ID; never an internal ID or a key.
         const response = {
             auth: authKind,
             email: user.email,
             app: {
-                id: app.keyId,
+                id: app.appId,
                 name: app.name,
                 default: Boolean(app.default),
             },

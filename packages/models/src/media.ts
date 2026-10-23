@@ -3,7 +3,8 @@ import { AccessControl } from "./access-control";
 export interface Media {
     fileName: string;
     mediaId: string;
-    apikey: string;
+    /** Internal ID of the app the media belongs to. */
+    appId: string;
     originalFileName: string;
     mimeType: string;
     size: number;

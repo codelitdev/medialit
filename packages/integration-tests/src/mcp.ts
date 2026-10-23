@@ -413,6 +413,20 @@ export async function runMcpIntegrationTests(
         );
         log("PASS MCP initialize and complete tool inventory");
 
+        const sealTool = object(
+            listedTools.tools.find(
+                (tool) => object(tool).name === "seal_media",
+            ),
+            "seal_media definition",
+        );
+        const sealAnnotations = object(
+            sealTool.annotations,
+            "seal_media annotations",
+        );
+        assert.equal(sealAnnotations.readOnlyHint, false);
+        assert.equal(sealAnnotations.destructiveHint, true);
+        assert.equal(sealAnnotations.openWorldHint, true);
+
         const originalSettings = await getMediaSettings();
         settingsToRestore = originalSettings;
         const changedSettings = {
@@ -509,6 +523,10 @@ export async function runMcpIntegrationTests(
 
         const sealed = await client.callTool("seal_media", { mediaId });
         assert.equal(sealed.mediaId, mediaId);
+        assert.equal(sealed.access, "private");
+        const sealedAgain = await client.callTool("seal_media", { mediaId });
+        assert.equal(sealedAgain.mediaId, mediaId);
+        assert.equal(sealedAgain.access, "private");
         const retrieved = await client.callTool("get_media", { mediaId });
         assert.equal(retrieved.mediaId, mediaId);
         assert.equal(retrieved.originalFileName, filename);

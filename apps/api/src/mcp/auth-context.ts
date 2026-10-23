@@ -5,9 +5,12 @@ export type MedialitMcpAuthExtra = {
     /** Internal id of the authenticated account. */
     userId: string;
     user: any;
-    /** The app's API key. OAuth requests act on the app picked at
+    /** Internal ID of the app. OAuth requests act on the app picked at
      * authorization; API-key requests act on the key's own app. */
-    apikey: string;
+    appId: string;
+    /** Internal ID of the API key, for API-key requests only. Signatures
+     * record it so revoking the key revokes them. Never the secret. */
+    apiKeyId?: string;
 };
 
 export type MedialitMcpAuthInfo = AuthInfo & {
@@ -18,7 +21,8 @@ type McpAuthRequest = {
     authKind?: unknown;
     userId?: unknown;
     clientId?: unknown;
-    apikey?: unknown;
+    appId?: unknown;
+    apiKeyId?: unknown;
     scopes?: unknown;
     user?: any;
 };
@@ -32,8 +36,8 @@ export function createMcpAuthInfo(input: unknown): MedialitMcpAuthInfo | null {
         (req.authKind !== "oauth" && req.authKind !== "apikey") ||
         typeof req.userId !== "string" ||
         !req.userId ||
-        typeof req.apikey !== "string" ||
-        !req.apikey ||
+        typeof req.appId !== "string" ||
+        !req.appId ||
         !req.user
     ) {
         return null;
@@ -56,7 +60,10 @@ export function createMcpAuthInfo(input: unknown): MedialitMcpAuthInfo | null {
             authKind: req.authKind,
             userId: req.userId,
             user: req.user,
-            apikey: req.apikey,
+            appId: req.appId,
+            ...(req.authKind === "apikey" && typeof req.apiKeyId === "string"
+                ? { apiKeyId: req.apiKeyId }
+                : {}),
         },
     };
 }
@@ -68,7 +75,7 @@ export function getMcpAuth(extra: any): MedialitMcpAuthExtra | null {
         !auth ||
         (auth.authKind !== "oauth" && auth.authKind !== "apikey") ||
         !auth.userId ||
-        !auth.apikey ||
+        !auth.appId ||
         !auth.user
     ) {
         return null;

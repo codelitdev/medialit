@@ -15,7 +15,7 @@ import {
 function req(user: any) {
     return {
         user,
-        apikey: "test-api-key",
+        appId: "test-app",
         group: "default",
     };
 }

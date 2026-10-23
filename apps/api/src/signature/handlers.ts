@@ -27,7 +27,8 @@ export async function getSignature(
     try {
         const signature = await preSignedUrlService.generateSignature({
             userId: req.user.id,
-            apikey: req.apikey,
+            appId: req.appId,
+            apiKeyId: req.apiKeyId,
             group: req.body.group,
         });
         return res.status(200).json({ signature });
