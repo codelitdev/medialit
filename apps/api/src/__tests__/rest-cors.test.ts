@@ -10,9 +10,9 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import type { AppDb } from "../db/client.js";
 
 /*
- * The REST API authenticates by header, so browsers on any origin may call
- * it, e.g. the "Try it" panel at medialit.cloud/docs/api. The dashboard API
- * uses session cookies and must stay same-origin.
+ * Browsers upload from any site with a signature. API-key endpoints only
+ * accept the "Try it" panel at medialit.cloud/docs/api. The cookie-based
+ * dashboard API stays same-origin.
  */
 let server: Server;
 let origin: string;
@@ -66,25 +66,31 @@ after(async () => {
     await client.close();
 });
 
-function preflight(pathname: string, headers: string) {
+const customerOrigin = "https://customer.example";
+
+function preflight(pathname: string, headers: string, from = docsOrigin) {
     return fetch(`${origin}${pathname}`, {
         method: "OPTIONS",
         headers: {
-            Origin: docsOrigin,
+            Origin: from,
             "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": headers,
         },
     });
 }
 
-test("documented endpoints accept cross-origin calls with an API key", async () => {
-    for (const pathname of [
-        "/media/get/count",
-        "/media/get/abc",
-        "/media/signature/create",
-        "/media/create",
-        "/settings/media/get",
-    ]) {
+const apiKeyEndpoints = [
+    "/health",
+    "/media/get",
+    "/media/get/count",
+    "/media/get/abc",
+    "/media/seal/abc",
+    "/media/signature/create",
+    "/settings/media/get",
+];
+
+test("the docs can call API-key endpoints from the browser", async () => {
+    for (const pathname of apiKeyEndpoints) {
         const response = await preflight(
             pathname,
             "content-type,x-medialit-apikey",
@@ -92,7 +98,7 @@ test("documented endpoints accept cross-origin calls with an API key", async () 
         assert.equal(response.status, 204, pathname);
         assert.equal(
             response.headers.get("access-control-allow-origin"),
-            "*",
+            docsOrigin,
             pathname,
         );
         assert.match(
@@ -107,7 +113,46 @@ test("documented endpoints accept cross-origin calls with an API key", async () 
         headers: { Origin: docsOrigin },
     });
     assert.equal(response.status, 401);
-    assert.equal(response.headers.get("access-control-allow-origin"), "*");
+    assert.equal(
+        response.headers.get("access-control-allow-origin"),
+        docsOrigin,
+    );
+});
+
+test("other sites can't call API-key endpoints from the browser", async () => {
+    for (const pathname of apiKeyEndpoints) {
+        const response = await preflight(
+            pathname,
+            "content-type,x-medialit-apikey",
+            customerOrigin,
+        );
+        const allowed = response.headers.get("access-control-allow-origin");
+        assert.ok(
+            allowed !== "*" && allowed !== customerOrigin,
+            `${pathname} allowed ${allowed}`,
+        );
+    }
+});
+
+test("any site can upload with a signature", async () => {
+    for (const pathname of [
+        "/media/create",
+        "/media/create?group=avatars",
+        "/media/create/resumable",
+        "/media/create/resumable/abc",
+    ]) {
+        const response = await preflight(
+            pathname,
+            "x-medialit-signature,tus-resumable,upload-length",
+            customerOrigin,
+        );
+        assert.equal(response.status, 204, pathname);
+        assert.equal(
+            response.headers.get("access-control-allow-origin"),
+            "*",
+            pathname,
+        );
+    }
 });
 
 test("the cookie-based dashboard API stays same-origin", async () => {
