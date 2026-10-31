@@ -1,0 +1,55 @@
+---
+title: "API keys"
+description: "Create, use, rotate and revoke an app's API keys."
+slug: api-keys
+nav_order: 50
+---
+
+An API key lets your server use one [app](/docs/concepts#apps-and-api-keys): upload, list, read and delete its files, and create [upload signatures](/docs/concepts#upload-signatures) for browsers. A key only ever sees its own app's files.
+
+<Callout type="warning">
+  Anyone with a key can upload, read and delete the app's files. Keep keys on your server and out of browser code. Browsers upload with signatures instead.
+</Callout>
+
+## Create a key
+
+In the [dashboard](/docs/dashboard), open an app, go to **Settings**, and under **API keys** choose **Create key**. Name it after where you'll use it, for example `production server`, so you know which one to revoke later.
+
+MediaLit shows the key once. Copy it into your server's environment, usually as `MEDIALIT_API_KEY`. MediaLit stores only a hash of the key, so nobody, including MediaLit, can show it to you again. If you lose a key, create a new one and revoke the old one.
+
+Keys look like `ml_live_` followed by 43 random characters. The dashboard lists each key by its first characters, for example `ml_live_a1b2…`, with when it was created and last used.
+
+An app can have up to 10 keys.
+
+## Use a key
+
+Send the key in the `x-medialit-apikey` header:
+
+```sh
+curl -X POST https://api.medialit.cloud/media/get/count \
+  -H "x-medialit-apikey: $MEDIALIT_API_KEY"
+```
+
+The [Node.js SDK](/docs/node-sdk) reads `MEDIALIT_API_KEY` and sends the header for you. MediaLit does not accept a key in the request body or the URL.
+
+## Rotate a key
+
+To replace a key without downtime:
+
+1. Create a new key.
+2. Deploy it to everything that used the old one.
+3. Check the old key's **Last used** date stops moving, then revoke it.
+
+## Revoke a key
+
+Choose **Revoke** next to the key. Anything using it stops working immediately, and so do the [upload signatures](/docs/concepts#upload-signatures) it created that haven't been used yet. Revoking can't be undone.
+
+Deleting an app revokes all of its keys.
+
+## Keys from before hashing
+
+Keys created before MediaLit stored only hashes keep working unchanged. They appear as **Default key** with only their first four characters shown. Replace them with new keys when convenient: new keys are longer, and secret scanners recognize their `ml_live_` prefix.
+
+## Self-hosted servers
+
+A self-hosted server can create a key for its admin at startup, so another service in the same Docker Compose file can use MediaLit right away. See [create a key at startup](/docs/self-hosting#create-a-key-at-startup).
