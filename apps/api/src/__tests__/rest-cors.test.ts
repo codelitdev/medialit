@@ -155,6 +155,23 @@ test("any site can upload with a signature", async () => {
     }
 });
 
+test("resumable uploads expose the media header to other sites", async () => {
+    // tus clients such as CourseLit read the uploaded media from this header.
+    const response = await fetch(`${origin}/media/create/resumable`, {
+        method: "POST",
+        headers: {
+            Origin: customerOrigin,
+            "Tus-Resumable": "1.0.0",
+            "Upload-Length": "1",
+        },
+    });
+    assert.equal(response.headers.get("access-control-allow-origin"), "*");
+    assert.match(
+        response.headers.get("access-control-expose-headers") ?? "",
+        /\bmedia\b/i,
+    );
+});
+
 test("the cookie-based dashboard API stays same-origin", async () => {
     const response = await preflight("/api/apps", "content-type");
     assert.notEqual(response.headers.get("access-control-allow-origin"), "*");
