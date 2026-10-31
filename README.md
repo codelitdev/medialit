@@ -88,7 +88,7 @@ Upgrading from v0.4.0? v0.5.0 replaces MongoDB with PostgreSQL. Follow the [upgr
 
 ## Development
 
-**Requirements:** [Bun](https://bun.sh) 1.4.1, Docker, and `ffmpeg` and `webp` for thumbnails and image conversion. We develop on Linux; on Windows, use WSL.
+**Requirements:** [Bun](https://bun.sh) 1.4.4, Docker, and `ffmpeg` and `webp` for thumbnails and image conversion. We develop on Linux; on Windows, use WSL.
 
 ```bash
 sudo apt install ffmpeg webp

@@ -1,8 +1,10 @@
-FROM oven/bun:1.4.1
+FROM oven/bun:1.4.4
 WORKDIR /app
 
+# libbrotli1 is named so apt pulls in the CVE-2026-111497 fix (1.1.0-2+deb13u1)
+# even when the base image layer predates it.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg webp \
+    && apt-get install -y --no-install-recommends ffmpeg webp libbrotli1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json bun.lock ./
