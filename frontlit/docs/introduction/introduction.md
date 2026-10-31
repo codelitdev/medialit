@@ -1,0 +1,39 @@
+---
+title: "MediaLit"
+description: "Storage for agents, apps and humans."
+slug: introduction
+nav_order: 10
+---
+
+MediaLit stores files and gives you a URL for each one. Your app uploads through an API. AI agents connect over MCP or run the CLI. People use the dashboard or the same CLI. They all work on the same files.
+
+<Cards>
+  <Card title="For agents" href="/docs/mcp-server" icon={<Bot />}>
+    Connect Claude, ChatGPT, Cursor or any MCP client, or let a coding agent run the CLI, to save and share files.
+  </Card>
+  <Card title="For apps" href="/docs/next-app-router" icon={<Code />}>
+    Add a drop-in uploader to a React app, or use the REST API from any backend.
+  </Card>
+  <Card title="For humans" href="/docs/dashboard" icon={<User />}>
+    Browse, preview and share files from the dashboard, or upload from your terminal with the CLI.
+  </Card>
+</Cards>
+
+## What you get
+
+- **Uploads straight from the browser.** Your server hands out a short-lived signature, and the browser sends the file to MediaLit. Your API key never leaves your server, and large files resume after a dropped connection.
+- **No orphaned files.** Uploads through the API and MCP are temporary until you seal them. If a user abandons a form, MediaLit deletes the file for you. [How this works](/docs/concepts#temporary-uploads-and-sealing).
+- **Public and private files.** Public files get a permanent URL. Private files get a signed URL that expires.
+- **Thumbnails and WebP.** MediaLit makes thumbnails for images and videos, and can convert images to WebP when they are uploaded.
+- **Open source.** Use [medialit.cloud](https://medialit.cloud), or [run it yourself](/docs/self-hosting) on AWS S3, Cloudflare R2, MinIO or any S3-compatible storage.
+
+## Start here
+
+<Cards>
+  <Card title="Quick start" href="/docs/quick-start" icon={<Rocket />}>
+    Upload your first file in a few minutes.
+  </Card>
+  <Card title="How MediaLit works" href="/docs/concepts" icon={<BookOpen />}>
+    Apps, sealing, access and signatures.
+  </Card>
+</Cards>
