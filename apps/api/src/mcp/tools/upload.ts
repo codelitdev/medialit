@@ -123,7 +123,8 @@ export async function handleUploadMediaTool(args: any, extra: any) {
     }
 
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "mcp-upload-"));
-    const tempPath = path.join(tempDir, args.fileName);
+    // args.fileName is caller-controlled; never use it to build a path.
+    const tempPath = path.join(tempDir, "upload");
 
     try {
         await writeFile(tempPath, buffer);

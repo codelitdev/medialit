@@ -26,23 +26,36 @@ const thumbGenerator = (source: string, destination: string, type: mediaType) =>
             }
             convert = spawn(scriptPath, [input, destination]);
         } else {
-            convert = spawn(
-                `ffmpeg -y -i "${source}" -vframes 1 -filter:v scale="-2:720" ${destination} && ${scriptPath} ${destination} ${destination}`,
-                [],
-                { shell: true },
-            );
-            // convert = spawn(
-            //     "ffmpeg",
-            //     [
-            //         "-y",
-            //         "-itsoffset -1",
-            //         `-i "${source}"`,
-            //         "-vframes 1",
-            //         `-filter:v scale="-2:720"`,
-            //         `"${destination}"`,
-            //     ],
-            //     { shell: true }
-            // );
+            // No shell: source contains a client-controlled extension.
+            const ffmpeg = spawn("ffmpeg", [
+                "-y",
+                "-i",
+                source,
+                "-vframes",
+                "1",
+                "-filter:v",
+                "scale=-2:720",
+                destination,
+            ]);
+            ffmpeg.on("error", reject);
+            ffmpeg.on("exit", (code) => {
+                if (code !== 0) {
+                    reject(new Error(`ffmpeg exited with code ${code}`));
+                    return;
+                }
+                const script = spawn(scriptPath, [destination, destination]);
+                script.on("error", reject);
+                script.on("exit", (scriptCode) =>
+                    scriptCode === 0
+                        ? resolve(1)
+                        : reject(
+                              new Error(
+                                  `Child process exited with code ${scriptCode}`,
+                              ),
+                          ),
+                );
+            });
+            return;
         }
 
         if (process.env.DEBUG === "true") {
