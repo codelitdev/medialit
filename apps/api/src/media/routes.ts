@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import apikey from "../apikey/middleware";
 import {
     getMedia,
@@ -73,7 +72,6 @@ router.post(
         }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
-    cors(),
     authenticatedApiLimiter,
     // Authenticate and check the declared size before reading the body, so
     // an unauthenticated or oversized upload never reaches the disk.
@@ -83,8 +81,6 @@ router.post(
     storage,
     uploadMedia,
 );
-
-router.options("/create", /* #swagger.ignore = true */ cors());
 
 router.post(
     "/get/count",

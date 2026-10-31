@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import rateLimit from "express-rate-limit";
 import mediaRoutes from "./media/routes";
 import signatureRoutes from "./signature/routes";
@@ -31,6 +32,9 @@ type ReadinessReport = Awaited<ReturnType<typeof apiReadiness>>;
  * Compose the API's HTTP stack. `index.ts` serves it in production and the
  * platform conformance test serves the same app on an ephemeral port.
  */
+/** The only site that calls API-key endpoints from a browser ("Try it"). */
+const DOCS_ORIGIN = "https://medialit.cloud";
+
 export function createApp(input: {
     auth: MedialitAuth;
     webOrigin: string;
@@ -95,6 +99,21 @@ export function createApp(input: {
         }),
     );
     app.use(express.urlencoded({ extended: false }));
+
+    // Browsers upload from customers' own sites with a short-lived signature,
+    // so uploads accept any origin. Every other REST call needs an API key,
+    // which belongs on a server: only the "Try it" panel in our docs calls
+    // those from a browser.
+    app.use(
+        ["/health", "/media", "/settings/media"],
+        cors<express.Request>((req, callback) =>
+            callback(null, {
+                origin: /^\/media\/create(\/|\?|$)/.test(req.originalUrl)
+                    ? "*"
+                    : DOCS_ORIGIN,
+            }),
+        ),
+    );
 
     app.get(
         "/health",
