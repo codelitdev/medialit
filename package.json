@@ -28,7 +28,6 @@
     "release": "./release.sh",
     "dev:api": "bun --filter @medialit/api dev",
     "dev:web": "bun --filter @medialit/web dev --port 3007",
-    "dev:docs": "bun --filter @medialit/docs dev --port 3008",
     "test:integration": "bun --filter @medialit/integration-tests test:integration",
     "test:integration:stack": "bash packages/integration-tests/scripts/run-with-local-stack.sh"
   },
