@@ -174,7 +174,7 @@ export default function ConnectGuide({
                 </div>
                 <a
                     className="workspace-button secondary"
-                    href="https://docs.medialit.cloud/quick-start"
+                    href="https://medialit.cloud/docs/quick-start"
                     target="_blank"
                     rel="noreferrer"
                 >

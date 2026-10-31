@@ -56,7 +56,7 @@ type DashboardUser = {
     email?: string | null;
 } | null;
 
-const docsUrl = "https://docs.medialit.cloud/quick-start";
+const docsUrl = "https://medialit.cloud/docs/quick-start";
 
 export default function DashboardShell({
     children,

@@ -14,7 +14,7 @@ export default function Docs() {
             </p>
             <a
                 className="workspace-button"
-                href="https://docs.medialit.cloud/quick-start"
+                href="https://medialit.cloud/docs/quick-start"
                 target="_blank"
                 rel="noreferrer"
             >
