@@ -1,5 +1,5 @@
 ---
-title: "MediaLit"
+title: "Introduction"
 description: "Storage for agents, apps and humans."
 slug: introduction
 nav_order: 10
