@@ -41,7 +41,7 @@ const medialit = new MediaLit({
 ```
 
 <TypeTable
-  type={{
+type={{
     apiKey: { type: "string", default: "MEDIALIT_API_KEY", description: "Your app's API key. Read from the environment when you leave it out." },
     accessToken: { type: "string", description: "An OAuth access token to use instead of an API key, for tools that log users in." },
     endpoint: { type: "string", default: "MEDIALIT_ENDPOINT or https://api.medialit.cloud", description: "Set this when you self-host MediaLit." },
@@ -62,7 +62,7 @@ const media = await medialit.upload("./photo.jpg", {
 Uploads a file path, a `Buffer` or a readable stream in one request. The file is [temporary until you seal it](/docs/concepts#temporary-uploads-and-sealing).
 
 <TypeTable
-  type={{
+type={{
     access: { type: '"public" | "private"', default: '"private"' },
     caption: { type: "string" },
     group: { type: "string", description: "Puts the file in a group." },
@@ -90,7 +90,10 @@ Returns one file, including temporary ones. Private files come with a new signed
 ## list
 
 ```ts
-const media = await medialit.list(1, 20, { access: "public", group: "avatars" });
+const media = await medialit.list(1, 20, {
+    access: "public",
+    group: "avatars",
+});
 ```
 
 Returns a page of sealed files, newest first. The arguments are the page number, the page size and optional `access` and `group` filters.
@@ -143,7 +146,7 @@ export const POST = createSignatureHandler({
 ```
 
 <TypeTable
-  type={{
+type={{
     authorize: {
       type: "(request: Request) => boolean | { group?: string } | null | Promise<...>",
       required: true,

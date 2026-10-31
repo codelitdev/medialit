@@ -25,11 +25,11 @@ This handles a problem plain object storage leaves to you. When a user uploads a
 
 ### Who seals
 
-| You upload with | The upload is | To keep it |
-| --- | --- | --- |
-| [REST API](/docs/api/upload-media), [Node.js SDK](/docs/node-sdk), [React](/docs/react), [`@medialit/uploader`](/docs/other-frameworks) | Temporary | Seal it from your server |
-| [MCP server](/docs/mcp-server) | Temporary | The agent calls `seal_media` |
-| [CLI](/docs/cli) | Sealed right away | Nothing to do. Pass `--temp` to leave it temporary |
+| You upload with                                                                                                                         | The upload is     | To keep it                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | -------------------------------------------------- |
+| [REST API](/docs/api/upload-media), [Node.js SDK](/docs/node-sdk), [React](/docs/react), [`@medialit/uploader`](/docs/other-frameworks) | Temporary         | Seal it from your server                           |
+| [MCP server](/docs/mcp-server)                                                                                                          | Temporary         | The agent calls `seal_media`                       |
+| [CLI](/docs/cli)                                                                                                                        | Sealed right away | Nothing to do. Pass `--temp` to leave it temporary |
 
 The CLI seals for you because running `medialit upload` is already the decision to keep the file; there is no later step, like saving a form, to seal at. An agent using the CLI for scratch files should pass `--temp`, so they are cleaned up like MCP uploads.
 

@@ -160,7 +160,7 @@ async function onChange(e: Event) {
 ## Options
 
 <TypeTable
-  type={{
+type={{
     signatureEndpoint: {
       type: "string",
       description: "Your route that returns { signature, endpoint }. It is called with POST and the browser's cookies.",

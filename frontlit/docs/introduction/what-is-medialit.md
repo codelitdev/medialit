@@ -19,15 +19,15 @@ An agent can create a report, you can check it in the dashboard, and your app ca
 
 ## What you don't have to build
 
-| You need | With plain object storage | With MediaLit |
-| --- | --- | --- |
-| Uploads from the browser | Presigned URLs, CORS rules, a policy per bucket | A signature route and a drop-in component |
-| Resumable uploads | Multipart upload logic | Built in |
-| Cleaning up abandoned uploads | A database of what is used, and a job to delete the rest | Unsealed uploads are deleted after 24 hours |
-| Public and private files | Bucket policies, signed URLs | `access: "public"` or `"private"` |
-| Listing files with their details | `ListObjects` and your own database | Paginated listing, filtered by group or access |
-| Thumbnails | A processing pipeline | Generated for images and videos |
-| Upload size and storage limits | Your own accounting | Enforced on every upload |
+| You need                         | With plain object storage                                | With MediaLit                                  |
+| -------------------------------- | -------------------------------------------------------- | ---------------------------------------------- |
+| Uploads from the browser         | Presigned URLs, CORS rules, a policy per bucket          | A signature route and a drop-in component      |
+| Resumable uploads                | Multipart upload logic                                   | Built in                                       |
+| Cleaning up abandoned uploads    | A database of what is used, and a job to delete the rest | Unsealed uploads are deleted after 24 hours    |
+| Public and private files         | Bucket policies, signed URLs                             | `access: "public"` or `"private"`              |
+| Listing files with their details | `ListObjects` and your own database                      | Paginated listing, filtered by group or access |
+| Thumbnails                       | A processing pipeline                                    | Generated for images and videos                |
+| Upload size and storage limits   | Your own accounting                                      | Enforced on every upload                       |
 
 ## Open source, and portable
 

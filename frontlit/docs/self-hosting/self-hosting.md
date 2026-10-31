@@ -30,12 +30,12 @@ docker compose up
 
 The values in `.env.example` work as they are:
 
-| What | Address |
-| --- | --- |
-| Dashboard | `http://app.localtest.me` |
-| API | `http://api.localtest.me` |
-| MCP server | `http://api.localtest.me/mcp` |
-| Sign-in emails (Mailpit) | `http://localhost:8025` |
+| What                     | Address                       |
+| ------------------------ | ----------------------------- |
+| Dashboard                | `http://app.localtest.me`     |
+| API                      | `http://api.localtest.me`     |
+| MCP server               | `http://api.localtest.me/mcp` |
+| Sign-in emails (Mailpit) | `http://localhost:8025`       |
 
 Sign in to the dashboard with the `EMAIL` from `.env`, which is `admin@example.com` by default, and read the code in Mailpit.
 
@@ -55,6 +55,7 @@ To use the [CLI](/docs/cli), run `medialit login --endpoint http://api.localtest
     ```
 
     The response is the new file. Note its `mediaId`.
+
 3. Seal the file. Uploads stay temporary, and are deleted after a while, until you [seal](/docs/concepts#temporary-uploads-and-sealing) them:
 
     ```sh
@@ -92,6 +93,7 @@ The API does not start without HTTPS: in production it refuses `http://` URLs in
 The Docker Compose setup stores files in its bundled MinIO. To use another provider, replace the MinIO settings of the `medialit` service in `docker-compose.yml` with the values from the steps below.
 
 ### Requirements
+
 1. Two buckets: one dedicated to private files and one to public files.
 2. Private bucket access settings: public access disabled.
 3. Public bucket access settings: public access enabled.
@@ -109,6 +111,7 @@ The Docker Compose setup stores files in its bundled MinIO. To use another provi
 ![AWS Public bucket public access](https://cdn.medialit.cloud/medialit-service/p/aeKhGcJv105kDM4n8rUuin__kx3pU7UiMC1JXBjP/main.png)
 
 **2.2 Configure bucket policy**
+
 ```json
 {
     "Version": "2012-10-17",
@@ -123,7 +126,9 @@ The Docker Compose setup stores files in its bundled MinIO. To use another provi
     ]
 }
 ```
+
 **3. Set environment variables**
+
 ```sh
 CLOUD_KEY=your_aws_access_key
 CLOUD_SECRET=your_aws_secret_key
@@ -174,6 +179,7 @@ CLOUDFRONT_KEY_PAIR_ID=YOUR_KEY_PAIR_ID
 ![Cloudflare R2 public bucket config](https://cdn.medialit.cloud/medialit-service/p/ezqHRIPNorZOwWC_o-0Wo_Uzk91Df05-iA5qANvj/main.png)
 
 **3. Set environment variables**
+
 ```sh
 CLOUD_KEY=your_cloudflare_r2_access_key
 CLOUD_SECRET=your_cloudflare_r2_secret_key
@@ -204,47 +210,47 @@ Below example uses Traefik IngressRoute in Kubernetes to create a new Ingress ro
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: minio-api
+    name: minio-api
 spec:
-  entryPoints:
-    - websecure
-  routes:
-    - match: Host(`minio-api.example.com`)
-      kind: Rule
-      services:
-        - name: minio-api
-          port: 9000
-    - match: HostRegexp(`^.+\.minio-api\.example\.com$`)
-      kind: Rule
-      services:
-        - name: minio-api
-          port: 9000
+    entryPoints:
+        - websecure
+    routes:
+        - match: Host(`minio-api.example.com`)
+          kind: Rule
+          services:
+              - name: minio-api
+                port: 9000
+        - match: HostRegexp(`^.+\.minio-api\.example\.com$`)
+          kind: Rule
+          services:
+              - name: minio-api
+                port: 9000
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: minio-api
+    name: minio-api
 spec:
-  type: ExternalName
-  ports:
-    - name: http
-      port: 9000
-  externalName: <ip address of minio VM>
+    type: ExternalName
+    ports:
+        - name: http
+          port: 9000
+    externalName: <ip address of minio VM>
 ```
 
 **2. Configure DNS:**
 The following 2 DNS entries need to be created in DNS provider:
 
-| DNS Name                | Record Type | IP Address                       |
-| ----------------------- | ----------- | -------------------------------- |
-| minio-api.example.com   | A           | Reverse Proxy IP                 |
-| *.minio-api.example.com | A           | Reverse Proxy IP                 |
+| DNS Name                 | Record Type | IP Address       |
+| ------------------------ | ----------- | ---------------- |
+| minio-api.example.com    | A           | Reverse Proxy IP |
+| \*.minio-api.example.com | A           | Reverse Proxy IP |
 
 **Certificates:**
 
 Additional SSL certificate for wildcard subdomain need to be created either in Minio VM (e.g CertBot), or in reverse proxy when using SSL termination.
 
-Below example uses Cert Manager in Kubernetes to issue new certificate for reverse proxy. 
+Below example uses Cert Manager in Kubernetes to issue new certificate for reverse proxy.
 
 Adjust accordingly for your reverse proxy or Minio VM certificate generator of choice.
 
@@ -252,18 +258,18 @@ Adjust accordingly for your reverse proxy or Minio VM certificate generator of c
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: cluster-certificate
-  namespace: cert-manager
+    name: cluster-certificate
+    namespace: cert-manager
 spec:
-  secretName: cluster-certificate-tls
-  issuerRef:
-    name: cloudflare-issuer
-    kind: ClusterIssuer
-  commonName: "*.example.com"
-  dnsNames:
-  - "*.example.com"
-  - "minio-api.example.com"
-  - "*.minio-api.example.com"
+    secretName: cluster-certificate-tls
+    issuerRef:
+        name: cloudflare-issuer
+        kind: ClusterIssuer
+    commonName: "*.example.com"
+    dnsNames:
+        - "*.example.com"
+        - "minio-api.example.com"
+        - "*.minio-api.example.com"
 ```
 
 **3. Configure private bucket**
@@ -314,18 +320,18 @@ MEDIALIT_APIKEY=ml_live_<output of: openssl rand -hex 32>
 
 ```yaml
 services:
-  medialit:
-    environment:
-      EMAIL: ${ADMIN_EMAIL}
-      MEDIALIT_BOOTSTRAP_API_KEY: ${MEDIALIT_APIKEY}
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
-  your-app:
-    environment:
-      MEDIALIT_APIKEY: ${MEDIALIT_APIKEY}
-      MEDIALIT_SERVER: http://medialit:8000
-    depends_on:
-      medialit: { condition: service_healthy }
+    medialit:
+        environment:
+            EMAIL: ${ADMIN_EMAIL}
+            MEDIALIT_BOOTSTRAP_API_KEY: ${MEDIALIT_APIKEY}
+        healthcheck:
+            test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+    your-app:
+        environment:
+            MEDIALIT_APIKEY: ${MEDIALIT_APIKEY}
+            MEDIALIT_SERVER: http://medialit:8000
+        depends_on:
+            medialit: { condition: service_healthy }
 ```
 
 - The value must be at least 43 characters from `A-Z`, `a-z`, `0-9`, `_` and `-`. MediaLit refuses to start otherwise, and also if `EMAIL` is missing.

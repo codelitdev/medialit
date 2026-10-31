@@ -52,7 +52,7 @@ export function Upload() {
 ### Props
 
 <TypeTable
-  type={{
+type={{
     signatureEndpoint: {
       type: "string",
       description: "Your route that returns { signature, endpoint }. It is called with POST and the browser's cookies.",
@@ -166,7 +166,7 @@ export function UploadButton() {
 It takes the same options as `MediaLitUploader` except `accept`, `maxFileSize`, `labels`, `disabled` and `className`, and returns:
 
 <TypeTable
-  type={{
+type={{
     upload: {
       type: "(file: File, options?) => Promise<UploadedMedia | null>",
       description: "Starts an upload and cancels any upload already running. Resolves to null if the upload fails or is cancelled. It never rejects. The options override the hook's options for this upload.",
@@ -186,7 +186,7 @@ It takes the same options as `MediaLitUploader` except `accept`, `maxFileSize`, 
 What an upload returns.
 
 <TypeTable
-  type={{
+type={{
     mediaId: { type: "string", description: "Pass this to your server to seal, get or delete the file." },
     originalFileName: { type: "string" },
     mimeType: { type: "string" },

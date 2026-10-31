@@ -29,9 +29,10 @@ MediaLit supports two ways to authenticate your MCP client. **Using the OAuth 2.
 ### 1. OAuth 2.0 Setup (Recommended)
 
 Connecting with OAuth is straightforward:
+
 1. **Enter the Connection URL:** Provide the client with the MediaLit MCP server URL: `https://api.medialit.cloud/mcp`
 2. **Redirect & Login:** The client will redirect you to the MediaLit login screen.
-3. **Authorize:** Enter your email address to log in, and authorize the connection. 
+3. **Authorize:** Enter your email address to log in, and authorize the connection.
 
 Once approved, you are logged in and the client will automatically handle connection keys in the background.
 
@@ -54,6 +55,7 @@ Then run `/mcp` in Claude Code to sign in.
 If you are using developer-focused tools like Cursor or Claude Code and prefer a quick configuration, you can use your MediaLit account API key instead.
 
 Add the following config to your client:
+
 - **Header:** `x-medialit-apikey`
 - **Value:** `YOUR_API_KEY`
 
@@ -63,24 +65,25 @@ Since Claude Desktop communicates via standard input/output (stdio), you must us
 
 ```json
 {
-  "mcpServers": {
-    "medialit": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://api.medialit.cloud/mcp",
-        "--header",
-        "x-medialit-apikey: ${API_KEY}"
-      ],
-      "env": {
-        "API_KEY": "YOUR_API_KEY"
-      }
+    "mcpServers": {
+        "medialit": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "https://api.medialit.cloud/mcp",
+                "--header",
+                "x-medialit-apikey: ${API_KEY}"
+            ],
+            "env": {
+                "API_KEY": "YOUR_API_KEY"
+            }
+        }
     }
-  }
 }
 ```
 
 **VS Code configuration (`mcp.json`):**
+
 ```
 {
     "servers": {
@@ -117,39 +120,51 @@ The MediaLit MCP server exposes the following tools to connected agents:
 ### Media Management
 
 #### `list_media`
+
 Returns a paginated list of finalized (sealed) media items.
+
 - **Inputs:**
-  - `page` *(number, optional)*: Page offset (default: `1`).
-  - `limit` *(number, optional)*: Items per page (default: `10`).
-  - `access` *("public" | "private", optional)*: Filter by accessibility level.
-  - `group` *(string, optional)*: Filter by custom group label.
+    - `page` _(number, optional)_: Page offset (default: `1`).
+    - `limit` _(number, optional)_: Items per page (default: `10`).
+    - `access` _("public" | "private", optional)_: Filter by accessibility level.
+    - `group` _(string, optional)_: Filter by custom group label.
 - **Output:** `{ mediaItems: Array, total: number, page: number }`
 
 #### `get_media`
+
 Fetches complete metadata for a single media item by its ID.
+
 - **Inputs:**
-  - `mediaId` *(string, required)*: The unique ID of the media item.
+    - `mediaId` _(string, required)_: The unique ID of the media item.
 - **Output:** The media document.
 - **Note:** Unlike `list_media`, this tool can fetch `temp: true` (unsealed) media items, allowing validation before sealing.
 
 #### `get_media_count`
+
 Returns the total count of finalized media items in the account.
+
 - **Output:** `{ count: number }`
 
 #### `get_total_storage`
+
 Returns the total storage space consumed by the account, along with the allowed maximum limit in bytes.
+
 - **Output:** `{ storage: number, maxStorage: number }`
 
 #### `seal_media`
+
 Finalizes a temporary media upload, allowing it to persist and show up in lists/tallies.
+
 - **Inputs:**
-  - `mediaId` *(string, required)*: The unique ID of the media item to seal.
+    - `mediaId` _(string, required)_: The unique ID of the media item to seal.
 - **Output:** The updated media document.
 
 #### `delete_media`
+
 Permanently deletes a media file and all generated derivatives (thumbnails, WebP conversions) from storage.
+
 - **Inputs:**
-  - `mediaId` *(string, required)*: The unique ID of the media item to delete.
+    - `mediaId` _(string, required)_: The unique ID of the media item to delete.
 - **Output:** `{ deleted: true, mediaId: string }`
 
 ---
@@ -157,21 +172,25 @@ Permanently deletes a media file and all generated derivatives (thumbnails, WebP
 ### File Uploading & Access
 
 #### `upload_media`
+
 Uploads a new file directly using base64-encoded payload parameters.
+
 - **Inputs:**
-  - `fileBase64` *(string, required)*: Base64-encoded string of the file bytes.
-  - `fileName` *(string, required)*: Filename with extension (e.g. `image.png`).
-  - `mimeType` *(string, required)*: The MIME type of the file (e.g. `image/png`).
-  - `caption` *(string, optional)*: Text description or caption.
-  - `access` *("public" | "private", optional)*: Access controls (default: `private`).
-  - `group` *(string, optional)*: Custom folder/group tag.
+    - `fileBase64` _(string, required)_: Base64-encoded string of the file bytes.
+    - `fileName` _(string, required)_: Filename with extension (e.g. `image.png`).
+    - `mimeType` _(string, required)_: The MIME type of the file (e.g. `image/png`).
+    - `caption` _(string, optional)_: Text description or caption.
+    - `access` _("public" | "private", optional)_: Access controls (default: `private`).
+    - `group` _(string, optional)_: Custom folder/group tag.
 - **Output:** `{ mediaId: string }`
 - **Limits:** Requests to the MCP server are limited to 2 MB, and base64 makes a file about a third larger, so this tool works for files up to about 1.5 MB. For larger files, an agent that can run commands can use the [CLI](/docs/cli), which uploads in resumable chunks. Otherwise, use `create_upload_signature` and upload the file with [`@medialit/uploader`](/docs/other-frameworks) or the REST API.
 
 #### `create_upload_signature`
+
 Creates a short-lived [upload signature](/docs/concepts#upload-signatures) that lets a browser or script upload one file to MediaLit without an API key.
+
 - **Inputs:**
-  - `group` *(string, optional)*: Optional group to associate with the uploaded file.
+    - `group` _(string, optional)_: Optional group to associate with the uploaded file.
 - **Output:** `{ signature: string }`
 
 ---
@@ -179,14 +198,18 @@ Creates a short-lived [upload signature](/docs/concepts#upload-signatures) that 
 ### Media Settings
 
 #### `get_media_settings`
+
 Retrieves the active image processing configurations for the account, such as auto-conversion behaviors.
+
 - **Output:** Active configurations (WebP defaults, thumbnail dimensions).
 
 #### `update_media_settings`
+
 Overwrites specific image processing defaults. Supply only the properties you wish to modify.
+
 - **Inputs:**
-  - `useWebP` *(boolean, optional)*: Auto-convert uploaded images to WebP.
-  - `webpOutputQuality` *(number, optional)*: Output quality between `0` and `100`.
-  - `thumbnailWidth` *(number, optional)*: Default width of generated thumbnails.
-  - `thumbnailHeight` *(number, optional)*: Default height of generated thumbnails.
+    - `useWebP` _(boolean, optional)_: Auto-convert uploaded images to WebP.
+    - `webpOutputQuality` _(number, optional)_: Output quality between `0` and `100`.
+    - `thumbnailWidth` _(number, optional)_: Default width of generated thumbnails.
+    - `thumbnailHeight` _(number, optional)_: Default height of generated thumbnails.
 - **Output:** `{ updated: true }`

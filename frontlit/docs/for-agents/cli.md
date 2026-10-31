@@ -69,7 +69,7 @@ Unlike the API and the MCP server, the CLI [seals](/docs/concepts#temporary-uplo
 Large files are sent in chunks and retried if the connection drops.
 
 <TypeTable
-  type={{
+type={{
     "--public": { type: "flag", description: "Anyone with the link can open the file." },
     "--caption <text>": { type: "string", description: "Stored with every file in this upload." },
     "--group <name>": { type: "string", description: "Puts the files in a group." },
