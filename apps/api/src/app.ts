@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import rateLimit from "express-rate-limit";
 import mediaRoutes from "./media/routes";
 import signatureRoutes from "./signature/routes";
@@ -95,6 +96,11 @@ export function createApp(input: {
         }),
     );
     app.use(express.urlencoded({ extended: false }));
+
+    // The REST API authenticates with an API key or bearer token, never a
+    // cookie, so any origin may call it: browser uploads, and the "Try it"
+    // panel in the docs at medialit.cloud/docs/api.
+    app.use(["/health", "/media", "/settings/media"], cors());
 
     app.get(
         "/health",
