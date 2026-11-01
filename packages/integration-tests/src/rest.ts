@@ -348,7 +348,8 @@ export async function runIntegrationTests(
         );
         checkMedia(retrieved, expected);
         await download(retrieved);
-        await checkTotals(0, 0); // Drafts are not included in the public totals.
+        // Drafts take up storage but are not counted as media.
+        await checkTotals(png.length * uploads.length, 0);
         log(`PASS upload and get ${label} (${access})`);
     }
 
@@ -390,7 +391,7 @@ export async function runIntegrationTests(
                 ),
                 expected,
             );
-            await checkTotals(png.length * (index + 1), index + 1);
+            await checkTotals(png.length * uploads.length, index + 1);
             log(`PASS seal ${expected.filename} and storage decrement`);
         }
         const listed = await list({ group });

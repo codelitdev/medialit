@@ -330,7 +330,8 @@ export async function runCliIntegrationTests(
         });
         pending.add(tempId);
         assert.deepEqual(await list(), [], "--temp uploads must stay hidden");
-        await checkTotals(0, 0);
+        // The draft takes up storage but is not counted as media.
+        await checkTotals(png.length, 0);
         log("PASS upload --temp leaves the upload temporary and hidden");
 
         const sealed = object(await json(["seal", tempId]), "sealed media");
