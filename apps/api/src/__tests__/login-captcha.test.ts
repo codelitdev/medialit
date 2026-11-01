@@ -75,8 +75,12 @@ test("the login page renders the Turnstile widget", async () => {
     const response = await fetch(`${origin}/login`);
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, new RegExp(`data-sitekey="${siteKey}"`));
-    assert.match(html, /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/);
+    assert.ok(html.includes(`data-sitekey="${siteKey}"`));
+    assert.ok(
+        html.includes(
+            '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"',
+        ),
+    );
 });
 
 test("sending a sign-in code needs a Turnstile token", async () => {
