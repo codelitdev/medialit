@@ -7,7 +7,7 @@ function recordingSteps(calls: string[]) {
         stopBackgroundJobs: () => {
             calls.push("jobs");
         },
-        closeMcpSessions: async () => {
+        closeMcp: async () => {
             calls.push("mcp");
         },
         closeServer: async () => {

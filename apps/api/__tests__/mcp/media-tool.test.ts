@@ -1,6 +1,7 @@
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
-import { handleGetTotalStorageTool } from "../../src/mcp/tools/media";
+import mediaQueries from "../../src/media/queries";
+import { callTool } from "./call-tool";
 import { maxStorageAllowedSubscribed } from "../../src/config/constants";
 import { billingStateSource } from "../../src/billing/entitlements";
 
@@ -35,28 +36,16 @@ describe("MCP get_total_storage", () => {
         };
 
         let queriedUserId: unknown;
-        const response = await handleGetTotalStorageTool(
-            {},
-            {
-                authInfo: {
-                    extra: {
-                        authKind: "apikey",
-                        userId: user._id,
-                        user,
-                        appId: "test-app",
-                    },
-                },
-            },
-            {
-                getTotalSpace: async ({ userId }: any) => {
-                    queriedUserId = userId;
-                    return 2103931;
-                },
+        mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
+            async ({ userId }: any) => {
+                queriedUserId = userId;
+                return 2103931;
             },
         );
+        const response = await callTool("get_total_storage", { user });
 
         assert.equal(queriedUserId, user._id);
-        assert.deepEqual((response as any).structuredContent, {
+        assert.deepEqual(response, {
             storage: 2103931,
             maxStorage: maxStorageAllowedSubscribed,
         });

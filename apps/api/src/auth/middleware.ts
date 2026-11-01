@@ -1,5 +1,4 @@
 import { NextFunction, Response } from "express";
-import { getMcpResourceMetadataUrl } from "./bearer";
 import { AuthResult, resolveAuth, sendAuthError } from "./resolve-auth";
 import { API_KEY_SCOPES } from "./scopes";
 
@@ -8,13 +7,7 @@ type AuthResolver = (input: {
     apiKeyHeader?: unknown;
 }) => Promise<AuthResult>;
 
-type AuthMiddlewareMode = "rest" | "mcp";
-
-function applyAuthToRequest(
-    req: any,
-    auth: AuthResult,
-    mode: AuthMiddlewareMode,
-) {
+function applyAuthToRequest(req: any, auth: AuthResult) {
     if (auth.status !== "authenticated") return;
 
     req.user = auth.user;
@@ -22,20 +15,9 @@ function applyAuthToRequest(
     req.appId = auth.appId;
     req.apiKeyId = auth.kind === "apikey" ? auth.apiKeyId : undefined;
     req.scopes = auth.kind === "oauth" ? auth.scopes : API_KEY_SCOPES;
-
-    if (mode === "mcp") {
-        req.authKind = auth.kind;
-        req.userId = auth.userId;
-        if (auth.kind === "oauth") {
-            req.clientId = auth.clientId;
-        }
-    }
 }
 
-export function createAuthMiddleware(
-    mode: AuthMiddlewareMode,
-    authResolver: AuthResolver = resolveAuth,
-) {
+export function createAuthMiddleware(authResolver: AuthResolver = resolveAuth) {
     return async function authMiddleware(
         req: any,
         res: Response,
@@ -46,20 +28,12 @@ export function createAuthMiddleware(
             apiKeyHeader: req.headers["x-medialit-apikey"],
         });
 
-        if (
-            sendAuthError(
-                res,
-                auth,
-                mode === "mcp" ? getMcpResourceMetadataUrl() : undefined,
-            )
-        )
-            return;
+        if (sendAuthError(res, auth)) return;
         if (auth.status !== "authenticated") return;
 
-        applyAuthToRequest(req, auth, mode);
+        applyAuthToRequest(req, auth);
         next();
     };
 }
 
-export const apikey = createAuthMiddleware("rest");
-export const mcpAuth = createAuthMiddleware("mcp");
+export const apikey = createAuthMiddleware();

@@ -1,11 +1,11 @@
-import type { McpToolRegistrar } from "../server";
 import { z } from "zod";
 import mediaService from "../../media/service";
-import * as mediaQueries from "../../media/queries";
+import mediaQueries from "../../media/queries";
 import { maxStorageFor } from "../../billing/entitlements";
-import { NOT_FOUND, SUCCESS } from "../../config/strings";
-import { getMcpAuth } from "../auth-context";
-import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
+import { NOT_ENOUGH_STORAGE, SUCCESS } from "../../config/strings";
+import type { MedialitMcpTool } from "../context";
+import { medialitTool } from "../tool";
+import { notFound, toolError } from "./errors";
 import {
     mediaListSchema,
     mediaSchema,
@@ -13,277 +13,155 @@ import {
     successMessageSchema,
 } from "./schemas";
 
-export function registerMediaTools(server: McpToolRegistrar): void {
-    server.registerTool(
-        "list_media",
-        {
-            description:
-                "Returns a paginated list of media items. Optionally filter by access level (public or private) or group label.",
-            inputSchema: {
-                page: z
-                    .number()
-                    .int()
-                    .min(1)
-                    .optional()
-                    .describe("Page number (default: 1)"),
-                limit: z
-                    .number()
-                    .int()
-                    .min(1)
-                    .optional()
-                    .describe("Items per page (default: 10)"),
-                access: z
-                    .enum(["public", "private"])
-                    .optional()
-                    .describe("Filter by access level"),
-                group: z.string().optional().describe("Filter by group label"),
-            },
-            outputSchema: mediaListSchema,
-            annotations: {
-                title: "List media",
-                readOnlyHint: true,
-                idempotentHint: true,
-                openWorldHint: false,
-                destructiveHint: false,
-            },
+export const mediaTools = (): MedialitMcpTool[] => [
+    medialitTool({
+        name: "list_media",
+        title: "List media",
+        risk: "read",
+        description:
+            "Returns a paginated list of media items. Optionally filter by access level (public or private) or group label.",
+        inputSchema: z.object({
+            page: z
+                .number()
+                .int()
+                .min(1)
+                .optional()
+                .describe("Page number (default: 1)"),
+            limit: z
+                .number()
+                .int()
+                .min(1)
+                .optional()
+                .describe("Items per page (default: 10)"),
+            access: z
+                .enum(["public", "private"])
+                .optional()
+                .describe("Filter by access level"),
+            group: z.string().optional().describe("Filter by group label"),
+        }),
+        outputSchema: mediaListSchema,
+        annotations: { idempotentHint: true },
+        async handler({ context, args }) {
+            const mediaItems = await mediaService.getPage({
+                userId: context.userId,
+                appId: context.appId,
+                access: args.access,
+                page: args.page || 1,
+                group: args.group,
+                recordsPerPage: args.limit || 10,
+            });
+            return { mediaItems };
         },
-        async (args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId } = auth;
-            try {
-                const currentPage = args.page || 1;
-                const recordsPerPage = args.limit || 10;
-                const result = await mediaService.getPage({
-                    userId,
-                    appId,
-                    access: args.access,
-                    page: currentPage,
-                    group: args.group,
-                    recordsPerPage,
-                });
-                return {
-                    content: [
-                        { type: "text" as const, text: JSON.stringify(result) },
-                    ],
-                    structuredContent: { mediaItems: result },
-                };
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
+    }),
 
-    server.registerTool(
-        "get_media",
-        {
-            description:
-                "Returns full metadata for a single media item identified by its ID.",
-            inputSchema: {
-                mediaId: z.string().describe("Media item ID"),
-            },
-            outputSchema: mediaSchema,
-            annotations: {
-                title: "Get media",
-                readOnlyHint: true,
-                idempotentHint: true,
-                openWorldHint: false,
-                destructiveHint: false,
-            },
+    medialitTool({
+        name: "get_media",
+        title: "Get media",
+        risk: "read",
+        description:
+            "Returns full metadata for a single media item identified by its ID.",
+        inputSchema: z.object({
+            mediaId: z.string().describe("Media item ID"),
+        }),
+        outputSchema: mediaSchema,
+        annotations: { idempotentHint: true },
+        async handler({ context, args }) {
+            const media = await mediaService.getMediaDetails({
+                userId: context.userId,
+                appId: context.appId,
+                mediaId: args.mediaId,
+            });
+            return media ?? notFound();
         },
-        async (args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId } = auth;
+    }),
+
+    medialitTool({
+        name: "get_media_count",
+        title: "Get media count",
+        risk: "read",
+        description:
+            "Returns the total number of media items in the connected app.",
+        inputSchema: z.object({}),
+        outputSchema: z.object({ count: z.number() }),
+        annotations: { idempotentHint: true },
+        async handler({ context }) {
+            const count = await mediaQueries.getMediaCount({
+                userId: context.userId,
+                appId: context.appId,
+            });
+            return { count };
+        },
+    }),
+
+    medialitTool({
+        name: "get_total_storage",
+        title: "Get total storage",
+        risk: "read",
+        description:
+            "Returns the total storage used by the connected app and the account storage limit, both in bytes.",
+        inputSchema: z.object({}),
+        outputSchema: storageSchema,
+        annotations: { idempotentHint: true },
+        async handler({ context }) {
+            const storage = await mediaQueries.getTotalSpace({
+                userId: context.userId,
+                appId: context.appId,
+            });
+            return { storage, maxStorage: await maxStorageFor(context.user) };
+        },
+    }),
+
+    medialitTool({
+        name: "delete_media",
+        title: "Delete media",
+        risk: "destructive",
+        description:
+            "Permanently deletes a media item. This action cannot be undone.",
+        inputSchema: z.object({
+            mediaId: z.string().describe("ID of the media item to delete"),
+        }),
+        outputSchema: successMessageSchema,
+        annotations: { openWorldHint: true },
+        async handler({ context, args }) {
+            await mediaService.deleteMedia({
+                userId: context.userId,
+                appId: context.appId,
+                mediaId: args.mediaId,
+            });
+            return { message: SUCCESS };
+        },
+    }),
+
+    medialitTool({
+        name: "seal_media",
+        title: "Seal media",
+        // Sealing can't be undone, and a public upload becomes public.
+        risk: "destructive",
+        description:
+            "Finalizes a temporary upload for retention, preventing automatic cleanup. Public uploads become publicly accessible. Already sealed items are returned unchanged.",
+        inputSchema: z.object({
+            mediaId: z.string().describe("ID of the media item to seal"),
+        }),
+        outputSchema: mediaSchema,
+        annotations: { openWorldHint: true },
+        async handler({ context, args }) {
             try {
-                const media = await mediaService.getMediaDetails({
-                    userId,
-                    appId,
+                return await mediaService.sealMedia({
+                    userId: context.userId,
+                    appId: context.appId,
                     mediaId: args.mediaId,
                 });
-                if (!media) {
-                    return {
-                        content: [
-                            {
-                                type: "text" as const,
-                                text: NOT_FOUND,
-                            },
-                        ],
-                        isError: true,
-                    };
+            } catch (error) {
+                const message = (error as Error | undefined)?.message;
+                if (message === "Media not found") return notFound();
+                if (message === NOT_ENOUGH_STORAGE) {
+                    return toolError("forbidden", {
+                        reason: "not_enough_storage",
+                        message: NOT_ENOUGH_STORAGE,
+                    });
                 }
-                return {
-                    content: [
-                        { type: "text" as const, text: JSON.stringify(media) },
-                    ],
-                    structuredContent: media as any,
-                };
-            } catch {
-                return INTERNAL_ERROR;
+                throw error;
             }
         },
-    );
-
-    server.registerTool(
-        "get_media_count",
-        {
-            description:
-                "Returns the total number of media items in the connected app.",
-            outputSchema: z.object({ count: z.number() }),
-            annotations: {
-                title: "Get media count",
-                readOnlyHint: true,
-                idempotentHint: true,
-                openWorldHint: false,
-                destructiveHint: false,
-            },
-        },
-        async (_args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId } = auth;
-            try {
-                const count = await mediaQueries.getMediaCount({
-                    userId,
-                    appId,
-                });
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: JSON.stringify({ count }),
-                        },
-                    ],
-                    structuredContent: { count },
-                };
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
-
-    server.registerTool(
-        "get_total_storage",
-        {
-            description:
-                "Returns the total storage used by the connected app and the account storage limit, both in bytes.",
-            outputSchema: storageSchema,
-            annotations: {
-                title: "Get total storage",
-                readOnlyHint: true,
-                idempotentHint: true,
-                openWorldHint: false,
-                destructiveHint: false,
-            },
-        },
-        handleGetTotalStorageTool,
-    );
-
-    server.registerTool(
-        "delete_media",
-        {
-            description:
-                "Permanently deletes a media item. This action cannot be undone.",
-            inputSchema: {
-                mediaId: z.string().describe("ID of the media item to delete"),
-            },
-            outputSchema: successMessageSchema,
-            annotations: {
-                title: "Delete media",
-                readOnlyHint: false,
-                destructiveHint: true,
-                openWorldHint: true,
-            },
-        },
-        async (args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId } = auth;
-            try {
-                await mediaService.deleteMedia({
-                    userId,
-                    appId,
-                    mediaId: args.mediaId,
-                });
-                const response = { message: SUCCESS };
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: JSON.stringify(response),
-                        },
-                    ],
-                    structuredContent: response,
-                };
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
-
-    server.registerTool(
-        "seal_media",
-        {
-            description:
-                "Finalizes a temporary upload for retention, preventing automatic cleanup. Public uploads become publicly accessible. Already sealed items are returned unchanged.",
-            inputSchema: {
-                mediaId: z.string().describe("ID of the media item to seal"),
-            },
-            outputSchema: mediaSchema,
-            annotations: {
-                title: "Seal media",
-                readOnlyHint: false,
-                destructiveHint: true,
-                openWorldHint: true,
-            },
-        },
-        async (args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId } = auth;
-            try {
-                const media = await mediaService.sealMedia({
-                    userId,
-                    appId,
-                    mediaId: args.mediaId,
-                });
-                return {
-                    content: [
-                        { type: "text" as const, text: JSON.stringify(media) },
-                    ],
-                    structuredContent: media as any,
-                };
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
-}
-
-export async function handleGetTotalStorageTool(
-    _args: unknown,
-    extra: any,
-    dependencies = { getTotalSpace: mediaQueries.getTotalSpace },
-) {
-    const auth = getMcpAuth(extra);
-    if (!auth) return AUTH_ERROR;
-    const { user, userId, appId } = auth;
-    try {
-        const storage = await dependencies.getTotalSpace({ userId, appId });
-        const response = {
-            storage,
-            maxStorage: await maxStorageFor(user),
-        };
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: JSON.stringify(response),
-                },
-            ],
-            structuredContent: response,
-        };
-    } catch {
-        return INTERNAL_ERROR;
-    }
-}
+    }),
+];

@@ -4,8 +4,8 @@
  * MEDIALIT_APIKEY=... MEDIALIT_SERVER=localhost:8000 \
  *   bun --filter @medialit/integration-tests test:mcp
  *
- * This exercises the MCP Streamable HTTP endpoint and deletes only media
- * created by this run.
+ * This exercises the stateless MCP Streamable HTTP endpoint and deletes only
+ * media created by this run.
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -76,10 +76,10 @@ function mediaSettings(value: unknown): MediaSettings {
     };
 }
 
-class McpSession {
-    private sessionId?: string;
+/** A 2025-era Streamable HTTP client. The server is stateless: it never
+ * issues a session ID, so every request stands alone. */
+class McpClient {
     private protocolVersion?: string;
-    private lastSessionId?: string;
     private nextId = 1;
 
     constructor(
@@ -96,7 +96,6 @@ class McpSession {
             "content-type": "application/json",
             "x-medialit-apikey": this.apiKey,
         });
-        if (this.sessionId) headers.set("mcp-session-id", this.sessionId);
         if (this.protocolVersion) {
             headers.set("mcp-protocol-version", this.protocolVersion);
         }
@@ -108,8 +107,11 @@ class McpSession {
             redirect: "error",
             signal: AbortSignal.timeout(30_000),
         });
-        this.lastSessionId =
-            response.headers.get("mcp-session-id") ?? this.lastSessionId;
+        assert.equal(
+            response.headers.get("mcp-session-id"),
+            null,
+            "The MCP server must not issue sessions",
+        );
         const body = await response.text();
         if (response.status !== expectedStatus) {
             throw new Error(
@@ -156,7 +158,6 @@ class McpSession {
             "MCP initialize returned an error",
         );
         const result = object(response.result, "initialize result");
-        this.sessionId = nonemptyText(this.lastSessionId, "MCP session ID");
         this.protocolVersion = nonemptyText(
             result.protocolVersion,
             "MCP protocol version",
@@ -208,30 +209,6 @@ class McpSession {
             throw new Error(`MCP tool ${name} failed: ${detail}`);
         }
         return object(result.structuredContent, `${name} structuredContent`);
-    }
-
-    async close(): Promise<void> {
-        if (!this.sessionId) return;
-        const headers = new Headers({ "x-medialit-apikey": this.apiKey });
-        headers.set("mcp-session-id", this.sessionId);
-        if (this.protocolVersion) {
-            headers.set("mcp-protocol-version", this.protocolVersion);
-        }
-        const response = await fetch(this.endpoint, {
-            method: "DELETE",
-            headers,
-            redirect: "error",
-            signal: AbortSignal.timeout(30_000),
-        });
-        if (response.status !== 200) {
-            const body = (await response.text())
-                .split(this.apiKey)
-                .join("[redacted]");
-            throw new Error(
-                `MCP session close: expected HTTP 200, got ${response.status}: ${body.slice(0, 1000)}`,
-            );
-        }
-        this.sessionId = undefined;
     }
 }
 
@@ -285,7 +262,7 @@ export async function runMcpIntegrationTests(
     let settingsToRestore: MediaSettings | undefined;
     let failure: unknown;
     const cleanupErrors: unknown[] = [];
-    const client = new McpSession(endpoint, apiKey);
+    const client = new McpClient(endpoint, apiKey);
 
     async function storage(): Promise<Stats> {
         const result = await client.callTool("get_total_storage");
@@ -426,6 +403,11 @@ export async function runMcpIntegrationTests(
         assert.equal(sealAnnotations.readOnlyHint, false);
         assert.equal(sealAnnotations.destructiveHint, true);
         assert.equal(sealAnnotations.openWorldHint, true);
+        const sealInput = object(sealTool.inputSchema, "seal_media input");
+        assert(
+            object(sealInput.properties, "seal_media properties").confirm,
+            "Destructive tools must advertise confirm",
+        );
 
         const originalSettings = await getMediaSettings();
         settingsToRestore = originalSettings;
@@ -488,13 +470,25 @@ export async function runMcpIntegrationTests(
             [],
             "Signed draft uploads must stay hidden",
         );
+        // Destructive tools refuse to run until the user has confirmed.
+        const unconfirmed = await client.callToolResult("delete_media", {
+            mediaId: signedMediaId,
+        });
+        assert.equal(unconfirmed.isError, true);
+        assert.deepEqual(
+            object(unconfirmed.structuredContent, "refusal").details,
+            { confirmation: "required" },
+        );
         const signedDelete = await client.callTool("delete_media", {
             mediaId: signedMediaId,
+            confirm: true,
         });
         assert.equal(signedDelete.message, "success");
         pending.delete(signedMediaId);
         await checkTotals(0, 0);
-        log("PASS create_upload_signature and delete_media on a signed draft");
+        log(
+            "PASS create_upload_signature, and delete_media on a signed draft after confirmation",
+        );
 
         uploadAttempted = true;
         const filename = `${group}.png`;
@@ -522,10 +516,16 @@ export async function runMcpIntegrationTests(
         await checkTotals(png.length, 0);
         log("PASS upload_media and draft visibility");
 
-        const sealed = await client.callTool("seal_media", { mediaId });
+        const sealed = await client.callTool("seal_media", {
+            mediaId,
+            confirm: true,
+        });
         assert.equal(sealed.mediaId, mediaId);
         assert.equal(sealed.access, "private");
-        const sealedAgain = await client.callTool("seal_media", { mediaId });
+        const sealedAgain = await client.callTool("seal_media", {
+            mediaId,
+            confirm: true,
+        });
         assert.equal(sealedAgain.mediaId, mediaId);
         assert.equal(sealedAgain.access, "private");
         const retrieved = await client.callTool("get_media", { mediaId });
@@ -540,7 +540,10 @@ export async function runMcpIntegrationTests(
         await checkTotals(png.length, 1);
         log("PASS seal_media, get_media, list_media and storage/count totals");
 
-        const deleted = await client.callTool("delete_media", { mediaId });
+        const deleted = await client.callTool("delete_media", {
+            mediaId,
+            confirm: true,
+        });
         assert.equal(deleted.message, "success");
         pending.delete(mediaId);
         const missing = await client.callToolResult("get_media", { mediaId });
@@ -563,7 +566,10 @@ export async function runMcpIntegrationTests(
         }
         for (const mediaId of pending) {
             try {
-                await client.callTool("delete_media", { mediaId });
+                await client.callTool("delete_media", {
+                    mediaId,
+                    confirm: true,
+                });
                 pending.delete(mediaId);
                 log(`CLEANUP deleted ${mediaId}`);
             } catch (error) {
@@ -584,12 +590,6 @@ export async function runMcpIntegrationTests(
                 log(`CLEANUP verification failed: ${String(error)}`);
             }
         }
-        try {
-            await client.close();
-        } catch (error) {
-            cleanupErrors.push(error);
-            log(`CLEANUP failed to close MCP session: ${String(error)}`);
-        }
     }
 
     if (failure) throw failure;
@@ -599,5 +599,5 @@ export async function runMcpIntegrationTests(
             "MCP integration cleanup failed",
         );
     }
-    log("PASS MediaLit MCP lifecycle; media and session cleaned up");
+    log("PASS MediaLit MCP lifecycle; media cleaned up");
 }
