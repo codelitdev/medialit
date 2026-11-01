@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "sections": [
+    {
+      "folder": "introduction",
+      "name": "Introduction",
+      "order": 10
+    },
+    {
+      "folder": "for-agents",
+      "name": "For agents",
+      "order": 20
+    },
+    {
+      "folder": "for-apps",
+      "name": "For apps",
+      "order": 30
+    },
+    {
+      "folder": "for-humans",
+      "name": "For humans",
+      "order": 40
+    },
+    {
+      "folder": "self-hosting",
+      "name": "Self-hosting",
+      "order": 50
+    },
+    {
+      "folder": "resources",
+      "name": "Resources",
+      "order": 60
+    },
+    {
+      "folder": "upgrades",
+      "name": "Upgrades",
+      "order": 70
+    }
+  ]
+}

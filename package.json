@@ -28,7 +28,6 @@
     "release": "./release.sh",
     "dev:api": "bun --filter @medialit/api dev",
     "dev:web": "bun --filter @medialit/web dev --port 3007",
-    "dev:docs": "bun --filter @medialit/docs dev --port 3008",
     "test:integration": "bun --filter @medialit/integration-tests test:integration",
     "test:integration:stack": "bash packages/integration-tests/scripts/run-with-local-stack.sh"
   },
@@ -49,6 +48,7 @@
     "brace-expansion@>=2.0.0 <3.0.0": "2.1.7",
     "browserslist@>=4.0.0 <5.0.0": "4.28.7",
     "diff@>=4.0.0 <5.0.0": "4.0.4",
+    "dompurify@>=3.0.0 <4.0.0": "3.4.17",
     "fast-uri@>=3.0.0 <4.0.0": "3.1.9",
     "fast-xml-builder@>=1.0.0 <2.0.0": "1.1.7",
     "fast-xml-parser@>=5.0.0 <6.0.0": "5.7.0",
@@ -68,7 +68,7 @@
     "minimatch@>=3.0.0 <4.0.0": "3.1.4",
     "minimatch@>=9.0.0 <10.0.0": "9.0.7",
     "nanoid@>=3.0.0 <4.0.0": "3.3.18",
-    "next@>=16.0.0 <17.0.0": "16.4.1",
+    "next@>=16.0.0 <17.0.0": "16.4.3",
     "path-to-regexp@>=0.1.0 <0.2.0": "0.1.13",
     "path-to-regexp@>=8.0.0 <9.0.0": "8.4.0",
     "picomatch@>=2.0.0 <3.0.0": "2.3.2",
@@ -86,7 +86,7 @@
     "esbuild@>=0.27.3 <0.28.1": "0.28.2",
     "zod@>=4.0.0 <5.0.0": "4.6.7"
   },
-  "packageManager": "bun@1.4.1",
+  "packageManager": "bun@1.4.4",
   "workspaces": [
     "apps/*",
     "packages/*",

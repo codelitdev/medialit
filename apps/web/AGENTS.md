@@ -3,7 +3,7 @@
 ## Development Tips
 
 - Do not implement login related UI or API routes (which contains authorization related business logic) in the web app. All auth related stuff is controlled by the apps/api microservice
-- Use Bun 1.4.1 and run package-specific commands with `bun --filter @medialit/web <command>`.
+- Use Bun 1.4.4 and run package-specific commands with `bun --filter @medialit/web <command>`.
 - Keep the web app a thin client; all product behavior and authorization belong to the API.
 - Use `@codelitdev/design-system` for shared visual components and styles.
 - Run local dependencies from the repository root with `docker compose -f docker-compose.local.yml up`. Run the API and web app on the host, and do not run this compose file alongside `docker-compose.yml`.

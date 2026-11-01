@@ -15,7 +15,7 @@ a drop-in React uploader, an MCP server, a CLI and a dashboard.
 [![Integration tests](https://github.com/codelitdev/medialit/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/codelitdev/medialit/actions/workflows/integration-tests.yml)
 [![Code quality](https://github.com/codelitdev/medialit/actions/workflows/code-quality.yaml/badge.svg)](https://github.com/codelitdev/medialit/actions/workflows/code-quality.yaml)
 
-[Website](https://medialit.cloud) · [Docs](https://docs.medialit.cloud) · [Quick start](https://docs.medialit.cloud/quick-start) · [Self-hosting](https://docs.medialit.cloud/self-hosting)
+[Website](https://medialit.cloud) · [Docs](https://medialit.cloud/docs) · [Quick start](https://medialit.cloud/docs/quick-start) · [Self-hosting](https://medialit.cloud/docs/self-hosting)
 
 </div>
 
@@ -66,7 +66,7 @@ export const POST = createSignatureHandler({
 
 Connect an AI agent: add `https://api.medialit.cloud/mcp` as a remote MCP server in your client and sign in.
 
-See the [docs](https://docs.medialit.cloud) for the full guides, the [REST API](https://docs.medialit.cloud/api/uploadMedia) and [self-hosting](https://docs.medialit.cloud/self-hosting).
+See the [docs](https://medialit.cloud/docs) for the full guides, the [REST API](https://medialit.cloud/docs/api/upload-media) and [self-hosting](https://medialit.cloud/docs/self-hosting).
 
 ## Packages
 
@@ -78,17 +78,17 @@ See the [docs](https://docs.medialit.cloud) for the full guides, the [REST API](
 | [`@medialit/cli`](packages/cli)                             | The `medialit` command                                    | [![npm](https://img.shields.io/npm/v/@medialit/cli)](https://www.npmjs.com/package/@medialit/cli)                             |
 | [`@medialit/integration-tests`](packages/integration-tests) | Integration tests and a production synthetic check        | [![npm](https://img.shields.io/npm/v/@medialit/integration-tests)](https://www.npmjs.com/package/@medialit/integration-tests) |
 
-The repository also contains the API (`apps/api`), which owns all product behavior; the dashboard (`apps/web`), a thin client over the API; and the docs site (`apps/docs`).
+The repository also contains the API (`apps/api`), which owns all product behavior, and the dashboard (`apps/web`), a thin client over the API. The docs live in `frontlit/docs` and publish to [medialit.cloud/docs](https://medialit.cloud/docs) through FrontLit.
 
 ## Self-hosting
 
-MediaLit needs PostgreSQL and two S3-compatible buckets, one private and one public. The [self-hosting guide](https://docs.medialit.cloud/self-hosting) covers AWS S3 with CloudFront, Cloudflare R2 and MinIO, along with upload limits and monitoring.
+MediaLit needs PostgreSQL and two S3-compatible buckets, one private and one public. The [self-hosting guide](https://medialit.cloud/docs/self-hosting) covers AWS S3 with CloudFront, Cloudflare R2 and MinIO, along with upload limits and monitoring.
 
-Upgrading from v0.4.0? v0.5.0 replaces MongoDB with PostgreSQL. Follow the [upgrade guide](https://docs.medialit.cloud/upgrade-from-v0-4-0-to-v0-5-0).
+Upgrading from v0.4.0? v0.5.0 replaces MongoDB with PostgreSQL. Follow the [upgrade guide](https://medialit.cloud/docs/upgrade-from-v0-4-0-to-v0-5-0).
 
 ## Development
 
-**Requirements:** [Bun](https://bun.sh) 1.4.1, Docker, and `ffmpeg` and `webp` for thumbnails and image conversion. We develop on Linux; on Windows, use WSL.
+**Requirements:** [Bun](https://bun.sh) 1.4.4, Docker, and `ffmpeg` and `webp` for thumbnails and image conversion. We develop on Linux; on Windows, use WSL.
 
 ```bash
 sudo apt install ffmpeg webp
@@ -142,7 +142,7 @@ Please don't report security issues in public issues. Report them privately thro
 
 MediaLit is split into two licenses:
 
-- **AGPL-3.0-or-later** covers the server (`apps/api`), the dashboard (`apps/web`), the docs site (`apps/docs`) and internal tooling. If you run a modified MediaLit as a hosted service, you must share your changes under the same license. Self-hosting is free.
+- **AGPL-3.0-or-later** covers the server (`apps/api`), the dashboard (`apps/web`) and internal tooling. If you run a modified MediaLit as a hosted service, you must share your changes under the same license. Self-hosting is free.
 - **MIT** covers the client packages you embed in your own products: `medialit`, `@medialit/react`, `@medialit/uploader`, and `@medialit/cli`. Each published MIT package ships its own `LICENSE` file.
 
 The AGPL license text is in [LICENSE.md](./LICENSE.md).

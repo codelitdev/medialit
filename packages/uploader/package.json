@@ -44,5 +44,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "bun@1.4.1"
+  "packageManager": "bun@1.4.4"
 }

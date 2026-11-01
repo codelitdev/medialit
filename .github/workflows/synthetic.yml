@@ -44,7 +44,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         if: ${{ env.MEDIALIT_APIKEY != '' }}
         with:
-          bun-version: 1.4.1
+          bun-version: 1.4.4
       - name: Run synthetic check
         if: ${{ env.MEDIALIT_APIKEY != '' }}
         # The synthetic check only uses Node built-ins, so it needs no install.

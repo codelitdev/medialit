@@ -1,6 +1,6 @@
 ## Dev Environment
 
-- Use `bun` as the package manager (Bun 1.4.1)
+- Use `bun` as the package manager (Bun 1.4.4)
 - This is a monorepo — use `bun --filter <package-name> <command>` for specific packages
 - The API owns product behavior. The web app is a thin client over the API
 - Postgres is the database (`DATABASE_URL`). Do not add a second data store for the same records
