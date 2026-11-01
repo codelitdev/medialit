@@ -27,6 +27,8 @@ import {
     UploadParams,
 } from "../services/s3";
 import logger from "../services/log";
+import { resolveAccountPlan, storageLimitFor } from "../billing/entitlements";
+import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import generateKey from "./utils/generate-key";
 import { getMediaSettings } from "../media-settings/queries";
 import generateFileName from "./utils/generate-file-name";
@@ -37,6 +39,7 @@ import {
     getMediaCount,
     getPaginatedMedia,
     createMedia,
+    getTotalSpace,
 } from "./queries";
 import { listMediaRecordsByIds, sealMediaRecord } from "@/db";
 import * as presignedUrlService from "../signature/service";
@@ -449,6 +452,13 @@ async function sealMedia({
 
     if (!media.temp) {
         return await getMediaResponse(media);
+    }
+
+    // The total already includes this unsealed upload. Over the limit means
+    // uploads raced past the check at upload time.
+    const plan = await resolveAccountPlan({ id: String(userId) });
+    if ((await getTotalSpace({ userId })) > storageLimitFor(plan)) {
+        throw new Error(NOT_ENOUGH_STORAGE);
     }
 
     const fileExtension = path.extname(media.fileName).replace(".", "");

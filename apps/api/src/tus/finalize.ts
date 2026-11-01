@@ -86,6 +86,7 @@ export default async function finalizeUpload(
     }
 
     let fileExtension = path.extname(metadata.fileName).replace(".", "");
+    if (!/^[A-Za-z0-9]{1,10}$/.test(fileExtension)) fileExtension = "bin";
     let mimeType = metadata.mimeType;
     if (useWebP && imagePattern.test(mimeType)) {
         fileExtension = "webp";
