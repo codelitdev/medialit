@@ -59,17 +59,7 @@ export type AuthResult =
     | { status: "ambiguous" }
     | { status: "missing" };
 
-export function sendAuthError(
-    res: any,
-    auth: AuthResult,
-    resourceMetadataUrl?: string,
-): boolean {
-    if (auth.status !== "authenticated" && resourceMetadataUrl) {
-        res.setHeader(
-            "WWW-Authenticate",
-            `Bearer resource_metadata="${resourceMetadataUrl}"`,
-        );
-    }
+export function sendAuthError(res: any, auth: AuthResult): boolean {
     if (auth.status === "invalid_token") {
         res.status(401).json({
             error: "invalid_token",

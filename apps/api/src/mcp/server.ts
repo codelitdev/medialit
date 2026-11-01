@@ -1,98 +1,50 @@
-import crypto from "crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
-import type { AnyZodObject, ZodRawShape } from "zod";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { registerMediaTools } from "./tools/media";
-import { registerSignatureTool } from "./tools/signature";
-import { registerSettingsTools } from "./tools/settings";
-import { registerUploadTool } from "./tools/upload";
-import { registerWhoamiTool } from "./tools/whoami";
-import { hasScope, insufficientScopeMessage, toolScope } from "../auth/scopes";
+import {
+    createMcpServerKit,
+    type McpServerKit,
+} from "@codelitdev/mcp-server-kit";
+import { captureException } from "../services/log";
+import {
+    authenticateMcpRequest,
+    type MedialitMcpContext,
+    type MedialitMcpTool,
+    resolveMcpContext,
+} from "./context";
+import { mediaTools } from "./tools/media";
+import { settingsTools } from "./tools/settings";
+import { signatureTools } from "./tools/signature";
+import { uploadTools } from "./tools/upload";
+import { whoamiTools } from "./tools/whoami";
 
-export type McpToolConfig = {
-    description?: string;
-    inputSchema?: ZodRawShape;
-    outputSchema?: ZodRawShape | AnyZodObject;
-    annotations?: ToolAnnotations;
-};
+export const MEDIALIT_MCP_VERSION = "2.0.0";
 
-export type McpToolHandler = (args: any, extra: any) => unknown;
-
-export interface McpToolRegistrar {
-    registerTool(
-        name: string,
-        config: McpToolConfig,
-        handler: McpToolHandler,
-    ): void;
+/** Every MediaLit MCP tool, in a stable order so catalog caches and upstream
+ * prompt caches see a deterministic tool list. */
+export function medialitMcpTools(): MedialitMcpTool[] {
+    return [
+        ...whoamiTools(),
+        ...mediaTools(),
+        ...signatureTools(),
+        ...settingsTools(),
+        ...uploadTools(),
+    ];
 }
 
 /**
- * Registers tools on `server` so every tool checks the caller's OAuth scopes:
- * tools annotated `readOnlyHint: true` need data:read, all others need
- * data:write. API keys carry both scopes.
- *
- * The SDK calls handlers of tools without an input schema with only the
- * request extra. Registered handlers are always called as `(args, extra)`.
+ * MediaLit's MCP endpoint on the CodeLit Platform kit: stateless, protocol
+ * 2026-07-28 plus 2025-era Streamable HTTP, with MediaLit's own credential
+ * and app resolution.
  */
-export function createToolRegistrar(server: McpServer): McpToolRegistrar {
-    return {
-        registerTool(name, config, handler) {
-            const scope = toolScope(config.annotations?.readOnlyHint);
-            const hasInput = config.inputSchema !== undefined;
-            const register = server.registerTool.bind(server) as (
-                ...args: any[]
-            ) => unknown;
-            register(name, config, (...callArgs: any[]) => {
-                const [args, extra] = hasInput ? callArgs : [{}, callArgs[0]];
-                if (!hasScope(extra?.authInfo?.scopes, scope)) {
-                    return {
-                        content: [
-                            {
-                                type: "text" as const,
-                                text: insufficientScopeMessage(scope),
-                            },
-                        ],
-                        isError: true,
-                    };
-                }
-                return handler(args, extra);
-            });
-        },
-    };
-}
-
-export function registerAllTools(server: McpServer): void {
-    const tools = createToolRegistrar(server);
-    registerWhoamiTool(tools);
-    registerMediaTools(tools);
-    registerSignatureTool(tools);
-    registerSettingsTools(tools);
-    registerUploadTool(tools);
-}
-
-/**
- * Create a new MCP session (transport + server pair).
- * Each connecting client must get its own session — the
- * WebStandardStreamableHTTPServerTransport is single-session by design.
- */
-export function createMCPSession(
-    onsessioninitialized: (sessionId: string) => void,
-    onsessionclosed: (sessionId: string) => void,
-): StreamableHTTPServerTransport {
-    const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
-        enableJsonResponse: true,
-        onsessioninitialized,
-        onsessionclosed,
-    });
-    const server = new McpServer({
+export function createMedialitMcp(): McpServerKit<MedialitMcpContext> {
+    return createMcpServerKit<MedialitMcpContext>({
         name: "MediaLit",
-        version: "1.0.0",
+        version: MEDIALIT_MCP_VERSION,
         description:
             "MediaLit MCP server — manage media files, storage, and upload settings for one MediaLit app: the app picked when the client was authorized, or the API key's app. Supports listing, inspecting, deleting, and sealing media items, checking the connected account and app (whoami), querying storage usage, generating upload signatures, and configuring media processing settings.",
+        instructions:
+            "Every tool acts on one MediaLit app; whoami shows which. Uploads are temporary until sealed. Deleting and sealing media can't be undone: confirm the target with the user, then pass confirm: true.",
+        authenticate: authenticateMcpRequest,
+        resolveContext: resolveMcpContext,
+        onError: ({ error, source }) => captureException({ error, source }),
+        tools: medialitMcpTools(),
     });
-    registerAllTools(server);
-    server.connect(transport);
-    return transport;
 }

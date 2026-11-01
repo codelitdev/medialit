@@ -9,9 +9,9 @@ export const API_KEY_SCOPES: readonly string[] = [
     DATA_WRITE_SCOPE,
 ];
 
-/** MCP tools declare `readOnlyHint`; anything not read-only needs write. */
-export function toolScope(readOnlyHint: boolean | undefined): DataScope {
-    return readOnlyHint === true ? DATA_READ_SCOPE : DATA_WRITE_SCOPE;
+/** MCP tools declare a risk; anything that is not a read needs write. */
+export function toolScope(risk: "read" | "write" | "destructive"): DataScope {
+    return risk === "read" ? DATA_READ_SCOPE : DATA_WRITE_SCOPE;
 }
 
 export function hasScope(

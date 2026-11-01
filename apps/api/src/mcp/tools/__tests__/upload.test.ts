@@ -31,19 +31,13 @@ before(async () => {
 
 const PNG_BASE64 = Buffer.from("not-really-a-png").toString("base64");
 
-function authExtra() {
+function context() {
     return {
-        authInfo: {
-            token: "t",
-            clientId: "c",
-            scopes: ["data:write"],
-            extra: {
-                authKind: "apikey",
-                userId: "user-1",
-                user: { _id: "user-1" },
-                appId: "app-1",
-            },
-        },
+        authKind: "apikey" as const,
+        userId: "user-1",
+        user: { _id: "user-1" },
+        appId: "app-1",
+        scopes: ["data:read", "data:write"],
     };
 }
 
@@ -63,14 +57,14 @@ async function uploadWithFileName(fileName: string) {
         mediaId: "media-1",
     });
     try {
-        const result = await handleUploadMediaTool(
-            {
+        const result = await handleUploadMediaTool({
+            context: context(),
+            args: {
                 fileBase64: PNG_BASE64,
                 fileName,
                 mimeType: "image/png",
             },
-            authExtra(),
-        );
+        });
         return { result, seen };
     } finally {
         (mediaService as any).upload = upload;
