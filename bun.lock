@@ -79,7 +79,7 @@
       "name": "@medialit/web",
       "version": "0.1.3",
       "dependencies": {
-        "@codelitdev/design-system": "0.4.1",
+        "@codelitdev/design-system": "0.4.2",
         "@codelitdev/observability": "0.4.1",
         "@medialit/models": "workspace:*",
         "@medialit/uploader": "workspace:*",
@@ -564,7 +564,7 @@
 
     "@codelitdev/billing": ["@codelitdev/billing@0.8.0", "", { "dependencies": { "drizzle-orm": "^0.45.2", "nanoid": "^5.1.6", "zod": "^3.25.76" }, "peerDependencies": { "dodopayments": "^2.48.0" }, "optionalPeers": ["dodopayments"], "bin": { "codelit-billing": "bin/codelit-billing.js" } }, "sha512-xq6AzksmRG2oVyzgwqxRUSxU8QaZcj4WDv9rOHXfebQhqFjkMV9X46QGDTP9s0LxSTgriLY03JPQMT9+aOsqZg=="],
 
-    "@codelitdev/design-system": ["@codelitdev/design-system@0.4.1", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-s7z7BRa6u9O0Tlh3RJvLkc08+ojgAbtDjLf/RNB6GBnqnS7XrFM7ms1ZTZthcqFiI7+D4MVVVB6MdH958az5Ug=="],
+    "@codelitdev/design-system": ["@codelitdev/design-system@0.4.2", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-P8XpUW6/MDoyZ8cvVExGjhz7LtTEVFKMrBcjXcjwbPYGmDKeNj3PQkVP3V5sfYno5NQY/XFVcWR1f/vVsIIb7w=="],
 
     "@codelitdev/mcp-server-kit": ["@codelitdev/mcp-server-kit@0.8.0", "", { "dependencies": { "@modelcontextprotocol/server": "^2.4.0", "zod": "^3.25.76", "zod-to-json-schema": "^3.25.2" }, "peerDependencies": { "@codelitdev/platform": ">=0.8.0" } }, "sha512-k3c/lP2njh4HxxYgLLWcpPf41N1QU7w5eddcf6ZP5vRPxVQskZDrU8XKclTXbNcEuONvuq96hMrwoQsWW2tgFw=="],
 
