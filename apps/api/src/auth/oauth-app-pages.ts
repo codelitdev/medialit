@@ -28,15 +28,23 @@ function escapeHtml(value: string): string {
         .replace(/'/g, "&#39;");
 }
 
+export interface OAuthAppPagesBrand {
+    iconUrl: string;
+    primaryColor: string;
+}
+
 // Mirrors the hosted login and consent pages from oauth-server-kit.
-const STYLES = `html{--brand-primary:#8c7a6b;color-scheme:light}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f4f5;color:#171717;font-family:system-ui,sans-serif}
-.card{width:100%;max-width:400px;padding:32px;border:1px solid #e4e4e7;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}.logo{width:38px;height:38px;margin:0 auto 20px;display:grid;place-items:center;border-radius:50%;background:#171717;color:#fff;font-weight:700}
+function styles(primaryColor: string): string {
+    return `html{--brand-primary:${primaryColor};color-scheme:light}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f4f5;color:#171717;font-family:system-ui,sans-serif}
+.card{width:100%;max-width:400px;padding:32px;border:1px solid #e4e4e7;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}.logo{width:38px;height:38px;margin:0 auto 20px;display:grid;place-items:center;border-radius:50%;background:#171717;color:#fff;font-weight:700}.logo.has-image{background:none}.logo img{width:38px;height:38px}
 h1{margin:0 0 24px;text-align:center;font-size:22px;font-weight:650}.sub{margin:-12px 0 24px;text-align:center;color:#71717a;font-size:13px;line-height:1.5}.error{display:none;margin-bottom:16px;padding:10px 12px;border-radius:8px;background:#fef2f2;color:#b42318;font-size:13px}
 form{margin:0}.apps{display:grid;gap:8px;margin-bottom:16px}.app{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #e4e4e7;border-radius:9px;background:#fafafa;cursor:pointer;font-size:14px}.app:has(input:checked){border-color:var(--brand-primary);background:#fff}.app input{margin:0;accent-color:var(--brand-primary)}.app-name{flex:1;font-weight:550;word-break:break-word}.badge{padding:2px 6px;border:1px solid #e4e4e7;border-radius:6px;color:#52525b;font-size:11px}
 button{width:100%;margin-top:8px;padding:11px;border:1px solid var(--brand-primary);border-radius:8px;background:var(--brand-primary);color:#fff;font-size:14px;font-weight:550;cursor:pointer}button:focus-visible{outline:2px solid var(--brand-primary);outline-offset:2px}button:disabled{opacity:.55;cursor:not-allowed}`;
+}
 
-function page(body: string): string {
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Choose a MediaLit app</title><style>${STYLES}</style></head><body><main class="card"><div class="logo">M</div>${body}</main></body></html>`;
+function page(body: string, brand: OAuthAppPagesBrand): string {
+    const icon = escapeHtml(brand.iconUrl);
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Choose a MediaLit app</title><link rel="icon" href="${icon}"><style>${styles(brand.primaryColor)}</style></head><body><main class="card"><div class="logo has-image"><img src="${icon}" alt="MediaLit"></div>${body}</main></body></html>`;
 }
 
 /**
@@ -54,7 +62,11 @@ function continueScript(authBasePath: string): string {
     return `async function continueAuthorization(){var response=await fetch(${scriptString(`${authBasePath}/oauth2/continue`)},{method:"POST",headers:{"content-type":"application/json",accept:"application/json"},body:JSON.stringify({postLogin:true,oauth_query:location.search.slice(1)})});var data={};try{data=await response.json()}catch{}var target=data.url||data.redirect_uri;if(!response.ok||!target)throw new Error();location.assign(target)}`;
 }
 
-function pickerPage(apps: OAuthApp[], authBasePath: string): string {
+function pickerPage(
+    apps: OAuthApp[],
+    authBasePath: string,
+    brand: OAuthAppPagesBrand,
+): string {
     const defaultApp = apps.find((app) => app.isDefault) ?? apps[0];
     const choices = apps
         .map(
@@ -64,6 +76,7 @@ function pickerPage(apps: OAuthApp[], authBasePath: string): string {
         .join("");
     return page(
         `<h1>Choose an app</h1><p class="sub">The connected client will upload, list and delete files in this app.</p><div class="error" id="error"></div><form id="app-form"><div class="apps">${choices}</div><button type="submit">Continue</button></form><script>(function(){${continueScript(authBasePath)}var form=document.getElementById("app-form"),button=form.querySelector("button"),errorEl=document.getElementById("error");form.addEventListener("submit",async function(event){event.preventDefault();var selected=form.querySelector('input[name="app"]:checked');if(!selected)return;button.disabled=true;errorEl.style.display="none";try{var save=await fetch(${scriptString(SELECT_APP_PATH)},{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({appId:selected.value})});if(!save.ok)throw new Error();await continueAuthorization()}catch{errorEl.textContent="Could not continue authorization.";errorEl.style.display="block";button.disabled=false}})})();</script>`,
+        brand,
     );
 }
 
@@ -84,6 +97,7 @@ export function createOAuthAppPages(options: {
     auth: SessionApi;
     adapter: OAuthAppSelectionAdapter;
     authBasePath: string;
+    brand: OAuthAppPagesBrand;
 }): Router {
     const router = Router();
 
@@ -113,11 +127,14 @@ export function createOAuthAppPages(options: {
                     .send(
                         page(
                             `<h1>Continuing&hellip;</h1><script>(function(){${continueScript(options.authBasePath)}continueAuthorization()})();</script>`,
+                            options.brand,
                         ),
                     );
                 return;
             }
-            response.type("html").send(pickerPage(apps, options.authBasePath));
+            response
+                .type("html")
+                .send(pickerPage(apps, options.authBasePath, options.brand));
         }),
     );
 
