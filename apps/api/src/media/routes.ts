@@ -2,7 +2,9 @@ import express from "express";
 import apikey from "../apikey/middleware";
 import {
     getMedia,
+    getMediaAssets,
     getMediaDetails,
+    getMediaTimeline,
     uploadMedia,
     deleteMedia,
     sealMedia,
@@ -44,7 +46,9 @@ router.post(
                             file: { type: "string", format: "binary" },
                             caption: { type: "string" },
                             access: { type: "string", enum: ["public", "private"] },
-                            group: { type: "string" }
+                            group: { type: "string" },
+                            assetId: { type: "string", description: "Your own ID for the source of this file. Unique per app, so retrying the same upload cannot create a duplicate." },
+                            takenAt: { type: "string", format: "date-time", description: "When the content was captured. Orders the timeline." }
                         },
                         required: ["file"]
                     }
@@ -61,6 +65,14 @@ router.post(
         }
         #swagger.responses[400] = { description: 'Bad Request' }
         #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[409] = {
+            description: 'The app already has a file with this `assetId`. Seal it if `sealed` is false.',
+            content: {
+                "application/json": {
+                    schema: { $ref: '#/components/schemas/AssetExistsResponse' }
+                }
+            }
+        }
         #swagger.responses[404] = {
             description: 'Invalid signature',
             content: {
@@ -125,6 +137,84 @@ router.post(
     apikey,
     requireScope(DATA_READ_SCOPE),
     getTotalSpaceOccupied,
+);
+router.post(
+    "/get/assets",
+    /*
+        #swagger.tags = ['Media']
+        #swagger.summary = 'Look Up Assets'
+        #swagger.description = 'Tells which of your `assetId`s the app already has, sealed or not. Call it before uploading a batch to skip what is already there.'
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
+        #swagger.requestBody = {
+            required: true,
+            content: {
+                "application/json": {
+                    schema: { $ref: '#/components/schemas/AssetLookupPayload' }
+                }
+            }
+        }
+        #swagger.responses[200] = {
+            description: 'The assets that exist',
+            content: {
+                "application/json": {
+                    schema: { $ref: '#/components/schemas/AssetLookupResponse' }
+                }
+            }
+        }
+        #swagger.responses[400] = { description: 'Bad Request' }
+        #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
+    */
+    authenticatedApiLimiter,
+    apikey,
+    requireScope(DATA_READ_SCOPE),
+    getMediaAssets,
+);
+router.get(
+    "/timeline",
+    /*
+        #swagger.tags = ['Media']
+        #swagger.summary = 'Media Timeline'
+        #swagger.description = 'Sealed media, newest first by `takenAt`, or by `createdAt` where there is no `takenAt`. Follow `nextCursor` for the next page; pages stay stable while uploads land.'
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
+        #swagger.parameters['limit'] = {
+            in: 'query',
+            description: 'Items per page, 1 to 200. Defaults to 50.',
+            schema: { type: 'integer', minimum: 1, maximum: 200 }
+        }
+        #swagger.parameters['cursor'] = {
+            in: 'query',
+            description: 'The nextCursor from the previous page',
+            schema: { type: 'string' }
+        }
+        #swagger.parameters['kind'] = {
+            in: 'query',
+            schema: { type: 'string', enum: ['image', 'video', 'pdf', 'other'] }
+        }
+        #swagger.parameters['access'] = {
+            in: 'query',
+            schema: { type: 'string', enum: ['public', 'private'] }
+        }
+        #swagger.parameters['group'] = {
+            in: 'query',
+            schema: { type: 'string' }
+        }
+        #swagger.responses[200] = {
+            description: 'A page of the timeline',
+            content: {
+                "application/json": {
+                    schema: { $ref: '#/components/schemas/TimelineResponse' }
+                }
+            }
+        }
+        #swagger.responses[400] = { description: 'Bad Request' }
+        #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
+    */
+    authenticatedApiLimiter,
+    apikey,
+    requireScope(DATA_READ_SCOPE),
+    getMediaTimeline,
 );
 router.post(
     "/get/:mediaId",

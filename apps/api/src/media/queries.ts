@@ -143,6 +143,12 @@ export async function createMedia(
         group: mediaData.group,
         caption: mediaData.caption,
         temp: mediaData.temp ?? true,
+        assetId: mediaData.assetId,
+        takenAt: mediaData.takenAt,
+        width: mediaData.width,
+        height: mediaData.height,
+        durationMs: mediaData.durationMs,
+        thumbnailPrivate: mediaData.thumbnailPrivate,
     });
 }
 

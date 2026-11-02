@@ -11,11 +11,25 @@ import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
 import { maxStorageFor } from "../billing/entitlements";
 import { getSignatureFromReq } from "../signature/utils";
-import { getMediaSchema, uploadMediaSchema } from "./schemas";
+import {
+    assetLookupSchema,
+    getMediaSchema,
+    timelineQuerySchema,
+    uploadMediaSchema,
+} from "./schemas";
+import { AssetExistsError } from "./errors";
+import { InvalidCursorError } from "./service";
+import { removeTempFile } from "./storage-middleware";
 
 function validateUploadOptions(req: Request): Joi.ValidationResult {
-    const { caption, access, group } = req.body;
-    return uploadMediaSchema.validate({ caption, access, group });
+    const { caption, access, group, assetId, takenAt } = req.body;
+    return uploadMediaSchema.validate({
+        caption,
+        access,
+        group,
+        assetId,
+        takenAt,
+    });
 }
 
 export async function uploadMedia(
@@ -29,19 +43,41 @@ export async function uploadMedia(
         return res.status(400).json({ error: FILE_IS_REQUIRED });
     }
 
-    const { error } = validateUploadOptions(req);
+    const { error, value: options } = validateUploadOptions(req);
     if (error) {
+        await removeTempFile(req.files.file.tempFilePath);
         return res.status(400).json({ error: error.message });
     }
 
     const { file } = req.files;
     const { access, caption } = req.body;
+    const { assetId, takenAt } = options;
     // A signature's group wins over the form's.
     const group = req.group ?? req.body.group;
     const userId = req.user.id;
     const appId = req.appId;
 
     try {
+        if (assetId) {
+            // Say so before the file is stored, not after.
+            const [existing] = await mediaService.findAssets({
+                userId,
+                appId,
+                assetIds: [assetId],
+            });
+            if (existing) {
+                await removeTempFile(file.tempFilePath);
+                return res
+                    .status(409)
+                    .json(
+                        new AssetExistsError(
+                            existing.mediaId,
+                            existing.sealed,
+                        ).toBody(),
+                    );
+            }
+        }
+
         const mediaId = await mediaService.upload({
             userId,
             appId,
@@ -50,6 +86,8 @@ export async function uploadMedia(
             caption,
             group,
             signature: getSignatureFromReq(req),
+            assetId,
+            takenAt,
         });
 
         const media = await mediaService.getMediaDetails({
@@ -60,6 +98,54 @@ export async function uploadMedia(
 
         return res.status(200).json(media);
     } catch (err: any) {
+        if (err instanceof AssetExistsError) {
+            return res.status(409).json(err.toBody());
+        }
+        logger.error({ err }, err.message);
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+export async function getMediaAssets(req: any, res: any) {
+    const { error, value } = assetLookupSchema.validate(req.body ?? {});
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    try {
+        const found = await mediaService.findAssets({
+            userId: req.user.id,
+            appId: req.appId,
+            assetIds: value.assetIds,
+        });
+        return res.status(200).json(found);
+    } catch (err: any) {
+        logger.error({ err }, err.message);
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+export async function getMediaTimeline(req: any, res: any) {
+    const { error, value } = timelineQuerySchema.validate(req.query);
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    try {
+        const page = await mediaService.getTimeline({
+            userId: req.user.id,
+            appId: req.appId,
+            limit: value.limit,
+            cursor: value.cursor,
+            kind: value.kind,
+            access: value.access,
+            group: value.group,
+        });
+        return res.status(200).json(page);
+    } catch (err: any) {
+        if (err instanceof InvalidCursorError) {
+            return res.status(400).json({ error: err.message });
+        }
         logger.error({ err }, err.message);
         return res.status(500).json({ error: err.message });
     }

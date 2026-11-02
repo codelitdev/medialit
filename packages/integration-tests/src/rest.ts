@@ -458,6 +458,199 @@ export async function runIntegrationTests(
             log(`PASS delete ${mediaId} and storage increment`);
         }
         assert.deepEqual(await list({ group }), []);
+
+        // Camera roll: uploads carry the phone's own asset ID and capture
+        // time, so retries cannot duplicate and the timeline orders by capture.
+        const assetA = `it-${randomUUID()}`;
+        const assetB = `it-${randomUUID()}`;
+        const takenA = "2021-01-01T00:00:00.000Z";
+        const takenB = "2023-01-01T00:00:00.000Z";
+        const authHeaders = { "x-medialit-apikey": apiKey! };
+
+        const form = new FormData();
+        form.set(
+            "file",
+            new Blob([Uint8Array.from(png)], { type: "image/png" }),
+            "asset-a.png",
+        );
+        form.set("access", "private");
+        form.set("group", group);
+        form.set("assetId", assetA);
+        form.set("takenAt", takenA);
+        uploadsAttempted = true;
+        const mediaA = track(
+            await (
+                await request(url("media/create"), {
+                    method: "POST",
+                    headers: authHeaders,
+                    body: form,
+                })
+            ).json(),
+        );
+        assert.equal(mediaA.assetId, assetA);
+        assert.equal(mediaA.takenAt, takenA);
+        integer(mediaA.width, "width");
+        integer(mediaA.height, "height");
+
+        const tusHeaders = { ...authHeaders, "Tus-Resumable": "1.0.0" };
+        const tusMetadata = {
+            fileName: "asset-b.png",
+            mimeType: "image/png",
+            access: "private",
+            group,
+            assetId: assetB,
+            takenAt: takenB,
+        };
+        const tusCreated = await request(
+            url("media/create/resumable"),
+            {
+                method: "POST",
+                headers: {
+                    ...tusHeaders,
+                    "Upload-Length": String(png.length),
+                    "Upload-Metadata": Object.entries(tusMetadata)
+                        .map(
+                            ([key, value]) =>
+                                `${key} ${Buffer.from(value).toString("base64")}`,
+                        )
+                        .join(","),
+                },
+            },
+            201,
+        );
+        const tusLocation = new URL(
+            text(tusCreated.headers.get("location"), "tus Location"),
+            url("media/create/resumable"),
+        );
+        const tusDone = await request(
+            tusLocation,
+            {
+                method: "PATCH",
+                headers: {
+                    ...tusHeaders,
+                    "content-type": "application/offset+octet-stream",
+                    "Upload-Offset": "0",
+                },
+                body: Uint8Array.from(png),
+            },
+            204,
+        );
+        const mediaB = track(
+            JSON.parse(text(tusDone.headers.get("media"), "tus media header")),
+        );
+        assert.equal(mediaB.assetId, assetB);
+        assert.equal(mediaB.takenAt, takenB);
+
+        // The same asset again is refused, over both transports, and says
+        // what is already there.
+        const again = new FormData();
+        again.set(
+            "file",
+            new Blob([Uint8Array.from(png)], { type: "image/png" }),
+            "asset-a-again.png",
+        );
+        again.set("assetId", assetA);
+        const conflict = object(
+            await (
+                await request(
+                    url("media/create"),
+                    { method: "POST", headers: authHeaders, body: again },
+                    409,
+                )
+            ).json(),
+        );
+        assert.equal(conflict.error, "asset_exists");
+        assert.equal(conflict.mediaId, mediaA.mediaId);
+        assert.equal(conflict.sealed, false);
+        const tusConflict = await request(
+            url("media/create/resumable"),
+            {
+                method: "POST",
+                headers: {
+                    ...tusHeaders,
+                    "Upload-Length": String(png.length),
+                    "Upload-Metadata": Object.entries(tusMetadata)
+                        .map(
+                            ([key, value]) =>
+                                `${key} ${Buffer.from(value).toString("base64")}`,
+                        )
+                        .join(","),
+                },
+            },
+            409,
+        );
+        assert.equal(
+            object(JSON.parse(await tusConflict.text())).mediaId,
+            mediaB.mediaId,
+        );
+        log("PASS asset IDs, capture time and duplicate refusal");
+
+        const lookup = async () =>
+            (
+                (await api("media/get/assets", {
+                    assetIds: [assetA, assetB, `it-${randomUUID()}`],
+                })) as JsonObject[]
+            )
+                .map(object)
+                .sort((left, right) =>
+                    String(left.assetId).localeCompare(String(right.assetId)),
+                );
+        const expectedLookup = (sealed: boolean) =>
+            [
+                { assetId: assetA, mediaId: mediaA.mediaId, sealed },
+                { assetId: assetB, mediaId: mediaB.mediaId, sealed },
+            ].sort((left, right) => left.assetId.localeCompare(right.assetId));
+        assert.deepEqual(await lookup(), expectedLookup(false));
+        for (const media of [mediaA, mediaB]) {
+            await api(
+                `media/seal/${encodeURIComponent(text(media.mediaId, "mediaId"))}`,
+            );
+        }
+        assert.deepEqual(await lookup(), expectedLookup(true));
+        log("PASS asset lookup before and after sealing");
+
+        // Newest capture first, whatever the upload order.
+        const timelineUrl = (query: string) =>
+            url(`media/timeline?group=${encodeURIComponent(group)}&${query}`);
+        const getTimeline = async (query: string, status = 200) =>
+            object(
+                await (
+                    await request(
+                        timelineUrl(query),
+                        { headers: authHeaders },
+                        status,
+                    )
+                ).json(),
+            );
+        const first = await getTimeline("limit=1");
+        const firstItems = first.items as JsonObject[];
+        assert.equal(firstItems.length, 1);
+        assert.equal(firstItems[0].mediaId, mediaB.mediaId);
+        assert.equal(firstItems[0].takenAt, takenB);
+        const cursor = text(first.nextCursor, "nextCursor");
+        const second = await getTimeline(
+            `limit=1&cursor=${encodeURIComponent(cursor)}`,
+        );
+        assert.deepEqual(
+            (second.items as JsonObject[]).map((item) => item.mediaId),
+            [mediaA.mediaId],
+        );
+        assert.equal(second.nextCursor, null);
+        await getTimeline("cursor=forged", 400);
+        await getTimeline("limit=0", 400);
+        log("PASS timeline order, cursor paging and validation");
+
+        for (const media of [mediaA, mediaB]) {
+            const mediaId = text(media.mediaId, "mediaId");
+            await api(
+                `media/delete/${encodeURIComponent(mediaId)}`,
+                undefined,
+                "DELETE",
+            );
+            pending.delete(mediaId);
+        }
+        assert.deepEqual(await lookup(), []);
+        log("PASS camera roll uploads cleaned up");
     } catch (error) {
         failure = error;
     } finally {

@@ -115,6 +115,16 @@ export const media = pgTable(
         group: text("group_name"),
         caption: text("caption"),
         temp: boolean("temp").notNull().default(true),
+        /** Opaque, client-chosen ID of the source asset (for example a photo
+         * on a phone). Unique per app, so a retried upload cannot duplicate. */
+        assetId: text("asset_id"),
+        /** When the content was captured, as reported by the client. */
+        takenAt: timestamp("taken_at", { withTimezone: true }),
+        width: bigint("width", { mode: "number" }),
+        height: bigint("height", { mode: "number" }),
+        durationMs: bigint("duration_ms", { mode: "number" }),
+        /** The thumbnail is in the private bucket, behind a signed URL. */
+        thumbnailPrivate: boolean("thumbnail_private").notNull().default(false),
         createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     },
@@ -123,6 +133,15 @@ export const media = pgTable(
             table.userId,
             table.appId,
             table.temp,
+        ),
+        appAsset: uniqueIndex("media_app_asset_uidx")
+            .on(table.appId, table.assetId)
+            .where(sql`${table.assetId} is not null`),
+        timeline: index("media_timeline_idx").on(
+            table.appId,
+            table.temp,
+            sql`coalesce(${table.takenAt}, ${table.createdAt}) desc`,
+            sql`${table.id} desc`,
         ),
     }),
 );
@@ -140,6 +159,10 @@ export const mediaSettings = pgTable("media_settings", {
     webpOutputQuality: bigint("webp_output_quality", { mode: "number" }),
     thumbnailWidth: bigint("thumbnail_width", { mode: "number" }),
     thumbnailHeight: bigint("thumbnail_height", { mode: "number" }),
+    /** Keep thumbnails of private files in the private bucket. */
+    privateThumbnails: boolean("private_thumbnails"),
+    /** `crop` is the 16:9 center crop; `contain` keeps the aspect ratio. */
+    thumbnailFit: text("thumbnail_fit"),
 });
 
 export const signatures = pgTable(

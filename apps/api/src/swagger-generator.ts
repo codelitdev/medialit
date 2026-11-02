@@ -8,6 +8,9 @@ import {
     getMediaSchema,
     mediaResponseSchema,
     mediaListItemResponseSchema,
+    assetLookupSchema,
+    assetLookupResponseSchema,
+    timelineResponseSchema,
     mediaCountResponseSchema,
     mediaSizeResponseSchema,
 } from "./media/schemas";
@@ -97,6 +100,8 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         "post /media/get/size": "getMediaSize",
         "post /media/get/{mediaId}": "getMediaDetails",
         "post /media/get": "listMedia",
+        "post /media/get/assets": "lookupAssets",
+        "get /media/timeline": "getMediaTimeline",
         "post /media/seal/{mediaId}": "sealMedia",
         "delete /media/delete/{mediaId}": "deleteMedia",
     };
@@ -119,6 +124,18 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         UploadMediaPayload: joiToSwagger(uploadMediaSchema).swagger,
         GetMediaQuery: joiToSwagger(getMediaSchema).swagger,
         SignatureResponse: joiToSwagger(signatureResponseSchema).swagger,
+        AssetLookupPayload: joiToSwagger(assetLookupSchema).swagger,
+        AssetLookupResponse: joiToSwagger(assetLookupResponseSchema).swagger,
+        TimelineResponse: joiToSwagger(timelineResponseSchema).swagger,
+        AssetExistsResponse: {
+            type: "object",
+            properties: {
+                error: { type: "string", example: "asset_exists" },
+                mediaId: { type: "string" },
+                sealed: { type: "boolean" },
+            },
+            required: ["error"],
+        },
         MediaCountResponse: joiToSwagger(mediaCountResponseSchema).swagger,
         MediaSizeResponse: joiToSwagger(mediaSizeResponseSchema).swagger,
         ErrorResponse: {

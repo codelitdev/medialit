@@ -111,7 +111,7 @@ const uploadTempDir = path.resolve(
 );
 
 /** Deletes an upload's temp file, but never anything outside the temp folder. */
-async function removeTempFile(filePath: string | undefined) {
+export async function removeTempFile(filePath: string | undefined) {
     if (!filePath) return;
     const resolved = path.resolve(filePath);
     if (!resolved.startsWith(uploadTempDir + path.sep)) return;

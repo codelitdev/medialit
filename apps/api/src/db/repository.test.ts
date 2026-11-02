@@ -16,6 +16,13 @@ import {
     createMediaRecord,
     createSignature,
     deleteExpiredSignatures,
+    findMediaByAssetIds,
+    getMediaSettingsRecord,
+    isUniqueViolation,
+    listTimeline,
+    MEDIA_ASSET_CONSTRAINT,
+    timelineKey,
+    upsertMediaSettings,
     findApiKeyByHash,
     findApiKeyForAuth,
     getAppByPublicId,
@@ -347,5 +354,202 @@ describe("bootstrap keys", () => {
             }),
             "conflict",
         );
+    });
+});
+
+describe("camera roll media", () => {
+    let counter = 0;
+    async function addMedia(
+        owner: { id: string },
+        appId: string,
+        extra: Partial<Parameters<typeof createMediaRecord>[0]> = {},
+    ) {
+        counter += 1;
+        return createMediaRecord({
+            fileName: "main.jpg",
+            mediaId: `cam-${counter}`,
+            userId: owner.id,
+            appId,
+            originalFileName: `IMG_${counter}.jpg`,
+            mimeType: "image/jpeg",
+            size: 10,
+            thumbnailGenerated: true,
+            accessControl: "private",
+            temp: false,
+            ...extra,
+        });
+    }
+
+    test("an asset ID is unique within an app, not across apps", async () => {
+        const user = await account();
+        const [first] = await listApps(user.id);
+        const second = await createApp({ userId: user.id, name: "Other" });
+
+        await addMedia(user, first.id, { assetId: "asset-1" });
+        await assert.rejects(
+            addMedia(user, first.id, { assetId: "asset-1" }),
+            (error) => isUniqueViolation(error, MEDIA_ASSET_CONSTRAINT),
+        );
+        await addMedia(user, second.id, { assetId: "asset-1" });
+        // Media without an asset ID never collide.
+        await addMedia(user, first.id);
+        await addMedia(user, first.id);
+    });
+
+    test("finds media by asset ID, unsealed ones included", async () => {
+        const user = await account();
+        const [app] = await listApps(user.id);
+        const other = await account();
+        const [otherApp] = await listApps(other.id);
+
+        const sealed = await addMedia(user, app.id, { assetId: "a" });
+        const unsealed = await addMedia(user, app.id, {
+            assetId: "b",
+            temp: true,
+        });
+        await addMedia(other, otherApp.id, { assetId: "c" });
+
+        const found = await findMediaByAssetIds({
+            userId: user.id,
+            appId: app.id,
+            assetIds: ["a", "b", "c", "missing"],
+        });
+        assert.deepEqual(
+            found.map((row) => [row.assetId, row.mediaId, row.temp]).sort(),
+            [
+                ["a", sealed.mediaId, false],
+                ["b", unsealed.mediaId, true],
+            ],
+        );
+        assert.deepEqual(
+            await findMediaByAssetIds({
+                userId: user.id,
+                appId: app.id,
+                assetIds: [],
+            }),
+            [],
+        );
+    });
+
+    test("the timeline orders by capture time and pages without gaps", async () => {
+        const user = await account();
+        const [app] = await listApps(user.id);
+
+        const uploadedLastShotFirst = await addMedia(user, app.id, {
+            takenAt: new Date("2020-01-01T00:00:00Z"),
+            createdAt: new Date("2026-03-01T00:00:00Z"),
+        });
+        const noCaptureTime = await addMedia(user, app.id, {
+            createdAt: new Date("2025-06-01T00:00:00Z"),
+        });
+        const newest = await addMedia(user, app.id, {
+            takenAt: new Date("2026-01-01T00:00:00Z"),
+            createdAt: new Date("2026-03-02T00:00:00Z"),
+        });
+        // Same sort key: the ID breaks the tie.
+        const tiedA = await addMedia(user, app.id, {
+            takenAt: new Date("2024-01-01T00:00:00Z"),
+        });
+        const tiedB = await addMedia(user, app.id, {
+            takenAt: new Date("2024-01-01T00:00:00Z"),
+        });
+        await addMedia(user, app.id, { temp: true });
+
+        const everything = await listTimeline({
+            userId: user.id,
+            appId: app.id,
+            limit: 50,
+        });
+        const [tieFirst, tieSecond] = [tiedA, tiedB].sort((a, b) =>
+            a.id < b.id ? 1 : -1,
+        );
+        assert.deepEqual(
+            everything.map((row) => row.mediaId),
+            [
+                newest.mediaId,
+                noCaptureTime.mediaId,
+                tieFirst.mediaId,
+                tieSecond.mediaId,
+                uploadedLastShotFirst.mediaId,
+            ],
+        );
+
+        const seen: string[] = [];
+        let before: { at: Date; id: string } | undefined;
+        for (let page = 0; page < 10; page += 1) {
+            const rows = await listTimeline({
+                userId: user.id,
+                appId: app.id,
+                limit: 2,
+                before,
+            });
+            if (rows.length === 0) break;
+            seen.push(...rows.map((row) => row.mediaId));
+            const last = rows[rows.length - 1];
+            before = { at: timelineKey(last), id: last.id };
+        }
+        assert.deepEqual(
+            seen,
+            everything.map((row) => row.mediaId),
+        );
+    });
+
+    test("the timeline filters by kind and never crosses apps", async () => {
+        const user = await account();
+        const [app] = await listApps(user.id);
+        const other = await createApp({ userId: user.id, name: "Elsewhere" });
+
+        const video = await addMedia(user, app.id, {
+            mimeType: "video/mp4",
+            durationMs: 4200,
+            width: 1920,
+            height: 1080,
+        });
+        await addMedia(user, app.id);
+        await addMedia(user, other.id, { mimeType: "video/mp4" });
+
+        const videos = await listTimeline({
+            userId: user.id,
+            appId: app.id,
+            limit: 10,
+            kind: "video",
+        });
+        assert.deepEqual(
+            videos.map((row) => [row.mediaId, row.durationMs, row.width]),
+            [[video.mediaId, 4200, 1920]],
+        );
+    });
+
+    test("new media settings default to unset", async () => {
+        const user = await account();
+        const [app] = await listApps(user.id);
+        await upsertMediaSettings({
+            userId: user.id,
+            appId: app.id,
+            useWebP: false,
+        });
+        const plain = await getMediaSettingsRecord(user.id, app.id);
+        assert.equal(plain?.privateThumbnails, undefined);
+        assert.equal(plain?.thumbnailFit, undefined);
+
+        await upsertMediaSettings({
+            userId: user.id,
+            appId: app.id,
+            privateThumbnails: true,
+            thumbnailFit: "contain",
+        });
+        const set = await getMediaSettingsRecord(user.id, app.id);
+        assert.equal(set?.privateThumbnails, true);
+        assert.equal(set?.thumbnailFit, "contain");
+
+        // A later update that leaves them out keeps them.
+        await upsertMediaSettings({
+            userId: user.id,
+            appId: app.id,
+            useWebP: true,
+        });
+        const kept = await getMediaSettingsRecord(user.id, app.id);
+        assert.equal(kept?.privateThumbnails, true);
+        assert.equal(kept?.thumbnailFit, "contain");
     });
 });

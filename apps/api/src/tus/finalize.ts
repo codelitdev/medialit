@@ -25,7 +25,8 @@ import logger from "../services/log";
 import generateKey from "../media/utils/generate-key";
 import { getMediaSettings } from "../media-settings/queries";
 import generateFileName from "../media/utils/generate-file-name";
-import { createMedia } from "../media/queries";
+import { createMediaForAsset } from "../media/service";
+import { probeMedia } from "../media/utils/probe";
 import getTags from "../media/utils/get-tags";
 import { getTusUpload, markTusUploadComplete } from "./queries";
 import * as presignedUrlService from "../signature/service";
@@ -117,6 +118,11 @@ export default async function finalizeUpload(
 
     await putObject(uploadParams);
 
+    const { width, height, durationMs } = await probeMedia(
+        mainFilePath,
+        mimeType,
+    );
+
     let isThumbGenerated = false;
     try {
         isThumbGenerated = await generateAndUploadThumbnail({
@@ -155,8 +161,19 @@ export default async function finalizeUpload(
                 : Constants.AccessControl.PRIVATE,
         group: metadata.group,
         temp: true,
+        assetId: metadata.assetId,
+        takenAt: metadata.takenAt ? new Date(metadata.takenAt) : undefined,
+        width,
+        height,
+        durationMs,
     } as MediaWithUserId;
-    const media = await createMedia(mediaObject);
+    const media = await createMediaForAsset(mediaObject, {
+        userId,
+        appId,
+        mediaId: fileName.name,
+        fileName: mediaObject.fileName,
+        thumbnailGenerated: isThumbGenerated,
+    });
 
     // Mark upload as complete
     await markTusUploadComplete(uploadId);

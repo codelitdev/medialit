@@ -16,6 +16,8 @@ import {
 import { validateUploadConstraints } from "../media/storage-middleware";
 import { createTusUpload, updateTusUploadOffset } from "./queries";
 import mediaService from "../media/service";
+import { AssetExistsError } from "../media/errors";
+import { assetIdSchema, takenAtSchema } from "../media/schemas";
 
 const store = new FileStore({
     directory: `${tempFileDirForUploads}/tus-uploads`,
@@ -61,6 +63,12 @@ export const server = new Server({
                 { err, uploadId: upload.id },
                 "Error finalizing tus upload",
             );
+            if (err instanceof AssetExistsError) {
+                throw {
+                    status_code: 409,
+                    body: JSON.stringify(err.toBody()),
+                };
+            }
             throw {
                 status_code: 403,
                 body: err.message,
@@ -80,11 +88,51 @@ export function uploadGroup(
     return signatureGroup ?? clientGroup;
 }
 
+/** `assetId` and `takenAt` from the TUS metadata, or the error to send. */
+export function parseAssetMetadata(
+    metadata: Record<string, string | null | undefined>,
+): { assetId?: string; takenAt?: string } | TusError {
+    const assetId = metadata.assetId || undefined;
+    const takenAt = metadata.takenAt || undefined;
+    if (assetId !== undefined) {
+        const { error } = assetIdSchema.validate(assetId);
+        if (error) return { status_code: 400, body: error.message };
+    }
+    if (takenAt !== undefined) {
+        const { error, value } = takenAtSchema.validate(takenAt);
+        if (error) return { status_code: 400, body: error.message };
+        return { assetId, takenAt: (value as Date).toISOString() };
+    }
+    return { assetId };
+}
+
 export async function handleTusUploadCreate(req: any, upload: any) {
     const metadata = upload.metadata;
     const { user, appId, group } = req;
 
     try {
+        const asset = parseAssetMetadata(metadata);
+        if ("status_code" in asset) throw asset;
+        if (asset.assetId) {
+            // Refuse before any bytes are sent, and say what is there.
+            const [existing] = await mediaService.findAssets({
+                userId: user.id,
+                appId: appId!,
+                assetIds: [asset.assetId],
+            });
+            if (existing) {
+                throw {
+                    status_code: 409,
+                    body: JSON.stringify(
+                        new AssetExistsError(
+                            existing.mediaId,
+                            existing.sealed,
+                        ).toBody(),
+                    ),
+                };
+            }
+        }
+
         const validation = await validateUploadConstraints({
             size: upload.size,
             user,
@@ -107,6 +155,8 @@ export async function handleTusUploadCreate(req: any, upload: any) {
                 accessControl: metadata.access,
                 caption: metadata.caption,
                 group: uploadGroup(group, metadata.group),
+                assetId: asset.assetId,
+                takenAt: asset.takenAt,
             },
             tempFilePath: upload.id,
         });

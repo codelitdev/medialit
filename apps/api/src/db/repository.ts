@@ -106,6 +106,15 @@ export type MediaRecord = {
     group?: string;
     caption?: string;
     temp: boolean;
+    /** Client-chosen ID of the source asset; unique per app. */
+    assetId?: string;
+    /** When the content was captured, as reported by the client. */
+    takenAt?: Date;
+    width?: number;
+    height?: number;
+    durationMs?: number;
+    /** The thumbnail is in the private bucket, behind a signed URL. */
+    thumbnailPrivate: boolean;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -133,6 +142,10 @@ export type MediaSettingsRecord = {
     webpOutputQuality?: number;
     thumbnailWidth?: number;
     thumbnailHeight?: number;
+    /** Keep thumbnails of private files in the private bucket. */
+    privateThumbnails?: boolean;
+    /** `crop` is the 16:9 center crop; `contain` keeps the aspect ratio. */
+    thumbnailFit?: "crop" | "contain";
 };
 
 export type SignatureRecord = {
@@ -156,6 +169,9 @@ export type TusMetadata = {
     accessControl: string;
     caption?: string;
     group?: string;
+    assetId?: string;
+    /** ISO 8601 capture time. */
+    takenAt?: string;
 };
 
 export type TusUploadRecord = {
@@ -238,6 +254,12 @@ function mapMedia(row: typeof media.$inferSelect): MediaRecord {
         group: row.group || undefined,
         caption: row.caption || undefined,
         temp: row.temp,
+        assetId: row.assetId ?? undefined,
+        takenAt: row.takenAt ?? undefined,
+        width: row.width ?? undefined,
+        height: row.height ?? undefined,
+        durationMs: row.durationMs ?? undefined,
+        thumbnailPrivate: row.thumbnailPrivate,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -812,9 +834,13 @@ function mediaKindCondition(kind: MediaKindFilter): SQL {
 }
 
 export async function createMediaRecord(
-    input: Omit<MediaRecord, "id" | "_id" | "createdAt" | "updatedAt"> & {
+    input: Omit<
+        MediaRecord,
+        "id" | "_id" | "createdAt" | "updatedAt" | "thumbnailPrivate"
+    > & {
         id?: string;
         createdAt?: Date;
+        thumbnailPrivate?: boolean;
     },
 ): Promise<MediaRecord> {
     const db = getDb();
@@ -835,12 +861,106 @@ export async function createMediaRecord(
             group: input.group,
             caption: input.caption,
             temp: input.temp,
+            assetId: input.assetId,
+            takenAt: input.takenAt,
+            width: input.width,
+            height: input.height,
+            durationMs: input.durationMs,
+            thumbnailPrivate: input.thumbnailPrivate ?? false,
             createdAt: timestamp,
             updatedAt: input.createdAt || timestamp,
         })
         .returning();
     if (!row) throw new Error("Failed to create media");
     return mapMedia(row);
+}
+
+/** Postgres reports a unique violation as code 23505. Drizzle wraps the
+ * driver error, so the code can sit on `cause`. */
+export function isUniqueViolation(error: unknown, constraint: string): boolean {
+    for (
+        let current: any = error, depth = 0;
+        current && depth < 4;
+        current = current.cause, depth += 1
+    ) {
+        if (
+            current.code === "23505" &&
+            (current.constraint === constraint ||
+                String(current.message ?? "").includes(constraint))
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+export const MEDIA_ASSET_CONSTRAINT = "media_app_asset_uidx";
+
+/** The media in an app that carry any of these asset IDs, unsealed uploads
+ * included, so a client can finish an upload it did not seal. */
+export async function findMediaByAssetIds(input: {
+    userId: string;
+    appId: string;
+    assetIds: string[];
+}): Promise<MediaRecord[]> {
+    if (input.assetIds.length === 0) return [];
+    const db = getDb();
+    const rows = await db
+        .select()
+        .from(media)
+        .where(
+            and(
+                eq(media.userId, input.userId),
+                eq(media.appId, input.appId),
+                inArray(media.assetId, input.assetIds),
+            ),
+        );
+    return rows.map(mapMedia);
+}
+
+/** Where a media item sits in the timeline: when it was captured, or else
+ * uploaded. */
+export function timelineKey(
+    record: Pick<MediaRecord, "takenAt" | "createdAt">,
+): Date {
+    return record.takenAt ?? record.createdAt;
+}
+
+/** Sealed media, newest capture first. `before` is the key and ID of the last
+ * item already seen; paging by it keeps pages stable while uploads land. */
+export async function listTimeline(input: {
+    userId: string;
+    appId: string;
+    limit: number;
+    before?: { at: Date; id: string };
+    kind?: MediaKindFilter;
+    group?: string;
+    access?: "public" | "private";
+}): Promise<MediaRecord[]> {
+    const db = getDb();
+    const sortKey = sql`coalesce(${media.takenAt}, ${media.createdAt})`;
+    const filters = [
+        eq(media.userId, input.userId),
+        eq(media.appId, input.appId),
+        eq(media.temp, false),
+    ];
+    if (input.access) filters.push(eq(media.accessControl, input.access));
+    if (input.group?.trim()) {
+        filters.push(like(media.group, `${escapeLike(input.group.trim())}%`));
+    }
+    if (input.kind) filters.push(mediaKindCondition(input.kind));
+    if (input.before) {
+        filters.push(
+            sql`(${sortKey}, ${media.id}) < (${input.before.at.toISOString()}::timestamptz, ${input.before.id})`,
+        );
+    }
+    const rows = await db
+        .select()
+        .from(media)
+        .where(and(...filters))
+        .orderBy(sql`${sortKey} desc`, desc(media.id))
+        .limit(input.limit);
+    return rows.map(mapMedia);
 }
 
 export async function getMediaRecord(input: {
@@ -1096,6 +1216,11 @@ export async function getMediaSettingsRecord(
         webpOutputQuality: row.webpOutputQuality ?? undefined,
         thumbnailWidth: row.thumbnailWidth ?? undefined,
         thumbnailHeight: row.thumbnailHeight ?? undefined,
+        privateThumbnails: row.privateThumbnails ?? undefined,
+        thumbnailFit:
+            row.thumbnailFit === "contain" || row.thumbnailFit === "crop"
+                ? row.thumbnailFit
+                : undefined,
     };
 }
 
@@ -1113,6 +1238,8 @@ export async function upsertMediaSettings(
             webpOutputQuality: input.webpOutputQuality,
             thumbnailWidth: input.thumbnailWidth,
             thumbnailHeight: input.thumbnailHeight,
+            privateThumbnails: input.privateThumbnails,
+            thumbnailFit: input.thumbnailFit,
         })
         .onConflictDoUpdate({
             target: mediaSettings.appId,
@@ -1121,6 +1248,8 @@ export async function upsertMediaSettings(
                 webpOutputQuality: input.webpOutputQuality,
                 thumbnailWidth: input.thumbnailWidth,
                 thumbnailHeight: input.thumbnailHeight,
+                privateThumbnails: input.privateThumbnails,
+                thumbnailFit: input.thumbnailFit,
             },
         });
 }

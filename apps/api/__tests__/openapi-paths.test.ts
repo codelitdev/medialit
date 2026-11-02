@@ -7,11 +7,13 @@ const expectedPaths = [
     "/media/create",
     "/media/delete/{mediaId}",
     "/media/get",
+    "/media/get/assets",
     "/media/get/count",
     "/media/get/size",
     "/media/get/{mediaId}",
     "/media/seal/{mediaId}",
     "/media/signature/create",
+    "/media/timeline",
     "/settings/media/create",
     "/settings/media/get",
 ];

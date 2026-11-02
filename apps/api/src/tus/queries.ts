@@ -18,7 +18,11 @@ export interface TusUpload {
     metadata: Pick<
         Media,
         "fileName" | "mimeType" | "accessControl" | "caption" | "group"
-    >;
+    > & {
+        assetId?: string;
+        /** ISO 8601, already validated. */
+        takenAt?: string;
+    };
     tempFilePath: string;
     isComplete: boolean;
     expiresAt?: Date;
@@ -31,6 +35,8 @@ function toTusMetadata(metadata: {
     accessControl: string;
     caption?: string;
     group?: string;
+    assetId?: string;
+    takenAt?: string;
 }): TusUpload["metadata"] {
     return {
         fileName: metadata.fileName,
@@ -39,6 +45,8 @@ function toTusMetadata(metadata: {
             metadata.accessControl === "public" ? "public" : "private",
         caption: metadata.caption,
         group: metadata.group,
+        assetId: metadata.assetId,
+        takenAt: metadata.takenAt,
     };
 }
 
@@ -59,6 +67,8 @@ export async function createTusUpload(
             accessControl: data.metadata.accessControl,
             caption: data.metadata.caption,
             group: data.metadata.group,
+            assetId: data.metadata.assetId,
+            takenAt: data.metadata.takenAt,
         },
         tempFilePath: data.tempFilePath,
         signature: data.signature,

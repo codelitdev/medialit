@@ -41,12 +41,23 @@ import {
     createMedia,
     getTotalSpace,
 } from "./queries";
-import { listMediaRecordsByIds, sealMediaRecord } from "@/db";
+import {
+    findMediaByAssetIds,
+    isUniqueViolation,
+    listMediaRecordsByIds,
+    listTimeline,
+    MEDIA_ASSET_CONSTRAINT,
+    sealMediaRecord,
+    timelineKey,
+} from "@/db";
+import { AssetExistsError } from "./errors";
+import { probeMedia } from "./utils/probe";
+import { decodeTimelineCursor, encodeTimelineCursor } from "./timeline-cursor";
 import * as presignedUrlService from "../signature/service";
 import getTags from "./utils/get-tags";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
-import { MediaResponse } from "./schemas";
+import { MediaResponse, TimelineItemResponse } from "./schemas";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -96,6 +107,8 @@ interface UploadProps {
     caption: string;
     group?: string;
     signature?: string;
+    assetId?: string;
+    takenAt?: Date;
 }
 
 async function upload({
@@ -106,6 +119,8 @@ async function upload({
     caption,
     group,
     signature,
+    assetId,
+    takenAt,
 }: UploadProps): Promise<string> {
     const fileName = generateFileName(file.name);
     const mediaSettings = await getMediaSettings(userId, appId);
@@ -145,6 +160,11 @@ async function upload({
 
     await putObject(uploadParams);
 
+    const { width, height, durationMs } = await probeMedia(
+        mainFilePath,
+        mimeType,
+    );
+
     let isThumbGenerated = false;
     try {
         isThumbGenerated = await generateAndUploadThumbnail({
@@ -181,8 +201,19 @@ async function upload({
                 : Constants.AccessControl.PRIVATE,
         group,
         temp: true,
+        assetId,
+        takenAt,
+        width,
+        height,
+        durationMs,
     };
-    const media = await createMedia(mediaObject);
+    const media = await createMediaForAsset(mediaObject, {
+        userId,
+        appId,
+        mediaId: fileName.name,
+        fileName: mediaObject.fileName,
+        thumbnailGenerated: isThumbGenerated,
+    });
 
     if (signature) {
         presignedUrlService.cleanup(userId, signature).catch((err: any) => {
@@ -194,6 +225,158 @@ async function upload({
     }
 
     return media.mediaId;
+}
+
+/**
+ * Creates the record, and if another upload took the asset ID first, removes
+ * the objects this one already stored so they are not orphaned. Used by every
+ * upload path, which all store objects before they write the record.
+ */
+export async function createMediaForAsset(
+    mediaObject: MediaWithUserId,
+    stored: {
+        userId: string;
+        appId: string;
+        mediaId: string;
+        fileName: string;
+        thumbnailGenerated: boolean;
+    },
+): Promise<MediaWithUserId> {
+    try {
+        return await createMedia(mediaObject);
+    } catch (err) {
+        if (
+            !mediaObject.assetId ||
+            !isUniqueViolation(err, MEDIA_ASSET_CONSTRAINT)
+        ) {
+            throw err;
+        }
+        await removeStoredFiles({
+            ...mediaObject,
+            fileName: stored.fileName,
+            mediaId: stored.mediaId,
+            thumbnailGenerated: stored.thumbnailGenerated,
+            temp: true,
+            accessControl: Constants.AccessControl.PRIVATE,
+        }).catch((cleanupError) =>
+            logger.error(
+                { err: cleanupError, mediaId: stored.mediaId },
+                "Failed to remove the files of a duplicate upload",
+            ),
+        );
+        const [existing] = await findAssets({
+            userId: stored.userId,
+            appId: stored.appId,
+            assetIds: [mediaObject.assetId],
+        });
+        throw new AssetExistsError(existing?.mediaId, existing?.sealed);
+    }
+}
+
+export type AssetStatus = {
+    assetId: string;
+    mediaId: string;
+    sealed: boolean;
+};
+
+/** Which of these asset IDs the app already has, sealed or not. */
+async function findAssets({
+    userId,
+    appId,
+    assetIds,
+}: {
+    userId: string;
+    appId: string;
+    assetIds: string[];
+}): Promise<AssetStatus[]> {
+    const rows = await findMediaByAssetIds({
+        userId: String(userId),
+        appId,
+        assetIds,
+    });
+    return rows.map((row) => ({
+        assetId: row.assetId!,
+        mediaId: row.mediaId,
+        sealed: !row.temp,
+    }));
+}
+
+async function getTimeline({
+    userId,
+    appId,
+    limit,
+    cursor,
+    kind,
+    access,
+    group,
+}: {
+    userId: string;
+    appId: string;
+    limit: number;
+    /** From a previous page. Throws if it is not one this server issued. */
+    cursor?: string;
+    kind?: GetPageProps["kind"];
+    access?: AccessControl;
+    group?: string;
+}): Promise<{ items: TimelineItemResponse[]; nextCursor: string | null }> {
+    let before;
+    if (cursor) {
+        before = decodeTimelineCursor(cursor);
+        if (!before) throw new InvalidCursorError();
+    }
+    // One extra row says whether another page follows.
+    const rows = await listTimeline({
+        userId: String(userId),
+        appId,
+        limit: limit + 1,
+        before: before ?? undefined,
+        kind,
+        group,
+        access:
+            access === Constants.AccessControl.PRIVATE
+                ? "private"
+                : access
+                  ? "public"
+                  : undefined,
+    });
+    const page = rows.slice(0, limit);
+    const last = page[page.length - 1];
+    return {
+        items: page.map(
+            (media): TimelineItemResponse => ({
+                mediaId: media.mediaId,
+                originalFileName: media.originalFileName,
+                mimeType: media.mimeType,
+                size: media.size,
+                access:
+                    media.accessControl === Constants.AccessControl.PRIVATE
+                        ? Constants.AccessControl.PRIVATE
+                        : Constants.AccessControl.PUBLIC,
+                thumbnail: media.thumbnailGenerated
+                    ? getThumbnailUrl(media)
+                    : "",
+                caption: media.caption,
+                group: media.group,
+                createdAt: media.createdAt,
+                takenAt: media.takenAt ?? null,
+                assetId: media.assetId,
+                width: media.width,
+                height: media.height,
+                durationMs: media.durationMs,
+            }),
+        ),
+        nextCursor:
+            rows.length > limit && last
+                ? encodeTimelineCursor({ at: timelineKey(last), id: last.id })
+                : null,
+    };
+}
+
+export class InvalidCursorError extends Error {
+    constructor() {
+        super("Invalid cursor");
+        this.name = "InvalidCursorError";
+    }
 }
 
 type MappedMedia = Partial<
@@ -319,6 +502,11 @@ async function getMediaResponse(
         thumbnail: thumbnailUrl,
         caption: media.caption,
         group: media.group,
+        assetId: media.assetId,
+        takenAt: media.takenAt,
+        width: media.width,
+        height: media.height,
+        durationMs: media.durationMs,
     };
 }
 
@@ -558,6 +746,8 @@ async function sealMedia({
 const mediaService = {
     upload,
     getPage,
+    getTimeline,
+    findAssets,
     getMediaCount: getMediaCountWithFilter,
     getMediaDetails,
     deleteMedia,

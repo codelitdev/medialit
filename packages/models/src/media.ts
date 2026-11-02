@@ -14,4 +14,13 @@ export interface Media {
     caption?: string;
     file?: string;
     temp?: boolean;
+    /** Client-chosen ID of the source asset; unique per app. */
+    assetId?: string;
+    /** When the content was captured, as reported by the client. */
+    takenAt?: Date;
+    width?: number;
+    height?: number;
+    durationMs?: number;
+    /** The thumbnail is in the private bucket, behind a signed URL. */
+    thumbnailPrivate?: boolean;
 }
