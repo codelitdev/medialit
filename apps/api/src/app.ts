@@ -46,6 +46,13 @@ export function createApp(input: {
 }): express.Express {
     const { auth, webOrigin } = input;
     const loginCaptcha = loginCaptchaConfig();
+    // The sign-in and app-picker pages are served from the API host, so the
+    // icon comes from the web app. The color matches the dashboard's medialit
+    // product token.
+    const brand = {
+        iconUrl: new URL("/icon.svg", webOrigin).toString(),
+        primaryColor: "oklch(0.6 0.14 300)",
+    };
     const app = express();
 
     app.set(
@@ -83,6 +90,9 @@ export function createApp(input: {
             authBasePath: AUTH_BASE_PATH,
             allowedRedirectOrigins: [new URL(webOrigin).origin],
             defaultRedirectUrl: `${webOrigin}/`,
+            logoUrl: brand.iconUrl,
+            faviconUrl: brand.iconUrl,
+            primaryColor: brand.primaryColor,
             loginMethods: [{ type: "email-otp" }],
             ...(loginCaptcha
                 ? {
@@ -99,6 +109,7 @@ export function createApp(input: {
             auth: auth.auth,
             adapter: oauthAppSelectionAdapter,
             authBasePath: AUTH_BASE_PATH,
+            brand,
         }),
     );
 
