@@ -406,7 +406,7 @@ could then keep uploading for up to a day afterwards. SendLit and FrontLit have
 no credentials derived from a key, so this is specific to MediaLit.
 
 - **Creating.** `generateSignature` stores `app_id` and, for API-key callers,
-  `api_key_id`: `req.apiKeyId` over REST, `getMcpAuth(extra).apiKeyId` over
+  `api_key_id`: `req.apiKeyId` over REST, the tool context's `apiKeyId` over
   MCP. Signatures minted through OAuth or the dashboard
   leave it null.
 - **Revoking a key.** Deleting the key's signatures happens in the same

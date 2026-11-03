@@ -341,32 +341,3 @@ test("ambiguous credentials return the Platform 400 error", () => {
         error_description: "Exactly one credential mechanism is allowed.",
     });
 });
-
-test("MCP auth errors advertise protected-resource metadata", () => {
-    const headers = new Map<string, string>();
-    const response = {
-        statusCode: 200,
-        setHeader(name: string, value: string) {
-            headers.set(name, value);
-        },
-        status(code: number) {
-            this.statusCode = code;
-            return this;
-        },
-        json(_body: unknown) {
-            return this;
-        },
-    };
-    const metadataUrl =
-        "http://localhost:8000/.well-known/oauth-protected-resource/mcp";
-
-    assert.equal(
-        sendAuthError(response, { status: "missing" }, metadataUrl),
-        true,
-    );
-    assert.equal(response.statusCode, 401);
-    assert.equal(
-        headers.get("WWW-Authenticate"),
-        `Bearer resource_metadata="${metadataUrl}"`,
-    );
-});

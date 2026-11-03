@@ -1,114 +1,70 @@
-import type { McpToolRegistrar } from "../server";
 import { z } from "zod";
 import { getMediaSettings } from "../../media-settings/service";
 import { updateMediaSettings } from "../../media-settings/queries";
 import { SUCCESS } from "../../config/strings";
-import { getMcpAuth } from "../auth-context";
-import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
+import type { MedialitMcpTool } from "../context";
+import { medialitTool } from "../tool";
 import { mediaSettingsSchema, successMessageSchema } from "./schemas";
 
-export function registerSettingsTools(server: McpToolRegistrar): void {
-    // get_media_settings
-    server.registerTool(
-        "get_media_settings",
-        {
-            description:
-                "Returns the current image processing configuration for the connected app, including WebP conversion settings and thumbnail dimensions.",
-            outputSchema: mediaSettingsSchema,
-            annotations: {
-                title: "Get media settings",
-                readOnlyHint: true,
-                idempotentHint: true,
-                openWorldHint: false,
-                destructiveHint: false,
-            },
-        },
-        async (_args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId } = auth;
-            try {
-                const settings = await getMediaSettings(userId, appId);
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: JSON.stringify(settings),
-                        },
-                    ],
-                    structuredContent: (settings as any) ?? {},
-                };
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
+export const settingsTools = (): MedialitMcpTool[] => [
+    medialitTool({
+        name: "get_media_settings",
+        title: "Get media settings",
+        risk: "read",
+        description:
+            "Returns the current image processing configuration for the connected app, including WebP conversion settings and thumbnail dimensions.",
+        inputSchema: z.object({}),
+        outputSchema: mediaSettingsSchema,
+        annotations: { idempotentHint: true },
+        handler: ({ context }) =>
+            getMediaSettings(context.userId, context.appId),
+    }),
 
-    // update_media_settings
-    server.registerTool(
-        "update_media_settings",
-        {
-            description:
-                "Overwrites image processing settings for the connected app. Supply only the fields you want to change; omitted fields retain their current values.",
-            inputSchema: {
-                useWebP: z
-                    .boolean()
-                    .optional()
-                    .describe("Convert uploaded images to WebP format"),
-                webpOutputQuality: z
-                    .number()
-                    .int()
-                    .min(0)
-                    .max(100)
-                    .optional()
-                    .describe("WebP output quality 0–100"),
-                thumbnailWidth: z
-                    .number()
-                    .int()
-                    .positive()
-                    .optional()
-                    .describe("Generated thumbnail width in pixels"),
-                thumbnailHeight: z
-                    .number()
-                    .int()
-                    .positive()
-                    .optional()
-                    .describe("Generated thumbnail height in pixels"),
-            },
-            outputSchema: successMessageSchema,
-            annotations: {
-                title: "Update media settings",
-                readOnlyHint: false,
-                destructiveHint: true,
-                openWorldHint: false,
-            },
+    medialitTool({
+        name: "update_media_settings",
+        title: "Update media settings",
+        // Settings can be set back, and only affect files uploaded later.
+        risk: "write",
+        description:
+            "Overwrites image processing settings for the connected app. Supply only the fields you want to change; omitted fields retain their current values.",
+        inputSchema: z.object({
+            useWebP: z
+                .boolean()
+                .optional()
+                .describe("Convert uploaded images to WebP format"),
+            webpOutputQuality: z
+                .number()
+                .int()
+                .min(0)
+                .max(100)
+                .optional()
+                .describe("WebP output quality 0–100"),
+            thumbnailWidth: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe("Generated thumbnail width in pixels"),
+            thumbnailHeight: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe("Generated thumbnail height in pixels"),
+        }),
+        outputSchema: successMessageSchema,
+        annotations: { idempotentHint: true },
+        async handler({ context, args }) {
+            // The upsert leaves a field it is given as undefined unchanged.
+            await updateMediaSettings({
+                userId: context.userId,
+                appId: context.appId,
+                useWebP: args.useWebP as boolean,
+                webpOutputQuality: args.webpOutputQuality as number,
+                thumbnailWidth: args.thumbnailWidth as number,
+                thumbnailHeight: args.thumbnailHeight as number,
+            });
+            return { message: SUCCESS };
         },
-        async (args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId } = auth;
-            try {
-                await updateMediaSettings({
-                    userId,
-                    appId,
-                    useWebP: args.useWebP,
-                    webpOutputQuality: args.webpOutputQuality,
-                    thumbnailWidth: args.thumbnailWidth,
-                    thumbnailHeight: args.thumbnailHeight,
-                });
-                const response = { message: SUCCESS };
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: JSON.stringify(response),
-                        },
-                    ],
-                    structuredContent: response,
-                };
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
-}
+    }),
+];

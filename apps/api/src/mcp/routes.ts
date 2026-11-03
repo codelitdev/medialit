@@ -1,16 +1,30 @@
-import { Router } from "express";
+import { mcpCorsHeaders } from "@codelitdev/mcp-server-kit";
+import {
+    createPlatformError,
+    type HeaderMap,
+    toPublicHttpError,
+} from "@codelitdev/platform";
+import express, {
+    type NextFunction,
+    type Request,
+    type Response,
+    Router,
+} from "express";
 import rateLimit from "express-rate-limit";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { mcpCorsHeaders, patchMcpAccept } from "@codelitdev/mcp-server-kit";
-import { mcpAuth } from "../auth/middleware";
-import { createMcpAuthInfo } from "./auth-context";
-import { createMCPSession } from "./server";
+import { getMcpResourceMetadataUrl } from "../auth/bearer";
+import { runMcpRequest } from "./context";
+import { createMedialitMcp } from "./server";
+
+/** MediaLit's own API-key header, allowed on top of the kit's CORS list. */
+const MEDIALIT_CORS_HEADERS = "x-medialit-apikey";
 
 const router = Router();
+const mcp = createMedialitMcp();
 
 const mcpLimiter = rateLimit({
     windowMs: 60_000,
     max: 60,
+    skip: (req) => req.method === "OPTIONS",
     standardHeaders: true,
     legacyHeaders: false,
     message: {
@@ -19,124 +33,117 @@ const mcpLimiter = rateLimit({
     },
 });
 
-const mcpSessions = new Map<string, StreamableHTTPServerTransport>();
-
-const mcpCors = (req: any, res: any, next: any) => {
-    const headers = mcpCorsHeaders(req.headers);
-    headers["Access-Control-Allow-Headers"] =
-        `${headers["Access-Control-Allow-Headers"]}, x-medialit-apikey`;
-    for (const [name, value] of Object.entries(headers)) {
-        res.header(name, value);
-    }
-    if (req.method === "OPTIONS") {
-        return res.status(204).end();
-    }
-    next();
-};
-
-function patchMcpAcceptHeaders(req: any) {
-    const patched = patchMcpAccept(req.headers);
-    const newAccept = Array.isArray(patched.accept)
-        ? patched.accept.join(", ")
-        : patched.accept;
-    if (!newAccept || newAccept === req.headers.accept) return;
-    req.headers.accept = newAccept;
-
-    const rawHeaders: string[] = req.rawHeaders;
-    let found = false;
-    for (let i = 0; i < rawHeaders.length; i += 2) {
-        if (rawHeaders[i].toLowerCase() === "accept") {
-            rawHeaders[i + 1] = newAccept;
-            found = true;
-            break;
-        }
-    }
-    if (!found) rawHeaders.push("Accept", newAccept);
-}
-
-/** Runs after `mcpAuth`, which accepts exactly one of an OAuth bearer token
- * or an `x-medialit-apikey` header. */
-function attachMcpAuthInfo(req: any, res: any, next: any) {
-    const authInfo = createMcpAuthInfo(req);
-    if (!authInfo) {
-        return res.status(401).json({
-            error: "unauthorized",
-            error_description: "MCP authentication context is incomplete.",
+/** Protocol parse errors go back as JSON-RPC, not Express error pages. The
+ * limit fits `upload_media`'s base64 file content. */
+function jsonBody(req: Request, res: Response, next: NextFunction) {
+    if (req.method !== "POST") return next();
+    if (!req.is("application/json")) {
+        res.status(415).json({
+            jsonrpc: "2.0",
+            error: {
+                code: -32000,
+                message: "Content-Type must be application/json",
+            },
+            id: null,
         });
+        return;
     }
-    req.auth = authInfo;
+    express.json({ limit: "2mb" })(req, res, (error?: unknown) => {
+        if (error) {
+            res.status(400).json({
+                jsonrpc: "2.0",
+                error: { code: -32700, message: "Parse error" },
+                id: null,
+            });
+            return;
+        }
+        next();
+    });
+}
+
+function withMedialitHeaders(res: Response) {
+    const allowed = res.getHeader("Access-Control-Allow-Headers");
+    if (allowed) {
+        res.setHeader(
+            "Access-Control-Allow-Headers",
+            `${allowed}, ${MEDIALIT_CORS_HEADERS}`,
+        );
+    }
+}
+
+function discoveryCors(req: Request, res: Response, next: NextFunction) {
+    for (const [name, value] of Object.entries(mcpCorsHeaders(req.headers))) {
+        res.setHeader(name, value);
+    }
+    withMedialitHeaders(res);
+    if (req.method === "OPTIONS") {
+        res.status(204).end();
+        return;
+    }
     next();
 }
 
-router.use(["/.well-known", "/oauth"], mcpCors);
+router.use(["/.well-known", "/oauth"], discoveryCors);
 
-router.post(
+router.all(
     "/mcp",
-    mcpCors,
     mcpLimiter,
-    mcpAuth,
-    attachMcpAuthInfo,
-    async (req: any, res: any) => {
-        patchMcpAcceptHeaders(req);
-
-        const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-        if (sessionId) {
-            const transport = mcpSessions.get(sessionId);
-            if (!transport) {
-                return res.status(404).json({
-                    jsonrpc: "2.0",
-                    error: { code: -32001, message: "Session not found" },
-                    id: null,
-                });
+    jsonBody,
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const headers: Record<string, string | string[] | undefined> = {
+                ...req.headers,
+            };
+            // MediaLit clients send their key as `x-medialit-apikey`; the kit
+            // reads `X-API-Key`. Both at once stay ambiguous.
+            const medialitKey = headers["x-medialit-apikey"];
+            delete headers["x-medialit-apikey"];
+            if (medialitKey && headers["x-api-key"]) {
+                const ambiguous = toPublicHttpError(
+                    createPlatformError("credential_ambiguous"),
+                );
+                res.status(ambiguous.status).json(ambiguous.body);
+                return;
             }
-            await transport.handleRequest(req, res, req.body);
-        } else {
-            const transport = createMCPSession(
-                (id) => mcpSessions.set(id, transport),
-                (id) => mcpSessions.delete(id),
+            if (medialitKey) headers["x-api-key"] = medialitKey;
+
+            const controller = new AbortController();
+            res.once("close", () => {
+                if (!res.writableFinished) controller.abort();
+            });
+            const result = await runMcpRequest(() =>
+                mcp.handle({
+                    method: req.method,
+                    headers: headers as HeaderMap,
+                    body: req.body,
+                    signal: controller.signal,
+                }),
             );
-            await transport.handleRequest(req, res, req.body);
+
+            for (const [name, value] of Object.entries(result.headers)) {
+                res.setHeader(name, value);
+            }
+            withMedialitHeaders(res);
+            const resourceMetadataUrl = getMcpResourceMetadataUrl();
+            if (result.status === 401 && resourceMetadataUrl) {
+                // Spec-compliant MCP clients discover OAuth from this challenge.
+                res.setHeader(
+                    "WWW-Authenticate",
+                    `Bearer resource_metadata="${resourceMetadataUrl}"`,
+                );
+            }
+            res.status(result.status);
+            if (result.body === null) res.end();
+            else res.json(result.body);
+        } catch (error) {
+            next(error);
         }
     },
 );
 
-router.delete(
-    "/mcp",
-    mcpCors,
-    mcpLimiter,
-    mcpAuth,
-    attachMcpAuthInfo,
-    async (req: any, res: any) => {
-        const sessionId = req.headers["mcp-session-id"] as string | undefined;
-        if (!sessionId) {
-            return res.status(400).json({
-                jsonrpc: "2.0",
-                error: { code: -32600, message: "Session ID required" },
-                id: null,
-            });
-        }
-
-        const transport = mcpSessions.get(sessionId);
-        if (!transport) {
-            return res.status(404).json({
-                jsonrpc: "2.0",
-                error: { code: -32001, message: "Session not found" },
-                id: null,
-            });
-        }
-
-        await transport.handleRequest(req, res);
-    },
-);
-
-router.options("/mcp", mcpCors);
-
-/** Closes open MCP sessions so their streams do not hold the server open. */
-export async function closeMcpSessions(): Promise<void> {
-    const transports = [...mcpSessions.values()];
-    mcpSessions.clear();
-    await Promise.allSettled(transports.map((transport) => transport.close()));
+/** Refuses new MCP requests and closes the kit's handler. */
+export function closeMcp(): Promise<void> {
+    return mcp.shutdown();
 }
 
 export default router;

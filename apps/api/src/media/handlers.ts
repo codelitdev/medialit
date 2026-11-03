@@ -1,5 +1,10 @@
 import Joi from "joi";
-import { FILE_IS_REQUIRED, NOT_FOUND, SUCCESS } from "../config/strings";
+import {
+    FILE_IS_REQUIRED,
+    NOT_ENOUGH_STORAGE,
+    NOT_FOUND,
+    SUCCESS,
+} from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
@@ -160,6 +165,7 @@ export async function deleteMedia(req: any, res: any) {
 export function sealErrorStatus(err: { message?: string }): number {
     if (err.message === "Media not found") return 404;
     if (err.message === "Media is already sealed") return 409;
+    if (err.message === NOT_ENOUGH_STORAGE) return 403;
     return 500;
 }
 

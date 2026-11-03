@@ -2,7 +2,7 @@ import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
 import { checkDatabaseConnection } from "./config/db";
-import { closeMcpSessions } from "./mcp/routes";
+import { closeMcp } from "./mcp/routes";
 import logger, { shutdownObservability } from "./services/log";
 import { bootstrap, checkBootstrapConfig } from "./bootstrap";
 import { closeDb, getDb, seedWebOAuthClient } from "@/db";
@@ -15,6 +15,7 @@ import { cleanupTUSUploads } from "./tus/cleanup";
 import { cleanupExpiredTempUploads } from "./media/cleanup";
 import { HOUR_IN_SECONDS } from "./config/constants";
 import { createMedialitAuth } from "./auth/better-auth";
+import { loginCaptchaConfig } from "./auth/options";
 import { createApp } from "./app";
 import { startBillingMaintenance } from "./billing/maintenance";
 
@@ -97,7 +98,7 @@ checkConfig()
                 clearInterval(tempCleanup);
                 await stopBillingMaintenance();
             },
-            closeMcpSessions,
+            closeMcp,
             closeServer: () =>
                 new Promise<void>((resolve, reject) => {
                     server.close((error) =>
@@ -150,6 +151,7 @@ async function checkConfig() {
         );
     }
     checkBootstrapConfig();
+    loginCaptchaConfig();
     if (
         !process.env.BETTER_AUTH_SECRET ||
         Buffer.byteLength(process.env.BETTER_AUTH_SECRET, "utf8") < 32

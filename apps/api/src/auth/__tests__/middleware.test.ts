@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createAuthMiddleware } from "../middleware.js";
-import { AuthResult } from "../resolve-auth.js";
 
 function response() {
     return {
@@ -22,7 +21,7 @@ test("REST middleware maps successful OAuth auth to req.user and req.appId", asy
     const req: any = { headers: { authorization: "Bearer token" }, body: {} };
     const res = response();
     let nextCalled = false;
-    const middleware = createAuthMiddleware("rest", async () => ({
+    const middleware = createAuthMiddleware(async () => ({
         status: "authenticated",
         kind: "oauth",
         user: { id: "user-1" },
@@ -49,7 +48,7 @@ test("REST middleware maps API-key auth to internal IDs, never the secret", asyn
     };
     const res = response();
     let nextCalled = false;
-    const middleware = createAuthMiddleware("rest", async () => ({
+    const middleware = createAuthMiddleware(async () => ({
         status: "authenticated",
         kind: "apikey",
         user: { id: "user-1" },
@@ -72,7 +71,7 @@ test("REST middleware maps API-key auth to internal IDs, never the secret", asyn
 test("REST middleware uses shared invalid Bearer 401 behavior", async () => {
     const req: any = { headers: { authorization: "Bearer bad" }, body: {} };
     const res = response();
-    const middleware = createAuthMiddleware("rest", async () => ({
+    const middleware = createAuthMiddleware(async () => ({
         status: "invalid_token",
     }));
 
@@ -84,83 +83,5 @@ test("REST middleware uses shared invalid Bearer 401 behavior", async () => {
     assert.deepEqual(res.body, {
         error: "invalid_token",
         error_description: "Access token is invalid or expired",
-    });
-});
-
-test("MCP middleware maps OAuth auth fields", async () => {
-    const req: any = { headers: { authorization: "Bearer token" }, body: {} };
-    const res = response();
-    let nextCalled = false;
-    const middleware = createAuthMiddleware("mcp", async () => ({
-        status: "authenticated",
-        kind: "oauth",
-        user: { id: "user-1" },
-        userId: "user-1",
-        clientId: "client-1",
-        scopes: ["read"],
-        appId: "internal-default",
-    }));
-
-    await middleware(req, res as any, () => {
-        nextCalled = true;
-    });
-
-    assert.equal(nextCalled, true);
-    assert.deepEqual(req.user, { id: "user-1" });
-    assert.equal(req.userId, "user-1");
-    assert.equal(req.clientId, "client-1");
-    assert.deepEqual(req.scopes, ["read"]);
-    assert.equal(req.appId, "internal-default");
-});
-
-test("MCP middleware maps API-key auth fields with full data scopes", async () => {
-    const req: any = {
-        headers: { "x-medialit-apikey": "submitted-key" },
-        body: {},
-    };
-    const res = response();
-    let nextCalled = false;
-    const middleware = createAuthMiddleware("mcp", async () => ({
-        status: "authenticated",
-        kind: "apikey",
-        user: { id: "user-1" },
-        userId: "user-1",
-        appId: "internal-app",
-        apiKeyId: "internal-key",
-    }));
-
-    await middleware(req, res as any, () => {
-        nextCalled = true;
-    });
-
-    assert.equal(nextCalled, true);
-    assert.deepEqual(req.user, { id: "user-1" });
-    assert.equal(req.userId, "user-1");
-    assert.equal(req.appId, "internal-app");
-    assert.equal(req.apiKeyId, "internal-key");
-    assert.equal(req.clientId, undefined);
-    // API keys predate scopes and keep full access.
-    assert.deepEqual(req.scopes, ["data:read", "data:write"]);
-});
-
-test("MCP middleware preserves missing-auth 401 behavior", async () => {
-    const req: any = { headers: {}, body: {} };
-    const res = response();
-    const middleware = createAuthMiddleware(
-        "mcp",
-        async (): Promise<AuthResult> => ({
-            status: "missing",
-        }),
-    );
-
-    await middleware(req, res as any, () => {
-        throw new Error("next should not be called");
-    });
-
-    assert.equal(res.statusCode, 401);
-    assert.deepEqual(res.body, {
-        error: "unauthorized",
-        error_description:
-            "Missing authentication: provide Authorization: Bearer <token> or x-medialit-apikey header",
     });
 });

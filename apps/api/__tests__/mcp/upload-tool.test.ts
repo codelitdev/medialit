@@ -1,6 +1,6 @@
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
-import { handleUploadMediaTool } from "../../src/mcp/tools/upload";
+import { callTool } from "./call-tool";
 import mediaQueries from "../../src/media/queries";
 import mediaService from "../../src/media/service";
 import {
@@ -11,19 +11,6 @@ import {
     FILE_SIZE_EXCEEDED,
     NOT_ENOUGH_STORAGE,
 } from "../../src/config/strings";
-
-function authInfo(user: any) {
-    return {
-        authInfo: {
-            extra: {
-                authKind: "apikey",
-                userId: user.id,
-                user,
-                appId: "test-app",
-            },
-        },
-    };
-}
 
 function uploadArgs(size: number) {
     return {
@@ -47,16 +34,17 @@ describe("MCP upload_media", () => {
             throw new Error("upload should not be called");
         });
 
-        const response = await handleUploadMediaTool(
+        const response = await callTool(
+            "upload_media",
+            { user, userId: user.id },
             uploadArgs(maxFileUploadSizeNotSubscribed + 1),
-            authInfo(user),
         );
 
-        assert.equal((response as any).isError, true);
-        assert.equal(
-            response.content[0].text,
-            `${FILE_SIZE_EXCEEDED}. Allowed: ${maxFileUploadSizeNotSubscribed} bytes`,
-        );
+        assert.equal(response.error.code, "validation_failed");
+        assert.deepEqual(response.error.safeDetails, {
+            reason: "file_size_exceeded",
+            message: `${FILE_SIZE_EXCEEDED}. Allowed: ${maxFileUploadSizeNotSubscribed} bytes`,
+        });
     });
 
     test("rejects uploads that exceed remaining account storage", async () => {
@@ -71,12 +59,16 @@ describe("MCP upload_media", () => {
             throw new Error("upload should not be called");
         });
 
-        const response = await handleUploadMediaTool(
+        const response = await callTool(
+            "upload_media",
+            { user, userId: user.id },
             uploadArgs(1024),
-            authInfo(user),
         );
 
-        assert.equal((response as any).isError, true);
-        assert.equal(response.content[0].text, NOT_ENOUGH_STORAGE);
+        assert.equal(response.error.code, "forbidden");
+        assert.deepEqual(response.error.safeDetails, {
+            reason: "not_enough_storage",
+            message: NOT_ENOUGH_STORAGE,
+        });
     });
 });

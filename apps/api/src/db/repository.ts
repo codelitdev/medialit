@@ -952,7 +952,9 @@ export async function totalMediaSize(input: {
     appId?: string;
 }): Promise<number> {
     const db = getDb();
-    const filters = [eq(media.userId, input.userId), eq(media.temp, false)];
+    // Unsealed uploads occupy storage too. Skipping them let an account stack
+    // uploads past its quota before sealing.
+    const filters = [eq(media.userId, input.userId)];
     if (input.appId) filters.push(eq(media.appId, input.appId));
     const [row] = await db
         .select({ total: sql<number>`coalesce(sum(${media.size}), 0)::float8` })

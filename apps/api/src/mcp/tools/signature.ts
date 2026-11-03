@@ -1,56 +1,34 @@
-import type { McpToolRegistrar } from "../server";
 import { z } from "zod";
 import { generateSignature } from "../../signature/service";
-import { getMcpAuth } from "../auth-context";
-import { AUTH_ERROR, INTERNAL_ERROR } from "./responses";
+import type { MedialitMcpTool } from "../context";
+import { medialitTool } from "../tool";
 import { signatureSchema } from "./schemas";
 
-export function registerSignatureTool(server: McpToolRegistrar): void {
-    server.registerTool(
-        "create_upload_signature",
-        {
-            description:
-                "Generates a time-limited HMAC signature that authorizes a direct client-side file upload to MediaLit storage. The returned signature must be passed by the client when initiating the upload.",
-            inputSchema: {
-                group: z
-                    .string()
-                    .optional()
-                    .describe(
-                        "Optional group label to associate with the uploaded file",
-                    ),
-            },
-            outputSchema: signatureSchema,
-            annotations: {
-                title: "Create upload signature",
-                readOnlyHint: false,
-                idempotentHint: true,
-                openWorldHint: false,
-                destructiveHint: false,
-            },
+export const signatureTools = (): MedialitMcpTool[] => [
+    medialitTool({
+        name: "create_upload_signature",
+        title: "Create upload signature",
+        risk: "write",
+        description:
+            "Generates a time-limited HMAC signature that authorizes a direct client-side file upload to MediaLit storage. The returned signature must be passed by the client when initiating the upload.",
+        inputSchema: z.object({
+            group: z
+                .string()
+                .optional()
+                .describe(
+                    "Optional group label to associate with the uploaded file",
+                ),
+        }),
+        outputSchema: signatureSchema,
+        annotations: { idempotentHint: true },
+        async handler({ context, args }) {
+            const signature = await generateSignature({
+                userId: context.userId,
+                appId: context.appId,
+                apiKeyId: context.apiKeyId,
+                group: args.group,
+            });
+            return { signature };
         },
-        async (args: any, extra: any) => {
-            const auth = getMcpAuth(extra);
-            if (!auth) return AUTH_ERROR;
-            const { userId, appId, apiKeyId } = auth;
-            try {
-                const signature = await generateSignature({
-                    userId,
-                    appId,
-                    apiKeyId,
-                    group: args.group,
-                });
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: JSON.stringify({ signature }),
-                        },
-                    ],
-                    structuredContent: { signature } as Record<string, unknown>,
-                };
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
-}
+    }),
+];

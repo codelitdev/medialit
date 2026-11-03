@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { requireScope, toolScope } from "../scopes.js";
-import { createToolRegistrar, registerAllTools } from "../../mcp/server.js";
+import { medialitMcpTools } from "../../mcp/server.js";
+import type { MedialitMcpContext } from "../../mcp/context.js";
 
 const READ_ONLY_TOOLS = new Set([
     "list_media",
@@ -12,94 +13,74 @@ const READ_ONLY_TOOLS = new Set([
     "whoami",
 ]);
 
-type Registered = {
-    name: string;
-    call: (extra: any) => any;
-};
-
-// Calls handlers the way the MCP SDK does: tools without an input schema get
-// only the request extra.
-function fakeServer() {
-    const tools: Registered[] = [];
-    const server: any = {
-        registerTool(
-            name: string,
-            config: { inputSchema?: unknown },
-            handler: any,
-        ) {
-            tools.push({
-                name,
-                call: (extra) =>
-                    config.inputSchema === undefined
-                        ? handler(extra)
-                        : handler({}, extra),
-            });
-        },
+function context(scopes: string[]): MedialitMcpContext {
+    return {
+        authKind: "oauth",
+        userId: "user-1",
+        user: { _id: "user-1" },
+        appId: "app-1",
+        scopes,
     };
-    return { server, tools };
 }
 
-test("only tools marked read-only get the read scope", () => {
-    assert.equal(toolScope(true), "data:read");
-    assert.equal(toolScope(false), "data:write");
-    assert.equal(toolScope(undefined), "data:write");
+test("only read tools get the read scope", () => {
+    assert.equal(toolScope("read"), "data:read");
+    assert.equal(toolScope("write"), "data:write");
+    assert.equal(toolScope("destructive"), "data:write");
+});
+
+test("tools marked read-only are exactly the read tools", () => {
+    for (const tool of medialitMcpTools()) {
+        assert.equal(
+            tool.risk === "read",
+            READ_ONLY_TOOLS.has(tool.name),
+            tool.name,
+        );
+    }
 });
 
 test("every MCP tool rejects a token without its scope", async () => {
-    const { server, tools } = fakeServer();
-    registerAllTools(server);
-
+    const tools = medialitMcpTools();
     assert.equal(tools.length, 11);
     for (const tool of tools) {
         const scope = READ_ONLY_TOOLS.has(tool.name)
             ? "data:read"
             : "data:write";
-        const result = await tool.call({ authInfo: { scopes: [] } });
-        assert.equal(result.isError, true, tool.name);
-        assert.match(result.content[0].text, new RegExp(scope), tool.name);
+        const result = (await tool.handler({
+            context: context([]),
+            args: {},
+            signal: new AbortController().signal,
+        })) as { error: { code: string; safeDetails: any } };
+        assert.equal(result.error.code, "forbidden", tool.name);
+        assert.equal(result.error.safeDetails.requiredScope, scope, tool.name);
     }
 });
 
-test("a read-only token can read but not write", async () => {
-    const { server, tools } = fakeServer();
-    const registrar = createToolRegistrar(server);
-    const calls: string[] = [];
-    registrar.registerTool(
-        "read",
-        { annotations: { readOnlyHint: true } },
-        () => calls.push("read"),
-    );
-    registrar.registerTool(
-        "write",
-        { annotations: { readOnlyHint: false } },
-        () => calls.push("write"),
-    );
-    const extra = { authInfo: { scopes: ["data:read"] } };
-
-    for (const tool of tools) await tool.call(extra);
-
-    assert.deepEqual(calls, ["read"]);
+test("a read-only token cannot write", async () => {
+    const write = medialitMcpTools().filter((tool) => tool.risk !== "read");
+    for (const tool of write) {
+        const result = (await tool.handler({
+            context: context(["data:read"]),
+            args: {},
+            signal: new AbortController().signal,
+        })) as { error: { safeDetails: any } };
+        assert.equal(
+            result.error.safeDetails.reason,
+            "insufficient_scope",
+            tool.name,
+        );
+    }
 });
 
-test("tools without input get the request extra as their second argument", async () => {
-    const { server, tools } = fakeServer();
-    const registrar = createToolRegistrar(server);
-    const received: unknown[] = [];
-    registrar.registerTool(
-        "no_input",
-        { annotations: { readOnlyHint: true } },
-        (args, extra) => received.push(args, extra),
-    );
-    registrar.registerTool(
-        "with_input",
-        { inputSchema: {}, annotations: { readOnlyHint: true } },
-        (args, extra) => received.push(args, extra),
-    );
-    const extra = { authInfo: { scopes: ["data:read"] } };
-
-    for (const tool of tools) await tool.call(extra);
-
-    assert.deepEqual(received, [{}, extra, {}, extra]);
+test("destructive tools advertise confirm", () => {
+    for (const tool of medialitMcpTools()) {
+        const shape = (tool.inputSchema as any).shape;
+        assert.equal(
+            "confirm" in shape,
+            tool.risk === "destructive",
+            tool.name,
+        );
+    }
 });
 
 function response() {

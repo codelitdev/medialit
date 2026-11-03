@@ -115,7 +115,9 @@ To prevent cluttering of the media registry with unfinished uploads, MediaLit en
 
 ## Tools Reference
 
-The MediaLit MCP server exposes the following tools to connected agents:
+The MediaLit MCP server exposes the following tools to connected agents.
+
+`seal_media` and `delete_media` can't be undone, so they only run with `confirm: true`. Agents should check with you first, then pass it.
 
 ### Media Management
 
@@ -157,6 +159,7 @@ Finalizes a temporary media upload, allowing it to persist and show up in lists/
 
 - **Inputs:**
     - `mediaId` _(string, required)_: The unique ID of the media item to seal.
+    - `confirm` _(boolean, required to run)_: `true` once you have confirmed sealing.
 - **Output:** The updated media document.
 
 #### `delete_media`
@@ -165,6 +168,7 @@ Permanently deletes a media file and all generated derivatives (thumbnails, WebP
 
 - **Inputs:**
     - `mediaId` _(string, required)_: The unique ID of the media item to delete.
+    - `confirm` _(boolean, required to run)_: `true` once you have confirmed the deletion.
 - **Output:** `{ deleted: true, mediaId: string }`
 
 ---

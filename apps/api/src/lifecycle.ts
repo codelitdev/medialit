@@ -12,8 +12,8 @@ export type ShutdownSteps = {
     /** Stops timers that start new work (cleanup jobs, billing batches). */
     /** May return a promise, for example to let a running billing batch finish. */
     stopBackgroundJobs: () => void | Promise<void>;
-    /** Ends open MCP streams, which would otherwise keep the server open. */
-    closeMcpSessions: () => Promise<void>;
+    /** Refuses new MCP requests and closes the MCP handler. */
+    closeMcp: () => Promise<void>;
     /** Stops accepting connections and waits for in-flight requests. */
     closeServer: () => Promise<void>;
     closeDatabase: () => Promise<void>;
@@ -33,7 +33,7 @@ export function createApiShutdown(
         hooks: [
             async () => {
                 await steps.stopBackgroundJobs();
-                await steps.closeMcpSessions();
+                await steps.closeMcp();
                 await steps.closeServer();
                 await steps.closeDatabase();
                 await steps.flushObservability();

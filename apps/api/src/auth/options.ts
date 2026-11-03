@@ -2,6 +2,7 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { cimd } from "@better-auth/cimd";
 import { createOAuthProviderOptions } from "@codelitdev/oauth-server-kit/better-auth";
 import type { BetterAuthOptions } from "better-auth";
+import { captcha } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { jwt } from "better-auth/plugins/jwt";
 import { ensureProfile } from "@/db";
@@ -26,6 +27,39 @@ export const MCP_SCOPES_SUPPORTED = [
     DATA_WRITE_SCOPE,
     "offline_access",
 ] as const;
+
+// The hosted login page sends the email-OTP request here. The code itself
+// is only checked after the person proves they got the email, so this is the
+// request bots abuse to send mail.
+export const CAPTCHA_PROTECTED_ENDPOINTS = ["/email-otp/send-verification-otp"];
+
+// https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+const TURNSTILE_TESTING_SECRET = /^[123]x0{31}AA$/;
+
+export interface LoginCaptchaConfig {
+    siteKey: string;
+    secretKey: string;
+}
+
+/**
+ * Cloudflare Turnstile for the hosted login page. Off unless both keys are
+ * set; one key without the other is a misconfiguration, not "off".
+ */
+export function loginCaptchaConfig(
+    env: Record<string, string | undefined> = process.env,
+): LoginCaptchaConfig | undefined {
+    const siteKey = env.TURNSTILE_SITE_KEY?.trim();
+    const secretKey = env.TURNSTILE_SECRET_KEY?.trim();
+    if (!siteKey && !secretKey) {
+        return undefined;
+    }
+    if (!siteKey || !secretKey) {
+        throw new Error(
+            "TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together",
+        );
+    }
+    return { siteKey, secretKey };
+}
 
 export function authUrls(publicApiUrl: string, webOrigin?: string) {
     const normalized = publicApiUrl.replace(/\/$/, "");
@@ -55,6 +89,7 @@ export function medialitAuthOptions(input: {
     // session cookie on its own host. Set this to the shared parent domain
     // (for example `medialit.cloud`) when the two are different subdomains.
     const cookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim();
+    const loginCaptcha = loginCaptchaConfig();
     return {
         appName: "MediaLit",
         baseURL: urls.publicApiUrl,
@@ -133,6 +168,27 @@ export function medialitAuthOptions(input: {
                     adapter: oauthAppSelectionAdapter,
                 }),
             }),
+            ...(loginCaptcha
+                ? [
+                      captcha({
+                          provider: "cloudflare-turnstile",
+                          secretKey: loginCaptcha.secretKey,
+                          endpoints: CAPTCHA_PROTECTED_ENDPOINTS,
+                          // The widget only renders on the API's login page.
+                          // Cloudflare's testing secrets always report
+                          // example.com, so they skip this check.
+                          ...(TURNSTILE_TESTING_SECRET.test(
+                              loginCaptcha.secretKey,
+                          )
+                              ? {}
+                              : {
+                                    allowedHostnames: [
+                                        new URL(urls.publicApiUrl).hostname,
+                                    ],
+                                }),
+                      }),
+                  ]
+                : []),
             cimd({
                 fetchClientMetadataResource,
                 metadataProfile: "mcp-2026-07-28",

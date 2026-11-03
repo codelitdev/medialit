@@ -19,7 +19,11 @@ import type { apiReadiness } from "./lifecycle";
 import { cleanupTUSUploads } from "./tus/cleanup";
 import { cleanupExpiredTempUploads } from "./media/cleanup";
 import type { MedialitAuth } from "./auth/better-auth";
-import { AUTH_BASE_PATH, MCP_SCOPES_SUPPORTED } from "./auth/options";
+import {
+    AUTH_BASE_PATH,
+    MCP_SCOPES_SUPPORTED,
+    loginCaptchaConfig,
+} from "./auth/options";
 import { setBearerAuth } from "./auth/bearer";
 import { createOAuthAppPages } from "./auth/oauth-app-pages";
 import { oauthAppSelectionAdapter } from "./auth/oauth-app-selection";
@@ -41,6 +45,14 @@ export function createApp(input: {
     readiness: () => Promise<ReadinessReport>;
 }): express.Express {
     const { auth, webOrigin } = input;
+    const loginCaptcha = loginCaptchaConfig();
+    // The sign-in and app-picker pages are served from the API host, so the
+    // icon comes from the web app. The color matches the dashboard's medialit
+    // product token.
+    const brand = {
+        iconUrl: new URL("/icon.svg", webOrigin).toString(),
+        primaryColor: "oklch(0.6 0.14 300)",
+    };
     const app = express();
 
     app.set(
@@ -78,7 +90,18 @@ export function createApp(input: {
             authBasePath: AUTH_BASE_PATH,
             allowedRedirectOrigins: [new URL(webOrigin).origin],
             defaultRedirectUrl: `${webOrigin}/`,
+            logoUrl: brand.iconUrl,
+            faviconUrl: brand.iconUrl,
+            primaryColor: brand.primaryColor,
             loginMethods: [{ type: "email-otp" }],
+            ...(loginCaptcha
+                ? {
+                      captcha: {
+                          provider: "cloudflare-turnstile",
+                          siteKey: loginCaptcha.siteKey,
+                      },
+                  }
+                : {}),
         }),
     );
     app.use(
@@ -86,8 +109,12 @@ export function createApp(input: {
             auth: auth.auth,
             adapter: oauthAppSelectionAdapter,
             authBasePath: AUTH_BASE_PATH,
+            brand,
         }),
     );
+
+    // The MCP route parses its own body so protocol errors stay JSON-RPC.
+    app.use(mcpRoutes);
 
     app.use(
         express.json({
@@ -185,7 +212,6 @@ export function createApp(input: {
     app.use("/media/signature", signatureRoutes);
     app.use("/media", tusRoutes);
     app.use("/media", mediaRoutes);
-    app.use(mcpRoutes);
 
     app.get(
         "/cleanup/temp",
