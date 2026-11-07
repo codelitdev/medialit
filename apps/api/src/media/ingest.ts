@@ -1,6 +1,6 @@
 import os from "os";
 import path from "path";
-import { mkdtemp, rm, stat } from "fs/promises";
+import { mkdir, mkdtemp, rm, stat } from "fs/promises";
 import { createReadStream } from "fs";
 import thumbnail from "@medialit/thumbnail";
 import imageUtils from "@medialit/images";
@@ -152,11 +152,14 @@ export async function finalizeStoredUpload(
     const { mediaId, ext, key, userId, appId } = upload;
     const tags = getTags(userId, upload.group);
     const stored = new Set<string>([key]);
-    const workDir = await mkdtemp(
-        path.join(tempFileDirForUploads || os.tmpdir(), "medialit-finalize-"),
-    );
+    let workDir: string | undefined;
 
     try {
+        // mkdtemp makes only the last directory; the configured one may not
+        // exist yet, as in a fresh container.
+        const tempRoot = tempFileDirForUploads || os.tmpdir();
+        await mkdir(tempRoot, { recursive: true });
+        workDir = await mkdtemp(path.join(tempRoot, "medialit-finalize-"));
         const settings = await getMediaSettings(userId, appId);
         const convertToWebp =
             Boolean(settings?.useWebP) && imagePattern.test(upload.mimeType);
@@ -265,7 +268,9 @@ export async function finalizeStoredUpload(
         await deleteUploadingMediaRecord(mediaId).catch(() => {});
         throw err;
     } finally {
-        await rm(workDir, { recursive: true, force: true }).catch(() => {});
+        if (workDir) {
+            await rm(workDir, { recursive: true, force: true }).catch(() => {});
+        }
     }
 
     if (upload.signature) {

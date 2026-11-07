@@ -236,6 +236,49 @@ describe("receiveMultipartUpload", () => {
         assert.equal(storage.calls.discarded.length, 1);
     });
 
+    test("fails at once when the bucket rejects the upload mid-stream", async () => {
+        const failing = http.createServer((req, res) => {
+            outcome = receiveMultipartUpload(req as any, {
+                maxFileSize: 64 * 1024 * 1024,
+                begin: storage.begin,
+                discard: storage.discard,
+                // Like S3 refusing a part: done() rejects and the body is
+                // never read again.
+                streamTo: (params) => {
+                    storage.calls.keys.push(params.Key);
+                    const done = Promise.reject(new Error("bucket said no"));
+                    done.catch(() => {});
+                    return { done: () => done } as any;
+                },
+            }).catch((err) => err);
+            outcome.then(() => res.end());
+        });
+        failing.listen(0);
+        await new Promise<void>((r) => failing.once("listening", r));
+        const url = `http://127.0.0.1:${(failing.address() as AddressInfo).port}`;
+
+        // Far more than the stream buffers hold, so a stalled body would
+        // stop busboy before the form ends.
+        const form = new FormData();
+        form.append(
+            "file",
+            new Blob([Buffer.alloc(16 * 1024 * 1024)]),
+            "a.bin",
+        );
+        fetch(url, { method: "POST", body: form }).catch(() => null);
+        await new Promise((r) => setTimeout(r, 200));
+        const result = await Promise.race([
+            outcome,
+            new Promise((r) => setTimeout(() => r("hung"), 2000)),
+        ]);
+        failing.closeAllConnections();
+        await new Promise<void>((r) => failing.close(() => r()));
+
+        assert.ok(result instanceof Error, String(result));
+        assert.equal(result.message, "bucket said no");
+        assert.deepEqual(storage.calls.discarded, storage.calls.keys);
+    });
+
     test("aborts and discards the upload when the client disconnects", async () => {
         const request = http.request(baseUrl, {
             method: "POST",

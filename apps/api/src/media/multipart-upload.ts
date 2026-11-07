@@ -151,9 +151,10 @@ export function receiveMultipartUpload(
                     Bucket: cloudBucket,
                 }).done();
             });
-            recorded.catch((err: Error) => fail(err));
-            // Handled in "close" or fail(); avoid an unhandled rejection.
-            uploadDone.catch(() => {});
+            // Fail as soon as recording or the bucket rejects the upload.
+            // Waiting for "close" would hang: nothing drains the body after
+            // the upload stops, so busboy stalls before the form ends.
+            uploadDone.catch((err: Error) => fail(err));
         });
 
         parser.on("error", (err: Error) => {
