@@ -21,7 +21,15 @@ function fakeStorage() {
         bodies: [] as Buffer[],
         aborted: 0,
         discarded: [] as string[],
+        /** Events in order, to check the record comes before any bytes. */
+        events: [] as string[],
+        begun: [] as {
+            key: string;
+            originalFileName: string;
+            mimeType: string;
+        }[],
     };
+    let failBegin: Error | null = null;
     const streamTo = (params: {
         Key: string;
         Body: Readable;
@@ -37,7 +45,10 @@ function fakeStorage() {
                 calls.aborted++;
                 reject(err);
             });
-            params.Body.on("data", (chunk: Buffer) => chunks.push(chunk));
+            params.Body.on("data", (chunk: Buffer) => {
+                if (!chunks.length) calls.events.push("bytes");
+                chunks.push(chunk);
+            });
             params.Body.on("end", () => {
                 calls.bodies.push(Buffer.concat(chunks));
                 resolve({});
@@ -45,10 +56,26 @@ function fakeStorage() {
         });
         return { done: () => done };
     };
-    const discard = async (keys: string[]) => {
-        calls.discarded.push(...keys);
+    const begin = async (
+        target: { key: string },
+        file: { originalFileName: string; mimeType: string },
+    ) => {
+        // Slow enough that bytes would arrive first if nothing waited.
+        await new Promise((r) => setTimeout(r, 30));
+        if (failBegin) throw failBegin;
+        calls.events.push("begin");
+        calls.begun.push({ key: target.key, ...file });
     };
-    return { calls, streamTo, discard };
+    const discard = async (target: { key: string }) => {
+        calls.discarded.push(target.key);
+    };
+    return {
+        calls,
+        streamTo,
+        begin,
+        discard,
+        failBeginWith: (err: Error) => (failBegin = err),
+    };
 }
 
 let server: Server;
@@ -60,6 +87,7 @@ before(async () => {
     server = http.createServer((req, res) => {
         outcome = receiveMultipartUpload(req as any, {
             maxFileSize: MAX,
+            begin: storage.begin,
             streamTo: storage.streamTo as any,
             discard: storage.discard,
         }).catch((err) => err);
@@ -132,8 +160,13 @@ describe("receiveMultipartUpload", () => {
             result.message,
             `${FILE_SIZE_EXCEEDED}. Allowed: ${MAX} bytes`,
         );
-        assert.equal(storage.calls.aborted, 1);
-        assert.deepEqual(storage.calls.discarded, storage.calls.keys);
+        // A small file goes over the limit while the upload is still being
+        // recorded, so streaming never starts. A bigger one is aborted
+        // mid-stream. Either way the upload is discarded.
+        assert.ok(
+            storage.calls.keys.length === 0 || storage.calls.aborted === 1,
+        );
+        assert.equal(storage.calls.discarded.length, 1);
     });
 
     test("accepts a file exactly at the limit", async () => {
@@ -151,7 +184,7 @@ describe("receiveMultipartUpload", () => {
         await send(form);
         const result = await outcome;
 
-        assert.ok(result instanceof UploadRejectedError);
+        assert.ok(result instanceof UploadRejectedError, String(result));
         assert.equal(result.status, 400);
         assert.equal(result.message, FILE_IS_REQUIRED);
         assert.equal(storage.calls.keys.length, 0);
@@ -165,6 +198,42 @@ describe("receiveMultipartUpload", () => {
         assert.ok(result instanceof UploadRejectedError);
         assert.equal(result.message, FILE_IS_REQUIRED);
         assert.equal(storage.calls.keys.length, 0);
+    });
+
+    test("records the upload before any bytes reach the bucket", async () => {
+        const form = new FormData();
+        form.append(
+            "file",
+            new Blob(["hello world"], { type: "text/plain" }),
+            "notes.txt",
+        );
+        await send(form);
+        const result = (await outcome) as ReceivedUpload;
+
+        assert.ok(!(result instanceof Error));
+        assert.deepEqual(storage.calls.events, ["begin", "bytes"]);
+        assert.deepEqual(storage.calls.begun, [
+            {
+                key: result.key,
+                originalFileName: "notes.txt",
+                mimeType: "text/plain",
+            },
+        ]);
+    });
+
+    test("stores nothing when the upload can't be recorded", async () => {
+        storage.failBeginWith(new Error("database down"));
+        const form = new FormData();
+        form.append("file", new Blob(["hello"]), "a.txt");
+        await send(form);
+        const result = await outcome;
+
+        assert.ok(result instanceof Error);
+        assert.equal(result.message, "database down");
+        assert.ok(!storage.calls.events.includes("bytes"));
+        assert.equal(storage.calls.keys.length, 0);
+        // Discarded anyway, in case part of the record was written.
+        assert.equal(storage.calls.discarded.length, 1);
     });
 
     test("aborts and discards the upload when the client disconnects", async () => {
@@ -230,6 +299,7 @@ describe("receiveMultipartUpload with the real S3 multipart uploader", () => {
                         queueSize: 1,
                         leavePartsOnError: false,
                     }),
+                begin: async () => {},
                 discard: async () => {},
             }).catch((err) => err);
             outcome.then(() => res.end());

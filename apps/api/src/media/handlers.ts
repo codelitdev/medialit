@@ -6,7 +6,8 @@ import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
 import { maxStorageFor, maxUploadFor } from "../billing/entitlements";
 import { maxFileUploadSizeSubscribed } from "../config/constants";
-import { deleteStored, finalizeStoredUpload } from "./ingest";
+import { abandonUpload, finalizeStoredUpload, startUpload } from "./ingest";
+import { MULTIPART_OVERHEAD_BYTES } from "./upload-guards";
 import {
     receiveMultipartUpload,
     UploadRejectedError,
@@ -38,7 +39,22 @@ export async function uploadMedia(
             await maxUploadFor({ id: req.user._id ?? req.user.id }),
             maxFileUploadSizeSubscribed,
         );
-        received = await receiveMultipartUpload(req, { maxFileSize });
+        // Content-Length covers the whole form; the file is most of it.
+        const declared = Number(req.headers["content-length"]);
+        const declaredSize = Number.isFinite(declared)
+            ? Math.max(0, declared - MULTIPART_OVERHEAD_BYTES)
+            : 0;
+        received = await receiveMultipartUpload(req, {
+            maxFileSize,
+            begin: (target, file) =>
+                startUpload(target, {
+                    userId,
+                    appId,
+                    originalFileName: file.originalFileName,
+                    mimeType: file.mimeType,
+                    declaredSize,
+                }),
+        });
     } catch (err: any) {
         if (err instanceof UploadRejectedError) {
             return res.status(err.status).json({ error: err.message });
@@ -49,7 +65,7 @@ export async function uploadMedia(
 
     const { error } = validateUploadOptions(received.fields);
     if (error) {
-        await deleteStored([received.key]);
+        await abandonUpload(received);
         return res.status(400).json({ error: error.message });
     }
 

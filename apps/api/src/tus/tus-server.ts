@@ -23,7 +23,7 @@ import {
     insufficientScopeMessage,
 } from "../auth/scopes";
 import { validateUploadConstraints } from "../media/storage-middleware";
-import { newUploadTarget, parseUploadKey } from "../media/ingest";
+import { newUploadTarget, parseUploadKey, startUpload } from "../media/ingest";
 import { createTusUpload } from "./queries";
 import mediaService from "../media/service";
 
@@ -170,6 +170,13 @@ export async function handleTusUploadCreate(req: any, upload: any) {
                 group: uploadGroup(group, metadata.group),
             },
             signature: req.signature,
+        });
+        await startUpload(target, {
+            userId: user.id,
+            appId: appId!,
+            originalFileName: metadata.fileName || "unknown",
+            mimeType,
+            declaredSize: upload.size,
         });
         // The S3 store sets the object's Content-Type from this.
         return { metadata: { ...metadata, contentType: mimeType } };

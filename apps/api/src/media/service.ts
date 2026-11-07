@@ -26,7 +26,12 @@ import {
     getTotalSpace,
 } from "./queries";
 import { listMediaRecordsByIds, sealMediaRecord } from "@/db";
-import { finalizeStoredUpload, newUploadTarget } from "./ingest";
+import {
+    abandonUpload,
+    finalizeStoredUpload,
+    newUploadTarget,
+    startUpload,
+} from "./ingest";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
 import { MediaResponse } from "./schemas";
@@ -57,12 +62,24 @@ async function upload({
     signature,
 }: UploadProps): Promise<string> {
     const target = newUploadTarget(fileName);
-    await streamToObject({
-        Key: target.key,
-        Body: body,
-        ContentType: mimeType,
-        Bucket: cloudBucket,
-    }).done();
+    await startUpload(target, {
+        userId,
+        appId,
+        originalFileName: fileName,
+        mimeType,
+        declaredSize: body.length,
+    });
+    try {
+        await streamToObject({
+            Key: target.key,
+            Body: body,
+            ContentType: mimeType,
+            Bucket: cloudBucket,
+        }).done();
+    } catch (err) {
+        await abandonUpload(target);
+        throw err;
+    }
     return await finalizeStoredUpload({
         ...target,
         userId,

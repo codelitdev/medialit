@@ -115,6 +115,10 @@ export const media = pgTable(
         group: text("group_name"),
         caption: text("caption"),
         temp: boolean("temp").notNull().default(true),
+        /** False while the file is still uploading. The row is written when
+         * an upload starts, so the temp cleanup job can remove what a crash
+         * leaves behind. */
+        uploaded: boolean("uploaded").notNull().default(true),
         createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     },

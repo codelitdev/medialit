@@ -1,5 +1,10 @@
 import logger from "../services/log";
-import { deleteTusById, getMediaRecord, listExpiredTus } from "@/db";
+import {
+    deleteTusById,
+    deleteUploadingMediaRecord,
+    getMediaRecord,
+    listExpiredTus,
+} from "@/db";
 import { store } from "./tus-server";
 import { removeTusBookkeeping } from "./finalize";
 
@@ -50,7 +55,7 @@ async function removeUnfinished(upload: {
     mediaId?: string;
 }) {
     // The store's remove() deletes the object at the upload's key too. Never
-    // do that once a media record points at it.
+    // do that once a finished media record points at it.
     const media = upload.mediaId
         ? await getMediaRecord({
               userId: upload.userId,
@@ -69,4 +74,5 @@ async function removeUnfinished(upload: {
         if (err?.status_code !== 404) throw err;
         await removeTusBookkeeping(upload.uploadId);
     }
+    if (upload.mediaId) await deleteUploadingMediaRecord(upload.mediaId);
 }

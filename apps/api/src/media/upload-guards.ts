@@ -26,7 +26,7 @@ export function authenticateUpload(
 
 /** `Content-Length` covers the whole multipart body; allow this much for the
  * boundaries, part headers and form fields around the file. */
-const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+export const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 
 /**
  * Rejects an upload whose declared size can't fit the caller's plan or

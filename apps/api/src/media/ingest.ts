@@ -4,7 +4,7 @@ import { mkdtemp, rm, stat } from "fs/promises";
 import { createReadStream } from "fs";
 import thumbnail from "@medialit/thumbnail";
 import imageUtils from "@medialit/images";
-import { Constants, type MediaWithUserId } from "@medialit/models";
+import { Constants } from "@medialit/models";
 import {
     cloudBucket,
     imagePattern,
@@ -28,7 +28,12 @@ import * as presignedUrlService from "../signature/service";
 import generateFileName from "./utils/generate-file-name";
 import generateKey from "./utils/generate-key";
 import getTags from "./utils/get-tags";
-import { createMedia } from "./queries";
+import {
+    completeUploadingMediaRecord,
+    createUploadingMediaRecord,
+    deleteUploadingMediaRecord,
+    getUploadingMediaSize,
+} from "@/db";
 import { hasEnoughStorage } from "./storage-middleware";
 
 /** Where a new upload is written: its media ID and final key, chosen before
@@ -73,6 +78,48 @@ export function parseUploadKey(key: string): UploadTarget | null {
     return { mediaId: match[1], ext: match[2], key };
 }
 
+/**
+ * Records an upload as it starts, before any bytes reach the bucket. The
+ * temp row is hidden until the upload finishes, and its declared size counts
+ * toward storage meanwhile. If the server dies mid-upload, the temp cleanup
+ * job finds the row and removes whatever reached the bucket.
+ */
+export async function startUpload(
+    target: UploadTarget,
+    upload: {
+        userId: string;
+        appId: string;
+        originalFileName: string;
+        mimeType: string;
+        /** Bytes the client says it will send; 0 when unknown. */
+        declaredSize: number;
+    },
+): Promise<void> {
+    await createUploadingMediaRecord({
+        mediaId: target.mediaId,
+        userId: upload.userId,
+        appId: upload.appId,
+        fileName: `main.${target.ext}`,
+        originalFileName: upload.originalFileName,
+        mimeType: upload.mimeType,
+        size: Math.max(0, Math.floor(upload.declaredSize)),
+    });
+}
+
+/** Drops an upload that won't be kept: its objects and its row. */
+export async function abandonUpload(
+    target: UploadTarget,
+    extraKeys: string[] = [],
+): Promise<void> {
+    await deleteStored([target.key, ...extraKeys]);
+    await deleteUploadingMediaRecord(target.mediaId).catch((err) => {
+        logger.error(
+            { err, mediaId: target.mediaId },
+            "Failed to delete an abandoned upload's record",
+        );
+    });
+}
+
 export interface StoredUpload extends UploadTarget {
     userId: string;
     appId: string;
@@ -94,10 +141,10 @@ export interface StoredUpload extends UploadTarget {
  * 2. Checks storage again with the size actually stored.
  * 3. Makes a thumbnail. Videos are read through a presigned URL, so only the
  *    bytes ffmpeg needs are fetched.
- * 4. Creates the temporary media record.
+ * 4. Marks the media record `startUpload` wrote as uploaded.
  *
- * If any step but the thumbnail fails, every object it stored is deleted, so
- * a rejected upload leaves nothing behind.
+ * If any step but the thumbnail fails, every object it stored and its record
+ * are deleted, so a rejected upload leaves nothing behind.
  */
 export async function finalizeStoredUpload(
     upload: StoredUpload,
@@ -155,8 +202,15 @@ export async function finalizeStoredUpload(
             await putObjectTagging({ Key: key, Tagging: tags });
         }
 
-        // Counts unsealed uploads too, so concurrent uploads can't overrun.
-        if (!(await hasEnoughStorage(size, { _id: userId } as any))) {
+        // The total already holds this upload's declared size; swap it for
+        // the size actually stored. Other uploads, finished or not, count too.
+        const reserved = await getUploadingMediaSize(mediaId);
+        if (reserved === null) {
+            throw new Error("The upload expired before it finished");
+        }
+        if (
+            !(await hasEnoughStorage(size - reserved, { _id: userId } as any))
+        ) {
             throw new Error(NOT_ENOUGH_STORAGE);
         }
 
@@ -190,26 +244,25 @@ export async function finalizeStoredUpload(
             }
         }
 
-        const media: MediaWithUserId = {
-            fileName,
+        const completed = await completeUploadingMediaRecord({
             mediaId,
-            userId,
-            appId,
-            originalFileName: upload.originalFileName,
+            fileName,
             mimeType,
             size,
             thumbnailGenerated,
-            caption: upload.caption,
             accessControl:
                 upload.access === Constants.AccessControl.PUBLIC
                     ? Constants.AccessControl.PUBLIC
                     : Constants.AccessControl.PRIVATE,
             group: upload.group,
-            temp: true,
-        };
-        await createMedia(media);
+            caption: upload.caption,
+        });
+        if (!completed) {
+            throw new Error("The upload expired before it finished");
+        }
     } catch (err) {
         await deleteStored([...stored]);
+        await deleteUploadingMediaRecord(mediaId).catch(() => {});
         throw err;
     } finally {
         await rm(workDir, { recursive: true, force: true }).catch(() => {});

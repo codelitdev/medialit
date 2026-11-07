@@ -5,7 +5,7 @@ import type { Request } from "express";
 import { cloudBucket } from "../config/constants";
 import { FILE_IS_REQUIRED, FILE_SIZE_EXCEEDED } from "../config/strings";
 import { streamToObject } from "../services/s3";
-import { deleteStored, newUploadTarget, type UploadTarget } from "./ingest";
+import { abandonUpload, newUploadTarget, type UploadTarget } from "./ingest";
 
 export interface ReceivedUpload extends UploadTarget {
     originalFileName: string;
@@ -40,10 +40,16 @@ export function receiveMultipartUpload(
     req: Request,
     {
         maxFileSize,
+        begin,
         streamTo = streamToObject,
-        discard = deleteStored,
+        discard = abandonUpload,
     }: {
         maxFileSize: number;
+        /** Records the upload before any of it reaches the bucket. */
+        begin: (
+            target: UploadTarget,
+            file: { originalFileName: string; mimeType: string },
+        ) => Promise<void>;
         /** Swappable for tests. */
         streamTo?: (params: {
             Key: string;
@@ -51,7 +57,7 @@ export function receiveMultipartUpload(
             ContentType: string;
             Bucket?: string;
         }) => Pick<Upload, "done">;
-        discard?: (keys: string[]) => Promise<void>;
+        discard?: (target: UploadTarget) => Promise<void>;
     },
 ): Promise<ReceivedUpload> {
     return new Promise((resolve, reject) => {
@@ -93,7 +99,7 @@ export function receiveMultipartUpload(
             body?.destroy(err);
             await uploadDone?.catch(() => {});
             // A small file may have gone up in one request before the abort.
-            if (target) await discard([target.key]);
+            if (target) await discard(target);
             reject(err);
         };
 
@@ -112,9 +118,10 @@ export function receiveMultipartUpload(
                 mimeType: info.mimeType || "application/octet-stream",
             };
             body = new PassThrough();
-            file.on("data", (chunk: Buffer) => {
-                size += chunk.length;
-            });
+            // fail() destroys the body with its error; if streaming never
+            // started nothing else listens, and an unheard "error" would
+            // crash the process.
+            body.on("error", () => {});
             file.on("limit", () => {
                 truncated = true;
                 fail(
@@ -124,13 +131,27 @@ export function receiveMultipartUpload(
                     ),
                 );
             });
-            file.pipe(body);
-            uploadDone = streamTo({
-                Key: target.key,
-                Body: body,
-                ContentType: fileInfo.mimeType,
-                Bucket: cloudBucket,
-            }).done();
+            const uploadTarget = target;
+            const uploadBody = body;
+            // Nothing reaches the bucket until the upload is recorded, so a
+            // crash can never leave an object no record points to.
+            const recorded = begin(uploadTarget, fileInfo);
+            uploadDone = recorded.then(() => {
+                if (settled) throw new Error("Upload aborted");
+                // Count only once piped; a data listener alone would start
+                // the file flowing before anything reads it.
+                file.on("data", (chunk: Buffer) => {
+                    size += chunk.length;
+                });
+                file.pipe(uploadBody);
+                return streamTo({
+                    Key: uploadTarget.key,
+                    Body: uploadBody,
+                    ContentType: fileInfo.mimeType,
+                    Bucket: cloudBucket,
+                }).done();
+            });
+            recorded.catch((err: Error) => fail(err));
             // Handled in "close" or fail(); avoid an unhandled rejection.
             uploadDone.catch(() => {});
         });

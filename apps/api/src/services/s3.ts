@@ -13,6 +13,8 @@ import {
     HeadObjectCommand,
     CopyObjectCommand,
     ListObjectsV2Command,
+    ListMultipartUploadsCommand,
+    AbortMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import {
     CLOUD_ENDPOINT,
@@ -302,4 +304,46 @@ export const deleteFolder = async (
 
         continuationToken = response.NextContinuationToken;
     } while (continuationToken);
+};
+
+/**
+ * Aborts every unfinished multipart upload of one object. Object listings
+ * don't show these, so deleteObject() can't remove their parts. Takes the
+ * exact key: MinIO only lists multipart uploads whose key equals the prefix.
+ */
+export const abortMultipartUploads = async (
+    key: string,
+    bucket?: string,
+): Promise<number> => {
+    const targetBucket = bucket || cloudBucket;
+    const client = getS3Client(targetBucket);
+    let aborted = 0;
+    let KeyMarker: string | undefined;
+    let UploadIdMarker: string | undefined;
+    do {
+        const response = await client.send(
+            new ListMultipartUploadsCommand({
+                Bucket: targetBucket,
+                Prefix: key,
+                KeyMarker,
+                UploadIdMarker,
+            }),
+        );
+        for (const upload of response.Uploads || []) {
+            if (upload.Key !== key) continue;
+            await client.send(
+                new AbortMultipartUploadCommand({
+                    Bucket: targetBucket,
+                    Key: upload.Key,
+                    UploadId: upload.UploadId,
+                }),
+            );
+            aborted++;
+        }
+        KeyMarker = response.IsTruncated ? response.NextKeyMarker : undefined;
+        UploadIdMarker = response.IsTruncated
+            ? response.NextUploadIdMarker
+            : undefined;
+    } while (KeyMarker);
+    return aborted;
 };
