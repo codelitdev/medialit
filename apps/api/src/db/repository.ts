@@ -1127,14 +1127,60 @@ export async function completeUploadingMediaRecord(input: {
     return rows.length > 0;
 }
 
-/** Removes the row of an upload that failed or was rejected. */
+/** Removes the row of an upload that failed or was rejected. Returns false
+ * when there was no unfinished row, for example because it just finished. */
 export async function deleteUploadingMediaRecord(
+    mediaId: string,
+): Promise<boolean> {
+    const db = getDb();
+    const rows = await db
+        .delete(media)
+        .where(and(eq(media.mediaId, mediaId), eq(media.uploaded, false)))
+        .returning({ id: media.id });
+    return rows.length > 0;
+}
+
+/** Marks an unfinished upload as still active, so the stale-upload sweep
+ * leaves it alone. */
+export async function touchUploadingMediaRecord(
     mediaId: string,
 ): Promise<void> {
     const db = getDb();
     await db
-        .delete(media)
+        .update(media)
+        .set({ updatedAt: now() })
         .where(and(eq(media.mediaId, mediaId), eq(media.uploaded, false)));
+}
+
+/** No unexpired tus upload is writing this media. */
+function noLiveTusUpload(): SQL {
+    return sql`not exists (
+        select 1 from ${tusUploads}
+        where ${tusUploads.mediaId} = ${media.mediaId}
+        and (${tusUploads.expiresAt} is null or ${tusUploads.expiresAt} > now())
+    )`;
+}
+
+/**
+ * Unfinished uploads with no activity since `cutoff`: the server died while
+ * receiving them. A tus upload stays resumable until its tus row expires, so
+ * one with a live tus row is never stale here; the tus cleanup handles it.
+ */
+export async function listStaleUploadingMedia(
+    cutoff: Date,
+): Promise<MediaRecord[]> {
+    const db = getDb();
+    const rows = await db
+        .select()
+        .from(media)
+        .where(
+            and(
+                eq(media.uploaded, false),
+                lt(media.updatedAt, cutoff),
+                noLiveTusUpload(),
+            ),
+        );
+    return rows.map(mapMedia);
 }
 
 /** The declared size an unfinished upload is holding, or null. */
@@ -1157,7 +1203,15 @@ export async function listExpiredTempMedia(
     const rows = await db
         .select()
         .from(media)
-        .where(and(eq(media.temp, true), lt(media.createdAt, cutoff)));
+        .where(
+            and(
+                eq(media.temp, true),
+                lt(media.createdAt, cutoff),
+                // An unfinished tus upload stays resumable until its tus row
+                // expires; the tus cleanup removes it then.
+                or(eq(media.uploaded, true), noLiveTusUpload()),
+            ),
+        );
     return rows.map(mapMedia);
 }
 

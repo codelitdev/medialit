@@ -5,7 +5,11 @@ import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
 import { maxStorageFor, maxUploadFor } from "../billing/entitlements";
-import { maxFileUploadSizeSubscribed } from "../config/constants";
+import {
+    maxFileUploadSizeSubscribed,
+    UPLOAD_HEARTBEAT_MS,
+} from "../config/constants";
+import { touchUploadingMediaRecord } from "@/db";
 import { abandonUpload, finalizeStoredUpload, startUpload } from "./ingest";
 import { MULTIPART_OVERHEAD_BYTES } from "./upload-guards";
 import {
@@ -46,14 +50,21 @@ export async function uploadMedia(
             : 0;
         received = await receiveMultipartUpload(req, {
             maxFileSize,
-            begin: (target, file) =>
-                startUpload(target, {
+            begin: async (target, file) => {
+                await startUpload(target, {
                     userId,
                     appId,
                     originalFileName: file.originalFileName,
                     mimeType: file.mimeType,
                     declaredSize,
-                }),
+                });
+                // Tells the stale-upload sweep this upload is alive, however
+                // long a big file on a slow link takes.
+                const heartbeat = setInterval(() => {
+                    touchUploadingMediaRecord(target.mediaId).catch(() => {});
+                }, UPLOAD_HEARTBEAT_MS);
+                res.on("close", () => clearInterval(heartbeat));
+            },
         });
     } catch (err: any) {
         if (err instanceof UploadRejectedError) {

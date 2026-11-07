@@ -17,7 +17,10 @@ import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit/express";
 import { toNodeHandler } from "better-auth/node";
 import type { apiReadiness } from "./lifecycle";
 import { cleanupTUSUploads } from "./tus/cleanup";
-import { cleanupExpiredTempUploads } from "./media/cleanup";
+import {
+    cleanupExpiredTempUploads,
+    cleanupStaleUploads,
+} from "./media/cleanup";
 import type { MedialitAuth } from "./auth/better-auth";
 import {
     AUTH_BASE_PATH,
@@ -218,6 +221,7 @@ export function createApp(input: {
         /* #swagger.ignore = true */
         async (req, res) => {
             await cleanupExpiredTempUploads();
+            await cleanupStaleUploads();
             res.status(200).json({
                 message: "Expired temp uploads cleaned up",
             });

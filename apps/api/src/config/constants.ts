@@ -85,6 +85,15 @@ export const MAX_CONCURRENT_FORM_UPLOADS = Math.max(
     1,
     +(process.env.MAX_CONCURRENT_FORM_UPLOADS || 16),
 );
+/** An unfinished upload with no activity for this long is treated as lost
+ * (the server died mid-upload) and its parts, record and reserved storage
+ * are released. Live uploads refresh their activity well within this. */
+export const UPLOAD_STALE_MINUTES = Math.max(
+    10,
+    +(process.env.UPLOAD_STALE_MINUTES || 30),
+);
+/** How often a running upload refreshes its activity. */
+export const UPLOAD_HEARTBEAT_MS = 5 * 60 * 1000;
 /** How long a connection may sit with no data before it's closed. Requests
  * have no overall time limit, so a big upload on a slow link can finish. */
 export const REQUEST_IDLE_TIMEOUT_MS = Math.max(

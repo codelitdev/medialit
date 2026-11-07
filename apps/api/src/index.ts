@@ -13,7 +13,10 @@ import { apiReadiness, createApiShutdown } from "./lifecycle";
 
 import { spawn } from "child_process";
 import { cleanupTUSUploads } from "./tus/cleanup";
-import { cleanupExpiredTempUploads } from "./media/cleanup";
+import {
+    cleanupExpiredTempUploads,
+    cleanupStaleUploads,
+} from "./media/cleanup";
 import { HOUR_IN_SECONDS } from "./config/constants";
 import { createMedialitAuth } from "./auth/better-auth";
 import { loginCaptchaConfig } from "./auth/options";
@@ -94,10 +97,20 @@ checkConfig()
             HOUR_IN_SECONDS, // 1 hour
         );
 
+        // Uploads the server lost mid-way (a crash) release their reserved
+        // storage within UPLOAD_STALE_MINUTES plus this interval.
+        const staleUploadCleanup = setInterval(
+            async () => {
+                await cleanupStaleUploads();
+            },
+            15 * 60 * 1000, // 15 minutes
+        );
+
         const apiShutdown = createApiShutdown({
             stopBackgroundJobs: async () => {
                 clearInterval(tusCleanup);
                 clearInterval(tempCleanup);
+                clearInterval(staleUploadCleanup);
                 await stopBillingMaintenance();
             },
             closeMcp,

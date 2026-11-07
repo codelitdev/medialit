@@ -323,11 +323,14 @@ UPLOAD_PART_SIZE_BYTES=8388608     # 8 MiB, at least 5 MiB
 UPLOAD_PART_CONCURRENCY=2          # parts of one upload sent at the same time
 MAX_CONCURRENT_FORM_UPLOADS=16     # regular uploads per API process; more get 503
 REQUEST_IDLE_TIMEOUT_MS=120000     # close a connection after 2 minutes with no data
+UPLOAD_STALE_MINUTES=30            # free an upload lost in a crash after this long
 ```
 
 Regular uploads keep their parts in memory, so `MAX_CONCURRENT_FORM_UPLOADS` protects the API process from running out of memory under load. Clients that get a 503 should retry after the `Retry-After` header. Resumable uploads buffer parts on disk instead and aren't counted.
 
 Uploads have no overall time limit: a big file on a slow connection can take as long as it needs, as long as data keeps arriving.
+
+An upload counts toward storage from the moment it starts. If MediaLit restarts in the middle of a regular upload, the upload is cleaned up and its storage freed after `UPLOAD_STALE_MINUTES`. A resumable upload is kept until it expires, so the client can still finish it.
 
 ## Create a key at startup
 
