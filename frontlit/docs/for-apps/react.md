@@ -77,7 +77,7 @@ type={{
     },
     chunkSize: {
       type: "number",
-      description: "Bytes per request. By default the file is sent in one request.",
+      description: "Bytes per request. Defaults to 48 MiB, so big files go up in short, resumable requests.",
     },
     onUploadComplete: { type: "(media: UploadedMedia) => void" },
     onUploadError: { type: "(error: MediaLitUploadError) => void" },

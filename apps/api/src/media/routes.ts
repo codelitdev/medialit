@@ -9,7 +9,12 @@ import {
     getMediaCount,
     getTotalSpaceOccupied,
 } from "./handlers";
-import { authenticateUpload, preflightUploadSize } from "./upload-guards";
+import {
+    authenticateUpload,
+    limitConcurrentUploads,
+    preflightUploadSize,
+} from "./upload-guards";
+import { MAX_CONCURRENT_FORM_UPLOADS } from "../config/constants";
 import { authenticatedApiLimiter } from "../auth/limiters";
 import { DATA_READ_SCOPE, DATA_WRITE_SCOPE } from "../auth/options";
 import { requireScope } from "../auth/scopes";
@@ -65,6 +70,7 @@ router.post(
                 }
             }
         }
+        #swagger.responses[503] = { description: 'Too many uploads in progress; retry after the Retry-After header' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     authenticatedApiLimiter,
@@ -73,6 +79,7 @@ router.post(
     // then streams the file straight to S3.
     authenticateUpload,
     preflightUploadSize,
+    limitConcurrentUploads(MAX_CONCURRENT_FORM_UPLOADS),
     uploadMedia,
 );
 

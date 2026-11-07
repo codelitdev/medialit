@@ -77,5 +77,17 @@ export const UPLOAD_PART_SIZE_BYTES = Math.max(
  * (tus). */
 export const UPLOAD_PART_CONCURRENCY = Math.max(
     1,
-    +(process.env.UPLOAD_PART_CONCURRENCY || 4),
+    +(process.env.UPLOAD_PART_CONCURRENCY || 2),
+);
+/** Form-data uploads one API process streams at a time. Each holds parts in
+ * memory, so past this the API answers 503 instead of running out. */
+export const MAX_CONCURRENT_FORM_UPLOADS = Math.max(
+    1,
+    +(process.env.MAX_CONCURRENT_FORM_UPLOADS || 16),
+);
+/** How long a connection may sit with no data before it's closed. Requests
+ * have no overall time limit, so a big upload on a slow link can finish. */
+export const REQUEST_IDLE_TIMEOUT_MS = Math.max(
+    1000,
+    +(process.env.REQUEST_IDLE_TIMEOUT_MS || 2 * 60 * 1000),
 );
