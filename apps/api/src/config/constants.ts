@@ -64,3 +64,18 @@ export const TEMP_MEDIA_EXPIRATION_HOURS = process.env
     ? +process.env.TEMP_MEDIA_EXPIRATION_HOURS
     : 24; // 24 hours
 export const DISABLE_TAGGING = process.env.DISABLE_TAGGING === "true";
+
+const MIB = 1024 * 1024;
+/** Size of each part streamed to S3. S3 needs at least 5 MiB for every part
+ * but the last, and R2 needs all of them to be the same size. */
+export const UPLOAD_PART_SIZE_BYTES = Math.max(
+    5 * MIB,
+    +(process.env.UPLOAD_PART_SIZE_BYTES || 8 * MIB),
+);
+/** Parts of one upload that may be in flight to S3 at the same time. Each
+ * holds up to `UPLOAD_PART_SIZE_BYTES` in memory (form-data) or on disk
+ * (tus). */
+export const UPLOAD_PART_CONCURRENCY = Math.max(
+    1,
+    +(process.env.UPLOAD_PART_CONCURRENCY || 4),
+);

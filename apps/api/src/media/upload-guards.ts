@@ -1,10 +1,4 @@
 import type { NextFunction, Request, Response } from "express";
-import fileUpload from "express-fileupload";
-import {
-    maxFileUploadSizeSubscribed,
-    tempFileDirForUploads,
-} from "../config/constants";
-import { maxUploadFor } from "../billing/entitlements";
 import apikey from "../apikey/middleware";
 import signatureMiddleware from "../signature/middleware";
 import { getSignatureFromReq } from "../signature/utils";
@@ -59,22 +53,4 @@ export async function preflightUploadSize(
         return;
     }
     next();
-}
-
-/** Parses the upload with the caller's plan limit, never above the global
- * `MAX_UPLOAD_SIZE_SUBSCRIBED` cap. */
-export async function parseUpload(
-    req: any,
-    res: Response,
-    next: NextFunction,
-): Promise<void> {
-    const planLimit = await maxUploadFor({ id: req.user._id ?? req.user.id });
-    fileUpload({
-        useTempFiles: true,
-        tempFileDir: tempFileDirForUploads,
-        limits: {
-            fileSize: Math.min(planLimit, maxFileUploadSizeSubscribed),
-            files: 1,
-        },
-    })(req, res, next);
 }

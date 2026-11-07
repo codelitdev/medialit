@@ -172,12 +172,10 @@ export const tusUploads = pgTable("tus_uploads", {
     appId: text("app_id")
         .notNull()
         .references(() => apps.id, { onDelete: "cascade" }),
+    /** The media ID the upload will create, chosen when it starts. */
+    mediaId: text("media_id"),
     uploadLength: bigint("upload_length", { mode: "number" }).notNull(),
-    uploadOffset: bigint("upload_offset", { mode: "number" })
-        .notNull()
-        .default(0),
     metadata: jsonb("metadata").notNull(),
-    tempFilePath: text("temp_file_path"),
     signature: text("signature"),
     isComplete: boolean("is_complete").notNull().default(false),
     expiresAt: timestamp("expires_at", { withTimezone: true }),

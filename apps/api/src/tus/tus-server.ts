@@ -1,7 +1,16 @@
-import { EVENTS, Server } from "@tus/server";
-import { FileStore } from "@tus/file-store";
-import { tempFileDirForUploads } from "../config/constants";
+import { Server } from "@tus/server";
+import { S3Store } from "@tus/s3-store";
+import {
+    cloudBucket,
+    cloudRegion,
+    DISABLE_TAGGING,
+    maxFileUploadSizeSubscribed,
+    SIGNATURE_VALIDITY_MINUTES,
+    UPLOAD_PART_CONCURRENCY,
+    UPLOAD_PART_SIZE_BYTES,
+} from "../config/constants";
 import logger from "../services/log";
+import { getPrivateS3ClientConfig } from "../services/s3";
 import finalizeUpload from "./finalize";
 import * as preSignedUrlService from "../signature/service";
 import { PRESIGNED_URL_INVALID, UNAUTHORISED } from "../config/strings";
@@ -14,18 +23,55 @@ import {
     insufficientScopeMessage,
 } from "../auth/scopes";
 import { validateUploadConstraints } from "../media/storage-middleware";
-import { createTusUpload, updateTusUploadOffset } from "./queries";
+import { newUploadTarget, parseUploadKey } from "../media/ingest";
+import { createTusUpload } from "./queries";
 import mediaService from "../media/service";
 
-const store = new FileStore({
-    directory: `${tempFileDirForUploads}/tus-uploads`,
+/**
+ * Streams tus uploads into S3 multipart uploads. Each upload ID is the
+ * object's final key, so nothing is copied once it finishes. tus keeps its
+ * own resume bookkeeping in a `{key}.info` object next to the file.
+ */
+export const store = new S3Store({
+    partSize: UPLOAD_PART_SIZE_BYTES,
+    // Every part but the last has the same size, which R2 requires.
+    minPartSize: UPLOAD_PART_SIZE_BYTES,
+    maxConcurrentPartUploads: UPLOAD_PART_CONCURRENCY,
+    useTags: !DISABLE_TAGGING,
+    expirationPeriodInMilliseconds: SIGNATURE_VALIDITY_MINUTES * 60 * 1000,
+    s3ClientConfig: {
+        ...getPrivateS3ClientConfig(),
+        // The client is built at import, unlike the lazy one in services/s3;
+        // without a region it would throw before any upload is attempted.
+        region: cloudRegion || "us-east-1",
+        bucket: cloudBucket,
+    },
 });
+
+/** Upload IDs are keys with slashes, so URLs carry them base64url-encoded. */
+export function encodeUploadId(id: string): string {
+    return Buffer.from(id).toString("base64url");
+}
+
+export function decodeUploadId(segment: string): string | undefined {
+    if (!/^[A-Za-z0-9_-]+$/.test(segment)) return undefined;
+    const id = Buffer.from(segment, "base64url").toString("utf8");
+    return parseUploadKey(id) ? id : undefined;
+}
 
 export const server = new Server({
     path: "/media/create/resumable",
     datastore: store,
     respectForwardedHeaders: true,
     exposedHeaders: ["media"],
+    // A hard cap; the caller's plan limit is checked in onUploadCreate.
+    maxSize: maxFileUploadSizeSubscribed,
+    namingFunction: (_req, metadata) =>
+        newUploadTarget(metadata?.fileName || "file").key,
+    generateUrl: (_req, { proto, host, path, id }) =>
+        `${proto}://${host}${path}/${encodeUploadId(id)}`,
+    getFileIdFromRequest: (_req, lastPath) =>
+        lastPath ? decodeUploadId(lastPath) : undefined,
     onIncomingRequest: async (req: any) => {
         try {
             const response = await getUploadAuth(req);
@@ -35,6 +81,7 @@ export const server = new Server({
             req.user = response.user;
             req.appId = response.appId;
             req.group = response.group;
+            req.signature = response.signature;
         } catch (err) {
             logger.error({ err }, "Error validating user creds");
             throw err;
@@ -43,9 +90,7 @@ export const server = new Server({
     onUploadCreate: handleTusUploadCreate,
     onUploadFinish: async (req: any, upload: any) => {
         try {
-            console.time("finalize");
             const mediaId = await finalizeUpload(upload.id);
-            console.timeEnd("finalize");
             const media = await mediaService.getMediaDetails({
                 userId: req.user._id,
                 appId: req.appId,
@@ -81,8 +126,22 @@ export function uploadGroup(
 }
 
 export async function handleTusUploadCreate(req: any, upload: any) {
-    const metadata = upload.metadata;
+    const metadata = upload.metadata || {};
     const { user, appId, group } = req;
+
+    // Every upload declares its size, so it can be checked before any bytes
+    // arrive.
+    if (upload.sizeIsDeferred || typeof upload.size !== "number") {
+        throw {
+            status_code: 400,
+            body: "Upload-Length is required",
+        };
+    }
+
+    const target = parseUploadKey(upload.id);
+    if (!target) {
+        throw { status_code: 500, body: "Invalid upload key" };
+    }
 
     try {
         const validation = await validateUploadConstraints({
@@ -96,34 +155,29 @@ export async function handleTusUploadCreate(req: any, upload: any) {
             };
         }
 
+        const mimeType = metadata.mimeType || "application/octet-stream";
         await createTusUpload({
             uploadId: upload.id,
+            mediaId: target.mediaId,
             userId: user.id,
             appId: appId!,
             uploadLength: upload.size,
             metadata: {
                 fileName: metadata.fileName || "unknown",
-                mimeType: metadata.mimeType || "application/octet-stream",
+                mimeType,
                 accessControl: metadata.access,
                 caption: metadata.caption,
                 group: uploadGroup(group, metadata.group),
             },
-            tempFilePath: upload.id,
+            signature: req.signature,
         });
+        // The S3 store sets the object's Content-Type from this.
+        return { metadata: { ...metadata, contentType: mimeType } };
     } catch (err: any) {
         logger.error({ err }, "Error creating tus upload record");
         throw err;
     }
-    return metadata;
 }
-
-server.on(EVENTS.POST_RECEIVE, async (req: any, upload: any) => {
-    try {
-        await updateTusUploadOffset(upload.id, upload.offset);
-    } catch (err) {
-        logger.error({ err }, "Failed to update tus upload offset");
-    }
-});
 
 /**
  * Authenticates every TUS request: a signature, otherwise the same API key or
@@ -150,6 +204,7 @@ async function getUploadAuth(req: any): Promise<UploadAuth | TusError> {
             user: response.user,
             appId: response.appId,
             group: response.group,
+            signature: signature as string,
         };
     }
 
@@ -178,6 +233,7 @@ interface UploadAuth {
     /** Internal app ID. */
     appId: string;
     group?: string;
+    signature?: string;
 }
 
 interface TusError {

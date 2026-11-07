@@ -1,6 +1,3 @@
-import os from "os";
-import path from "path";
-import { writeFile, mkdir, copyFile, mkdtemp, rm } from "fs/promises";
 import { z } from "zod";
 import mediaService from "../../media/service";
 import { validateUploadConstraints } from "../../media/storage-middleware";
@@ -95,42 +92,19 @@ export async function handleUploadMediaTool({
         );
     }
 
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "mcp-upload-"));
-    // args.fileName is caller-controlled; never use it to build a path.
-    const tempPath = path.join(tempDir, "upload");
-
-    try {
-        await writeFile(tempPath, buffer);
-
-        const uploadedFile = {
-            name: args.fileName,
-            mimetype: args.mimeType,
-            size: buffer.length,
-            tempFilePath: tempPath,
-            mv: (destPath: string, callback: (err?: any) => void) => {
-                mkdir(path.dirname(destPath), { recursive: true })
-                    .then(() => copyFile(tempPath, destPath))
-                    .then(() => callback(null))
-                    .catch((err) => callback(err));
-            },
-        };
-
-        const mediaId = await mediaService.upload({
-            userId,
-            appId,
-            file: uploadedFile,
-            access: args.access || "private",
-            caption: args.caption || "",
-            group: args.group,
-        });
-        return await mediaService.getMediaDetails({
-            userId,
-            appId,
-            mediaId,
-        });
-    } finally {
-        rm(tempDir, { recursive: true, force: true }).catch(() => {
-            // Ignore cleanup errors
-        });
-    }
+    const mediaId = await mediaService.upload({
+        userId,
+        appId,
+        body: buffer,
+        fileName: args.fileName,
+        mimeType: args.mimeType,
+        access: args.access || "private",
+        caption: args.caption || "",
+        group: args.group,
+    });
+    return await mediaService.getMediaDetails({
+        userId,
+        appId,
+        mediaId,
+    });
 }

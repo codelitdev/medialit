@@ -97,6 +97,11 @@ The Docker Compose setup stores files in its bundled MinIO. To use another provi
 1. Two buckets: one dedicated to private files and one to public files.
 2. Private bucket access settings: public access disabled.
 3. Public bucket access settings: public access enabled.
+4. A lifecycle rule on the private bucket that aborts incomplete multipart uploads after 1 day.
+
+MediaLit streams every upload into the private bucket as an S3 multipart upload. If a client gives up halfway, its uploaded parts stay in the bucket, and cost storage, until the upload is aborted. MediaLit aborts unfinished uploads when they expire, and the lifecycle rule catches any it misses, for example after a crash.
+
+On AWS S3, add a lifecycle rule in the bucket's **Management** tab that applies to all objects and deletes incomplete multipart uploads after 1 day. Cloudflare R2 buckets get a similar rule by default, and MinIO removes stale multipart uploads on its own.
 
 ### AWS S3
 
@@ -307,6 +312,15 @@ MAX_UPLOAD_SIZE_NOT_SUBSCRIBED=52428800      # 50 MB
 MAX_STORAGE_ALLOWED_SUBSCRIBED=107374182400  # 100 GB
 MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED=1073741824 # 1 GB
 TEMP_MEDIA_EXPIRATION_HOURS=24               # unsealed uploads are deleted after this
+```
+
+### Tune upload streaming
+
+Uploads stream from the client to the private bucket in parts, without being written to the server's disk first. Each upload holds at most `UPLOAD_PART_SIZE_BYTES` × `UPLOAD_PART_CONCURRENCY` at a time: in memory for regular uploads, and in the system temp folder for resumable uploads.
+
+```sh
+UPLOAD_PART_SIZE_BYTES=8388608  # 8 MiB, at least 5 MiB
+UPLOAD_PART_CONCURRENCY=4       # parts of one upload sent at the same time
 ```
 
 ## Create a key at startup

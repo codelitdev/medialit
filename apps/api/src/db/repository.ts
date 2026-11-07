@@ -164,10 +164,9 @@ export type TusUploadRecord = {
     uploadId: string;
     userId: string;
     appId: string;
+    mediaId?: string;
     uploadLength: number;
-    uploadOffset: number;
     metadata: TusMetadata;
-    tempFilePath?: string;
     signature?: string;
     isComplete: boolean;
     expiresAt?: Date;
@@ -1215,11 +1214,11 @@ export async function deleteExpiredSignatures(userId: string): Promise<void> {
 
 export async function createTusUploadRecord(input: {
     uploadId: string;
+    mediaId: string;
     userId: string;
     appId: string;
     uploadLength: number;
     metadata: TusMetadata;
-    tempFilePath?: string;
     signature?: string;
     expiresAt: Date;
 }): Promise<TusUploadRecord> {
@@ -1232,10 +1231,9 @@ export async function createTusUploadRecord(input: {
             uploadId: input.uploadId,
             userId: input.userId,
             appId: input.appId,
+            mediaId: input.mediaId,
             uploadLength: input.uploadLength,
-            uploadOffset: 0,
             metadata: input.metadata,
-            tempFilePath: input.tempFilePath,
             signature: input.signature,
             isComplete: false,
             expiresAt: input.expiresAt,
@@ -1254,10 +1252,9 @@ function mapTus(row: typeof tusUploads.$inferSelect): TusUploadRecord {
         uploadId: row.uploadId,
         userId: row.userId,
         appId: row.appId,
+        mediaId: row.mediaId || undefined,
         uploadLength: row.uploadLength,
-        uploadOffset: row.uploadOffset,
         metadata: row.metadata as TusMetadata,
-        tempFilePath: row.tempFilePath || undefined,
         signature: row.signature || undefined,
         isComplete: row.isComplete,
         expiresAt: row.expiresAt || undefined,
@@ -1275,17 +1272,6 @@ export async function getTusUploadRecord(
         .where(eq(tusUploads.uploadId, uploadId))
         .limit(1);
     return row ? mapTus(row) : null;
-}
-
-export async function updateTusOffset(
-    uploadId: string,
-    uploadOffset: number,
-): Promise<void> {
-    const db = getDb();
-    await db
-        .update(tusUploads)
-        .set({ uploadOffset, updatedAt: now() })
-        .where(eq(tusUploads.uploadId, uploadId));
 }
 
 export async function markTusComplete(uploadId: string): Promise<void> {

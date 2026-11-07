@@ -1,20 +1,24 @@
 import Joi from "joi";
-import {
-    FILE_IS_REQUIRED,
-    NOT_ENOUGH_STORAGE,
-    NOT_FOUND,
-    SUCCESS,
-} from "../config/strings";
+import { NOT_ENOUGH_STORAGE, NOT_FOUND, SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
-import { maxStorageFor } from "../billing/entitlements";
+import { maxStorageFor, maxUploadFor } from "../billing/entitlements";
+import { maxFileUploadSizeSubscribed } from "../config/constants";
+import { deleteStored, finalizeStoredUpload } from "./ingest";
+import {
+    receiveMultipartUpload,
+    UploadRejectedError,
+    type ReceivedUpload,
+} from "./multipart-upload";
 import { getSignatureFromReq } from "../signature/utils";
 import { getMediaSchema, uploadMediaSchema } from "./schemas";
 
-function validateUploadOptions(req: Request): Joi.ValidationResult {
-    const { caption, access, group } = req.body;
+function validateUploadOptions(
+    fields: Record<string, string>,
+): Joi.ValidationResult {
+    const { caption, access, group } = fields;
     return uploadMediaSchema.validate({ caption, access, group });
 }
 
@@ -25,27 +29,43 @@ export async function uploadMedia(
 ) {
     req.socket.setTimeout(10 * 60 * 1000); // 10 minutes
 
-    if (!req.files || !req.files.file) {
-        return res.status(400).json({ error: FILE_IS_REQUIRED });
-    }
-
-    const { error } = validateUploadOptions(req);
-    if (error) {
-        return res.status(400).json({ error: error.message });
-    }
-
-    const { file } = req.files;
-    const { access, caption } = req.body;
-    // A signature's group wins over the form's.
-    const group = req.group ?? req.body.group;
     const userId = req.user.id;
     const appId = req.appId;
 
+    let received: ReceivedUpload;
     try {
-        const mediaId = await mediaService.upload({
+        const maxFileSize = Math.min(
+            await maxUploadFor({ id: req.user._id ?? req.user.id }),
+            maxFileUploadSizeSubscribed,
+        );
+        received = await receiveMultipartUpload(req, { maxFileSize });
+    } catch (err: any) {
+        if (err instanceof UploadRejectedError) {
+            return res.status(err.status).json({ error: err.message });
+        }
+        logger.error({ err }, err.message);
+        return res.status(500).json({ error: err.message });
+    }
+
+    const { error } = validateUploadOptions(received.fields);
+    if (error) {
+        await deleteStored([received.key]);
+        return res.status(400).json({ error: error.message });
+    }
+
+    const { access, caption } = received.fields;
+    // A signature's group wins over the form's.
+    const group = req.group ?? received.fields.group;
+
+    try {
+        const mediaId = await finalizeStoredUpload({
+            mediaId: received.mediaId,
+            ext: received.ext,
+            key: received.key,
             userId,
             appId,
-            file,
+            originalFileName: received.originalFileName,
+            mimeType: received.mimeType,
             access,
             caption,
             group,
@@ -53,13 +73,16 @@ export async function uploadMedia(
         });
 
         const media = await mediaService.getMediaDetails({
-            userId: req.user.id,
+            userId,
             appId,
             mediaId,
         });
 
         return res.status(200).json(media);
     } catch (err: any) {
+        if (err.message === NOT_ENOUGH_STORAGE) {
+            return res.status(403).json({ error: err.message });
+        }
         logger.error({ err }, err.message);
         return res.status(500).json({ error: err.message });
     }

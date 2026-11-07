@@ -9,12 +9,7 @@ import {
     getMediaCount,
     getTotalSpaceOccupied,
 } from "./handlers";
-import storage from "./storage-middleware";
-import {
-    authenticateUpload,
-    parseUpload,
-    preflightUploadSize,
-} from "./upload-guards";
+import { authenticateUpload, preflightUploadSize } from "./upload-guards";
 import { authenticatedApiLimiter } from "../auth/limiters";
 import { DATA_READ_SCOPE, DATA_WRITE_SCOPE } from "../auth/options";
 import { requireScope } from "../auth/scopes";
@@ -74,11 +69,10 @@ router.post(
     */
     authenticatedApiLimiter,
     // Authenticate and check the declared size before reading the body, so
-    // an unauthenticated or oversized upload never reaches the disk.
+    // an unauthenticated or oversized upload is never stored. The handler
+    // then streams the file straight to S3.
     authenticateUpload,
     preflightUploadSize,
-    parseUpload,
-    storage,
     uploadMedia,
 );
 

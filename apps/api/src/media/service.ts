@@ -1,199 +1,79 @@
 import path from "path";
-import thumbnail from "@medialit/thumbnail";
-import { createReadStream, rmdirSync } from "fs";
 import {
-    tempFileDirForUploads,
-    imagePattern,
-    videoPattern,
-    imagePatternForThumbnailGeneration,
     ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT,
     DISABLE_TAGGING,
     cloudBucket,
     cloudPublicBucket,
 } from "../config/constants";
-import imageUtils from "@medialit/images";
-import {
-    foldersExist,
-    createFolders,
-    moveFile,
-} from "./utils/manage-files-on-disk";
 import {
     generateSignedUrl,
     generateCloudfrontSignedUrl,
-    putObject,
+    streamToObject,
     deleteObject,
     copyObject,
     getObjectTagging,
-    UploadParams,
 } from "../services/s3";
 import logger from "../services/log";
 import { resolveAccountPlan, storageLimitFor } from "../billing/entitlements";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import generateKey from "./utils/generate-key";
-import { getMediaSettings } from "../media-settings/queries";
-import generateFileName from "./utils/generate-file-name";
 import GetPageProps from "./GetPageProps";
 import {
     deleteMediaQuery,
     getMedia,
     getMediaCount,
     getPaginatedMedia,
-    createMedia,
     getTotalSpace,
 } from "./queries";
 import { listMediaRecordsByIds, sealMediaRecord } from "@/db";
-import * as presignedUrlService from "../signature/service";
-import getTags from "./utils/get-tags";
+import { finalizeStoredUpload, newUploadTarget } from "./ingest";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
 import { MediaResponse } from "./schemas";
 
-const generateAndUploadThumbnail = async ({
-    workingDirectory,
-    key,
-    mimetype,
-    originalFilePath,
-    tags,
-    bucket,
-}: {
-    workingDirectory: string;
-    key: string;
-    mimetype: string;
-    originalFilePath: string;
-    tags: string;
-    bucket?: string;
-}): Promise<boolean> => {
-    const thumbPath = `${workingDirectory}/thumb.webp`;
-
-    let isThumbGenerated = false; // to indicate if the thumbnail name is to be saved to the DB
-    if (imagePatternForThumbnailGeneration.test(mimetype)) {
-        await thumbnail.forImage(originalFilePath, thumbPath);
-        isThumbGenerated = true;
-    }
-    if (videoPattern.test(mimetype)) {
-        await thumbnail.forVideo(originalFilePath, thumbPath);
-        isThumbGenerated = true;
-    }
-
-    if (isThumbGenerated) {
-        await putObject({
-            Key: key,
-            Body: createReadStream(thumbPath),
-            ContentType: "image/webp",
-            Tagging: tags,
-            Bucket: bucket || cloudBucket,
-        });
-    }
-
-    return isThumbGenerated;
-};
-
 interface UploadProps {
     userId: string;
     appId: string;
-    file: any;
+    /** The whole file, for callers that already hold it in memory. */
+    body: Buffer;
+    fileName: string;
+    mimeType: string;
     access: string;
     caption: string;
     group?: string;
     signature?: string;
 }
 
+/* Stores a file held in memory and finishes it like any other upload. */
 async function upload({
     userId,
     appId,
-    file,
+    body,
+    fileName,
+    mimeType,
     access,
     caption,
     group,
     signature,
 }: UploadProps): Promise<string> {
-    const fileName = generateFileName(file.name);
-    const mediaSettings = await getMediaSettings(userId, appId);
-    const useWebP = mediaSettings?.useWebP || false;
-    const webpOutputQuality = mediaSettings?.webpOutputQuality || 0;
-
-    const temporaryFolderForWork = `${tempFileDirForUploads}/${fileName.name}`;
-    if (!foldersExist([temporaryFolderForWork])) {
-        createFolders([temporaryFolderForWork]);
-    }
-
-    let fileExtension = fileName.ext;
-    let mimeType = file.mimetype;
-    if (useWebP && imagePattern.test(mimeType)) {
-        fileExtension = "webp";
-        mimeType = "image/webp";
-    }
-
-    const mainFilePath = `${temporaryFolderForWork}/main.${fileExtension}`;
-    await moveFile(file, mainFilePath);
-    if (useWebP && imagePattern.test(file.mimetype)) {
-        await imageUtils.convertToWebp(mainFilePath, webpOutputQuality);
-    }
-
-    const uploadParams: UploadParams = {
-        Key: generateKey({
-            mediaId: fileName.name,
-            path: Constants.PathKey.PRIVATE,
-            filename: `main.${fileExtension}`,
-        }),
-        Body: createReadStream(mainFilePath),
+    const target = newUploadTarget(fileName);
+    await streamToObject({
+        Key: target.key,
+        Body: body,
         ContentType: mimeType,
         Bucket: cloudBucket,
-    };
-    const tags = getTags(userId, group);
-    uploadParams.Tagging = tags;
-
-    await putObject(uploadParams);
-
-    let isThumbGenerated = false;
-    try {
-        isThumbGenerated = await generateAndUploadThumbnail({
-            workingDirectory: temporaryFolderForWork,
-            mimetype: file.mimetype,
-            originalFilePath: mainFilePath,
-            key: generateKey({
-                mediaId: fileName.name,
-                path: Constants.PathKey.PRIVATE,
-                filename: "thumb.webp",
-            }),
-            tags,
-            bucket: cloudBucket,
-        });
-    } catch (err: any) {
-        logger.error({ err }, err.message);
-    }
-
-    rmdirSync(temporaryFolderForWork, { recursive: true });
-
-    const mediaObject: MediaWithUserId = {
-        fileName: `main.${fileExtension}`,
-        mediaId: fileName.name,
+    }).done();
+    return await finalizeStoredUpload({
+        ...target,
         userId,
         appId,
-        originalFileName: file.name,
+        originalFileName: fileName,
         mimeType,
-        size: file.size,
-        thumbnailGenerated: isThumbGenerated,
+        access,
         caption,
-        accessControl:
-            access === Constants.AccessControl.PUBLIC
-                ? Constants.AccessControl.PUBLIC
-                : Constants.AccessControl.PRIVATE,
         group,
-        temp: true,
-    };
-    const media = await createMedia(mediaObject);
-
-    if (signature) {
-        presignedUrlService.cleanup(userId, signature).catch((err: any) => {
-            logger.error(
-                { err },
-                `Error in cleaning up expired links for ${userId}`,
-            );
-        });
-    }
-
-    return media.mediaId;
+        signature,
+    });
 }
 
 type MappedMedia = Partial<
