@@ -1,4 +1,7 @@
-import { ReadStream } from "fs";
+import { createWriteStream, ReadStream } from "fs";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
+import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl as getS3SignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
     S3Client,
@@ -6,8 +9,12 @@ import {
     DeleteObjectCommand,
     GetObjectCommand,
     GetObjectTaggingCommand,
+    PutObjectTaggingCommand,
+    HeadObjectCommand,
     CopyObjectCommand,
     ListObjectsV2Command,
+    ListMultipartUploadsCommand,
+    AbortMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import {
     CLOUD_ENDPOINT,
@@ -22,12 +29,14 @@ import {
     CDN_MAX_AGE,
     CDN_ENDPOINT,
     DISABLE_TAGGING,
+    UPLOAD_PART_CONCURRENCY,
+    UPLOAD_PART_SIZE_BYTES,
 } from "../config/constants";
 import { getSignedUrl as getCfSignedUrl } from "@aws-sdk/cloudfront-signer";
 
 export interface UploadParams {
     Key: string;
-    Body: ReadStream;
+    Body: ReadStream | Buffer;
     ContentType: string;
     Tagging?: string;
     Bucket?: string;
@@ -127,6 +136,82 @@ export const putObject = async (params: UploadParams) => {
     return response;
 };
 
+/**
+ * Streams a body into an object with S3 multipart upload, one part at a time,
+ * so the whole file is never held in memory or written to disk. Each part is
+ * retried on its own. Small bodies go up in a single request.
+ *
+ * Call `abort()` on the result to cancel; a cancelled multipart upload is
+ * aborted so it leaves no parts behind.
+ */
+export const streamToObject = (params: {
+    Key: string;
+    Body: Readable | Buffer;
+    ContentType: string;
+    Bucket?: string;
+}): Upload => {
+    const bucket = params.Bucket || cloudBucket;
+    return new Upload({
+        client: getS3Client(bucket),
+        params: {
+            Bucket: bucket,
+            Key: params.Key,
+            Body: params.Body,
+            ContentType: params.ContentType,
+        },
+        partSize: UPLOAD_PART_SIZE_BYTES,
+        queueSize: UPLOAD_PART_CONCURRENCY,
+        leavePartsOnError: false,
+    });
+};
+
+export const headObject = async (params: { Key: string; Bucket?: string }) => {
+    const bucket = params.Bucket || cloudBucket;
+    return await getS3Client(bucket).send(
+        new HeadObjectCommand({ Bucket: bucket, Key: params.Key }),
+    );
+};
+
+/** Downloads an object to a local file. */
+export const downloadObject = async (params: {
+    Key: string;
+    destination: string;
+    Bucket?: string;
+}): Promise<void> => {
+    const bucket = params.Bucket || cloudBucket;
+    const response = await getS3Client(bucket).send(
+        new GetObjectCommand({ Bucket: bucket, Key: params.Key }),
+    );
+    if (!response.Body) {
+        throw new Error(`Object has no body: ${params.Key}`);
+    }
+    await pipeline(
+        response.Body as Readable,
+        createWriteStream(params.destination),
+    );
+};
+
+/** Sets an object's tags from a `key=value&key=value` string. Does nothing
+ * when tagging is disabled. */
+export const putObjectTagging = async (params: {
+    Key: string;
+    Tagging: string;
+    Bucket?: string;
+}) => {
+    if (DISABLE_TAGGING) return;
+    const bucket = params.Bucket || cloudBucket;
+    const TagSet = Array.from(new URLSearchParams(params.Tagging)).map(
+        ([Key, Value]) => ({ Key, Value }),
+    );
+    await getS3Client(bucket).send(
+        new PutObjectTaggingCommand({
+            Bucket: bucket,
+            Key: params.Key,
+            Tagging: { TagSet },
+        }),
+    );
+};
+
 export const deleteObject = async (params: DeleteParams) => {
     const bucket = params.Bucket || cloudBucket;
     const { Bucket, ...restParams } = params;
@@ -219,4 +304,46 @@ export const deleteFolder = async (
 
         continuationToken = response.NextContinuationToken;
     } while (continuationToken);
+};
+
+/**
+ * Aborts every unfinished multipart upload of one object. Object listings
+ * don't show these, so deleteObject() can't remove their parts. Takes the
+ * exact key: MinIO only lists multipart uploads whose key equals the prefix.
+ */
+export const abortMultipartUploads = async (
+    key: string,
+    bucket?: string,
+): Promise<number> => {
+    const targetBucket = bucket || cloudBucket;
+    const client = getS3Client(targetBucket);
+    let aborted = 0;
+    let KeyMarker: string | undefined;
+    let UploadIdMarker: string | undefined;
+    do {
+        const response = await client.send(
+            new ListMultipartUploadsCommand({
+                Bucket: targetBucket,
+                Prefix: key,
+                KeyMarker,
+                UploadIdMarker,
+            }),
+        );
+        for (const upload of response.Uploads || []) {
+            if (upload.Key !== key) continue;
+            await client.send(
+                new AbortMultipartUploadCommand({
+                    Bucket: targetBucket,
+                    Key: upload.Key,
+                    UploadId: upload.UploadId,
+                }),
+            );
+            aborted++;
+        }
+        KeyMarker = response.IsTruncated ? response.NextKeyMarker : undefined;
+        UploadIdMarker = response.IsTruncated
+            ? response.NextUploadIdMarker
+            : undefined;
+    } while (KeyMarker);
+    return aborted;
 };

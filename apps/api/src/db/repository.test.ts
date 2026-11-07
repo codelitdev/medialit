@@ -28,6 +28,13 @@ import {
     revokeApiKey,
     sealMediaRecord,
     softDeleteApp,
+    completeUploadingMediaRecord,
+    createUploadingMediaRecord,
+    deleteUploadingMediaRecord,
+    getUploadingMediaSize,
+    listExpiredTempMedia,
+    listMediaRecordsByIds,
+    totalMediaSize,
     syncBootstrapApiKey,
     touchApiKeyLastUsed,
 } from "./repository.js";
@@ -347,5 +354,117 @@ describe("bootstrap keys", () => {
             }),
             "conflict",
         );
+    });
+});
+
+describe("uploads in progress", () => {
+    async function startUpload(mediaId: string, size: number) {
+        const user = await account();
+        const [app] = await listApps(user.id);
+        await createUploadingMediaRecord({
+            mediaId,
+            userId: user.id,
+            appId: app.id,
+            fileName: "main.mp4",
+            originalFileName: "clip.mp4",
+            mimeType: "video/mp4",
+            size,
+        });
+        return { userId: user.id, appId: app.id, mediaId };
+    }
+
+    test("stay hidden but hold their declared size in storage", async () => {
+        const ids = await startUpload("uploading-hidden", 5000);
+
+        assert.equal(await getMediaRecord(ids), null);
+        assert.deepEqual(
+            await listMediaRecordsByIds({ ...ids, mediaIds: [ids.mediaId] }),
+            [],
+        );
+        assert.equal(await countMedia(ids), 0);
+        assert.deepEqual(await listMedia(ids), []);
+        assert.equal(await totalMediaSize({ userId: ids.userId }), 5000);
+        assert.equal(await getUploadingMediaSize(ids.mediaId), 5000);
+
+        // Sealing an unfinished upload does nothing.
+        await sealMediaRecord(ids);
+        assert.equal(await getMediaRecord(ids), null);
+    });
+
+    test("become normal temp media once completed", async () => {
+        const ids = await startUpload("uploading-complete", 5000);
+
+        assert.equal(
+            await completeUploadingMediaRecord({
+                mediaId: ids.mediaId,
+                fileName: "main.mp4",
+                mimeType: "video/mp4",
+                size: 4800,
+                thumbnailGenerated: true,
+                accessControl: "public",
+                group: "clips",
+                caption: "hi",
+            }),
+            true,
+        );
+        const media = await getMediaRecord(ids);
+        assert.ok(media);
+        assert.equal(media.size, 4800);
+        assert.equal(media.temp, true);
+        assert.equal(media.accessControl, "public");
+        assert.equal(media.group, "clips");
+        assert.equal(await getUploadingMediaSize(ids.mediaId), null);
+
+        // Completing twice doesn't touch the finished row.
+        assert.equal(
+            await completeUploadingMediaRecord({
+                mediaId: ids.mediaId,
+                fileName: "main.mp4",
+                mimeType: "video/mp4",
+                size: 1,
+                thumbnailGenerated: false,
+                accessControl: "private",
+            }),
+            false,
+        );
+        assert.equal((await getMediaRecord(ids))?.size, 4800);
+    });
+
+    test("can be deleted, which never touches finished media", async () => {
+        const ids = await startUpload("uploading-delete", 10);
+        await deleteUploadingMediaRecord(ids.mediaId);
+        assert.equal(await totalMediaSize({ userId: ids.userId }), 0);
+        assert.equal(
+            await completeUploadingMediaRecord({
+                mediaId: ids.mediaId,
+                fileName: "main.mp4",
+                mimeType: "video/mp4",
+                size: 10,
+                thumbnailGenerated: false,
+                accessControl: "private",
+            }),
+            false,
+        );
+
+        await createMediaRecord({
+            fileName: "main.png",
+            mediaId: "finished-keep",
+            userId: ids.userId,
+            appId: ids.appId,
+            originalFileName: "a.png",
+            mimeType: "image/png",
+            size: 1,
+            thumbnailGenerated: false,
+            accessControl: "private",
+            temp: true,
+        });
+        await deleteUploadingMediaRecord("finished-keep");
+        assert.ok(await getMediaRecord({ ...ids, mediaId: "finished-keep" }));
+    });
+
+    test("expire with other temp media, so a crash gets cleaned up", async () => {
+        const ids = await startUpload("uploading-expire", 10);
+        const expired = await listExpiredTempMedia(new Date(Date.now() + 1000));
+        assert.ok(expired.some((m) => m.mediaId === ids.mediaId));
     });
 });

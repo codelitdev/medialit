@@ -64,3 +64,30 @@ export const TEMP_MEDIA_EXPIRATION_HOURS = process.env
     ? +process.env.TEMP_MEDIA_EXPIRATION_HOURS
     : 24; // 24 hours
 export const DISABLE_TAGGING = process.env.DISABLE_TAGGING === "true";
+
+const MIB = 1024 * 1024;
+/** Size of each part streamed to S3. S3 needs at least 5 MiB for every part
+ * but the last, and R2 needs all of them to be the same size. */
+export const UPLOAD_PART_SIZE_BYTES = Math.max(
+    5 * MIB,
+    +(process.env.UPLOAD_PART_SIZE_BYTES || 8 * MIB),
+);
+/** Parts of one upload that may be in flight to S3 at the same time. Each
+ * holds up to `UPLOAD_PART_SIZE_BYTES` in memory (form-data) or on disk
+ * (tus). */
+export const UPLOAD_PART_CONCURRENCY = Math.max(
+    1,
+    +(process.env.UPLOAD_PART_CONCURRENCY || 2),
+);
+/** Form-data uploads one API process streams at a time. Each holds parts in
+ * memory, so past this the API answers 503 instead of running out. */
+export const MAX_CONCURRENT_FORM_UPLOADS = Math.max(
+    1,
+    +(process.env.MAX_CONCURRENT_FORM_UPLOADS || 16),
+);
+/** How long a connection may sit with no data before it's closed. Requests
+ * have no overall time limit, so a big upload on a slow link can finish. */
+export const REQUEST_IDLE_TIMEOUT_MS = Math.max(
+    1000,
+    +(process.env.REQUEST_IDLE_TIMEOUT_MS || 2 * 60 * 1000),
+);

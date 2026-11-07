@@ -6,20 +6,24 @@ import {
     getTusUploadRecord,
     listTusByUser,
     markTusComplete,
-    updateTusOffset,
+    type TusUploadRecord,
 } from "@/db";
 
+/**
+ * What MediaLit itself keeps about a tus upload. Resume bookkeeping (offsets,
+ * parts) lives with the S3 store, in a `.info` object next to the file.
+ */
 export interface TusUpload {
+    /** Also the object's key in the private bucket. */
     uploadId: string;
+    mediaId: string;
     userId: string;
     appId: string;
     uploadLength: number;
-    uploadOffset: number;
     metadata: Pick<
         Media,
         "fileName" | "mimeType" | "accessControl" | "caption" | "group"
     >;
-    tempFilePath: string;
     isComplete: boolean;
     expiresAt?: Date;
     signature?: string;
@@ -42,14 +46,29 @@ function toTusMetadata(metadata: {
     };
 }
 
+function toTusUpload(row: TusUploadRecord): TusUpload {
+    return {
+        uploadId: row.uploadId,
+        mediaId: row.mediaId || "",
+        userId: row.userId,
+        appId: row.appId,
+        uploadLength: row.uploadLength,
+        metadata: toTusMetadata(row.metadata),
+        isComplete: row.isComplete,
+        expiresAt: row.expiresAt,
+        signature: row.signature,
+    };
+}
+
 export async function createTusUpload(
-    data: Omit<TusUpload, "uploadOffset" | "isComplete">,
+    data: Omit<TusUpload, "isComplete" | "expiresAt">,
 ): Promise<TusUpload> {
     const expiresAt = new Date();
     const signatureValidityHours = SIGNATURE_VALIDITY_MINUTES / 60;
     expiresAt.setHours(expiresAt.getHours() + signatureValidityHours);
     const created = await createTusUploadRecord({
         uploadId: data.uploadId,
+        mediaId: data.mediaId,
         userId: data.userId,
         appId: data.appId,
         uploadLength: data.uploadLength,
@@ -60,48 +79,17 @@ export async function createTusUpload(
             caption: data.metadata.caption,
             group: data.metadata.group,
         },
-        tempFilePath: data.tempFilePath,
         signature: data.signature,
         expiresAt,
     });
-    return {
-        uploadId: created.uploadId,
-        userId: created.userId,
-        appId: created.appId,
-        uploadLength: created.uploadLength,
-        uploadOffset: created.uploadOffset,
-        metadata: toTusMetadata(created.metadata),
-        tempFilePath: created.tempFilePath || "",
-        isComplete: created.isComplete,
-        expiresAt: created.expiresAt,
-        signature: created.signature,
-    };
+    return toTusUpload(created);
 }
 
 export async function getTusUpload(
     uploadId: string,
 ): Promise<TusUpload | null> {
     const row = await getTusUploadRecord(uploadId);
-    if (!row) return null;
-    return {
-        uploadId: row.uploadId,
-        userId: row.userId,
-        appId: row.appId,
-        uploadLength: row.uploadLength,
-        uploadOffset: row.uploadOffset,
-        metadata: toTusMetadata(row.metadata),
-        tempFilePath: row.tempFilePath || "",
-        isComplete: row.isComplete,
-        expiresAt: row.expiresAt,
-        signature: row.signature,
-    };
-}
-
-export async function updateTusUploadOffset(
-    uploadId: string,
-    uploadOffset: number,
-): Promise<void> {
-    await updateTusOffset(uploadId, uploadOffset);
+    return row ? toTusUpload(row) : null;
 }
 
 export async function markTusUploadComplete(uploadId: string): Promise<void> {
@@ -116,16 +104,5 @@ export async function getTusUploadsByUserId(
     userId: string,
 ): Promise<TusUpload[]> {
     const rows = await listTusByUser(userId);
-    return rows.map((row) => ({
-        uploadId: row.uploadId,
-        userId: row.userId,
-        appId: row.appId,
-        uploadLength: row.uploadLength,
-        uploadOffset: row.uploadOffset,
-        metadata: toTusMetadata(row.metadata),
-        tempFilePath: row.tempFilePath || "",
-        isComplete: row.isComplete,
-        expiresAt: row.expiresAt,
-        signature: row.signature,
-    }));
+    return rows.map(toTusUpload);
 }

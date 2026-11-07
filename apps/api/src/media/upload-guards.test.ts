@@ -53,12 +53,10 @@ before(async () => {
         "/media/create",
         guards.authenticateUpload,
         guards.preflightUploadSize,
-        guards.parseUpload,
+        // Stands in for the handler that streams the file to S3.
         (req: any, res) => {
-            res.json({
-                appId: req.appId,
-                file: req.files?.file?.name ?? null,
-            });
+            req.resume();
+            req.on("end", () => res.json({ appId: req.appId }));
         },
     );
     server = appServer.listen(0);
@@ -146,10 +144,7 @@ describe("upload guards", () => {
     test("accepts the key header and tags the upload with its app", async () => {
         const response = await upload({ "x-medialit-apikey": secret });
         assert.equal(response.status, 200);
-        assert.deepEqual(await response.json(), {
-            appId,
-            file: "hello.txt",
-        });
+        assert.deepEqual(await response.json(), { appId });
     });
 
     test("rejects a revoked key", async () => {

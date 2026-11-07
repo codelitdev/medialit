@@ -2,6 +2,7 @@ import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
 import { checkDatabaseConnection } from "./config/db";
+import { configureServerTimeouts } from "./server-timeouts";
 import { closeMcp } from "./mcp/routes";
 import logger, { shutdownObservability } from "./services/log";
 import { bootstrap, checkBootstrapConfig } from "./bootstrap";
@@ -75,6 +76,7 @@ checkConfig()
             started = true;
             logger.info(`Medialit server running at ${port}`);
         });
+        configureServerTimeouts(server);
 
         // Setup background cleanup job for expired tus uploads
         const tusCleanup = setInterval(

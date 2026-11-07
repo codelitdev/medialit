@@ -7,6 +7,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uploadFile, MediaLitUploadError, UploadAbortedError } from "../src";
+import { DEFAULT_CHUNK_SIZE, shouldRetryUpload } from "../src/upload";
 
 // tus-js-client's Node build reads Buffers, not Blobs.
 const fileOf = (text: string) => Buffer.from(text) as unknown as Blob;
@@ -25,6 +26,8 @@ interface FakeServer {
     endpoint: string;
     requests: { method: string; headers: http.IncomingHttpHeaders }[];
     rejectCreate?: { status: number; body: string };
+    /** Answer the next N PATCH requests with this status, storing nothing. */
+    failPatches?: { status: number; times: number };
     omitMedia?: boolean;
     close(): Promise<void>;
 }
@@ -67,6 +70,11 @@ async function startFakeMediaLit(): Promise<FakeServer> {
                     "Upload-Offset": upload.offset,
                     "Upload-Length": upload.length,
                 });
+                return res.end();
+            }
+            if (state.failPatches && state.failPatches.times > 0) {
+                state.failPatches.times--;
+                res.writeHead(state.failPatches.status);
                 return res.end();
             }
             upload.offset += Buffer.concat(chunks).length;
@@ -180,6 +188,46 @@ describe("uploadFile", () => {
         assert.strictEqual(patches.length, 3);
     });
 
+    test("sends a big file in default-size chunks", async () => {
+        const big = Buffer.alloc(DEFAULT_CHUNK_SIZE + 1024) as unknown as Blob;
+        await uploadFile(big, {
+            ...signature(),
+            fileName: "big.bin",
+            resume: false,
+        });
+        const patches = server.requests.filter((r) => r.method === "PATCH");
+        assert.strictEqual(patches.length, 2);
+    });
+
+    test("retries a chunk the server timed out (408) and finishes", async () => {
+        server.failPatches = { status: 408, times: 1 };
+        const result = await uploadFile(fileOf("hello"), {
+            ...signature(),
+            fileName: "hello.txt",
+            retryDelays: [0, 0],
+            resume: false,
+        });
+        assert.deepStrictEqual(result, media);
+        const patches = server.requests.filter((r) => r.method === "PATCH");
+        assert.strictEqual(patches.length, 2);
+    });
+
+    test("does not retry a refused chunk (403)", async () => {
+        server.failPatches = { status: 403, times: 1 };
+        await assert.rejects(
+            uploadFile(fileOf("hello"), {
+                ...signature(),
+                fileName: "hello.txt",
+                retryDelays: [0, 0],
+                resume: false,
+            }),
+            (err: unknown) =>
+                err instanceof MediaLitUploadError && err.status === 403,
+        );
+        const patches = server.requests.filter((r) => r.method === "PATCH");
+        assert.strictEqual(patches.length, 1);
+    });
+
     test("rejects with MediaLit's message when it refuses the upload", async () => {
         server.rejectCreate = { status: 403, body: "File size exceeds limit" };
         await assert.rejects(
@@ -276,5 +324,24 @@ describe("signature endpoint", () => {
             uploadFile(fileOf("hello"), { fileName: "hello.txt" }),
             /signatureEndpoint or getSignature/,
         );
+    });
+});
+
+describe("shouldRetryUpload", () => {
+    const withStatus = (status: number) => ({
+        originalResponse: { getStatus: () => status },
+    });
+
+    test("retries network errors, timeouts, rate limits and server errors", () => {
+        assert.strictEqual(shouldRetryUpload({}), true);
+        for (const status of [408, 409, 423, 429, 500, 502, 503]) {
+            assert.strictEqual(shouldRetryUpload(withStatus(status)), true);
+        }
+    });
+
+    test("does not retry other client errors", () => {
+        for (const status of [400, 401, 403, 404, 413]) {
+            assert.strictEqual(shouldRetryUpload(withStatus(status)), false);
+        }
     });
 });

@@ -1,6 +1,6 @@
 import logger from "../services/log";
 import { deleteMediaById, listExpiredTempMedia } from "@/db";
-import { deleteFolder } from "../services/s3";
+import { abortMultipartUploads, deleteFolder } from "../services/s3";
 import {
     PATH_PREFIX,
     TEMP_MEDIA_EXPIRATION_HOURS,
@@ -31,6 +31,15 @@ export async function cleanupExpiredTempUploads(): Promise<void> {
             try {
                 // Delete S3 objects from private bucket (using private path prefix)
                 const tmpPrefix = `${PATH_PREFIX ? `${PATH_PREFIX}/` : ""}${Constants.PathKey.PRIVATE}/${media.mediaId}/`;
+                // An upload the server never finished, for example because it
+                // crashed, may have parts that only an abort removes. Its key
+                // is the folder plus the file name recorded when it started.
+                if (!media.uploaded) {
+                    await abortMultipartUploads(
+                        `${tmpPrefix}${media.fileName}`,
+                        cloudBucket,
+                    );
+                }
                 await deleteFolder(tmpPrefix, cloudBucket);
 
                 // Delete media record
