@@ -4,6 +4,8 @@ export const BAD_REQUEST = "Bad request";
 export const SUBSCRIPTION_NOT_VALID = "Subscription not valid";
 export const FILE_IS_REQUIRED = "File is required";
 export const FILE_SIZE_EXCEEDED = "File size exceeded";
+export const TOO_MANY_UPLOADS =
+    "Too many uploads in progress on this server. Try again shortly.";
 export const NOT_FOUND = "Not found";
 export const PRESIGNED_URL_INVALID = "The link is invalid";
 export const NOT_ENOUGH_STORAGE =

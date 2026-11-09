@@ -4,7 +4,7 @@
         "name": "medialit",
         "slug": "medialit"
     },
-    "cliVersion": "0.3.0",
+    "cliVersion": "0.8.2",
     "capabilities": [
         "auth",
         "mcp",
@@ -12,7 +12,7 @@
         "billing"
     ],
     "managedFiles": {
-        ".github/workflows/platform-conformance.yml": "a3cb49b6623c20a528cae4141958a28bdaf5ad4aa01696ce3845895d84f9bb30"
+        ".github/workflows/platform-conformance.yml": "e6871c8837a6d489daa805350bdf380d96cd2c2addae79e3588362230dd4bc49"
     },
     "productOwnedGlobs": [
         "apps/**",

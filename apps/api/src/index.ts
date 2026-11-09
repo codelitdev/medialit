@@ -2,6 +2,7 @@ import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
 import { checkDatabaseConnection } from "./config/db";
+import { configureServerTimeouts } from "./server-timeouts";
 import { closeMcp } from "./mcp/routes";
 import logger, { shutdownObservability } from "./services/log";
 import { bootstrap, checkBootstrapConfig } from "./bootstrap";
@@ -12,7 +13,10 @@ import { apiReadiness, createApiShutdown } from "./lifecycle";
 
 import { spawn } from "child_process";
 import { cleanupTUSUploads } from "./tus/cleanup";
-import { cleanupExpiredTempUploads } from "./media/cleanup";
+import {
+    cleanupExpiredTempUploads,
+    cleanupStaleUploads,
+} from "./media/cleanup";
 import { HOUR_IN_SECONDS } from "./config/constants";
 import { createMedialitAuth } from "./auth/better-auth";
 import { loginCaptchaConfig } from "./auth/options";
@@ -75,6 +79,7 @@ checkConfig()
             started = true;
             logger.info(`Medialit server running at ${port}`);
         });
+        configureServerTimeouts(server);
 
         // Setup background cleanup job for expired tus uploads
         const tusCleanup = setInterval(
@@ -92,10 +97,20 @@ checkConfig()
             HOUR_IN_SECONDS, // 1 hour
         );
 
+        // Uploads the server lost mid-way (a crash) release their reserved
+        // storage within UPLOAD_STALE_MINUTES plus this interval.
+        const staleUploadCleanup = setInterval(
+            async () => {
+                await cleanupStaleUploads();
+            },
+            15 * 60 * 1000, // 15 minutes
+        );
+
         const apiShutdown = createApiShutdown({
             stopBackgroundJobs: async () => {
                 clearInterval(tusCleanup);
                 clearInterval(tempCleanup);
+                clearInterval(staleUploadCleanup);
                 await stopBillingMaintenance();
             },
             closeMcp,

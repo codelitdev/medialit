@@ -1,47 +1,22 @@
 import test, { afterEach, describe, mock } from "node:test";
 import assert from "node:assert";
 import {
-    existsSync,
-    mkdirSync,
-    mkdtempSync,
-    rmSync,
-    writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import storageValidation from "../../src/media/storage-middleware";
+    hasEnoughStorage,
+    validateUploadConstraints,
+} from "../../src/media/storage-middleware";
 import { billingStateSource } from "../../src/billing/entitlements";
 import mediaQueries from "../../src/media/queries";
 import {
     maxFileUploadSizeNotSubscribed,
     maxStorageAllowedNotSubscribed,
     maxStorageAllowedSubscribed,
-    tempFileDirForUploads,
 } from "../../src/config/constants";
 import {
     FILE_SIZE_EXCEEDED,
     NOT_ENOUGH_STORAGE,
 } from "../../src/config/strings";
 
-// Where express-fileupload writes temp files, as the middleware resolves it.
-const uploadTempDir = resolve(
-    tempFileDirForUploads || join(process.cwd(), "tmp"),
-);
-
-function truncatedUploadRequest(tempFilePath: string) {
-    return {
-        user: {
-            id: "test-user-id",
-        },
-        files: {
-            file: {
-                size: 1024 * 1024, // Within the limit once cut off
-                truncated: true,
-                tempFilePath,
-            },
-        },
-    };
-}
+const user = { _id: "test-user-id" } as any;
 
 /** The billing engine reports an active Pro subscription. */
 function mockPaidPlan() {
@@ -62,247 +37,85 @@ function mockPaidPlan() {
     );
 }
 
-describe("storageValidation middleware", () => {
+function mockUsedSpace(bytes: number) {
+    mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
+        async () => bytes,
+    );
+}
+
+describe("validateUploadConstraints", () => {
     afterEach(() => {
         mock.restoreAll();
     });
 
-    test("should allow upload when user has enough space (non-subscribed)", async () => {
-        const req = {
-            user: {
-                id: "test-user-id",
-            },
-            files: {
-                file: {
-                    size: 1024 * 1024, // 1MB
-                },
-            },
-        };
-
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
-            async () => 4 * 1024 * 1024, // 4MB used
-        );
-
-        let nextCalled = false;
-        const next = () => {
-            nextCalled = true;
-        };
-
-        const response = await storageValidation(req, res, next);
-        assert.strictEqual(nextCalled, true);
-        assert.strictEqual(response, undefined);
+    test("allows an upload that fits (non-subscribed)", async () => {
+        mockUsedSpace(4 * 1024 * 1024);
+        const result = await validateUploadConstraints({
+            size: 1024 * 1024,
+            user,
+        });
+        assert.deepStrictEqual(result, { valid: true });
     });
 
-    test("should allow upload when user has enough space (subscribed)", async () => {
+    test("allows an upload that fits (subscribed)", async () => {
         mockPaidPlan();
-        const req = {
-            user: {
-                id: "test-user-id",
-            },
-            files: {
-                file: {
-                    size: 1024 * 1024, // 1MB
-                },
-            },
-        };
-
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
-            async () => 9 * 1024 * 1024, // 9MB used
-        );
-
-        let nextCalled = false;
-        const next = () => {
-            nextCalled = true;
-        };
-
-        const response = await storageValidation(req, res, next);
-        assert.strictEqual(nextCalled, true);
-        assert.strictEqual(response, undefined);
+        mockUsedSpace(9 * 1024 * 1024);
+        const result = await validateUploadConstraints({
+            size: 1024 * 1024,
+            user,
+        });
+        assert.deepStrictEqual(result, { valid: true });
     });
 
-    test("should reject upload when user exceeds storage limit (non-subscribed)", async () => {
-        const req = {
-            user: {
-                id: "test-user-id",
-            },
-            files: {
-                file: {
-                    size: 1024 * 1024 * 2, // 2MB
-                },
-            },
-        };
-
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
-            async () => maxStorageAllowedNotSubscribed - 1024 * 1024, // 1MB remaining
-        );
-
-        let nextCalled = false;
-        const next = () => {
-            nextCalled = true;
-        };
-
-        const response = await storageValidation(req, res, next);
-        assert.strictEqual(response.code, 403);
-        assert.strictEqual(response.data.error, NOT_ENOUGH_STORAGE);
-        assert.strictEqual(nextCalled, false);
+    test("rejects an upload over the remaining storage (non-subscribed)", async () => {
+        mockUsedSpace(maxStorageAllowedNotSubscribed - 1024);
+        const result = await validateUploadConstraints({
+            size: 1024 * 1024,
+            user,
+        });
+        assert.deepStrictEqual(result, {
+            valid: false,
+            reason: "not_enough_storage",
+            error: NOT_ENOUGH_STORAGE,
+        });
     });
 
-    test("should reject upload when file exceeds upload size limit", async () => {
-        const req = {
-            user: {
-                id: "test-user-id",
-            },
-            files: {
-                file: {
-                    size: maxFileUploadSizeNotSubscribed + 1,
-                },
-            },
-        };
-
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        let nextCalled = false;
-        const next = () => {
-            nextCalled = true;
-        };
-
-        const response = await storageValidation(req, res, next);
-        assert.strictEqual(response.code, 400);
+    test("rejects a file over the plan's upload size limit", async () => {
+        mockUsedSpace(0);
+        const result = await validateUploadConstraints({
+            size: maxFileUploadSizeNotSubscribed + 1,
+            user,
+        });
+        assert.strictEqual(result.valid, false);
         assert.strictEqual(
-            response.data.error,
+            !result.valid && result.error,
             `${FILE_SIZE_EXCEEDED}. Allowed: ${maxFileUploadSizeNotSubscribed} bytes`,
         );
-        assert.strictEqual(nextCalled, false);
     });
 
-    test("should reject upload when user exceeds storage limit (subscribed)", async () => {
+    test("rejects an upload over the remaining storage (subscribed)", async () => {
         mockPaidPlan();
-        const req = {
-            user: {
-                id: "test-user-id",
-            },
-            files: {
-                file: {
-                    size: 1024 * 1024 * 2, // 2MB
-                },
-            },
-        };
-
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
-            async () => maxStorageAllowedSubscribed - 1024 * 1024, // Remaining space is 1MB
+        mockUsedSpace(maxStorageAllowedSubscribed - 1024 * 1024);
+        const result = await validateUploadConstraints({
+            size: 2 * 1024 * 1024,
+            user,
+        });
+        assert.strictEqual(result.valid, false);
+        assert.strictEqual(
+            !result.valid && result.reason,
+            "not_enough_storage",
         );
+    });
+});
 
-        let nextCalled = false;
-        const next = () => {
-            nextCalled = true;
-        };
-
-        const response = await storageValidation(req, res, next);
-        assert.strictEqual(response.code, 403);
-        assert.strictEqual(response.data.error, NOT_ENOUGH_STORAGE);
-        assert.strictEqual(nextCalled, false);
+describe("hasEnoughStorage", () => {
+    afterEach(() => {
+        mock.restoreAll();
     });
 
-    test("should reject and remove a file truncated at the upload size limit", async () => {
-        mkdirSync(uploadTempDir, { recursive: true });
-        const dir = mkdtempSync(join(uploadTempDir, "medialit-truncated-"));
-        const tempFilePath = join(dir, "upload");
-        writeFileSync(tempFilePath, "partial");
-        const req = truncatedUploadRequest(tempFilePath);
-
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
-            async () => 0,
-        );
-
-        let nextCalled = false;
-        const next = () => {
-            nextCalled = true;
-        };
-
-        const response = await storageValidation(req, res, next);
-        assert.strictEqual(response.code, 400);
-        assert.ok(response.data.error.startsWith(FILE_SIZE_EXCEEDED));
-        assert.strictEqual(nextCalled, false);
-        assert.strictEqual(existsSync(tempFilePath), false);
-        rmSync(dir, { recursive: true, force: true });
-    });
-
-    test("should not delete a file outside the upload temp folder", async () => {
-        const dir = mkdtempSync(join(tmpdir(), "medialit-outside-"));
-        const tempFilePath = join(dir, "upload");
-        writeFileSync(tempFilePath, "keep");
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        const response = await storageValidation(
-            truncatedUploadRequest(tempFilePath),
-            res,
-            () => undefined,
-        );
-        assert.strictEqual(response.code, 400);
-        assert.strictEqual(existsSync(tempFilePath), true);
-        rmSync(dir, { recursive: true, force: true });
-    });
-
-    test("should handle missing file in request", async () => {
-        const req = {
-            user: {
-                id: "test-user-id",
-            },
-            files: {},
-        };
-
-        const res = {
-            status: (code: number) => ({
-                json: (data: any) => ({ code, data }),
-            }),
-        };
-
-        let nextCalled = false;
-        const next = () => {
-            nextCalled = true;
-        };
-
-        const response = await storageValidation(req, res, next);
-        assert.strictEqual(response.code, 400);
-        assert.strictEqual(response.data.error, "No file uploaded");
-        assert.strictEqual(nextCalled, false);
+    test("allows filling storage exactly to the limit", async () => {
+        mockUsedSpace(maxStorageAllowedNotSubscribed - 10);
+        assert.strictEqual(await hasEnoughStorage(10, user), true);
+        assert.strictEqual(await hasEnoughStorage(11, user), false);
     });
 });

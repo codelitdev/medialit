@@ -106,6 +106,8 @@ export type MediaRecord = {
     group?: string;
     caption?: string;
     temp: boolean;
+    /** False while the file is still uploading. */
+    uploaded?: boolean;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -164,10 +166,9 @@ export type TusUploadRecord = {
     uploadId: string;
     userId: string;
     appId: string;
+    mediaId?: string;
     uploadLength: number;
-    uploadOffset: number;
     metadata: TusMetadata;
-    tempFilePath?: string;
     signature?: string;
     isComplete: boolean;
     expiresAt?: Date;
@@ -238,6 +239,7 @@ function mapMedia(row: typeof media.$inferSelect): MediaRecord {
         group: row.group || undefined,
         caption: row.caption || undefined,
         temp: row.temp,
+        uploaded: row.uploaded,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -857,6 +859,7 @@ export async function getMediaRecord(input: {
                 eq(media.userId, input.userId),
                 eq(media.appId, input.appId),
                 eq(media.mediaId, input.mediaId),
+                eq(media.uploaded, true),
             ),
         )
         .limit(1);
@@ -1024,6 +1027,7 @@ export async function listMediaRecordsByIds(input: {
                 eq(media.userId, input.userId),
                 eq(media.appId, input.appId),
                 inArray(media.mediaId, input.mediaIds),
+                eq(media.uploaded, true),
             ),
         );
     return rows.map(mapMedia);
@@ -1053,8 +1057,143 @@ export async function sealMediaRecord(input: {
                 eq(media.userId, input.userId),
                 eq(media.appId, input.appId),
                 eq(media.mediaId, input.mediaId),
+                eq(media.uploaded, true),
             ),
         );
+}
+
+/**
+ * Records an upload as it starts: a temp row that nothing else shows or
+ * returns until `completeUploadingMediaRecord` marks it uploaded. `size` is
+ * the declared size, so it counts toward storage while the upload runs.
+ */
+export async function createUploadingMediaRecord(input: {
+    mediaId: string;
+    userId: string;
+    appId: string;
+    fileName: string;
+    originalFileName: string;
+    mimeType: string;
+    size: number;
+}): Promise<void> {
+    const db = getDb();
+    const timestamp = now();
+    await db.insert(media).values({
+        id: randomUUID(),
+        fileName: input.fileName,
+        mediaId: input.mediaId,
+        userId: input.userId,
+        appId: input.appId,
+        originalFileName: input.originalFileName,
+        mimeType: input.mimeType,
+        size: input.size,
+        thumbnailGenerated: false,
+        accessControl: "private",
+        temp: true,
+        uploaded: false,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+    });
+}
+
+/** Marks an upload finished with its final details. Returns false when the
+ * row is gone, for example because the temp cleanup job expired it. */
+export async function completeUploadingMediaRecord(input: {
+    mediaId: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    thumbnailGenerated: boolean;
+    accessControl: "public" | "private";
+    group?: string;
+    caption?: string;
+}): Promise<boolean> {
+    const db = getDb();
+    const rows = await db
+        .update(media)
+        .set({
+            fileName: input.fileName,
+            mimeType: input.mimeType,
+            size: input.size,
+            thumbnailGenerated: input.thumbnailGenerated,
+            accessControl: input.accessControl,
+            group: input.group ?? null,
+            caption: input.caption ?? null,
+            uploaded: true,
+            updatedAt: now(),
+        })
+        .where(and(eq(media.mediaId, input.mediaId), eq(media.uploaded, false)))
+        .returning({ id: media.id });
+    return rows.length > 0;
+}
+
+/** Removes the row of an upload that failed or was rejected. Returns false
+ * when there was no unfinished row, for example because it just finished. */
+export async function deleteUploadingMediaRecord(
+    mediaId: string,
+): Promise<boolean> {
+    const db = getDb();
+    const rows = await db
+        .delete(media)
+        .where(and(eq(media.mediaId, mediaId), eq(media.uploaded, false)))
+        .returning({ id: media.id });
+    return rows.length > 0;
+}
+
+/** Marks an unfinished upload as still active, so the stale-upload sweep
+ * leaves it alone. */
+export async function touchUploadingMediaRecord(
+    mediaId: string,
+): Promise<void> {
+    const db = getDb();
+    await db
+        .update(media)
+        .set({ updatedAt: now() })
+        .where(and(eq(media.mediaId, mediaId), eq(media.uploaded, false)));
+}
+
+/** No unexpired tus upload is writing this media. */
+function noLiveTusUpload(): SQL {
+    return sql`not exists (
+        select 1 from ${tusUploads}
+        where ${tusUploads.mediaId} = ${media.mediaId}
+        and (${tusUploads.expiresAt} is null or ${tusUploads.expiresAt} > now())
+    )`;
+}
+
+/**
+ * Unfinished uploads with no activity since `cutoff`: the server died while
+ * receiving them. A tus upload stays resumable until its tus row expires, so
+ * one with a live tus row is never stale here; the tus cleanup handles it.
+ */
+export async function listStaleUploadingMedia(
+    cutoff: Date,
+): Promise<MediaRecord[]> {
+    const db = getDb();
+    const rows = await db
+        .select()
+        .from(media)
+        .where(
+            and(
+                eq(media.uploaded, false),
+                lt(media.updatedAt, cutoff),
+                noLiveTusUpload(),
+            ),
+        );
+    return rows.map(mapMedia);
+}
+
+/** The declared size an unfinished upload is holding, or null. */
+export async function getUploadingMediaSize(
+    mediaId: string,
+): Promise<number | null> {
+    const db = getDb();
+    const [row] = await db
+        .select({ size: media.size })
+        .from(media)
+        .where(and(eq(media.mediaId, mediaId), eq(media.uploaded, false)))
+        .limit(1);
+    return row ? Number(row.size) : null;
 }
 
 export async function listExpiredTempMedia(
@@ -1064,7 +1203,15 @@ export async function listExpiredTempMedia(
     const rows = await db
         .select()
         .from(media)
-        .where(and(eq(media.temp, true), lt(media.createdAt, cutoff)));
+        .where(
+            and(
+                eq(media.temp, true),
+                lt(media.createdAt, cutoff),
+                // An unfinished tus upload stays resumable until its tus row
+                // expires; the tus cleanup removes it then.
+                or(eq(media.uploaded, true), noLiveTusUpload()),
+            ),
+        );
     return rows.map(mapMedia);
 }
 
@@ -1215,11 +1362,11 @@ export async function deleteExpiredSignatures(userId: string): Promise<void> {
 
 export async function createTusUploadRecord(input: {
     uploadId: string;
+    mediaId: string;
     userId: string;
     appId: string;
     uploadLength: number;
     metadata: TusMetadata;
-    tempFilePath?: string;
     signature?: string;
     expiresAt: Date;
 }): Promise<TusUploadRecord> {
@@ -1232,10 +1379,9 @@ export async function createTusUploadRecord(input: {
             uploadId: input.uploadId,
             userId: input.userId,
             appId: input.appId,
+            mediaId: input.mediaId,
             uploadLength: input.uploadLength,
-            uploadOffset: 0,
             metadata: input.metadata,
-            tempFilePath: input.tempFilePath,
             signature: input.signature,
             isComplete: false,
             expiresAt: input.expiresAt,
@@ -1254,10 +1400,9 @@ function mapTus(row: typeof tusUploads.$inferSelect): TusUploadRecord {
         uploadId: row.uploadId,
         userId: row.userId,
         appId: row.appId,
+        mediaId: row.mediaId || undefined,
         uploadLength: row.uploadLength,
-        uploadOffset: row.uploadOffset,
         metadata: row.metadata as TusMetadata,
-        tempFilePath: row.tempFilePath || undefined,
         signature: row.signature || undefined,
         isComplete: row.isComplete,
         expiresAt: row.expiresAt || undefined,
@@ -1275,17 +1420,6 @@ export async function getTusUploadRecord(
         .where(eq(tusUploads.uploadId, uploadId))
         .limit(1);
     return row ? mapTus(row) : null;
-}
-
-export async function updateTusOffset(
-    uploadId: string,
-    uploadOffset: number,
-): Promise<void> {
-    const db = getDb();
-    await db
-        .update(tusUploads)
-        .set({ uploadOffset, updatedAt: now() })
-        .where(eq(tusUploads.uploadId, uploadId));
 }
 
 export async function markTusComplete(uploadId: string): Promise<void> {
