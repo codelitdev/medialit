@@ -137,6 +137,26 @@ export const deleteObject = async (params: DeleteParams) => {
     return response;
 };
 
+/* Reads a whole object into memory. Callers check `ContentLength` against
+   their own limit first, so pass `maxBytes` to refuse anything larger. */
+export const getObjectBytes = async (params: {
+    Key: string;
+    Bucket?: string;
+    maxBytes: number;
+}): Promise<{ bytes: Uint8Array; tooLarge: false } | { tooLarge: true }> => {
+    const bucket = params.Bucket || cloudBucket;
+    const response = await getS3Client(bucket).send(
+        new GetObjectCommand({ Bucket: bucket, Key: params.Key }),
+    );
+    if ((response.ContentLength ?? 0) > params.maxBytes) {
+        response.Body?.transformToWebStream().cancel();
+        return { tooLarge: true };
+    }
+    const bytes = await response.Body!.transformToByteArray();
+    if (bytes.byteLength > params.maxBytes) return { tooLarge: true };
+    return { bytes, tooLarge: false };
+};
+
 export const getObjectTagging = async (params: {
     Key: string;
     Bucket?: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import { Checkbox } from "@codelitdev/design-system";
 import {
@@ -13,6 +13,8 @@ import {
     File as FileIcon,
     Globe,
     LockKeyhole,
+    Maximize2,
+    Minimize2,
 } from "lucide-react";
 import { Loader } from "@codelitdev/design-system";
 import type { MediaListItem } from "@/lib/media";
@@ -25,6 +27,10 @@ import {
 } from "@/components/ui/dialog";
 import FileInteractivity from "./file-interactivity";
 import { useFileUrl } from "./use-file-url";
+import { nativeViewerFor, type NativeViewer } from "./viewers";
+
+/* Matches the dialog's phone layout in globals.css. */
+const MOBILE_QUERY = "(max-width: 759px)";
 
 /* The API decides each file's kind; these are just its labels. */
 const kindLabels: Record<MediaListItem["kind"], string> = {
@@ -130,36 +136,65 @@ function FilePreviewMedia({
 function FileDetailsContent({
     media,
     appId,
+    viewer,
+    expanded,
+    onExpandedChange,
 }: {
     media: MediaListItem;
     appId: string;
+    viewer: NativeViewer | null;
+    expanded: boolean;
+    onExpandedChange: (expanded: boolean) => void;
 }) {
     const { url, error } = useFileUrl(appId, media.mediaId);
     const kind = kindLabels[media.kind];
     const fileLabel =
         media.originalFileName.split(".").at(-1)?.toUpperCase() || kind;
     const isPublic = media.access !== "private";
+    const ExpandIcon = expanded ? Minimize2 : Maximize2;
+    const expandLabel = expanded ? "Show file details" : "Expand preview";
 
     return (
         <>
-            <DialogTitle className="file-dialog-title">
-                File details
-            </DialogTitle>
-            <div className="file-dialog-preview">
-                <FilePreviewMedia
-                    media={media}
-                    fileUrl={url}
-                    loadError={error}
-                />
-                <span className="file-preview-caption">{fileLabel}</span>
+            <div className="file-dialog-header">
+                <DialogTitle className="file-dialog-title">
+                    {expanded ? media.originalFileName : "File details"}
+                </DialogTitle>
+                <button
+                    type="button"
+                    className="file-dialog-icon-button"
+                    onClick={() => onExpandedChange(!expanded)}
+                    aria-label={expandLabel}
+                    title={expandLabel}
+                >
+                    <ExpandIcon aria-hidden="true" />
+                </button>
             </div>
-            <div className="file-dialog-body">
+            <div className="file-dialog-preview">
+                {viewer ? (
+                    <viewer.Component media={media} appId={appId} />
+                ) : (
+                    <>
+                        <FilePreviewMedia
+                            media={media}
+                            fileUrl={url}
+                            loadError={error}
+                        />
+                        <span className="file-preview-caption">
+                            {fileLabel}
+                        </span>
+                    </>
+                )}
+            </div>
+            <div className="file-dialog-body" hidden={expanded}>
                 <div>
                     <h3 className="file-dialog-name">
                         {media.originalFileName}
                     </h3>
                     <div className="file-dialog-badges">
-                        <span className="file-badge">{kind}</span>
+                        <span className="file-badge">
+                            {viewer?.label ?? kind}
+                        </span>
                         <span
                             className={`file-badge${isPublic ? " is-public" : ""}`}
                         >
@@ -198,7 +233,8 @@ function FileDetailsContent({
     );
 }
 
-/* The details dialog shared by grid cards and table rows. */
+/* The details dialog shared by grid cards and table rows. On phones it fills
+   the screen, and files with a native viewer open straight into reading. */
 function FileDetailsDialog({
     media,
     appId,
@@ -208,11 +244,33 @@ function FileDetailsDialog({
     appId: string;
     children: ReactNode;
 }) {
+    const viewer = nativeViewerFor(media);
+    const [expanded, setExpanded] = useState(false);
+
+    const onOpenChange = (open: boolean) => {
+        if (!open) return;
+        setExpanded(
+            Boolean(viewer?.fullScreenOnMobile) &&
+                window.matchMedia(MOBILE_QUERY).matches,
+        );
+    };
+
     return (
-        <Dialog>
+        <Dialog onOpenChange={onOpenChange}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="file-dialog sm:max-w-[960px] max-w-[calc(100vw-24px)] gap-0 overflow-hidden p-0">
-                <FileDetailsContent media={media} appId={appId} />
+            <DialogContent
+                className="file-dialog sm:max-w-[960px] max-w-[calc(100vw-24px)] gap-0 overflow-hidden p-0"
+                closeClassName="file-dialog-close"
+                data-expanded={expanded ? "" : undefined}
+                aria-describedby={undefined}
+            >
+                <FileDetailsContent
+                    media={media}
+                    appId={appId}
+                    viewer={viewer}
+                    expanded={expanded}
+                    onExpandedChange={setExpanded}
+                />
             </DialogContent>
         </Dialog>
     );

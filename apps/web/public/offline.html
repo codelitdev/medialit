@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#f9f6f2" />
+        <title>Offline · MediaLit</title>
+        <style>
+            :root {
+                color-scheme: light dark;
+                --bg: #f9f6f2;
+                --fg: #1b1510;
+                --muted: #6b6259;
+                --primary: #8e6ac7;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: #1b1510;
+                    --fg: #f3eee8;
+                    --muted: #a99f95;
+                }
+            }
+            body {
+                display: grid;
+                min-height: 100dvh;
+                margin: 0;
+                place-items: center;
+                padding: 16px;
+                background: var(--bg);
+                color: var(--fg);
+                font-family: system-ui, sans-serif;
+                text-align: center;
+            }
+            img {
+                width: 64px;
+                height: 64px;
+                border-radius: 16px;
+            }
+            h1 {
+                margin: 16px 0 8px;
+                font-size: 20px;
+            }
+            p {
+                margin: 0 0 20px;
+                color: var(--muted);
+            }
+            button {
+                padding: 10px 18px;
+                border: 0;
+                border-radius: 10px;
+                background: var(--primary);
+                color: #fff;
+                font: inherit;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <img src="/icons/icon-192.png" alt="" />
+            <h1>You’re offline</h1>
+            <p>MediaLit needs a connection to load your files.</p>
+            <button type="button" onclick="location.reload()">Try again</button>
+        </main>
+    </body>
+</html>
