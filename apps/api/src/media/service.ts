@@ -24,6 +24,7 @@ import {
     deleteObject,
     copyObject,
     getObjectTagging,
+    getObjectBytes,
     UploadParams,
 } from "../services/s3";
 import logger from "../services/log";
@@ -47,6 +48,7 @@ import getTags from "./utils/get-tags";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
 import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
 import { MediaResponse } from "./schemas";
+import { isTextPreview, MAX_TEXT_PREVIEW_BYTES, mediaPreview } from "./preview";
 
 const generateAndUploadThumbnail = async ({
     workingDirectory,
@@ -341,26 +343,60 @@ async function getPrivateFileUrl(media: MediaWithUserId, thumb?: boolean) {
         : await generateSignedUrl(key, bucket);
 }
 
+/* Where a media item's main file lives: temp and private files in the
+   private bucket, sealed public files in the public one. */
+function mainFileLocation(media: MediaWithUserId) {
+    const isPrivate =
+        media.temp || media.accessControl === Constants.AccessControl.PRIVATE;
+    const fileExtension = path.extname(media.fileName).replace(".", "");
+    return {
+        Bucket: isPrivate ? cloudBucket : cloudPublicBucket,
+        Key: generateKey({
+            mediaId: media.mediaId,
+            path: isPrivate
+                ? Constants.PathKey.PRIVATE
+                : Constants.PathKey.PUBLIC,
+            filename: `main.${fileExtension}`,
+        }),
+    };
+}
+
+/* The file's text for text-based native viewers. Null when the file is not
+   found. */
+async function getTextContent({
+    userId,
+    appId,
+    mediaId,
+}: {
+    userId: string;
+    appId: string;
+    mediaId: string;
+}): Promise<
+    | { status: "ok"; text: string }
+    | { status: "unsupported" }
+    | { status: "tooLarge" }
+    | null
+> {
+    const media = await getMedia({ userId, appId, mediaId });
+    if (!media) return null;
+    if (!isTextPreview(mediaPreview(media.mimeType, media.originalFileName))) {
+        return { status: "unsupported" };
+    }
+    if (media.size > MAX_TEXT_PREVIEW_BYTES) return { status: "tooLarge" };
+    const result = await getObjectBytes({
+        ...mainFileLocation(media),
+        maxBytes: MAX_TEXT_PREVIEW_BYTES,
+    });
+    if (result.tooLarge) return { status: "tooLarge" };
+    return {
+        status: "ok",
+        text: new TextDecoder("utf-8").decode(result.bytes),
+    };
+}
+
 /* Removes a media item's main file and thumbnail from storage. */
 async function removeStoredFiles(media: MediaWithUserId): Promise<void> {
-    // Determine which bucket the main file is in
-    const mainBucket =
-        media.temp || media.accessControl === Constants.AccessControl.PRIVATE
-            ? cloudBucket
-            : cloudPublicBucket;
-
-    const mainPath =
-        media.temp || media.accessControl === Constants.AccessControl.PRIVATE
-            ? Constants.PathKey.PRIVATE
-            : Constants.PathKey.PUBLIC;
-
-    const fileExtension = path.extname(media.fileName).replace(".", "");
-    const key = generateKey({
-        mediaId: media.mediaId,
-        path: mainPath,
-        filename: `main.${fileExtension}`,
-    });
-    await deleteObject({ Key: key, Bucket: mainBucket });
+    await deleteObject(mainFileLocation(media));
 
     if (media.thumbnailGenerated) {
         // Thumbnails are in public bucket if sealed, private bucket if temp
@@ -560,6 +596,7 @@ const mediaService = {
     getPage,
     getMediaCount: getMediaCountWithFilter,
     getMediaDetails,
+    getTextContent,
     deleteMedia,
     deleteMediaMany,
     removeStoredFiles,

@@ -1040,6 +1040,7 @@ a {
     margin-top: 0;
     font-size: 16px;
     font-weight: 600;
+    line-height: 1.4;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1439,16 +1440,58 @@ a {
     object-fit: cover;
 }
 
-/* File details dialog: preview beside details on desktop, stacked with a
-   scrolling body on mobile. */
+/* File details dialog: preview beside details on desktop. On phones it fills
+   the screen, with the preview over a scrolling details body. Expanded, the
+   preview takes everything below the header. */
 .file-dialog {
     display: grid;
     grid-template-areas:
         "title"
         "preview"
         "body";
-    grid-template-rows: auto 300px minmax(0, 1fr);
-    max-height: calc(100dvh - 24px);
+    grid-template-rows: auto minmax(220px, 42%) minmax(0, 1fr);
+}
+
+.file-dialog[data-expanded] {
+    grid-template-areas:
+        "title"
+        "preview";
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+/* Phones: full screen, no rounded frame, and a short slide up instead of the
+   centred zoom. The attribute selector outranks the base dialog utilities. */
+@media (max-width: 759px) {
+    .file-dialog[data-state] {
+        inset: 0;
+        width: 100%;
+        max-width: none;
+        height: 100dvh;
+        border: 0;
+        border-radius: 0;
+        transform: none;
+        --tw-enter-translate-x: 0;
+        --tw-enter-translate-y: 24px;
+        --tw-exit-translate-x: 0;
+        --tw-exit-translate-y: 24px;
+        --tw-enter-scale: 1;
+        --tw-exit-scale: 1;
+    }
+
+    .file-dialog .file-dialog-header {
+        padding-top: env(safe-area-inset-top);
+        padding-left: max(20px, env(safe-area-inset-left));
+        padding-right: calc(96px + env(safe-area-inset-right));
+    }
+
+    .file-dialog .file-dialog-close {
+        top: calc(12px + env(safe-area-inset-top));
+        right: calc(8px + env(safe-area-inset-right));
+    }
+
+    .file-dialog .file-dialog-body {
+        padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
 }
 
 @media (min-width: 760px) {
@@ -1459,20 +1502,88 @@ a {
             "preview body";
         grid-template-rows: auto minmax(0, 1fr);
         height: min(760px, calc(100dvh - 48px));
-        max-height: none;
+    }
+
+    .file-dialog[data-expanded] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "title"
+            "preview";
     }
 }
 
-.file-dialog-title {
+.file-dialog-header {
+    position: relative;
     grid-area: title;
     display: flex;
     align-items: center;
+    gap: 8px;
     min-height: 64px;
-    margin: 0;
-    padding: 0 56px 0 20px;
+    padding: 0 104px 0 20px;
     border-bottom: 1px solid var(--border);
+}
+
+.file-dialog-title {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
     font-size: 16px;
     font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Header buttons share a 40px tap target; the close button sits at the far
+   right and the expand button just left of it. */
+.file-dialog-icon-button,
+.file-dialog .file-dialog-close {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--muted-foreground);
+    opacity: 1;
+}
+
+.file-dialog .file-dialog-close {
+    top: 12px;
+    right: 8px;
+    background: transparent;
+}
+
+.file-dialog-icon-button {
+    position: absolute;
+    top: 50%;
+    right: 52px;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+@media (max-width: 759px) {
+    .file-dialog-icon-button {
+        top: calc(50% + env(safe-area-inset-top) / 2);
+        right: calc(52px + env(safe-area-inset-right));
+    }
+}
+
+.file-dialog-icon-button:hover,
+.file-dialog .file-dialog-close:hover {
+    background: var(--muted);
+    color: var(--foreground);
+}
+
+.file-dialog-icon-button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+.file-dialog-icon-button svg,
+.file-dialog .file-dialog-close svg {
+    width: 18px;
+    height: 18px;
 }
 
 .file-dialog-preview {
@@ -1533,6 +1644,10 @@ a {
     min-height: 0;
     overflow-y: auto;
     padding: 20px 24px 24px;
+}
+
+.file-dialog-body[hidden] {
+    display: none;
 }
 
 .file-dialog-name {

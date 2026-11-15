@@ -194,6 +194,7 @@ describe("dashboard routes: session and ownership", () => {
             ["GET", `/api/apps/${appId}/media`],
             ["GET", `/api/apps/${appId}/media/count`],
             ["GET", `/api/apps/${appId}/media/stranger-png`],
+            ["GET", `/api/apps/${appId}/media/stranger-png/content`],
             ["POST", `/api/apps/${appId}/media/signature`, {}],
             ["POST", `/api/apps/${appId}/media/stranger-png/seal`, {}],
             ["GET", `/api/apps/${appId}/keys`],
@@ -632,5 +633,89 @@ describe("dashboard routes: API keys", () => {
 
         const revoked = await call("DELETE", route);
         assert.equal(revoked.status, 204);
+    });
+});
+
+describe("dashboard routes: native previews", () => {
+    let docsApp: AppRecord;
+
+    before(async () => {
+        // A separate app keeps the counts in the main app's tests unchanged.
+        docsApp = await createApp({ userId: owner.id, name: "Docs" });
+        await addMedia(owner, docsApp, {
+            mediaId: "readme-md",
+            mimeType: "text/markdown",
+            size: 20,
+        });
+        await addMedia(owner, docsApp, {
+            mediaId: "huge-md",
+            mimeType: "text/markdown",
+            size: 3 * 1024 * 1024,
+        });
+        await addMedia(owner, docsApp, {
+            mediaId: "notes-txt",
+            mimeType: "text/plain",
+            size: 5,
+        });
+    });
+
+    test("names the native viewer for each file in the list", async () => {
+        const { status, body } = await json(
+            "GET",
+            `/api/apps/${docsApp.appId}/media?limit=100`,
+        );
+        assert.equal(status, 200);
+        const previews = Object.fromEntries(
+            body.map((item: { mediaId: string; preview: string | null }) => [
+                item.mediaId,
+                item.preview,
+            ]),
+        );
+        assert.deepEqual(previews, {
+            "readme-md": "markdown",
+            "huge-md": "markdown",
+            "notes-txt": null,
+        });
+    });
+
+    test("serves markdown as plain text", async () => {
+        const read = mock.method(mediaService, "getTextContent", async () => ({
+            status: "ok" as const,
+            text: "# Hello\n",
+        }));
+        const response = await call(
+            "GET",
+            `/api/apps/${docsApp.appId}/media/readme-md/content`,
+        );
+        assert.equal(response.status, 200);
+        assert.match(
+            response.headers.get("content-type") ?? "",
+            /^text\/plain; charset=utf-8/,
+        );
+        assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+        assert.equal(await response.text(), "# Hello\n");
+        assert.deepEqual(read.mock.calls[0].arguments[0], {
+            userId: owner.id,
+            appId: docsApp.id,
+            mediaId: "readme-md",
+        });
+    });
+
+    test("refuses files without a text preview, too large or missing", async () => {
+        const unsupported = await call(
+            "GET",
+            `/api/apps/${docsApp.appId}/media/notes-txt/content`,
+        );
+        assert.equal(unsupported.status, 415);
+        const tooLarge = await call(
+            "GET",
+            `/api/apps/${docsApp.appId}/media/huge-md/content`,
+        );
+        assert.equal(tooLarge.status, 413);
+        const missing = await call(
+            "GET",
+            `/api/apps/${docsApp.appId}/media/no-such-media/content`,
+        );
+        assert.equal(missing.status, 404);
     });
 });
