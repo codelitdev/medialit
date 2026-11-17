@@ -16,6 +16,28 @@ const nextConfig = {
         // browser loads them directly instead of through Next's optimizer.
         unoptimized: true,
     },
+    async headers() {
+        return [
+            {
+                // Browsers must always fetch the latest worker.
+                source: "/sw.js",
+                headers: [
+                    {
+                        key: "Content-Type",
+                        value: "application/javascript; charset=utf-8",
+                    },
+                    {
+                        key: "Cache-Control",
+                        value: "no-cache, no-store, must-revalidate",
+                    },
+                    {
+                        key: "Content-Security-Policy",
+                        value: "default-src 'self'; script-src 'self'",
+                    },
+                ],
+            },
+        ];
+    },
 };
 
 module.exports = nextConfig;

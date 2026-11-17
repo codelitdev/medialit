@@ -36,6 +36,7 @@ import { deploymentMode } from "../billing/catalog";
 import mediaService from "../media/service";
 import { sealErrorStatus } from "../media/handlers";
 import { mediaKind, parseMediaKind } from "../media/kind";
+import { mediaPreview } from "../media/preview";
 import { getMediaCount, getTotalSpace } from "../media/queries";
 import { validatePresigningOptions } from "../signature/handlers";
 import { generateSignature } from "../signature/service";
@@ -175,8 +176,19 @@ function parseMediaSort(value: unknown): MediaSort | undefined {
     return MEDIA_SORTS.find((sort) => sort === value);
 }
 
-function withKind<T extends { mimeType?: string }>(media: T) {
-    return { ...media, kind: mediaKind(media.mimeType ?? "") };
+/* Adds what the dashboard needs to show a file: its kind for filters and
+   icons, and which native viewer (if any) can open it. */
+function withKind<T extends { mimeType?: string; originalFileName?: string }>(
+    media: T,
+) {
+    return {
+        ...media,
+        kind: mediaKind(media.mimeType ?? ""),
+        preview: mediaPreview(
+            media.mimeType ?? "",
+            media.originalFileName ?? "",
+        ),
+    };
 }
 
 type AppSummary = {
@@ -469,6 +481,43 @@ export function createDashboardRouter(auth: MedialitAuth) {
             return;
         }
         res.json(withKind(media));
+    });
+
+    /* The text of a file that has a text-based native viewer. Served from
+       here rather than storage so the browser never needs storage CORS. */
+    router.get("/api/apps/:appId/media/:mediaId/content", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        try {
+            const content = await mediaService.getTextContent({
+                userId: owned.user.id,
+                appId: owned.app.id,
+                mediaId: String(req.params.mediaId),
+            });
+            if (!content) {
+                res.status(404).json({ error: "Not found" });
+                return;
+            }
+            if (content.status === "unsupported") {
+                res.status(415).json({
+                    error: "This file has no text preview",
+                });
+                return;
+            }
+            if (content.status === "tooLarge") {
+                res.status(413).json({
+                    error: "This file is too large to preview",
+                });
+                return;
+            }
+            res.setHeader("content-type", "text/plain; charset=utf-8");
+            res.setHeader("x-content-type-options", "nosniff");
+            res.setHeader("cache-control", "private, no-store");
+            res.send(content.text);
+        } catch (err: any) {
+            logger.error({ err }, "Could not read file content");
+            res.status(502).json({ error: "Could not read the file" });
+        }
     });
 
     router.delete("/api/apps/:appId/media/:mediaId", async (req, res) => {
