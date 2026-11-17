@@ -172,7 +172,7 @@ type={{
     access: { type: '"public" | "private"', default: '"private"' },
     caption: { type: "string" },
     fileName: { type: "string", description: "Required for a Blob that is not a File." },
-    chunkSize: { type: "number", description: "Bytes per request. By default the file is sent in one request." },
+    chunkSize: { type: "number", description: "Bytes per request. Defaults to 48 MiB, so big files go up in short, resumable requests." },
     retryDelays: { type: "number[]", default: "[0, 3000, 5000, 10000]", description: "Milliseconds to wait before each retry." },
     resume: { type: "boolean", default: "true", description: "Continue an interrupted upload of the same file." },
     signal: { type: "AbortSignal", description: "Cancels the upload." },

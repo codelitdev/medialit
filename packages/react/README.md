@@ -67,7 +67,7 @@ await new MediaLit().seal(mediaId);
 | `caption`           | `string`                                 | Stored with the file.                                    |
 | `accept`            | `string`                                 | Same format as `<input accept>`. Also checked for drops. |
 | `maxFileSize`       | `number`                                 | Bytes. MediaLit enforces your plan's limit as well.      |
-| `chunkSize`         | `number`                                 | Bytes per request. Defaults to one request.              |
+| `chunkSize`         | `number`                                 | Bytes per request. Defaults to 48 MiB.                   |
 | `onUploadComplete`  | `(media) => void`                        | Called with the uploaded media.                          |
 | `onUploadError`     | `(error) => void`                        | Called with a `MediaLitUploadError`.                     |
 | `labels`            | `Partial<MediaLitUploaderLabels>`        | Replace any text, for example to translate it.           |

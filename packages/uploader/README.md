@@ -43,7 +43,7 @@ Uploads are temporary until your backend seals them with `medialit.seal(mediaId)
 | `access`            | `"public" \| "private"`                               | Defaults to `private`.                                       |
 | `caption`           | `string`                                              |                                                              |
 | `fileName`          | `string`                                              | Required for a `Blob` that is not a `File`.                  |
-| `chunkSize`         | `number`                                              | Bytes per request. Defaults to one request.                  |
+| `chunkSize`         | `number`                                              | Bytes per request. Defaults to 48 MiB.                       |
 | `retryDelays`       | `number[]`                                            | Milliseconds before each retry.                              |
 | `resume`            | `boolean`                                             | Defaults to `true`.                                          |
 | `signal`            | `AbortSignal`                                         | Cancels the upload.                                          |

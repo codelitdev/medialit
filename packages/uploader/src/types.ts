@@ -55,7 +55,8 @@ export interface UploadFileOptions extends SignatureOptions {
     fileName?: string;
     /** Defaults to the `Blob`'s type. */
     mimeType?: string;
-    /** Bytes per request. Defaults to sending the file in one request. */
+    /** Bytes per request. Defaults to 48 MiB, so big files go up in short,
+     * resumable requests. */
     chunkSize?: number;
     /** Milliseconds to wait before each retry. */
     retryDelays?: number[];

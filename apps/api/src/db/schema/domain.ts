@@ -115,6 +115,10 @@ export const media = pgTable(
         group: text("group_name"),
         caption: text("caption"),
         temp: boolean("temp").notNull().default(true),
+        /** False while the file is still uploading. The row is written when
+         * an upload starts, so the temp cleanup job can remove what a crash
+         * leaves behind. */
+        uploaded: boolean("uploaded").notNull().default(true),
         createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     },
@@ -172,12 +176,10 @@ export const tusUploads = pgTable("tus_uploads", {
     appId: text("app_id")
         .notNull()
         .references(() => apps.id, { onDelete: "cascade" }),
+    /** The media ID the upload will create, chosen when it starts. */
+    mediaId: text("media_id"),
     uploadLength: bigint("upload_length", { mode: "number" }).notNull(),
-    uploadOffset: bigint("upload_offset", { mode: "number" })
-        .notNull()
-        .default(0),
     metadata: jsonb("metadata").notNull(),
-    tempFilePath: text("temp_file_path"),
     signature: text("signature"),
     isComplete: boolean("is_complete").notNull().default(false),
     expiresAt: timestamp("expires_at", { withTimezone: true }),

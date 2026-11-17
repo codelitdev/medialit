@@ -64,6 +64,20 @@
       "when": 1792230978766,
       "tag": "0008_api_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794049297678,
+      "tag": "0009_tus_uploads_stream_to_s3",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794055452790,
+      "tag": "0010_media_uploaded",
+      "breakpoints": true
     }
   ]
 }

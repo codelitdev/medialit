@@ -9,12 +9,12 @@ import {
     getMediaCount,
     getTotalSpaceOccupied,
 } from "./handlers";
-import storage from "./storage-middleware";
 import {
     authenticateUpload,
-    parseUpload,
+    limitConcurrentUploads,
     preflightUploadSize,
 } from "./upload-guards";
+import { MAX_CONCURRENT_FORM_UPLOADS } from "../config/constants";
 import { authenticatedApiLimiter } from "../auth/limiters";
 import { DATA_READ_SCOPE, DATA_WRITE_SCOPE } from "../auth/options";
 import { requireScope } from "../auth/scopes";
@@ -70,15 +70,16 @@ router.post(
                 }
             }
         }
+        #swagger.responses[503] = { description: 'Too many uploads in progress; retry after the Retry-After header' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
     */
     authenticatedApiLimiter,
     // Authenticate and check the declared size before reading the body, so
-    // an unauthenticated or oversized upload never reaches the disk.
+    // an unauthenticated or oversized upload is never stored. The handler
+    // then streams the file straight to S3.
     authenticateUpload,
     preflightUploadSize,
-    parseUpload,
-    storage,
+    limitConcurrentUploads(MAX_CONCURRENT_FORM_UPLOADS),
     uploadMedia,
 );
 

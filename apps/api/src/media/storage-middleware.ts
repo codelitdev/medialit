@@ -1,15 +1,11 @@
-import { rm } from "node:fs/promises";
-import path from "node:path";
 import { User } from "@medialit/models";
 import {
-    maxUploadFor,
     resolveAccountPlan,
     storageLimitFor,
     uploadLimitFor,
 } from "../billing/entitlements";
 import mediaQueries from "./queries";
 import { FILE_SIZE_EXCEEDED, NOT_ENOUGH_STORAGE } from "../config/strings";
-import { tempFileDirForUploads } from "../config/constants";
 
 type UploadUser = User & { _id: string };
 
@@ -25,40 +21,6 @@ export type UploadValidationResult =
           error: string;
           allowedFileSize?: number;
       };
-
-export default async function storageValidation(
-    req: any,
-    res: any,
-    next: (...args: any[]) => void,
-) {
-    if (!req.files?.file) {
-        return res.status(400).json({
-            error: "No file uploaded",
-        });
-    }
-
-    // express-fileupload cuts a file off at its size limit and only flags it,
-    // so without this check an oversized upload is stored incomplete.
-    if (req.files.file.truncated) {
-        await removeTempFile(req.files.file.tempFilePath);
-        return res.status(400).json({
-            error: `${FILE_SIZE_EXCEEDED}. Allowed: ${await maxUploadFor(planUser(req.user))} bytes`,
-        });
-    }
-
-    const validation = await validateUploadConstraints({
-        size: (req.files.file as any).size,
-        user: req.user,
-    });
-    if (!validation.valid) {
-        const status = validation.reason === "file_size_exceeded" ? 400 : 403;
-        return res.status(status).json({
-            error: validation.error,
-        });
-    }
-
-    next();
-}
 
 export async function validateUploadConstraints({
     size,
@@ -103,17 +65,4 @@ export async function hasEnoughStorage(
         storageLimitFor(await resolveAccountPlan(planUser(user)));
 
     return totalSpaceOccupied + size <= maxStorageAllowed;
-}
-
-// Same default as express-fileupload when no temp folder is configured.
-const uploadTempDir = path.resolve(
-    tempFileDirForUploads || path.join(process.cwd(), "tmp"),
-);
-
-/** Deletes an upload's temp file, but never anything outside the temp folder. */
-async function removeTempFile(filePath: string | undefined) {
-    if (!filePath) return;
-    const resolved = path.resolve(filePath);
-    if (!resolved.startsWith(uploadTempDir + path.sep)) return;
-    await rm(resolved, { force: true }).catch(() => undefined);
 }

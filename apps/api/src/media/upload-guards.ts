@@ -1,16 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
-import fileUpload from "express-fileupload";
-import {
-    maxFileUploadSizeSubscribed,
-    tempFileDirForUploads,
-} from "../config/constants";
-import { maxUploadFor } from "../billing/entitlements";
 import apikey from "../apikey/middleware";
 import signatureMiddleware from "../signature/middleware";
 import { getSignatureFromReq } from "../signature/utils";
 import { DATA_WRITE_SCOPE } from "../auth/options";
 import { requireScope } from "../auth/scopes";
 import { validateUploadConstraints } from "./storage-middleware";
+import { TOO_MANY_UPLOADS } from "../config/strings";
 
 /**
  * Authenticates an upload from its headers and query string alone: a
@@ -32,7 +27,7 @@ export function authenticateUpload(
 
 /** `Content-Length` covers the whole multipart body; allow this much for the
  * boundaries, part headers and form fields around the file. */
-const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+export const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 
 /**
  * Rejects an upload whose declared size can't fit the caller's plan or
@@ -61,20 +56,29 @@ export async function preflightUploadSize(
     next();
 }
 
-/** Parses the upload with the caller's plan limit, never above the global
- * `MAX_UPLOAD_SIZE_SUBSCRIBED` cap. */
-export async function parseUpload(
-    req: any,
-    res: Response,
-    next: NextFunction,
-): Promise<void> {
-    const planLimit = await maxUploadFor({ id: req.user._id ?? req.user.id });
-    fileUpload({
-        useTempFiles: true,
-        tempFileDir: tempFileDirForUploads,
-        limits: {
-            fileSize: Math.min(planLimit, maxFileUploadSizeSubscribed),
-            files: 1,
-        },
-    })(req, res, next);
+/**
+ * Caps the form-data uploads this process streams at once. Each holds parts
+ * in memory, so an unbounded number can exhaust it and take every running
+ * upload down. Over the cap, answers 503 with Retry-After so clients back
+ * off and retry.
+ */
+export function limitConcurrentUploads(max: number) {
+    let active = 0;
+    const middleware = (req: Request, res: Response, next: NextFunction) => {
+        if (active >= max) {
+            res.setHeader("Retry-After", "10");
+            res.status(503).json({ error: TOO_MANY_UPLOADS });
+            return;
+        }
+        active++;
+        let released = false;
+        res.on("close", () => {
+            if (released) return;
+            released = true;
+            active--;
+        });
+        next();
+    };
+    middleware.activeCount = () => active;
+    return middleware;
 }

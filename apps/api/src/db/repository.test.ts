@@ -28,6 +28,16 @@ import {
     revokeApiKey,
     sealMediaRecord,
     softDeleteApp,
+    completeUploadingMediaRecord,
+    createUploadingMediaRecord,
+    deleteUploadingMediaRecord,
+    getUploadingMediaSize,
+    listExpiredTempMedia,
+    listMediaRecordsByIds,
+    listStaleUploadingMedia,
+    touchUploadingMediaRecord,
+    createTusUploadRecord,
+    totalMediaSize,
     syncBootstrapApiKey,
     touchApiKeyLastUsed,
 } from "./repository.js";
@@ -346,6 +356,214 @@ describe("bootstrap keys", () => {
                 name: "Bootstrap",
             }),
             "conflict",
+        );
+    });
+});
+
+describe("uploads in progress", () => {
+    async function startUpload(mediaId: string, size: number) {
+        const user = await account();
+        const [app] = await listApps(user.id);
+        await createUploadingMediaRecord({
+            mediaId,
+            userId: user.id,
+            appId: app.id,
+            fileName: "main.mp4",
+            originalFileName: "clip.mp4",
+            mimeType: "video/mp4",
+            size,
+        });
+        return { userId: user.id, appId: app.id, mediaId };
+    }
+
+    test("stay hidden but hold their declared size in storage", async () => {
+        const ids = await startUpload("uploading-hidden", 5000);
+
+        assert.equal(await getMediaRecord(ids), null);
+        assert.deepEqual(
+            await listMediaRecordsByIds({ ...ids, mediaIds: [ids.mediaId] }),
+            [],
+        );
+        assert.equal(await countMedia(ids), 0);
+        assert.deepEqual(await listMedia(ids), []);
+        assert.equal(await totalMediaSize({ userId: ids.userId }), 5000);
+        assert.equal(await getUploadingMediaSize(ids.mediaId), 5000);
+
+        // Sealing an unfinished upload does nothing.
+        await sealMediaRecord(ids);
+        assert.equal(await getMediaRecord(ids), null);
+    });
+
+    test("become normal temp media once completed", async () => {
+        const ids = await startUpload("uploading-complete", 5000);
+
+        assert.equal(
+            await completeUploadingMediaRecord({
+                mediaId: ids.mediaId,
+                fileName: "main.mp4",
+                mimeType: "video/mp4",
+                size: 4800,
+                thumbnailGenerated: true,
+                accessControl: "public",
+                group: "clips",
+                caption: "hi",
+            }),
+            true,
+        );
+        const media = await getMediaRecord(ids);
+        assert.ok(media);
+        assert.equal(media.size, 4800);
+        assert.equal(media.temp, true);
+        assert.equal(media.accessControl, "public");
+        assert.equal(media.group, "clips");
+        assert.equal(await getUploadingMediaSize(ids.mediaId), null);
+
+        // Completing twice doesn't touch the finished row.
+        assert.equal(
+            await completeUploadingMediaRecord({
+                mediaId: ids.mediaId,
+                fileName: "main.mp4",
+                mimeType: "video/mp4",
+                size: 1,
+                thumbnailGenerated: false,
+                accessControl: "private",
+            }),
+            false,
+        );
+        assert.equal((await getMediaRecord(ids))?.size, 4800);
+    });
+
+    test("can be deleted, which never touches finished media", async () => {
+        const ids = await startUpload("uploading-delete", 10);
+        await deleteUploadingMediaRecord(ids.mediaId);
+        assert.equal(await totalMediaSize({ userId: ids.userId }), 0);
+        assert.equal(
+            await completeUploadingMediaRecord({
+                mediaId: ids.mediaId,
+                fileName: "main.mp4",
+                mimeType: "video/mp4",
+                size: 10,
+                thumbnailGenerated: false,
+                accessControl: "private",
+            }),
+            false,
+        );
+
+        await createMediaRecord({
+            fileName: "main.png",
+            mediaId: "finished-keep",
+            userId: ids.userId,
+            appId: ids.appId,
+            originalFileName: "a.png",
+            mimeType: "image/png",
+            size: 1,
+            thumbnailGenerated: false,
+            accessControl: "private",
+            temp: true,
+        });
+        await deleteUploadingMediaRecord("finished-keep");
+        assert.ok(await getMediaRecord({ ...ids, mediaId: "finished-keep" }));
+    });
+
+    test("expire with other temp media, so a crash gets cleaned up", async () => {
+        const ids = await startUpload("uploading-expire", 10);
+        const expired = await listExpiredTempMedia(new Date(Date.now() + 1000));
+        assert.ok(expired.some((m) => m.mediaId === ids.mediaId));
+    });
+});
+
+describe("stale uploads", () => {
+    const minutesAgo = (m: number) => new Date(Date.now() - m * 60 * 1000);
+
+    async function upload(mediaId: string, lastActive: Date) {
+        const user = await account();
+        const [app] = await listApps(user.id);
+        await createUploadingMediaRecord({
+            mediaId,
+            userId: user.id,
+            appId: app.id,
+            fileName: "main.bin",
+            originalFileName: "a.bin",
+            mimeType: "application/octet-stream",
+            size: 100,
+        });
+        await getDb()
+            .update(schema.media)
+            .set({ updatedAt: lastActive, createdAt: lastActive })
+            .where(eq(schema.media.mediaId, mediaId));
+        return { userId: user.id, appId: app.id };
+    }
+
+    async function tusFor(
+        mediaId: string,
+        owner: { userId: string; appId: string },
+        expiresAt: Date,
+    ) {
+        await createTusUploadRecord({
+            uploadId: `i/${mediaId}/main.bin`,
+            mediaId,
+            userId: owner.userId,
+            appId: owner.appId,
+            uploadLength: 100,
+            metadata: {
+                fileName: "a.bin",
+                mimeType: "application/octet-stream",
+                accessControl: "private",
+            },
+            expiresAt,
+        });
+    }
+
+    const staleIds = async () =>
+        (await listStaleUploadingMedia(minutesAgo(30))).map((m) => m.mediaId);
+
+    test("an upload with no activity past the cutoff is stale", async () => {
+        await upload("stale-old", minutesAgo(45));
+        await upload("stale-fresh", minutesAgo(5));
+        const ids = await staleIds();
+        assert.ok(ids.includes("stale-old"));
+        assert.ok(!ids.includes("stale-fresh"));
+    });
+
+    test("a heartbeat keeps a long upload alive", async () => {
+        await upload("stale-heartbeat", minutesAgo(45));
+        await touchUploadingMediaRecord("stale-heartbeat");
+        assert.ok(!(await staleIds()).includes("stale-heartbeat"));
+    });
+
+    test("a resumable tus upload is never stale while its tus row lives", async () => {
+        const owner = await upload("stale-tus-live", minutesAgo(600));
+        await tusFor("stale-tus-live", owner, new Date(Date.now() + 3600e3));
+        assert.ok(!(await staleIds()).includes("stale-tus-live"));
+        // Nor does the 24-hour temp expiry take it.
+        const expired = await listExpiredTempMedia(new Date());
+        assert.ok(!expired.some((m) => m.mediaId === "stale-tus-live"));
+    });
+
+    test("a tus upload whose tus row expired is stale", async () => {
+        const owner = await upload("stale-tus-expired", minutesAgo(600));
+        await tusFor("stale-tus-expired", owner, minutesAgo(1));
+        assert.ok((await staleIds()).includes("stale-tus-expired"));
+    });
+
+    test("finished uploads are never stale", async () => {
+        const owner = await upload("stale-finished", minutesAgo(600));
+        await completeUploadingMediaRecord({
+            mediaId: "stale-finished",
+            fileName: "main.bin",
+            mimeType: "application/octet-stream",
+            size: 100,
+            thumbnailGenerated: false,
+            accessControl: "private",
+        });
+        await getDb()
+            .update(schema.media)
+            .set({ updatedAt: minutesAgo(600) })
+            .where(eq(schema.media.mediaId, "stale-finished"));
+        assert.ok(!(await staleIds()).includes("stale-finished"));
+        assert.equal(await deleteUploadingMediaRecord("stale-finished"), false);
+        assert.ok(
+            await getMediaRecord({ ...owner, mediaId: "stale-finished" }),
         );
     });
 });
