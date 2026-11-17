@@ -32,8 +32,6 @@ export async function uploadMedia(
     res: any,
     next: (...args: any[]) => void,
 ) {
-    req.socket.setTimeout(10 * 60 * 1000); // 10 minutes
-
     const userId = req.user.id;
     const appId = req.appId;
 
