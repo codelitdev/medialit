@@ -72,7 +72,7 @@ The better video poster in #265 (skipping black frames) is a derivative. It runs
 
 ### D5. WebP runs inside the seal request
 
-When `useWebP` is on, the file is an image and it isn't WebP already, `sealMedia` does the following before it answers:
+Every seal follows the steps below, so there is one path. The WebP parts of steps 2, 3, 5 and 6 apply only when `useWebP` is on, the file is an image and it isn't WebP already. For other media, seal claims, copies and commits. The copy to the public bucket also takes time, so it shouldn't hold a row lock either.
 
 1. **Claim the seal** in a short transaction: `UPDATE media SET seal_claim = <random token>, sealing_until = now() + SEAL_CLAIM_MS WHERE id = ? AND temp AND (sealing_until IS NULL OR sealing_until < now())`. No transaction, row lock or pool connection is held during steps 2–4.
    - If the media is already sealed, return it.
@@ -98,6 +98,8 @@ Consequences:
   - At most `WEBP_CONCURRENCY` (default 2) conversions run at once per API process. A seal that can't get a slot within `WEBP_QUEUE_WAIT_MS` (default 10 s) seals without converting. Seal never fails because of WebP (see above), so a flood of conversions from one tenant can only cost other tenants their WebP, never their seal or the API.
 
   In every case, seal keeps the original and records the reason in `processing.error`, as for any other conversion failure.
+
+  These limits live in one shared module in `packages/images`, not inside `sealMedia`: reading the dimensions from the header, the pixel limit, `prlimit`, spawning without a shell, killing the process group on timeout, and the concurrency slot. Seal uses it now. Image transforms on request (#196) will reuse it.
 - **Upload responses for images report the original file, its MIME type and uploaded size.** Today they report the WebP values. The seal response reports the WebP values. This change goes in the changelog (section 12).
 - **Media uploaded before the deploy** was already converted by the old code. It is `image/webp` when sealed, so it is skipped.
 
@@ -117,7 +119,7 @@ Consequences:
   - `failed`
 
   Existing rows are `ready`.
-- At seal, the status is `processing` if jobs were queued. Otherwise it is `ready`, or `failed` if WebP failed.
+- At seal, the status is `processing` if jobs were queued. Otherwise it is `ready`, or `failed` if a WebP conversion was attempted and failed (including a timeout). When WebP is skipped because seal had no free conversion slot or the image is over a limit (D5), the status is `ready` and `processing.error` gives the reason. The file works, so clients shouldn't see `failed`.
 - When a job finishes, the same transaction updates its derivative, locks the media row, and checks whether any job for the media is still `queued` or `running`. If none is, it sets the status (`failed` if any failed, otherwise `ready`) and queues a `webhook.deliver` job for each endpoint of the app (an outbox). The event is therefore queued exactly once, and only if the status change committed.
 - Webhooks fire only when the status is changed by a job finishing. A seal that finishes all its work inline answers the caller directly and sends no webhook. **In phase 0 no derivative jobs exist yet, so in practice webhooks start firing in phase 1.** Until then, the "send test event" action (D8) and integration tests with a test job type cover them.
 - A failed step never makes the original unavailable.
@@ -150,8 +152,8 @@ jobs (
   type          text not null,            -- 'media.publish', 'webhook.deliver'; derivative jobs from phase 1
   payload       jsonb not null,
   media_id      text references media(id) on delete cascade,   -- null for jobs that aren't about one media item
-  app_id        text references apps(id) on delete cascade,
-  status        text not null,            -- queued | running | succeeded | failed
+  app_id        text references apps(id) on delete cascade,   -- apps are soft-deleted, so this rarely fires; see section 6
+  status        text not null,            -- queued | running | succeeded | failed | cancelled
   priority      int not null default 100,
   run_at        timestamptz not null default now(),
   attempts      int not null default 0,
@@ -159,6 +161,7 @@ jobs (
   locked_by     text,
   locked_until  timestamptz,
   last_error    text,
+  result        jsonb,                    -- e.g. webhook.deliver: status code, duration, error class (D8)
   dedupe_key    text,                     -- unique while queued or running (partial index)
   created_at, started_at, finished_at timestamptz
 )
@@ -200,13 +203,13 @@ workers (
 
 `thumbnailGenerated` stays the source of truth for the `thumbnail` field. A thumbnail also gets a `thumbnail` derivative row, so its status shows next to other derivatives. Existing media isn't backfilled.
 
-There is no separate table for webhook deliveries. The `webhook.deliver` job row holds the attempts, the last error and the response status. Finished jobs are deleted after 7 days, and failed ones after 30.
+There is no separate table for webhook deliveries. The `webhook.deliver` job row holds the attempts and the last error, and its `result` holds the status code, duration and error class of the last attempt. Finished jobs are deleted after 7 days, and failed ones after 30.
 
 ## 5. The job runner
 
 - **Claiming a job:** one `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED LIMIT n) RETURNING *`. It sets `status = 'running'`, `locked_by`, `locked_until = now() + lease`, and increments `attempts`.
 - **Waking up:** the transaction that queues a job runs `pg_notify('jobs', type)`. Workers `LISTEN` for it, and also poll every 5 s in case a notification is missed.
-- **Heartbeat:** every `lease / 3`, the worker extends `locked_until` for jobs it still owns. If no row is updated (the job was cancelled or deleted), the handler's `AbortSignal` fires.
+- **Heartbeat:** every `lease / 3`, the worker extends `locked_until` for jobs it still owns (`status = 'running'` and `locked_by` is this worker). If no row is updated (the job was cancelled or deleted), the handler's `AbortSignal` fires.
 - **Reaper:** each worker regularly requeues `running` jobs whose `locked_until` has passed, or marks them `failed` once they have used all their attempts.
 - **Retries:** exponential backoff with jitter. Each handler returns success, a retryable error, or a permanent error. Bad input and insufficient storage are permanent.
 - **Concurrency:** each job type has a class. The `cpu` class (ffmpeg, libvips) defaults to the number of CPU cores, and the `io` class (webhooks, publishing) defaults to 16. Both can be set with `WORKER_CONCURRENCY_CPU` and `WORKER_CONCURRENCY_IO`. A worker can be limited to some classes with `WORKER_CLASSES`.
@@ -229,7 +232,7 @@ There is no separate table for webhook deliveries. The `webhook.deliver` job row
   These are constants in code, not environment variables, until someone needs to change them.
 - **Liveness:** each worker updates its `workers` row every 30 s. The API logs a warning at startup, and then every hour, if no worker has been seen in the last 5 minutes. A missing worker means no cleanup and no derivatives. The warning names the missing Compose service. On hosted, the API also pages operators (`jobs_no_worker`, section 9).
 - **Shutdown:** the worker stops claiming jobs, waits up to `WORKER_SHUTDOWN_GRACE_MS` for running jobs to finish, then releases their leases so another worker picks them up.
-- **Periodic tasks:** tus cleanup, temp expiry and stale-upload cleanup move from the API's timers to scheduled jobs in the worker, with a `dedupe_key`. They then run once per cluster instead of once per API replica, and they give the worker real work in phase 0.
+- **Periodic tasks:** tus cleanup, temp expiry and stale-upload cleanup move from the API's timers to scheduled jobs in the worker, with a `dedupe_key`. Two new ones join them: deleting finished and cancelled jobs after 7 days and failed ones after 30, and deleting `workers` rows not seen for a day. They then run once per cluster instead of once per API replica, and they give the worker real work in phase 0.
 
 ## 6. Flows
 
@@ -244,6 +247,8 @@ There is no separate table for webhook deliveries. The `webhook.deliver` job row
 **A job finishes:** upload its output to the private bucket. Then, in one transaction: lock the media row (if it's gone, delete the output and stop), check storage, mark the derivative ready or failed, update the media status, queue the webhook jobs, and queue `media.publish` if something new needs to be public.
 
 **Delete and temp expiry:** delete the whole `{mediaId}/` prefix in both buckets (`removeStoredFiles` currently deletes known keys only). The database cascades to derivatives and jobs. A job that is still running finds out on its next heartbeat, or when its finishing transaction finds no media row, and deletes what it wrote.
+
+**Deleting an app:** apps are soft-deleted (`softDeleteApp` sets `apps.deleted`), so `on delete cascade` never fires for them. In the same transaction, `softDeleteApp` also deletes the app's webhook endpoints and sets its `queued` and `running` jobs to `cancelled`. Running jobs abort on their next heartbeat. As a second check, `webhook.deliver` confirms at send time that the app isn't deleted and the endpoint still exists and is enabled.
 
 **Storage:** before seal, the media counts with its uploaded size. After seal, it counts with the WebP size. `getTotalSpace` also adds up the `size` of ready derivatives. A derivative that would go over the account's storage limit fails with `not_enough_storage`, and its files are deleted.
 
@@ -297,6 +302,8 @@ These changes only add fields. No existing field is renamed or removed.
     - webhook URLs that resolve to each refused range are refused at save and at delivery, including a hostname whose DNS answer changes between the two, and a redirect to a private address is not followed;
     - webhook delivery, retries and signing, with a test job type;
     - delete while a job is running;
+    - deleting an app removes its endpoints, cancels its queued and running jobs, and sends no more deliveries;
+    - WebP skipped for lack of a slot or over a limit leaves the media `ready` with the reason in `processing.error`;
     - every job state change writes one log line, and a job that fails for good raises one exception with `source: "worker.<job_type>.failed"`;
     - with two workers running, only one runs the alert checks, and each alert code pages at most once in 30 minutes;
     - stopping all workers makes the API page `jobs_no_worker` within 5 minutes;
@@ -341,7 +348,7 @@ The subject is the app ID, and the context is `job_id`, `job_type`, `attempts_ma
 
 **Alerts are checked in code and emailed,** as SendLit's billing alerts are (`src/billing/alerts.ts`). There are no PostHog alert rules.
 
-- **Who checks:** every minute, the worker that holds a Postgres advisory lock (`pg_try_advisory_lock`) runs the checks, so only one worker pages however many replicas run. The API runs the checks that depend on it.
+- **Who checks:** every minute, the worker that holds a Postgres advisory lock (`pg_try_advisory_lock`) runs the checks, so only one worker pages however many replicas run. The lock belongs to one database connection, so the worker takes it on a dedicated client that it keeps open (the `LISTEN` connection), never through the pool, where it would stay on whichever connection ran the query. The API runs the checks that depend on it.
 - **What a page does:** it writes an error log line with `alert_code`, sends an `operations.page` event, raises a `critical` exception with `source: "operations.alerts"`, and emails `OPERATOR_ALERT_EMAIL` (comma-separated) through the existing `EMAIL_*` SMTP settings. Outside production it only logs. Each alert code waits 30 minutes before paging again. If `OPERATOR_ALERT_EMAIL` is empty, the email is skipped and the rest still happens.
 
 | Code | Checked by | Condition |
@@ -369,13 +376,14 @@ Bulk `retry` and `cancel` print how many jobs they would change and need `--yes`
 
 ## 10. Rollout
 
-- Migration: create the new tables, and add `processing_status` (default `'ready'`) and `processing_error`.
+- Migration: create `jobs`, `derivatives`, `webhook_endpoints` and `workers`, and add `processing_status` (default `'ready'`), `processing_error`, `seal_claim` and `sealing_until` to `media`.
 - **Temp media uploaded before the deploy** was already converted by the old code, so seal skips it.
 - **Deploy order:** start the worker before the new API, because the cleanup timers move to the worker. Seal doesn't depend on the worker.
 - **Rollback:** the old API ignores the new tables and columns. The old API seals media without converting it, and the old cleanup timers come back.
 
 ## 11. Order of work
 
+0. **Before #262 changes the thumbnail code:** a hardening fix to how ffmpeg is called for video thumbnails, tracked separately. It lands first, or as the first PR under #262, so the #256 work builds on it.
 1. **#160 jobs:** the queue, `worker.ts`, health checks, the cleanup timers moved to scheduled jobs, Compose, infra, the integration stack, and operations (section 9: telemetry setup, job logs and exceptions, alert checks, the `jobs` tool).
 2. **#261 derivatives and status:** schema, response fields, `media.publish`, delete by prefix, storage accounting. Can run in parallel with step 3.
 3. **#262 WebP at seal and thumbnails:** move WebP from upload to seal (D5), the #256 fix to the inline thumbnail, and the `webp skipped` log line. The `webp_busy` alert lands with step 1's alert checks. Doesn't depend on the queue.
@@ -389,5 +397,6 @@ Bulk `retry` and `cancel` print how many jobs they would change and need `--yes`
 - **Seal claims the media instead of holding a row lock while converting** (D5). A transaction held open through a 30 s conversion ties up a pool connection, and enough concurrent seals would take the API down for every tenant. The claim, convert, commit sequence holds a lock only for the two short transactions.
 - **When the API is busy converting, seal skips WebP instead of failing or waiting longer.** A failed seal loses the media after 24 hours, and a longer wait runs into client request timeouts.
 - **Monitoring follows SendLit** (section 9): logs, exceptions and in-code alert checks that email operators, through `@codelitdev/observability`, not a metrics stack or PostHog alert rules. `OPERATOR_ALERT_EMAIL` is the only alert setting.
+- **Image transforms on request (#196) are a separate track, not part of phase 0.** They serve images while the viewer waits and use none of the queue, workers or derivatives. They also bring their own questions: a CDN, allowed sizes, rate limits, signed URLs for private media, and a public endpoint that anyone can make resize images. They don't depend on phase 0 and can start any time. Once they ship, the upload response can return a thumbnail URL that is made on request, and the thumbnail exception (D4) goes away with no client changes. Phase 0 prepares for this by putting the image limits in a shared module (D5).
 - **We build the queue ourselves** (D1), not with pg-boss or BullMQ.
 - **`processing` and `derivatives` are added to the media responses** (section 7).
