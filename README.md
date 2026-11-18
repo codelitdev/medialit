@@ -84,7 +84,13 @@ The repository also contains the API (`apps/api`), which owns all product behavi
 
 MediaLit needs PostgreSQL and two S3-compatible buckets, one private and one public. The [self-hosting guide](https://medialit.cloud/docs/self-hosting) covers AWS S3 with CloudFront, Cloudflare R2 and MinIO, along with upload limits and monitoring.
 
-Upgrading from v0.4.0? v0.5.0 replaces MongoDB with PostgreSQL. Follow the [upgrade guide](https://medialit.cloud/docs/upgrade-from-v0-4-0-to-v0-5-0).
+MediaLit streams uploads into the private bucket as S3 multipart uploads, so the bucket needs a lifecycle rule that aborts incomplete multipart uploads. The guide shows how to [set it up](https://medialit.cloud/docs/self-hosting#clean-up-unfinished-uploads).
+
+Upgrading? Follow the guide for each version you pass:
+
+- [v0.6.x to v0.7.0](https://medialit.cloud/docs/upgrade-from-v0-6-x-to-v0-7-0): uploads stream to your bucket, which needs the lifecycle rule
+- [v0.5.x to v0.6.0](https://medialit.cloud/docs/upgrade-from-v0-5-x-to-v0-6-0): API keys are stored as hashes
+- [v0.4.0 to v0.5.0](https://medialit.cloud/docs/upgrade-from-v0-4-0-to-v0-5-0): PostgreSQL replaces MongoDB
 
 ## Development
 

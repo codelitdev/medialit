@@ -97,11 +97,72 @@ The Docker Compose setup stores files in its bundled MinIO. To use another provi
 1. Two buckets: one dedicated to private files and one to public files.
 2. Private bucket access settings: public access disabled.
 3. Public bucket access settings: public access enabled.
-4. A lifecycle rule on the private bucket that aborts incomplete multipart uploads after 1 day.
+4. A lifecycle rule on the private bucket that aborts incomplete multipart uploads after 7 days. See [Clean up unfinished uploads](#clean-up-unfinished-uploads).
 
-MediaLit streams every upload into the private bucket as an S3 multipart upload. If a client gives up halfway, its uploaded parts stay in the bucket, and cost storage, until the upload is aborted. MediaLit aborts unfinished uploads when they expire, and the lifecycle rule catches any it misses, for example after a crash.
+### Clean up unfinished uploads
 
-On AWS S3, add a lifecycle rule in the bucket's **Management** tab that applies to all objects and deletes incomplete multipart uploads after 1 day. Cloudflare R2 buckets get a similar rule by default, and MinIO removes stale multipart uploads on its own.
+MediaLit streams every upload into the private bucket as an S3 multipart upload. If a client gives up halfway, its uploaded parts stay in the bucket, and cost storage, until the upload is aborted. They don't show up as files, so you won't see them when you browse the bucket. MediaLit aborts unfinished uploads when they expire, and a lifecycle rule on the bucket catches any it misses, for example after a crash.
+
+The rule must wait longer than a resumable upload stays resumable, which is `SIGNATURE_VALIDITY_MINUTES` (1 day by default). Otherwise the bucket aborts uploads that a client could still finish. 7 days leaves plenty of room.
+
+**AWS S3**
+
+Save this as `lifecycle.json`:
+
+```json
+{
+    "Rules": [
+        {
+            "ID": "abort-incomplete-multipart-uploads",
+            "Status": "Enabled",
+            "Filter": {},
+            "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+        }
+    ]
+}
+```
+
+Check that the private bucket has no lifecycle rules yet:
+
+```sh
+aws s3api get-bucket-lifecycle-configuration --bucket your_private_bucket_name
+```
+
+If it says `NoSuchLifecycleConfiguration`, apply the rule:
+
+```sh
+aws s3api put-bucket-lifecycle-configuration \
+    --bucket your_private_bucket_name \
+    --lifecycle-configuration file://lifecycle.json
+```
+
+<Callout type="warning" title="This replaces the bucket's existing rules">
+    `put-bucket-lifecycle-configuration` overwrites every lifecycle rule on the bucket. If the bucket already has rules, add the rule above to the `Rules` list that `get-bucket-lifecycle-configuration` printed, and apply the whole list.
+</Callout>
+
+Run `get-bucket-lifecycle-configuration` again to check that the rule is there. To do the same in the AWS console, open the bucket's **Management** tab and create a lifecycle rule that applies to all objects and deletes incomplete multipart uploads 7 days after they start.
+
+To see unfinished uploads waiting in the bucket:
+
+```sh
+aws s3api list-multipart-uploads --bucket your_private_bucket_name
+```
+
+A resumable upload a client is still working on shows up here too, until it finishes or expires.
+
+**Cloudflare R2**
+
+Every R2 bucket has a default rule that aborts incomplete multipart uploads 7 days after they start, so there's nothing to set up. Check that the bucket still has it under **Settings** > **Object lifecycle rules**.
+
+**MinIO**
+
+MinIO removes unfinished multipart uploads on its own, 24 hours after they start by default. If you raise `SIGNATURE_VALIDITY_MINUTES` above 1 day, raise MinIO's limit to match, or MinIO removes uploads that a client could still finish:
+
+```sh
+mc admin config set your_minio_alias api stale_uploads_expiry=168h
+```
+
+The same setting can be passed to the MinIO server as `MINIO_API_STALE_UPLOADS_EXPIRY=168h`.
 
 ### AWS S3
 
@@ -380,6 +441,10 @@ If your server reaches MediaLit on a different URL than browsers do, for example
 <Callout type="warning">
   Back up the database before upgrading. Migrations can't be rolled back, and the hashed API keys migration removes plaintext keys for good.
 </Callout>
+
+### Upgrading from v0.6.x to v0.7.0
+
+v0.7.0 streams uploads straight to your bucket instead of the server's disk. Follow the [upgrade guide](/docs/upgrade-from-v0-6-x-to-v0-7-0) before you upgrade, because it needs a lifecycle rule on your private bucket.
 
 ### Upgrading from v0.5.x to v0.6.0
 
