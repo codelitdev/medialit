@@ -1,5 +1,11 @@
 # @medialit/api
 
+## 0.5.1
+
+### Patch Changes
+
+- 210e4c9: Thumbnail generation now opens only common video and image formats, reads videos only over HTTP(S) and images only from local files, and stops ffmpeg after 60 seconds. Uploads in other formats are still stored, but get no thumbnail.
+
 ## 0.5.0
 
 ### Minor Changes
