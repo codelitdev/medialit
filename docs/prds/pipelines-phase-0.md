@@ -2,7 +2,7 @@
 
 **Issue:** #257 (part of #247). Sub-issues: #160 (jobs), #261 (derivatives and status), #262 (WebP and thumbnails), #198 (webhooks).
 
-**Status:** Ready for development. The decisions are recorded in section 11.
+**Status:** Ready for development. The decisions are recorded in section 12.
 
 ## 1. Goal
 
@@ -74,25 +74,31 @@ The better video poster in #265 (skipping black frames) is a derivative. It runs
 
 When `useWebP` is on, the file is an image and it isn't WebP already, `sealMedia` does the following before it answers:
 
-1. Lock the media row (`SELECT … FOR UPDATE`) for the rest of the seal, with `lock_timeout` set to `SEAL_LOCK_TIMEOUT_MS` (default 15 s). A second seal of the same media waits, then sees it sealed and returns it. If the wait runs out, it fails with a retryable error. The first seal still completes, so nothing is lost.
-2. Read `main.{ext}`, convert it, and write `main.webp` to the private bucket.
+1. **Claim the seal** in a short transaction: `UPDATE media SET seal_claim = <random token>, sealing_until = now() + SEAL_CLAIM_MS WHERE id = ? AND temp AND (sealing_until IS NULL OR sealing_until < now())`. No transaction, row lock or pool connection is held during steps 2–4.
+   - If the media is already sealed, return it.
+   - If another seal holds an unexpired claim, poll every 250 ms for up to `SEAL_WAIT_MS` (default 15 s), then return the sealed media. If the wait runs out, fail with a retryable error. The first seal still completes, so nothing is lost.
+   - `SEAL_CLAIM_MS` (default 120 s) is longer than the slowest conversion plus the copies, so an expired claim means the seal holding it died, and the next seal starts over.
+2. Read `main.{ext}`, convert it within the limits below, and write `main.webp` to the private bucket.
 3. Check storage against the WebP size.
 4. Copy the main file (public media only) and the thumbnail to the public bucket, as today.
-5. Update the row in the same transaction: `fileName = main.webp`, `mimeType = image/webp`, `size` = the WebP size (#250, decision 3), and `temp = false`. Commit.
+5. **Commit** in a second short transaction: lock the row (`SELECT … FOR UPDATE`) and check that `seal_claim` is still this seal's token. If the row is gone (deleted meanwhile) or the claim was lost, delete what this seal wrote and fail. Otherwise set `fileName = main.webp`, `mimeType = image/webp`, `size` = the WebP size (#250, decision 3), `temp = false`, and clear `seal_claim` and `sealing_until`. Commit.
 6. Delete what the private bucket no longer needs: `main.{ext}` always, and, for public media, also `main.webp`, which now lives in the public bucket. This matches seal today, which deletes the private main file of public media after copying it. Private media keeps only `main.webp` in the private bucket.
 
 Consequences:
 
 - **The seal response, and the public bucket, only ever have `main.webp`.** No URL to the original outlives seal, except signed URLs, which expire.
 - **If conversion fails,** seal keeps the original and still succeeds, because a failed seal would get the media deleted (section 2, point 3). The error is logged and returned in `processing.error`. Today, a conversion failure fails the upload.
-- **If seal crashes partway,** the original is still there. A retried seal converts again and overwrites `main.webp`. A crash after the commit but before step 6 leaves private files behind (`main.{ext}`, and `main.webp` for public media), and they are removed when the media is deleted (deletes remove the whole prefix).
+- **If seal crashes partway,** the original is still there. Once its claim expires, a retried seal converts again and overwrites `main.webp`. A crash after the commit but before step 6 leaves private files behind (`main.{ext}`, and `main.webp` for public media), and they are removed when the media is deleted (deletes remove the whole prefix).
 - **Cost:** about 1 s per image, on the API process. The API keeps `cwebp` and `ffmpeg`.
-- **Limits.** The conversion runs in the API while a transaction is open and the media row is locked, so it is bounded:
+- **Limits.** The conversion parses untrusted images inside the API process that serves every tenant, so it is bounded on bytes, pixels, memory, time and concurrency:
   - Images larger than `WEBP_MAX_INPUT_BYTES` (default 25 MB) are not converted.
-  - A conversion that takes longer than `WEBP_TIMEOUT_MS` (default 30 s) is killed.
+  - Images with more than `WEBP_MAX_PIXELS` (default 50 megapixels) are not converted. Width and height are read from the image header without decoding it. A size limit in bytes doesn't stop decompression bombs: a PNG under 25 MB can be 30,000 × 30,000 pixels and need gigabytes to decode.
+  - `cwebp` runs under `prlimit --as` set to `WEBP_MAX_MEMORY_MB` (default 1024), so a decoder that runs away is killed instead of the API.
+  - A conversion that takes longer than `WEBP_TIMEOUT_MS` (default 30 s) is killed. `cwebp` is spawned without a shell (an argument array, not `shell: true` as `convertToWebp` does today), in its own process group, and the timeout kills the whole group. Killing only a shell would leave `cwebp` running.
+  - At most `WEBP_CONCURRENCY` (default 2) conversions run at once per API process. A seal that can't get a slot within `WEBP_QUEUE_WAIT_MS` (default 10 s) seals without converting. Seal never fails because of WebP (see above), so a flood of conversions from one tenant can only cost other tenants their WebP, never their seal or the API.
 
-  Either way, seal keeps the original and records the reason in `processing.error`, as for any other conversion failure.
-- **Upload responses for images report the original file, its MIME type and uploaded size.** Today they report the WebP values. The seal response reports the WebP values. This change goes in the changelog (section 11).
+  In every case, seal keeps the original and records the reason in `processing.error`, as for any other conversion failure.
+- **Upload responses for images report the original file, its MIME type and uploaded size.** Today they report the WebP values. The seal response reports the WebP values. This change goes in the changelog (section 12).
 - **Media uploaded before the deploy** was already converted by the old code. It is `image/webp` when sealed, so it is skipped.
 
 ### D6. Derivatives are written to the private bucket, then published
@@ -122,7 +128,14 @@ Consequences:
 - There are two events: `media.processing.ready` and `media.processing.failed`. The payload carries IDs and statuses, not URLs, because signed URLs expire. Clients call `GET /media/:id` to get URLs.
 - Requests are signed per [Standard Webhooks](https://www.standardwebhooks.com/): `webhook-id`, `webhook-timestamp`, and `webhook-signature` (`v1,` + base64 HMAC-SHA256).
 - Each delivery is a `webhook.deliver` job: 10 s timeout, success on any 2xx, and 8 attempts with exponential backoff over about 24 hours. Retries reuse the job's `webhook-id`, so receivers can drop duplicates.
-- **SSRF:** in production, only `https` URLs are accepted, and URLs that resolve to private, loopback or link-local addresses are refused, both when the endpoint is saved and on every delivery. `WEBHOOK_ALLOW_PRIVATE_NETWORKS=true` turns this check off for self-hosted installs.
+- **SSRF.** The receiving URL is chosen by the tenant, so delivery must not reach anything inside our network:
+  - In production, only `https` URLs are accepted.
+  - The URL is checked when the endpoint is saved and again on every delivery. At delivery, resolve the hostname, check every resolved address, then connect to the checked address, sending the original hostname for SNI and the `Host` header. Checking one lookup and connecting with another lets the DNS answer change in between (DNS rebinding).
+  - Refused addresses: loopback, private (10/8, 172.16/12, 192.168/16, fc00::/7), link-local (169.254/16, fe80::/10, which covers cloud metadata), CGNAT (100.64/10), `0.0.0.0/8`, `::`, multicast and reserved ranges, and IPv4-mapped or IPv4-compatible IPv6 forms of all of these. Parse the URL with the WHATWG parser, so decimal, octal and hex IP spellings normalize before the check.
+  - Redirects are not followed. A 3xx counts as a failed attempt.
+  - Each attempt has a 10 s total deadline (connect, TLS, headers and body together). At most 64 KB of the response is read, and it is discarded. The job stores only the status code, the duration and a generic error class (`timeout`, `connection_failed`, `tls_error`, `blocked_address`), never the response body or the raw socket error.
+  - The "send test event" action returns the same generic result: delivered, or failed with a status code or error class. Detailed connection errors would let it be used to map ports on the internal network.
+  - `WEBHOOK_ALLOW_PRIVATE_NETWORKS=true` turns the address check off for self-hosted installs whose receivers are on the same network. Hosted production never sets it, and the worker logs a warning at startup when it is set.
 - The secret is stored as plain text so it can be shown again in the dashboard and rotated.
 
 ### D9. Settings are copied onto jobs when seal queues them
@@ -169,6 +182,8 @@ derivatives (
 media
   + processing_status text not null default 'ready'   -- new uploads insert 'pending'
   + processing_error  text
+  + seal_claim        text                -- D5: token of the seal that is converting and copying
+  + sealing_until     timestamptz         -- D5: when that claim expires
 
 webhook_endpoints (
   id, app_id → apps on delete cascade, url, secret, enabled, events text[],
@@ -212,7 +227,7 @@ There is no separate table for webhook deliveries. The `webhook.deliver` job row
   | Periodic cleanup | 1 (the next run tries again) |
 
   These are constants in code, not environment variables, until someone needs to change them.
-- **Liveness:** each worker updates its `workers` row every 30 s. The API logs a warning at startup, and then every hour, if no worker has been seen in the last 5 minutes. A missing worker means no cleanup and no derivatives. The warning names the missing Compose service.
+- **Liveness:** each worker updates its `workers` row every 30 s. The API logs a warning at startup, and then every hour, if no worker has been seen in the last 5 minutes. A missing worker means no cleanup and no derivatives. The warning names the missing Compose service. On hosted, the API also pages operators (`jobs_no_worker`, section 9).
 - **Shutdown:** the worker stops claiming jobs, waits up to `WORKER_SHUTDOWN_GRACE_MS` for running jobs to finish, then releases their leases so another worker picks them up.
 - **Periodic tasks:** tus cleanup, temp expiry and stale-upload cleanup move from the API's timers to scheduled jobs in the worker, with a `dedupe_key`. They then run once per cluster instead of once per API replica, and they give the worker real work in phase 0.
 
@@ -224,7 +239,7 @@ There is no separate table for webhook deliveries. The `webhook.deliver` job row
 2. Make the thumbnail inline (D4), with the #256 resize and crop.
 3. Complete the media row with the original file, the uploaded size and `processing_status = 'pending'`. Respond with the same shape as today.
 
-**Seal:** D5 (WebP, the storage check and copying to the public bucket), then, in the same transaction, insert derivative rows and queue their jobs (from phase 1 on), and set `processing_status`.
+**Seal:** D5 (WebP, the storage check and copying to the public bucket), then, in the commit transaction (D5, step 5), insert derivative rows and queue their jobs (from phase 1 on), and set `processing_status`.
 
 **A job finishes:** upload its output to the private bucket. Then, in one transaction: lock the media row (if it's gone, delete the output and stop), check storage, mark the derivative ready or failed, update the media status, queue the webhook jobs, and queue `media.publish` if something new needs to be public.
 
@@ -260,7 +275,7 @@ These changes only add fields. No existing field is renamed or removed.
 - **`docker-compose.yml`:** a `medialit-worker` service that uses the same image with `command: ["bun", "apps/api/src/worker.ts"]`.
 - **Local:** `bun --filter @medialit/api dev:worker` runs next to `dev`.
 - **Infra repo:** a worker Deployment for QA and prod with one replica each, using the same image tag. `deploy.sh medialit qa` rolls out the API, the web app and the worker together.
-- **`.env.example`:** the new variables are `WORKER_PORT`, `WORKER_CONCURRENCY_CPU`, `WORKER_CONCURRENCY_IO`, `WORKER_CLASSES`, `WORKER_SHUTDOWN_GRACE_MS`, `SEAL_LOCK_TIMEOUT_MS`, `WEBP_MAX_INPUT_BYTES`, `WEBP_TIMEOUT_MS` and `WEBHOOK_ALLOW_PRIVATE_NETWORKS`.
+- **`.env.example`:** the new variables are `WORKER_PORT`, `WORKER_CONCURRENCY_CPU`, `WORKER_CONCURRENCY_IO`, `WORKER_CLASSES`, `WORKER_SHUTDOWN_GRACE_MS`, `SEAL_WAIT_MS`, `SEAL_CLAIM_MS`, `WEBP_MAX_INPUT_BYTES`, `WEBP_MAX_PIXELS`, `WEBP_MAX_MEMORY_MB`, `WEBP_TIMEOUT_MS`, `WEBP_CONCURRENCY`, `WEBP_QUEUE_WAIT_MS`, `OPERATOR_ALERT_EMAIL` and `WEBHOOK_ALLOW_PRIVATE_NETWORKS`.
 - **Docs:**
   - **Self-hosting:** the worker service, what it does, and what stops working without it.
   - **Upgrade guide** (in the separate Upgrades section): add the `medialit-worker` service to your Compose file before upgrading, and note the changes to the upload response (D5).
@@ -273,29 +288,106 @@ These changes only add fields. No existing field is renamed or removed.
     - sealing a public image returns `main.webp`, the public bucket has only `main.webp`, and the private bucket has no main file;
     - sealing a private image leaves only `main.webp` in the private bucket;
     - a conversion failure at seal keeps the original and still seals;
-    - two concurrent seals of the same media;
+    - two concurrent seals of the same media convert it once;
+    - a seal whose claim expired (the first seal died) is taken over by the next seal;
+    - a delete during seal leaves no files behind;
+    - an image over `WEBP_MAX_PIXELS` (a small PNG with huge dimensions) keeps the original and seals, without decoding it;
+    - a conversion over `WEBP_TIMEOUT_MS` leaves no `cwebp` process running;
+    - seals beyond `WEBP_CONCURRENCY` seal without converting after `WEBP_QUEUE_WAIT_MS`;
+    - webhook URLs that resolve to each refused range are refused at save and at delivery, including a hostname whose DNS answer changes between the two, and a redirect to a private address is not followed;
     - webhook delivery, retries and signing, with a test job type;
-    - delete while a job is running.
+    - delete while a job is running;
+    - every job state change writes one log line, and a job that fails for good raises one exception with `source: "worker.<job_type>.failed"`;
+    - with two workers running, only one runs the alert checks, and each alert code pages at most once in 30 minutes;
+    - stopping all workers makes the API page `jobs_no_worker` within 5 minutes;
+    - the `jobs` commands work against the stack's Postgres.
   - The AGENTS.md end-to-end checks (REST form-data and tus, browser, CLI) must pass with the worker running. For WebP, "same bytes" means the sealed file matches what the converter produces, not the uploaded bytes.
 
-## 9. Rollout
+## 9. Operations
+
+Monitoring follows SendLit's setup, through `@codelitdev/observability` (PostHog). There is no metrics stack and no admin web page.
+
+**Telemetry setup** (`apps/api/src/services/log.ts`, shared by the API and the worker):
+
+- When `POSTHOG_API_KEY` is set, every log line at `LOG_LEVEL` and above is also sent to PostHog's logs endpoint (`${POSTHOG_HOST}/i/v1/logs`, with the key as a bearer token). Without the key, logs go to stdout only and capture calls do nothing. No new variable.
+- Two instances, as in SendLit's `observability/instance.ts`: one for errors and logs (deduplicated and rate-capped), and one for product events, with deduplication and the cap off and no logs.
+- `serviceName` is `medialit-api` for the API and `medialit-worker` for the worker.
+- Property keys are snake_case. `media_id`, `job_id` and `app_id` go in `contextPolicy.identifierKeys`, so the 40-character IDs are not masked as tokens. Today `mediaId` reaches PostHog as `[redacted-token]`. The existing `mediaId` key is renamed to `media_id`.
+- New allowlisted keys: `media_id`, `job_id`, `app_id`, `job_type`, `job_class`, `attempts_made`, `failed_reason`, `duration_ms`, `wait_ms`, `worker_id`, `alert_code`, `age_ms`, `count`, `reason`.
+
+**Logs.** One line per job state change, with `job_id`, `job_type`, `media_id`, `app_id`, `attempts_made` and `worker_id`:
+
+| Message | Level | Extra fields |
+|---|---|---|
+| `job claimed` | debug | `wait_ms` (time spent queued) |
+| `job succeeded` | info | `duration_ms` |
+| `job will retry` | warn | `duration_ms`, `failed_reason`, `next_run_in_ms` |
+| `job failed` | error | `duration_ms`, `failed_reason`, `error` (shortened, with no URLs) |
+| `job reaped` | warn | the worker whose lease expired |
+| `job cancelled` | info | (the media was deleted) |
+| `webp skipped` (API, at seal) | info | `reason`: `busy`, `too_large`, `too_many_pixels`, `timeout` or `failed` |
+
+`failed_reason` is a fixed class: `timeout`, `storage`, `db`, `not_enough_storage`, `bad_input`, `http_status`, `connection_failed`, `blocked_address` or `internal`.
+
+**Exceptions** (`captureException`), named like SendLit's BullMQ worker events:
+
+| Source | When | Severity |
+|---|---|---|
+| `worker.<job_type>.failed` | a job fails for good. Not for `webhook.deliver`: a tenant's failing endpoint is theirs to fix, and shows in their dashboard. | `critical` when `failed_reason` is `db`, `storage` or `internal`, otherwise `error` |
+| `worker.<job_type>.reaped` | the reaper requeues or fails a job whose lease expired. One per sweep, with `count`. | `warning` |
+| `worker.error` | the runner itself fails (claiming, heartbeat, `LISTEN` connection) | `error` |
+
+The subject is the app ID, and the context is `job_id`, `job_type`, `attempts_made` and `failed_reason`.
+
+**Alerts are checked in code and emailed,** as SendLit's billing alerts are (`src/billing/alerts.ts`). There are no PostHog alert rules.
+
+- **Who checks:** every minute, the worker that holds a Postgres advisory lock (`pg_try_advisory_lock`) runs the checks, so only one worker pages however many replicas run. The API runs the checks that depend on it.
+- **What a page does:** it writes an error log line with `alert_code`, sends an `operations.page` event, raises a `critical` exception with `source: "operations.alerts"`, and emails `OPERATOR_ALERT_EMAIL` (comma-separated) through the existing `EMAIL_*` SMTP settings. Outside production it only logs. Each alert code waits 30 minutes before paging again. If `OPERATOR_ALERT_EMAIL` is empty, the email is skipped and the rest still happens.
+
+| Code | Checked by | Condition |
+|---|---|---|
+| `jobs_queue_lag` | worker | the oldest queued job is more than 10 minutes old |
+| `jobs_failure_spike` | worker | more than 10 jobs failed for good in the last 10 minutes |
+| `jobs_no_worker` | API | a job class (`cpu`, `io`) has had no live worker for 5 minutes. Run by the API, because when every worker is down no worker can report it. |
+| `webp_busy` | API | seal skipped WebP for lack of a free conversion slot in the last 10 minutes (counted in the API process) |
+
+**Operator command-line tool:** `bun --filter @medialit/api jobs <command>` runs `scripts/jobs.ts`, which calls `src/jobs/operator-cli.ts`, following SendLit's `bun run billing`. It connects with `DATABASE_URL`, so on the cluster it runs with `kubectl exec` in the worker pod.
+
+| Command | What it does |
+|---|---|
+| `jobs stats` | counts by type and status, the oldest queued job's age, failures in the last hour, live workers |
+| `jobs list --status failed --type <type> --since 1h` | jobs with their `failed_reason` and shortened error |
+| `jobs show <jobId>` | the full row; secrets are never in payloads (D8) |
+| `jobs media <mediaId>` | every job and derivative for one media item |
+| `jobs retry <jobId>` / `jobs retry --type <type> --status failed --since 1h` | queue again, with attempts reset |
+| `jobs cancel <jobId>` | cancel a queued job |
+| `jobs workers` | live workers, their classes, and when each was last seen |
+
+Bulk `retry` and `cancel` print how many jobs they would change and need `--yes`.
+
+**Self-hosting docs:** a short runbook covering what each alert code means, the `jobs` commands, and SQL for the queue depth, the oldest queued job and recent failures, for installs without PostHog.
+
+## 10. Rollout
 
 - Migration: create the new tables, and add `processing_status` (default `'ready'`) and `processing_error`.
 - **Temp media uploaded before the deploy** was already converted by the old code, so seal skips it.
 - **Deploy order:** start the worker before the new API, because the cleanup timers move to the worker. Seal doesn't depend on the worker.
 - **Rollback:** the old API ignores the new tables and columns. The old API seals media without converting it, and the old cleanup timers come back.
 
-## 10. Order of work
+## 11. Order of work
 
-1. **#160 jobs:** the queue, `worker.ts`, health checks, the cleanup timers moved to scheduled jobs, Compose, infra, and the integration stack.
+1. **#160 jobs:** the queue, `worker.ts`, health checks, the cleanup timers moved to scheduled jobs, Compose, infra, the integration stack, and operations (section 9: telemetry setup, job logs and exceptions, alert checks, the `jobs` tool).
 2. **#261 derivatives and status:** schema, response fields, `media.publish`, delete by prefix, storage accounting. Can run in parallel with step 3.
-3. **#262 WebP at seal and thumbnails:** move WebP from upload to seal (D5), and the #256 fix to the inline thumbnail. Doesn't depend on the queue.
+3. **#262 WebP at seal and thumbnails:** move WebP from upload to seal (D5), the #256 fix to the inline thumbnail, and the `webp skipped` log line. The `webp_busy` alert lands with step 1's alert checks. Doesn't depend on the queue.
 4. **#198 webhooks:** endpoints, delivery, signing, SSRF guard, and the dashboard. Depends on steps 1 and 2.
 
-## 11. Decisions made in review
+## 12. Decisions made in review
 
 - **Processing only after seal.** Compute is spent only on files that are kept. Thumbnails are the one exception (D4). Thumbnails made on request may remove it later; see the note on #196.
 - **WebP runs inside seal, not as a job** (D5). A job would have to fall back to the original when it ran late, and clients would then keep requesting the non-WebP file forever.
 - **The upload response reports the original file, MIME type and size until seal.** Clients that save `size` or `mimeType` from the upload response hold the values from before conversion. This is accepted, and it goes in the changelog.
+- **Seal claims the media instead of holding a row lock while converting** (D5). A transaction held open through a 30 s conversion ties up a pool connection, and enough concurrent seals would take the API down for every tenant. The claim, convert, commit sequence holds a lock only for the two short transactions.
+- **When the API is busy converting, seal skips WebP instead of failing or waiting longer.** A failed seal loses the media after 24 hours, and a longer wait runs into client request timeouts.
+- **Monitoring follows SendLit** (section 9): logs, exceptions and in-code alert checks that email operators, through `@codelitdev/observability`, not a metrics stack or PostHog alert rules. `OPERATOR_ALERT_EMAIL` is the only alert setting.
 - **We build the queue ourselves** (D1), not with pg-boss or BullMQ.
 - **`processing` and `derivatives` are added to the media responses** (section 7).
