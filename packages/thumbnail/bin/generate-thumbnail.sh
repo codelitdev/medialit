@@ -13,10 +13,19 @@ if [[ -z "$input_image" ]]; then
   exit 1
 fi
 
+# Uploads are untrusted: open only local files, and only image formats, so a
+# playlist or other container can't make ffmpeg read anything else.
+input_opts=(-nostdin -format_whitelist png_pipe,jpeg_pipe,webp_pipe,gif -protocol_whitelist file)
+probe_opts=(-format_whitelist png_pipe,jpeg_pipe,webp_pipe,gif -protocol_whitelist file)
+
 # Determine the input image's dimensions
-dimensions=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$input_image")
+dimensions=$(ffprobe "${probe_opts[@]}" -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$input_image")
 width=$(echo $dimensions | cut -d',' -f1)
 height=$(echo $dimensions | cut -d',' -f2)
+if [[ -z "$width" || -z "$height" ]]; then
+  echo "Not a supported image: $input_image" >&2
+  exit 1
+fi
 
 # Calculate the target width and height to maintain a 16:9 aspect ratio
 target_height=$((width * 9 / 16))
@@ -36,6 +45,6 @@ else
 fi
 
 # Generate the thumbnail
-ffmpeg -y -i "$input_image" -vf "crop=${target_width}:${target_height},scale=${target_width}:${final_height}" -frames:v 1 "$output_thumbnail"
+ffmpeg "${input_opts[@]}" -y -i "$input_image" -vf "crop=${target_width}:${target_height},scale=${target_width}:${final_height}" -frames:v 1 "$output_thumbnail" || exit 1
 
 echo "Thumbnail generated: $output_thumbnail"
