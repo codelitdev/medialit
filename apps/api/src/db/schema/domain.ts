@@ -3,6 +3,7 @@ import {
     boolean,
     check,
     index,
+    integer,
     jsonb,
     pgTable,
     text,
@@ -203,4 +204,80 @@ export const oauthAppSelections = pgTable("oauth_app_selections", {
     updatedAt: timestamp("updated_at", { withTimezone: true })
         .notNull()
         .defaultNow(),
+});
+
+export const JOB_STATUSES = [
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+] as const;
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
+/**
+ * The job queue (docs/prds/pipelines-phase-0.md, D1). Workers claim rows with
+ * `FOR UPDATE SKIP LOCKED` and hold a lease (`locked_until`) that they renew
+ * while the job runs. Deleting the media or app deletes its jobs, and the
+ * worker running one aborts it at its next heartbeat.
+ */
+export const jobs = pgTable(
+    "jobs",
+    {
+        id: text("id").primaryKey(),
+        type: text("type").notNull(),
+        payload: jsonb("payload").notNull(),
+        mediaId: text("media_id").references(() => media.id, {
+            onDelete: "cascade",
+        }),
+        appId: text("app_id").references(() => apps.id, {
+            onDelete: "cascade",
+        }),
+        status: text("status").$type<JobStatus>().notNull(),
+        priority: integer("priority").notNull().default(100),
+        runAt: timestamp("run_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+        attempts: integer("attempts").notNull().default(0),
+        maxAttempts: integer("max_attempts").notNull(),
+        lockedBy: text("locked_by"),
+        lockedUntil: timestamp("locked_until", { withTimezone: true }),
+        lastError: text("last_error"),
+        result: jsonb("result"),
+        /** At most one queued or running job has a given key. */
+        dedupeKey: text("dedupe_key"),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+        startedAt: timestamp("started_at", { withTimezone: true }),
+        finishedAt: timestamp("finished_at", { withTimezone: true }),
+    },
+    (table) => ({
+        statusCheck: check(
+            "jobs_status_check",
+            sql`${table.status} IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')`,
+        ),
+        claimable: index("jobs_claim_idx")
+            .on(table.type, table.status, table.priority, table.runAt)
+            .where(sql`${table.status} = 'queued'`),
+        expiredLeases: index("jobs_running_lease_idx")
+            .on(table.lockedUntil)
+            .where(sql`${table.status} = 'running'`),
+        finished: index("jobs_finished_idx")
+            .on(table.status, table.finishedAt)
+            .where(sql`${table.finishedAt} IS NOT NULL`),
+        media: index("jobs_media_idx").on(table.mediaId),
+        app: index("jobs_app_idx").on(table.appId),
+        dedupe: uniqueIndex("jobs_dedupe_key_uidx")
+            .on(table.dedupeKey)
+            .where(sql`${table.status} IN ('queued', 'running')`),
+    }),
+);
+
+/** One row per running worker process, updated while it runs. */
+export const workers = pgTable("workers", {
+    id: text("id").primaryKey(),
+    classes: text("classes").array().notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
 });

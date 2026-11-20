@@ -76,7 +76,7 @@ services:
   medialit:
     image: codelit/medialit
     restart: on-failure
-    environment:
+    environment: &medialit-env
       # The API requires https:// URLs when this is production. The local trial
       # in .env.example sets development so that it can use http://.
       - NODE_ENV=${NODE_ENV:-production}
@@ -116,6 +116,22 @@ services:
       - CDN_MAX_AGE=${CDN_MAX_AGE}
     expose:
       - 8000
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+
+  # Runs background jobs: cleaning up expired and unfinished uploads, and
+  # (in later versions) processing media. Same image and settings as the API.
+  # Without it, uploads are never cleaned up.
+  medialit-worker:
+    image: codelit/medialit
+    restart: on-failure
+    command: ["bun", "apps/api/src/worker.ts"]
+    environment: *medialit-env
+    # Lets running jobs finish before the worker stops.
+    stop_grace_period: 15s
     depends_on:
       init:
         condition: service_completed_successfully

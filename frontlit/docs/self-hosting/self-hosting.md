@@ -14,6 +14,7 @@ To run everything on one machine, use [Docker Compose](#run-with-docker-compose)
 The [`docker-compose.yml`](https://github.com/codelitdev/medialit/blob/main/docker-compose.yml) in the MediaLit repository starts the whole stack:
 
 - the API and the dashboard
+- the worker, which runs background jobs
 - PostgreSQL
 - MinIO for file storage, with a private `medialit` bucket and a public `medialit-public` bucket created on first start
 - Mailpit, which catches the sign-in emails
@@ -361,6 +362,35 @@ CDN_ENDPOINT=https://<your_minio_api_endpoint> # For accessing public bucket con
 
 > In the Minio setup, you cannot serve private bucket content through the CDN.
 
+## Run the worker
+
+The worker runs MediaLit's background jobs. Today it removes expired temporary uploads, unfinished uploads and old job records. It uses the same image and settings as the API, started with a different command:
+
+```yaml
+services:
+    medialit-worker:
+        image: codelit/medialit
+        command: ["bun", "apps/api/src/worker.ts"]
+        environment: *medialit-env # the API's settings
+        stop_grace_period: 15s
+```
+
+The `docker-compose.yml` in the repository already has it. If you run the image some other way, for example on Kubernetes, run one or more workers next to the API, against the same database and buckets.
+
+Without a worker, uploads are never cleaned up: unsealed uploads stay in your bucket and keep counting toward storage. The API logs `No MediaLit worker is running` a minute after it starts, and every hour after that, while no worker is running.
+
+You can run several workers. Each job runs once, on one of them.
+
+| Variable                   | Default          | What it does                                                                                                                |
+| -------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `WORKER_PORT`              | `8001`           | Port for `/health` and `/ready`                                                                                             |
+| `WORKER_CONCURRENCY_CPU`   | one per CPU core | Media processing jobs run at once                                                                                           |
+| `WORKER_CONCURRENCY_IO`    | `16`             | Cleanup and other network-bound jobs run at once                                                                            |
+| `WORKER_CLASSES`           | `cpu,io`         | Limit a worker to some kinds of jobs, for example `io`                                                                      |
+| `WORKER_SHUTDOWN_GRACE_MS` | `8000`           | On shutdown, how long running jobs get to finish. Unfinished jobs go back to the queue, and another worker runs them again. |
+
+Set your container's stop timeout a few seconds above `WORKER_SHUTDOWN_GRACE_MS`.
+
 ## Set upload limits
 
 The Docker Compose setup runs in OSS mode (`MEDIALIT_DEPLOYMENT_MODE=oss`), where accounts have no upload or storage limits and there is no billing.
@@ -442,6 +472,10 @@ If your server reaches MediaLit on a different URL than browsers do, for example
   Back up the database before upgrading. Migrations can't be rolled back, and the hashed API keys migration removes plaintext keys for good.
 </Callout>
 
+### Upgrading from v0.7.x to v0.8.0
+
+v0.8.0 moves upload cleanup from the API to a new worker service. Follow the [upgrade guide](/docs/upgrade-from-v0-7-x-to-v0-8-0) and add the worker before you upgrade, or uploads stop being cleaned up.
+
 ### Upgrading from v0.6.x to v0.7.0
 
 v0.7.0 streams uploads straight to your bucket instead of the server's disk. Follow the [upgrade guide](/docs/upgrade-from-v0-6-x-to-v0-7-0) before you upgrade, because it needs a lifecycle rule on your private bucket.
@@ -454,7 +488,7 @@ v0.6.0 stores API keys as hashes. Follow the [upgrade guide](/docs/upgrade-from-
 
 Find out that MediaLit is down before your users do.
 
-1. **Uptime:** point an uptime monitor such as Better Stack or UptimeRobot at `https://medialit.example.com/ready`. It returns 200 when the API is running and can reach its database, and 503 otherwise.
+1. **Uptime:** point an uptime monitor such as Better Stack or UptimeRobot at `https://medialit.example.com/ready`. It returns 200 when the API is running and can reach its database, and 503 otherwise. The worker answers the same way on `/ready` at `WORKER_PORT`, inside your network.
 2. **End to end:** run the synthetic check every 2 hours from a machine other than your MediaLit server. It uploads a tiny file, seals it, downloads it and deletes it, so it also catches storage and CDN problems that `/ready` can't see.
 
 ```bash

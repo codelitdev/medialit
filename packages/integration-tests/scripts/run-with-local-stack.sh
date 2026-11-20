@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Boots Postgres, MinIO and Mailpit from docker-compose.local.yml, starts the
-# API against a fresh database, and runs the REST, MCP and CLI integration
-# tests against it. CI uses this as the pull request gate; run it locally with
+# API and the worker against a fresh database, runs the job queue tests
+# against that Postgres, and runs the REST, MCP and CLI integration tests
+# against the API. CI uses this as the pull request gate; run it locally with
 #
 #   bun run test:integration:stack
 #
@@ -20,20 +21,29 @@ export MINIO_CONSOLE_PORT="${MINIO_CONSOLE_PORT:-9011}"
 export MAILPIT_SMTP_PORT="${MAILPIT_SMTP_PORT:-1035}"
 export MAILPIT_HTTP_PORT="${MAILPIT_HTTP_PORT:-8035}"
 api_port="${API_PORT:-8010}"
+worker_port="${WORKER_PORT:-8011}"
 workdir="$(mktemp -d)"
 api_log="${API_LOG:-$workdir/api.log}"
+worker_log="${WORKER_LOG:-$workdir/worker.log}"
 compose=(docker compose -p "$project" -f docker-compose.local.yml)
 api_pid=""
+worker_pid=""
 
 cleanup() {
     status=$?
-    if [[ -n "$api_pid" ]]; then
-        kill "$api_pid" 2>/dev/null || true
-        wait "$api_pid" 2>/dev/null || true
-    fi
+    for pid in "$api_pid" "$worker_pid"; do
+        if [[ -n "$pid" ]]; then
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+        fi
+    done
     if [[ $status -ne 0 && -f "$api_log" ]]; then
         echo "--- Last 100 lines of the API log ($api_log)"
         tail -n 100 "$api_log"
+    fi
+    if [[ $status -ne 0 && -f "$worker_log" ]]; then
+        echo "--- Last 100 lines of the worker log ($worker_log)"
+        tail -n 100 "$worker_log"
     fi
     if [[ "${MEDIALIT_STACK_KEEP:-false}" != "true" ]]; then
         "${compose[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
@@ -77,23 +87,35 @@ fi
 echo "--- Migrating the database"
 (cd apps/api && bun src/db/migrate.ts)
 
+echo "--- Running the job queue tests against this Postgres"
+# They create and drop databases of their own on the same server.
+(cd apps/api && JOBS_TEST_DATABASE_URL="$DATABASE_URL" bun run test:pg)
+
+# wait_ready <name> <pid> <port>
+wait_ready() {
+    for _ in $(seq 1 60); do
+        if curl -sf "http://localhost:$3/ready" >/dev/null; then
+            return 0
+        fi
+        if ! kill -0 "$2" 2>/dev/null; then
+            echo "The $1 exited while starting"
+            exit 1
+        fi
+        sleep 1
+    done
+    echo "The $1 was not ready after 60 seconds"
+    exit 1
+}
+
 echo "--- Starting the API on port $api_port"
 (cd apps/api && exec bun src/index.ts) >"$api_log" 2>&1 &
 api_pid=$!
-for _ in $(seq 1 60); do
-    if curl -sf "http://localhost:${api_port}/ready" >/dev/null; then
-        break
-    fi
-    if ! kill -0 "$api_pid" 2>/dev/null; then
-        echo "The API exited while starting"
-        exit 1
-    fi
-    sleep 1
-done
-curl -sf "http://localhost:${api_port}/ready" >/dev/null || {
-    echo "The API was not ready after 60 seconds"
-    exit 1
-}
+wait_ready API "$api_pid" "$api_port"
+
+echo "--- Starting the worker on port $worker_port"
+(cd apps/api && WORKER_PORT="$worker_port" exec bun src/worker.ts) >"$worker_log" 2>&1 &
+worker_pid=$!
+wait_ready worker "$worker_pid" "$worker_port"
 
 echo "--- Building the SDK, uploader and CLI"
 bun --filter medialit --filter @medialit/uploader --filter @medialit/cli build >/dev/null
@@ -102,3 +124,18 @@ echo "--- Running the integration tests"
 MEDIALIT_APIKEY="$api_key" MEDIALIT_SERVER="http://localhost:${api_port}" \
     MEDIALIT_EXPECTED_MAX_STORAGE="$MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED" \
     bun --filter @medialit/integration-tests test:all
+
+echo "--- Checking that the worker ran the periodic cleanup jobs"
+for type in uploads.tus_cleanup media.temp_cleanup media.stale_upload_cleanup jobs.prune; do
+    ran=""
+    for _ in $(seq 1 30); do
+        ran="$("${compose[@]}" exec -T postgres psql -U medialit -d medialit -Atc \
+            "SELECT count(*) FROM jobs WHERE type = '$type' AND status = 'succeeded'")"
+        [[ "$ran" -ge 1 ]] && break
+        sleep 1
+    done
+    if [[ "$ran" -lt 1 ]]; then
+        echo "The worker did not run $type"
+        exit 1
+    fi
+done

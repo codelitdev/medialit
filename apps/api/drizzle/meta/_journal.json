@@ -78,6 +78,13 @@
       "when": 1794055452790,
       "tag": "0010_media_uploaded",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795144667225,
+      "tag": "0011_jobs",
+      "breakpoints": true
     }
   ]
 }
