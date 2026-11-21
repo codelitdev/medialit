@@ -1,0 +1,144 @@
+/**
+ * The worker process (pipelines-phase-0.md, D2). Same image and code as the
+ * API, started with `bun apps/api/src/worker.ts`. It runs queued jobs and
+ * the periodic cleanup jobs, and serves `/health` and `/ready` on
+ * WORKER_PORT for container probes.
+ */
+import { config as loadDotFile } from "dotenv";
+loadDotFile();
+
+import http from "node:http";
+import { sql } from "drizzle-orm";
+import {
+    createGracefulShutdown,
+    healthReport,
+    readinessReport,
+} from "@codelitdev/platform";
+import { checkDatabaseConnection } from "./config/db";
+import { closeDb, getDb } from "@/db";
+import logger, { shutdownObservability } from "./services/log";
+import { createRunner } from "./jobs/runner";
+import { jobDefinitions, periodicJobs } from "./jobs/definitions";
+import { pgListener } from "./jobs/listen";
+import { newWorkerId, workerConfig } from "./jobs/config";
+import { describeError } from "./jobs/errors";
+
+function checkConfig() {
+    const missing = [
+        "DATABASE_URL",
+        "CLOUD_KEY",
+        "CLOUD_SECRET",
+        "CLOUD_BUCKET_NAME",
+        "CLOUD_PUBLIC_BUCKET_NAME",
+    ].filter((name) => !process.env[name]);
+    if (missing.length > 0) {
+        throw new Error(`Not set: ${missing.join(", ")}`);
+    }
+}
+
+async function main() {
+    checkConfig();
+    const config = workerConfig();
+    await checkDatabaseConnection();
+
+    const workerId = newWorkerId();
+    const db = getDb();
+    const runner = createRunner({
+        db,
+        workerId,
+        definitions: jobDefinitions,
+        periodic: periodicJobs,
+        classes: config.classes,
+        concurrency: config.concurrency,
+        logger,
+        listen: pgListener(process.env.DATABASE_URL!, {
+            onError: (error) =>
+                logger.warn(
+                    { worker_id: workerId, error: describeError(error) },
+                    "job notifications connection failed",
+                ),
+        }),
+    });
+
+    let started = false;
+    const shutdown = createGracefulShutdown({
+        // Room for running jobs to finish, then for releasing the rest.
+        timeoutMs: config.shutdownGraceMs + 5_000,
+        hooks: [
+            async () => {
+                await runner.stop(config.shutdownGraceMs);
+                await new Promise<void>((resolve) =>
+                    server.close(() => resolve()),
+                );
+                await closeDb();
+                await shutdownObservability(1_000);
+            },
+        ],
+    });
+
+    const server = http.createServer(async (req, res) => {
+        const path = (req.url || "/").split("?")[0];
+        if (req.method === "GET" && path === "/health") {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify(healthReport("medialit-worker")));
+            return;
+        }
+        if (req.method === "GET" && path === "/ready") {
+            let database = false;
+            if (started && !shutdown.shuttingDown()) {
+                try {
+                    await db.execute(sql`select 1`);
+                    database = true;
+                } catch {
+                    database = false;
+                }
+            }
+            const report = readinessReport([
+                { name: "started", ready: started },
+                { name: "accepting_jobs", ready: !shutdown.shuttingDown() },
+                { name: "database", ready: database },
+            ]);
+            res.writeHead(report.status === "ready" ? 200 : 503, {
+                "content-type": "application/json",
+            });
+            res.end(JSON.stringify(report));
+            return;
+        }
+        res.writeHead(404).end();
+    });
+
+    await runner.start();
+    await new Promise<void>((resolve) => server.listen(config.port, resolve));
+    started = true;
+    logger.info(
+        {
+            worker_id: workerId,
+            port: config.port,
+            classes: config.classes.join(","),
+            concurrency_cpu: config.concurrency.cpu,
+            concurrency_io: config.concurrency.io,
+        },
+        "Medialit worker running",
+    );
+
+    const handleSignal = (signal: NodeJS.Signals) => {
+        logger.info({ signal, worker_id: workerId }, "Shutting down");
+        shutdown
+            .shutdown()
+            .then(() => process.exit(0))
+            .catch((error) => {
+                logger.error(
+                    { error: describeError(error) },
+                    "Graceful shutdown failed",
+                );
+                process.exit(1);
+            });
+    };
+    process.on("SIGTERM", handleSignal);
+    process.on("SIGINT", handleSignal);
+}
+
+main().catch((error) => {
+    logger.error({ error: describeError(error) }, "Worker failed to start");
+    process.exit(1);
+});

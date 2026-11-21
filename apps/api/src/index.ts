@@ -12,12 +12,7 @@ import type { GracefulShutdown } from "@codelitdev/platform";
 import { apiReadiness, createApiShutdown } from "./lifecycle";
 
 import { spawn } from "child_process";
-import { cleanupTUSUploads } from "./tus/cleanup";
-import {
-    cleanupExpiredTempUploads,
-    cleanupStaleUploads,
-} from "./media/cleanup";
-import { HOUR_IN_SECONDS } from "./config/constants";
+import { startWorkerLivenessCheck } from "./jobs/liveness";
 import { createMedialitAuth } from "./auth/better-auth";
 import { loginCaptchaConfig } from "./auth/options";
 import { createApp } from "./app";
@@ -81,36 +76,15 @@ checkConfig()
         });
         configureServerTimeouts(server);
 
-        // Setup background cleanup job for expired tus uploads
-        const tusCleanup = setInterval(
-            async () => {
-                await cleanupTUSUploads();
-            },
-            HOUR_IN_SECONDS, // 1 hour
-        );
-
-        // Setup background cleanup job for expired temp uploads
-        const tempCleanup = setInterval(
-            async () => {
-                await cleanupExpiredTempUploads();
-            },
-            HOUR_IN_SECONDS, // 1 hour
-        );
-
-        // Uploads the server lost mid-way (a crash) release their reserved
-        // storage within UPLOAD_STALE_MINUTES plus this interval.
-        const staleUploadCleanup = setInterval(
-            async () => {
-                await cleanupStaleUploads();
-            },
-            15 * 60 * 1000, // 15 minutes
-        );
+        // Cleanup runs in the worker (src/worker.ts) as periodic jobs.
+        const stopLivenessCheck = startWorkerLivenessCheck({
+            db: getDb(),
+            logger,
+        });
 
         const apiShutdown = createApiShutdown({
             stopBackgroundJobs: async () => {
-                clearInterval(tusCleanup);
-                clearInterval(tempCleanup);
-                clearInterval(staleUploadCleanup);
+                stopLivenessCheck();
                 await stopBillingMaintenance();
             },
             closeMcp,
