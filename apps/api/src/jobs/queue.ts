@@ -393,10 +393,6 @@ export async function recordWorker(
     );
 }
 
-export async function removeWorker(db: Executor, id: string): Promise<void> {
-    await db.execute(sql`DELETE FROM workers WHERE id = ${id}`);
-}
-
 /** Job classes with a worker seen within `withinMs`. */
 export async function liveWorkerClasses(
     db: Executor,

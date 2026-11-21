@@ -691,8 +691,8 @@ describe("job runner (Postgres)", { skip }, () => {
             assert.equal(calls, 1);
             assert.equal(
                 job.lastError,
-                "bad input [url]",
-                "URLs are not stored",
+                "bad_input: bad input [url]",
+                "the reason, and no URLs",
             );
         } finally {
             await runner.stop(1_000);
@@ -864,7 +864,8 @@ describe("job runner (Postgres)", { skip }, () => {
             [{ type, class: "io", maxAttempts: 1, handler: async () => "ok" }],
             {
                 pollMs: 60_000,
-                listen: pgListener(pgTest.url, { onError: () => undefined }),
+                listen: pgListener(pgTest.url, { onError: () => undefined })
+                    .listen,
             },
         );
         await runner.start();

@@ -377,7 +377,7 @@ services:
 
 The `docker-compose.yml` in the repository already has it. If you run the image some other way, for example on Kubernetes, run one or more workers next to the API, against the same database and buckets.
 
-Without a worker, uploads are never cleaned up: unsealed uploads stay in your bucket and keep counting toward storage. The API logs `No MediaLit worker is running` a minute after it starts, and every hour after that, while no worker is running.
+Without a worker, uploads are never cleaned up: unsealed uploads stay in your bucket and keep counting toward storage. The API logs `No MediaLit worker is running` a minute after it starts, and every hour after that, while no worker is running. After 5 minutes without a worker it also sends the `jobs_no_worker` [alert](#alerts).
 
 You can run several workers. Each job runs once, on one of them.
 
@@ -390,6 +390,57 @@ You can run several workers. Each job runs once, on one of them.
 | `WORKER_SHUTDOWN_GRACE_MS` | `8000`           | On shutdown, how long running jobs get to finish. Unfinished jobs go back to the queue, and another worker runs them again. |
 
 Set your container's stop timeout a few seconds above `WORKER_SHUTDOWN_GRACE_MS`.
+
+## Operate the job queue
+
+### Alerts
+
+The API and the workers check the job queue every minute. When something is wrong, they log an error with an `alert_code` and email the addresses in `OPERATOR_ALERT_EMAIL` (comma-separated), through the `EMAIL_*` SMTP settings. Each alert emails at most once every 30 minutes, however many API instances and workers you run. Without `OPERATOR_ALERT_EMAIL`, alerts are only logged.
+
+| Alert                | Means                                                           | What to do                                                                                                       |
+| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `jobs_no_worker`     | No worker has reported for 5 minutes, so nothing is cleaned up. | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
+| `jobs_queue_lag`     | A job has waited more than 10 minutes to start.                 | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
+| `jobs_failure_spike` | More than 10 jobs failed for good in the last 10 minutes.       | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
+
+With `POSTHOG_API_KEY` set, the API and the worker also send their logs and errors to PostHog. A job that fails for good shows there as an exception from `worker.<job type>.failed`.
+
+### The jobs command
+
+The `jobs` command reads and changes the queue. It connects with `DATABASE_URL`, so run it inside a MediaLit container:
+
+```sh
+docker compose exec medialit-worker bun apps/api/scripts/jobs.ts stats
+```
+
+| Command                                                     | What it does                                                                        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `jobs stats`                                                | Jobs by type and status, the oldest waiting job, failures in the last hour, workers |
+| `jobs list --status failed --type <type> --since 1h`        | Jobs with the reason they failed                                                    |
+| `jobs show <jobId>`                                         | Everything about one job                                                            |
+| `jobs media <mediaId>`                                      | The jobs for one file                                                               |
+| `jobs retry <jobId>`                                        | Run a failed or cancelled job again, with its attempts reset                        |
+| `jobs retry --status failed --type <type> --since 1h --yes` | Run many failed jobs again                                                          |
+| `jobs cancel <jobId>`                                       | Cancel a waiting or running job                                                     |
+| `jobs cancel --type <type> --yes`                           | Cancel many                                                                         |
+| `jobs workers`                                              | Each worker, its job classes, and when it was last seen                             |
+
+Without `--yes`, `retry` and `cancel` with filters only print how many jobs they would change.
+
+### Check the queue with SQL
+
+```sql
+-- Jobs waiting, by type
+SELECT type, count(*) FROM jobs WHERE status = 'queued' GROUP BY type;
+
+-- How long the oldest job has waited
+SELECT now() - min(run_at) FROM jobs WHERE status = 'queued' AND run_at <= now();
+
+-- Failures in the last hour
+SELECT type, last_error, finished_at FROM jobs
+WHERE status = 'failed' AND finished_at > now() - interval '1 hour'
+ORDER BY finished_at DESC;
+```
 
 ## Set upload limits
 

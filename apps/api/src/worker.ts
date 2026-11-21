@@ -4,6 +4,8 @@
  * the periodic cleanup jobs, and serves `/health` and `/ready` on
  * WORKER_PORT for container probes.
  */
+// First, so telemetry starts as `medialit-worker`.
+import "./worker-process";
 import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
@@ -16,12 +18,19 @@ import {
 } from "@codelitdev/platform";
 import { checkDatabaseConnection } from "./config/db";
 import { closeDb, getDb } from "@/db";
-import logger, { shutdownObservability } from "./services/log";
+import logger, {
+    captureException,
+    shutdownObservability,
+} from "./services/log";
 import { createRunner } from "./jobs/runner";
 import { jobDefinitions, periodicJobs } from "./jobs/definitions";
 import { pgListener } from "./jobs/listen";
 import { newWorkerId, workerConfig } from "./jobs/config";
 import { describeError } from "./jobs/errors";
+import { jobTelemetryHooks } from "./jobs/telemetry";
+import { startAlertChecks } from "./operations/alerts";
+import { ALERTS_LOCK, collectWorkerAlerts } from "./operations/checks";
+import { pageDeps } from "./operations/setup";
 
 function checkConfig() {
     const missing = [
@@ -43,6 +52,13 @@ async function main() {
 
     const workerId = newWorkerId();
     const db = getDb();
+    const listener = pgListener(process.env.DATABASE_URL!, {
+        onError: (error) =>
+            logger.warn(
+                { worker_id: workerId, error: describeError(error) },
+                "job notifications connection failed",
+            ),
+    });
     const runner = createRunner({
         db,
         workerId,
@@ -51,14 +67,10 @@ async function main() {
         classes: config.classes,
         concurrency: config.concurrency,
         logger,
-        listen: pgListener(process.env.DATABASE_URL!, {
-            onError: (error) =>
-                logger.warn(
-                    { worker_id: workerId, error: describeError(error) },
-                    "job notifications connection failed",
-                ),
-        }),
+        listen: listener.listen,
+        ...jobTelemetryHooks(captureException),
     });
+    let stopAlertChecks: () => Promise<void> = async () => undefined;
 
     let started = false;
     const shutdown = createGracefulShutdown({
@@ -66,6 +78,7 @@ async function main() {
         timeoutMs: config.shutdownGraceMs + 5_000,
         hooks: [
             async () => {
+                await stopAlertChecks();
                 await runner.stop(config.shutdownGraceMs);
                 await new Promise<void>((resolve) =>
                     server.close(() => resolve()),
@@ -108,6 +121,14 @@ async function main() {
     });
 
     await runner.start();
+    // Only the worker holding the lock checks, so replicas page once.
+    stopAlertChecks = startAlertChecks({
+        check: async () =>
+            (await listener.holdsLock(ALERTS_LOCK))
+                ? collectWorkerAlerts(db)
+                : [],
+        deps: pageDeps(db),
+    });
     await new Promise<void>((resolve) => server.listen(config.port, resolve));
     started = true;
     logger.info(

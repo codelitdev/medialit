@@ -139,3 +139,24 @@ for type in uploads.tus_cleanup media.temp_cleanup media.stale_upload_cleanup jo
         exit 1
     fi
 done
+
+echo "--- Checking the jobs command against the stack's Postgres"
+stats="$(cd apps/api && bun run --silent jobs stats)"
+echo "$stats"
+grep -Eq "^jobs\.prune +[0-9]+ +[0-9]+ +[1-9]" <<<"$stats" || {
+    echo "jobs stats did not count the succeeded jobs.prune run"
+    exit 1
+}
+grep -q "Live workers: 1" <<<"$stats" || {
+    echo "jobs stats did not count the running worker"
+    exit 1
+}
+(cd apps/api && bun run --silent jobs workers) | grep -Eq "cpu,io .* yes$" || {
+    echo "jobs workers did not list the running worker as live"
+    exit 1
+}
+(cd apps/api && bun run --silent jobs list --status succeeded --type jobs.prune) |
+    grep -q "jobs.prune" || {
+    echo "jobs list did not find the jobs.prune run"
+    exit 1
+}

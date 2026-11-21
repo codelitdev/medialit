@@ -281,3 +281,13 @@ export const workers = pgTable("workers", {
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
 });
+
+/**
+ * When each operator alert last paged (pipelines-phase-0.md, section 9).
+ * Shared by every API replica and worker, so an alert pages at most once
+ * per cooldown however many processes check it.
+ */
+export const operatorAlerts = pgTable("operator_alerts", {
+    code: text("code").primaryKey(),
+    lastPagedAt: timestamp("last_paged_at", { withTimezone: true }).notNull(),
+});
