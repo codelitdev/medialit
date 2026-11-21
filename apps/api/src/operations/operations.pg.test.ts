@@ -492,10 +492,12 @@ describe("the jobs command (Postgres)", { skip }, () => {
         assert.match(again.err, /only failed and cancelled/);
     });
 
-    test("bulk retry needs --yes and skips jobs already queued under their dedupe key", async () => {
+    test("bulk retry needs --yes and previews exactly what it will queue", async () => {
         await failedJob("test.e");
         await failedJob("test.e");
         await failedJob("test.e", "periodic:test.e");
+        await failedJob("test.e", "media:dup");
+        await failedJob("test.e", "media:dup");
         await enqueue(db, {
             type: "test.e",
             payload: {},
@@ -503,14 +505,16 @@ describe("the jobs command (Postgres)", { skip }, () => {
             dedupeKey: "periodic:test.e",
         });
         const dry = await run("retry", "--type", "test.e");
+        // Two plain jobs, one of the two sharing media:dup, and not the one
+        // whose dedupe key is already queued.
         assert.match(dry.out, /Would queue 3 failed jobs again/);
         const failedBefore = await db.execute(
             sql`SELECT count(*)::int AS n FROM jobs WHERE status = 'failed'`,
         );
-        assert.equal((failedBefore.rows[0] as { n: number }).n, 3);
+        assert.equal((failedBefore.rows[0] as { n: number }).n, 5);
 
         const done = await run("retry", "--type", "test.e", "--yes");
-        assert.match(done.out, /Queued 2 jobs again/);
+        assert.match(done.out, /Queued 3 jobs again/);
     });
 
     test("cancel stops a queued job; bulk cancel needs a filter and --yes", async () => {

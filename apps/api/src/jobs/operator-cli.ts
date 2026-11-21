@@ -269,22 +269,26 @@ async function media(io: JobsCliIo, mediaId: string) {
 const RETRYABLE = ["failed", "cancelled"] as const;
 
 /**
- * Queues the matching jobs again with their attempts reset. A job is
- * skipped while another with its dedupe key is queued or running.
+ * The ids a retry would queue: the newest matching job per dedupe key,
+ * skipping keys that already have a queued or running job.
  */
+function retryCandidates(where: SQL): SQL {
+    return sql`SELECT DISTINCT ON (coalesce(dedupe_key, id)) id FROM jobs candidate
+        WHERE ${where}
+        AND (dedupe_key IS NULL OR NOT EXISTS (
+            SELECT 1 FROM jobs other
+            WHERE other.dedupe_key = candidate.dedupe_key
+            AND other.status IN ('queued', 'running')))
+        ORDER BY coalesce(dedupe_key, id), created_at DESC`;
+}
+
+/** Queues the retry candidates again with their attempts reset. */
 async function retryWhere(db: Executor, where: SQL): Promise<number> {
     const updated = await rows<{ id: string }>(
         db,
         sql`UPDATE jobs SET status = 'queued', attempts = 0, run_at = now(),
                 started_at = NULL, finished_at = NULL, locked_by = NULL, locked_until = NULL
-            WHERE id IN (
-                SELECT DISTINCT ON (coalesce(dedupe_key, id)) id FROM jobs candidate
-                WHERE ${where}
-                AND (dedupe_key IS NULL OR NOT EXISTS (
-                    SELECT 1 FROM jobs other
-                    WHERE other.dedupe_key = candidate.dedupe_key
-                    AND other.status IN ('queued', 'running')))
-                ORDER BY coalesce(dedupe_key, id), created_at DESC)
+            WHERE id IN (${retryCandidates(where)})
             RETURNING id`,
     );
     if (updated.length > 0) {
@@ -330,7 +334,7 @@ async function retry(io: JobsCliIo, flags: Flags): Promise<number> {
     if (!flags.yes) {
         const [found] = await rows<{ count: string }>(
             io.db,
-            sql`SELECT count(*) AS count FROM jobs WHERE ${where}`,
+            sql`SELECT count(*) AS count FROM (${retryCandidates(where)}) AS candidates`,
         );
         io.out(
             `Would queue ${Number(found.count)} ${wanted} jobs again. Run again with --yes to do it.`,
