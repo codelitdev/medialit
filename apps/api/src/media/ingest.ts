@@ -243,7 +243,10 @@ export async function finalizeStoredUpload(
                 stored.add(thumbKey);
                 thumbnailGenerated = true;
             } catch (err: any) {
-                logger.error({ err, mediaId }, "Failed to generate thumbnail");
+                logger.error(
+                    { err, media_id: mediaId },
+                    "Failed to generate thumbnail",
+                );
             }
         }
 

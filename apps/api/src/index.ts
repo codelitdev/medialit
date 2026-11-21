@@ -12,7 +12,9 @@ import type { GracefulShutdown } from "@codelitdev/platform";
 import { apiReadiness, createApiShutdown } from "./lifecycle";
 
 import { spawn } from "child_process";
-import { startWorkerLivenessCheck } from "./jobs/liveness";
+import { startAlertChecks } from "./operations/alerts";
+import { apiAlertCheck } from "./operations/checks";
+import { pageDeps } from "./operations/setup";
 import { createMedialitAuth } from "./auth/better-auth";
 import { loginCaptchaConfig } from "./auth/options";
 import { createApp } from "./app";
@@ -76,15 +78,16 @@ checkConfig()
         });
         configureServerTimeouts(server);
 
-        // Cleanup runs in the worker (src/worker.ts) as periodic jobs.
-        const stopLivenessCheck = startWorkerLivenessCheck({
-            db: getDb(),
-            logger,
+        // Cleanup runs in the worker (src/worker.ts) as periodic jobs. The
+        // API pages when no worker is running (pipelines-phase-0.md, 9).
+        const stopAlertChecks = startAlertChecks({
+            check: apiAlertCheck({ db: getDb(), logger }),
+            deps: pageDeps(getDb()),
         });
 
         const apiShutdown = createApiShutdown({
             stopBackgroundJobs: async () => {
-                stopLivenessCheck();
+                await stopAlertChecks();
                 await stopBillingMaintenance();
             },
             closeMcp,

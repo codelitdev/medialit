@@ -13,7 +13,6 @@ import {
     reap,
     recordWorker,
     release,
-    removeWorker,
     schedulePeriodic,
     type Executor,
     type JobRow,
@@ -314,7 +313,8 @@ export function createRunner(options: RunnerOptions): Runner {
             const outcome = await fail(db, {
                 id: job.id,
                 workerId,
-                error: message,
+                // The reason leads, so `jobs list` can show it.
+                error: `${reason}: ${message}`,
                 retryable,
                 retryInMs,
                 result: jobError?.result,
@@ -481,11 +481,8 @@ export function createRunner(options: RunnerOptions): Runner {
                     reportError(error, "release");
                 }
             }
-            try {
-                await removeWorker(db, workerId);
-            } catch (error) {
-                reportError(error, "worker_remove");
-            }
+            // The `workers` row stays: it ages out of the live set after
+            // five minutes, so a restart doesn't page `jobs_no_worker`.
         },
 
         wake,
