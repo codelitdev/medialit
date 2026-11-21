@@ -1,5 +1,12 @@
 # @medialit/api
 
+## 0.6.0
+
+### Minor Changes
+
+- 5ff2d16: Add operations for the job queue: logs and errors from the API and the worker go to PostHog when `POSTHOG_API_KEY` is set, alerts for a missing worker, a slow queue and failing jobs are emailed to `OPERATOR_ALERT_EMAIL`, and a `jobs` command shows, retries and cancels jobs.
+- fdcbf61: Background jobs now run in a separate worker process, started from the same image with `bun apps/api/src/worker.ts`. Cleanup of expired and unfinished uploads moves from the API to the worker and runs once per installation. Self-hosted installs must add the worker service before upgrading; see the upgrade guide.
+
 ## 0.5.1
 
 ### Patch Changes
