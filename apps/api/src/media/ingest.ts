@@ -3,14 +3,15 @@ import path from "path";
 import { mkdir, mkdtemp, rm, stat } from "fs/promises";
 import { createReadStream } from "fs";
 import thumbnail from "@medialit/thumbnail";
-import imageUtils from "@medialit/images";
+import { checkImageFile } from "@medialit/images";
 import { Constants } from "@medialit/models";
 import {
     cloudBucket,
-    imagePattern,
     imagePatternForThumbnailGeneration,
     PATH_PREFIX,
     tempFileDirForUploads,
+    thumbnailHeight as defaultThumbnailHeight,
+    thumbnailWidth as defaultThumbnailWidth,
     videoPattern,
 } from "../config/constants";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
@@ -22,6 +23,7 @@ import {
     putObject,
     putObjectTagging,
 } from "../services/s3";
+import { webpLimits } from "./webp-limits";
 import logger from "../services/log";
 import { getMediaSettings } from "../media-settings/queries";
 import * as presignedUrlService from "../signature/service";
@@ -35,6 +37,13 @@ import {
     getUploadingMediaSize,
 } from "@/db";
 import { hasEnoughStorage } from "./storage-middleware";
+
+/** An image the thumbnail step refuses to decode (over the pixel limit). */
+class ThumbnailSkipped extends Error {
+    constructor(readonly reason: string) {
+        super(`Thumbnail skipped: ${reason}`);
+    }
+}
 
 /** Where a new upload is written: its media ID and final key, chosen before
  * the first byte arrives so the upload can stream straight to its place. */
@@ -137,11 +146,12 @@ export interface StoredUpload extends UploadTarget {
  * Finishes an upload whose file is already stored at `key` in the private
  * bucket. Shared by every upload path (form-data, tus, MCP):
  *
- * 1. Converts images to WebP when the app asks for it, replacing the original.
- * 2. Checks storage again with the size actually stored.
- * 3. Makes a thumbnail. Videos are read through a presigned URL, so only the
- *    bytes ffmpeg needs are fetched.
- * 4. Marks the media record `startUpload` wrote as uploaded.
+ * 1. Checks storage again with the size actually stored. The original is
+ *    kept as uploaded: WebP conversion happens at seal (`sealMedia`).
+ * 2. Makes a thumbnail of the app's `thumbnailWidth` × `thumbnailHeight`.
+ *    Videos are read through a presigned URL, so only the bytes ffmpeg needs
+ *    are fetched.
+ * 3. Marks the media record `startUpload` wrote as uploaded.
  *
  * If any step but the thumbnail fails, every object it stored and its record
  * are deleted, so a rejected upload leaves nothing behind.
@@ -161,49 +171,20 @@ export async function finalizeStoredUpload(
         await mkdir(tempRoot, { recursive: true });
         workDir = await mkdtemp(path.join(tempRoot, "medialit-finalize-"));
         const settings = await getMediaSettings(userId, appId);
-        const convertToWebp =
-            Boolean(settings?.useWebP) && imagePattern.test(upload.mimeType);
+        const thumbnailDimensions = {
+            width: settings?.thumbnailWidth || defaultThumbnailWidth,
+            height: settings?.thumbnailHeight || defaultThumbnailHeight,
+        };
         const isImage = imagePatternForThumbnailGeneration.test(
             upload.mimeType,
         );
         const isVideo = videoPattern.test(upload.mimeType);
 
-        // Images are small; read them back for WebP and the thumbnail.
-        let localPath: string | undefined;
-        if (convertToWebp || isImage) {
-            localPath = path.join(workDir, "source");
-            await downloadObject({ Key: key, destination: localPath });
-        }
-
-        let fileName = `main.${ext}`;
-        let mimeType = upload.mimeType;
-        let size: number;
-        if (convertToWebp && localPath) {
-            await imageUtils.convertToWebp(
-                localPath,
-                settings?.webpOutputQuality || 0,
-            );
-            const webpKey = mainKey(mediaId, "webp");
-            await putObject({
-                Key: webpKey,
-                Body: createReadStream(localPath),
-                ContentType: "image/webp",
-                Tagging: tags,
-                Bucket: cloudBucket,
-            });
-            stored.add(webpKey);
-            if (webpKey !== key) {
-                await deleteObject({ Key: key, Bucket: cloudBucket });
-                stored.delete(key);
-            }
-            fileName = "main.webp";
-            mimeType = "image/webp";
-            size = (await stat(localPath)).size;
-        } else {
-            const head = await headObject({ Key: key, Bucket: cloudBucket });
-            size = head.ContentLength ?? 0;
-            await putObjectTagging({ Key: key, Tagging: tags });
-        }
+        const fileName = `main.${ext}`;
+        const mimeType = upload.mimeType;
+        const head = await headObject({ Key: key, Bucket: cloudBucket });
+        const size = head.ContentLength ?? 0;
+        await putObjectTagging({ Key: key, Tagging: tags });
 
         // The total already holds this upload's declared size; swap it for
         // the size actually stored. Other uploads, finished or not, count too.
@@ -227,12 +208,30 @@ export async function finalizeStoredUpload(
             });
             const thumbPath = path.join(workDir, "thumb.webp");
             try {
-                if (isImage && localPath) {
-                    await thumbnail.forImage(localPath, thumbPath);
+                if (isImage) {
+                    // Images are small; read them back for the thumbnail.
+                    const localPath = path.join(workDir, "source");
+                    await downloadObject({ Key: key, destination: localPath });
+                    // Decoders allocate by pixels, so a small image with huge
+                    // dimensions is refused from its header, never decoded.
+                    const check = await checkImageFile(localPath, {
+                        maxInputBytes: Number.MAX_SAFE_INTEGER,
+                        maxPixels: webpLimits().maxPixels,
+                    });
+                    if (!check.ok) throw new ThumbnailSkipped(check.reason);
+                    await thumbnail.forImage(
+                        localPath,
+                        thumbPath,
+                        thumbnailDimensions,
+                    );
                 } else {
                     // A URL MediaLit made, never one from the client.
                     const source = await generateSignedUrl(key, cloudBucket);
-                    await thumbnail.forVideo(source, thumbPath);
+                    await thumbnail.forVideo(
+                        source,
+                        thumbPath,
+                        thumbnailDimensions,
+                    );
                 }
                 await putObject({
                     Key: thumbKey,
@@ -245,10 +244,17 @@ export async function finalizeStoredUpload(
                 thumbnailGenerated = true;
                 thumbnailSize = (await stat(thumbPath)).size;
             } catch (err: any) {
-                logger.error(
-                    { err, media_id: mediaId },
-                    "Failed to generate thumbnail",
-                );
+                if (err instanceof ThumbnailSkipped) {
+                    logger.info(
+                        { media_id: mediaId, reason: err.reason },
+                        "thumbnail skipped",
+                    );
+                } else {
+                    logger.error(
+                        { err, media_id: mediaId },
+                        "Failed to generate thumbnail",
+                    );
+                }
             }
         }
 

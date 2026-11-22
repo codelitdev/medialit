@@ -1,10 +1,4 @@
-import { spawn, type ChildProcess } from "child_process";
-import path from "path";
-
-const VIDEO_TYPE = "video";
-const IMAGE_TYPE = "image";
-
-type mediaType = "video" | "image";
+import { runLimited } from "@medialit/images";
 
 /**
  * Container formats ffmpeg may open for video thumbnails. Uploads are
@@ -18,108 +12,105 @@ export const VIDEO_INPUT_FORMATS = "mov,matroska,avi,mpegts,flv,asf,mpeg,ogg";
 /** Protocols for video input: the presigned URL MediaLit makes, nothing else. */
 export const VIDEO_INPUT_PROTOCOLS = "http,https,tcp,tls";
 
-/** Kills ffmpeg (and the image script's children) after this long. */
+/** Image formats ffmpeg may open for image thumbnails, from local files only. */
+export const IMAGE_INPUT_FORMATS = "png_pipe,jpeg_pipe,webp_pipe,gif";
+
+/** Kills ffmpeg's process group after this long. */
 export const THUMBNAIL_TIMEOUT_MS = 60_000;
+
+/** The largest thumbnail side, whatever the settings say. */
+export const MAX_THUMBNAIL_SIDE = 4096;
 
 /** ffmpeg's own limit on a single network read or write, in microseconds. */
 const NETWORK_TIMEOUT_US = "30000000";
 
-const scriptPath = path.resolve(__dirname, "../bin/generate-thumbnail.sh");
-
-/**
- * Runs a command in its own process group and kills the whole group on
- * timeout, so a script's children (ffprobe, ffmpeg) don't outlive it.
- */
-function run(command: string, args: string[], timeoutMs: number) {
-    return new Promise<void>((resolve, reject) => {
-        let child: ChildProcess;
-        try {
-            child = spawn(command, args, {
-                detached: true,
-                stdio: ["ignore", "ignore", "pipe"],
-            });
-        } catch (err) {
-            reject(err);
-            return;
-        }
-        let settled = false;
-        const finish = (err?: Error) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            if (err) reject(err);
-            else resolve();
-        };
-        const timer = setTimeout(() => {
-            try {
-                process.kill(-(child.pid as number), "SIGKILL");
-            } catch {
-                // Already gone.
-            }
-            finish(new Error(`${command} timed out after ${timeoutMs} ms`));
-        }, timeoutMs);
-        if (process.env.DEBUG === "true") {
-            child.stderr?.on("data", (data: Buffer) => {
-                console.error(data.toString());
-            });
-        } else {
-            child.stderr?.resume();
-        }
-        child.on("error", (err) => finish(err));
-        child.on("exit", (code) =>
-            code === 0
-                ? finish()
-                : finish(new Error(`${command} exited with code ${code}`)),
-        );
-    });
+export interface ThumbnailSize {
+    width: number;
+    height: number;
 }
 
-const thumbGenerator = async (
-    source: string,
-    destination: string,
-    type: mediaType,
-) => {
+function side(value: number, label: string): number {
+    if (!Number.isFinite(value) || value < 1) {
+        throw new Error(`Thumbnail ${label} must be a positive number`);
+    }
+    return Math.min(MAX_THUMBNAIL_SIDE, Math.round(value));
+}
+
+/**
+ * The ffmpeg filter that scales a frame to cover `width` × `height`, keeping
+ * its aspect ratio, then crops the overflow from the center. The result is
+ * exactly `width` × `height`.
+ */
+export function coverFilter(size: ThumbnailSize): string {
+    const width = side(size.width, "width");
+    const height = side(size.height, "height");
+    return `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
+}
+
+function checkPaths(source: string, destination: string): void {
     if (!source || !destination) {
         throw new Error("Source or destination path missing");
     }
+}
 
-    if (type === IMAGE_TYPE) {
-        await run(scriptPath, [source, destination], THUMBNAIL_TIMEOUT_MS);
-        return 1;
-    }
+function runFfmpeg(args: string[]): Promise<void> {
+    // No shell: paths contain a client-controlled extension. Its own process
+    // group, killed on timeout.
+    return runLimited("ffmpeg", args, { timeoutMs: THUMBNAIL_TIMEOUT_MS });
+}
 
-    // No shell: source contains a client-controlled extension.
-    await run(
-        "ffmpeg",
-        [
-            "-nostdin",
-            "-y",
-            "-format_whitelist",
-            VIDEO_INPUT_FORMATS,
-            "-protocol_whitelist",
-            VIDEO_INPUT_PROTOCOLS,
-            "-rw_timeout",
-            NETWORK_TIMEOUT_US,
-            "-i",
-            source,
-            "-vframes",
-            "1",
-            "-filter:v",
-            "scale=-2:720",
-            destination,
-        ],
-        THUMBNAIL_TIMEOUT_MS,
-    );
-    // Video thumbnails are the 720p frame as is. Cropping and resizing them
-    // is #256 (the image script can't edit the frame in place).
-    return 1;
-};
+/** Makes a `size` thumbnail (resized and cropped) of a local image file. */
+async function forImage(
+    source: string,
+    destination: string,
+    size: ThumbnailSize,
+): Promise<void> {
+    checkPaths(source, destination);
+    await runFfmpeg([
+        "-nostdin",
+        "-y",
+        "-format_whitelist",
+        IMAGE_INPUT_FORMATS,
+        "-protocol_whitelist",
+        "file",
+        "-i",
+        source,
+        "-frames:v",
+        "1",
+        "-filter:v",
+        coverFilter(size),
+        destination,
+    ]);
+}
 
-const forImage = (source: string, destination: string) =>
-    thumbGenerator(source, destination, IMAGE_TYPE);
-
-const forVideo = (source: string, destination: string) =>
-    thumbGenerator(source, destination, VIDEO_TYPE);
+/**
+ * Makes a `size` thumbnail (resized and cropped) of a video's first frame.
+ * `source` is a URL MediaLit made; ffmpeg reads only the bytes it needs.
+ */
+async function forVideo(
+    source: string,
+    destination: string,
+    size: ThumbnailSize,
+): Promise<void> {
+    checkPaths(source, destination);
+    await runFfmpeg([
+        "-nostdin",
+        "-y",
+        "-format_whitelist",
+        VIDEO_INPUT_FORMATS,
+        "-protocol_whitelist",
+        VIDEO_INPUT_PROTOCOLS,
+        "-rw_timeout",
+        NETWORK_TIMEOUT_US,
+        "-i",
+        source,
+        "-frames:v",
+        "1",
+        "-filter:v",
+        coverFilter(size),
+        destination,
+    ]);
+}
 
 export default {
     forImage,

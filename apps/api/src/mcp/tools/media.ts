@@ -6,6 +6,7 @@ import { NOT_ENOUGH_STORAGE, SUCCESS } from "../../config/strings";
 import type { MedialitMcpTool } from "../context";
 import { medialitTool } from "../tool";
 import { notFound, toolError } from "./errors";
+import { SEAL_IN_PROGRESS } from "../../media/seal";
 import {
     mediaListSchema,
     mediaSchema,
@@ -158,6 +159,12 @@ export const mediaTools = (): MedialitMcpTool[] => [
                     return toolError("forbidden", {
                         reason: "not_enough_storage",
                         message: NOT_ENOUGH_STORAGE,
+                    });
+                }
+                if (message === SEAL_IN_PROGRESS) {
+                    return toolError("conflict", {
+                        reason: "seal_in_progress",
+                        message: SEAL_IN_PROGRESS,
                     });
                 }
                 throw error;

@@ -16,7 +16,10 @@ test("forVideo does not run shell syntax found in the source path", async () => 
         ]) {
             // The file does not exist, so ffmpeg fails; that is fine.
             await assert.rejects(
-                thumbnail.forVideo(source, path.join(dir, "thumb.webp")),
+                thumbnail.forVideo(source, path.join(dir, "thumb.webp"), {
+                    width: 120,
+                    height: 69,
+                }),
             );
         }
         assert.equal(existsSync(marker), false);

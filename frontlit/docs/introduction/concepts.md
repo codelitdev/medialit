@@ -73,10 +73,12 @@ The REST endpoint `POST /media/create` uploads a file in a single request instea
 
 ## Image processing
 
-MediaLit processes files as they are uploaded:
+MediaLit processes files with the app's settings:
 
-- **Thumbnails** are generated for images and videos and returned as `thumbnail`.
-- **WebP conversion**, when turned on in the app's settings, converts uploaded images to WebP. The original image is not kept.
+- **Thumbnails** are made for images and videos when they are uploaded, and returned as `thumbnail`. Each is exactly `thumbnailWidth` × `thumbnailHeight` (120 × 69 by default): the image or the video's first frame is scaled to cover that size and cropped from the center.
+- **WebP conversion**, when turned on, converts JPEG and PNG images to WebP when they are [sealed](#temporary-uploads-and-sealing). The upload response describes the original file; the seal response describes the WebP, with its own `file`, `mimeType` and `size`, and the original is not kept. Save the URL from the seal response. Temporary uploads that are never sealed are never converted.
+
+If a conversion fails, the seal still succeeds and keeps the original. `processing.status` is then `failed` and `processing.error` says why. Very large images (over 25 MB or 50 megapixels by default) and images sealed while the server is busy converting others also keep the original; their status is `ready` and `processing.error` gives the reason.
 
 Change these settings with the [Node.js SDK](/docs/node-sdk#getsettings-and-updatesettings), the [REST API](/docs/api/upload-media) or the [MCP server](/docs/mcp-server).
 

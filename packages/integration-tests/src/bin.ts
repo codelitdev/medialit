@@ -4,6 +4,7 @@ import {
     runAllIntegrationTests,
     runIntegrationTests,
     runMcpIntegrationTests,
+    runWebpIntegrationTests,
 } from "./index";
 
 const HELP = `Usage: medialit-integration-tests <command>
@@ -12,8 +13,9 @@ Commands:
   synthetic  Quick check that MediaLit is up: upload, seal, download and
              delete one file. Safe to run against production every few
              minutes.
-  all        Run the REST, MCP and CLI suites
+  all        Run the REST, WebP, MCP and CLI suites
   rest       Run the REST API suite
+  webp       Run the WebP-at-seal and thumbnail size suite
   mcp        Run the MCP server suite
   cli        Run the CLI suite (set MEDIALIT_CLI to the medialit command)
 
@@ -34,6 +36,9 @@ async function main(command?: string): Promise<boolean> {
             return runAllIntegrationTests();
         case "rest":
             await runIntegrationTests();
+            return true;
+        case "webp":
+            await runWebpIntegrationTests();
             return true;
         case "mcp":
             await runMcpIntegrationTests();

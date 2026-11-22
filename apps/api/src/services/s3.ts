@@ -54,6 +54,8 @@ export interface CopyParams {
     Tagging?: string;
     sourceBucket?: string;
     destinationBucket?: string;
+    /** Cancels the request. */
+    abortSignal?: AbortSignal;
 }
 
 export interface PresignedURLParams {
@@ -123,7 +125,10 @@ const getS3Client = (bucket?: string): S3Client => {
     }
 };
 
-export const putObject = async (params: UploadParams) => {
+export const putObject = async (
+    params: UploadParams,
+    options: { abortSignal?: AbortSignal } = {},
+) => {
     if (DISABLE_TAGGING) {
         delete params.Tagging;
     }
@@ -132,7 +137,7 @@ export const putObject = async (params: UploadParams) => {
     const command = new PutObjectCommand(
         Object.assign({}, { Bucket: bucket }, restParams),
     );
-    const response = await getS3Client(bucket).send(command);
+    const response = await getS3Client(bucket).send(command, options);
     return response;
 };
 
@@ -177,10 +182,12 @@ export const downloadObject = async (params: {
     Key: string;
     destination: string;
     Bucket?: string;
+    abortSignal?: AbortSignal;
 }): Promise<void> => {
     const bucket = params.Bucket || cloudBucket;
     const response = await getS3Client(bucket).send(
         new GetObjectCommand({ Bucket: bucket, Key: params.Key }),
+        { abortSignal: params.abortSignal },
     );
     if (!response.Body) {
         throw new Error(`Object has no body: ${params.Key}`);
@@ -188,6 +195,7 @@ export const downloadObject = async (params: {
     await pipeline(
         response.Body as Readable,
         createWriteStream(params.destination),
+        { signal: params.abortSignal },
     );
 };
 
@@ -294,7 +302,9 @@ export const copyObject = async (params: CopyParams) => {
         Tagging: params.Tagging,
     });
     // Use destination bucket's client for copy operations
-    const response = await getS3Client(destinationBucket).send(command);
+    const response = await getS3Client(destinationBucket).send(command, {
+        abortSignal: params.abortSignal,
+    });
     return response;
 };
 

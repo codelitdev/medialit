@@ -1112,6 +1112,153 @@ export async function sealMediaRecord(input: {
     });
 }
 
+/** What `claimSeal` found. `claimed` carries the row's internal ID. */
+export type SealClaim =
+    | { status: "claimed"; mediaRowId: string }
+    | { status: "sealed" }
+    | { status: "busy" }
+    | { status: "missing" };
+
+/**
+ * Claims a temp media row for one seal attempt (D5, step 1): sets
+ * `seal_claim` to `token` and `sealing_until` to `claimMs` from now, unless
+ * another attempt holds a claim that hasn't expired. One statement, so no
+ * transaction or row lock outlives it.
+ */
+export async function claimSeal(input: {
+    userId: string;
+    appId: string;
+    mediaId: string;
+    token: string;
+    claimMs: number;
+}): Promise<SealClaim> {
+    const db = getDb();
+    const owned = and(
+        eq(media.userId, input.userId),
+        eq(media.appId, input.appId),
+        eq(media.mediaId, input.mediaId),
+        eq(media.uploaded, true),
+    );
+    const claimed = await db
+        .update(media)
+        .set({
+            sealClaim: input.token,
+            sealingUntil: sql`now() + make_interval(secs => ${input.claimMs / 1000})`,
+        })
+        .where(
+            and(
+                owned,
+                eq(media.temp, true),
+                or(
+                    isNull(media.sealingUntil),
+                    lt(media.sealingUntil, sql`now()`),
+                ),
+            ),
+        )
+        .returning({ id: media.id });
+    if (claimed.length > 0) {
+        return { status: "claimed", mediaRowId: claimed[0].id };
+    }
+    const [row] = await db
+        .select({ temp: media.temp })
+        .from(media)
+        .where(owned)
+        .limit(1);
+    if (!row) return { status: "missing" };
+    return row.temp ? { status: "busy" } : { status: "sealed" };
+}
+
+/**
+ * Extends a seal attempt's claim by `claimMs` from now. False when the
+ * attempt no longer holds it: another attempt took it over, the seal
+ * committed, or the row is gone.
+ */
+export async function renewSealClaim(input: {
+    mediaRowId: string;
+    token: string;
+    claimMs: number;
+}): Promise<boolean> {
+    const rows = await getDb()
+        .update(media)
+        .set({
+            sealingUntil: sql`now() + make_interval(secs => ${input.claimMs / 1000})`,
+        })
+        .where(
+            and(
+                eq(media.id, input.mediaRowId),
+                eq(media.sealClaim, input.token),
+            ),
+        )
+        .returning({ id: media.id });
+    return rows.length > 0;
+}
+
+/** Gives up a seal attempt's claim after it failed, so a retry needn't
+ * wait for it to expire. Does nothing if the attempt no longer holds it. */
+export async function releaseSealClaim(input: {
+    mediaRowId: string;
+    token: string;
+}): Promise<void> {
+    await getDb()
+        .update(media)
+        .set({ sealClaim: null, sealingUntil: null })
+        .where(
+            and(
+                eq(media.id, input.mediaRowId),
+                eq(media.sealClaim, input.token),
+            ),
+        );
+}
+
+/**
+ * Commits a seal attempt (D5, step 5) in one short transaction: locks the
+ * row, checks the claim is still `token`'s, then clears `temp` and the
+ * claim and records the processing status. `webp` replaces the file's name,
+ * type and size when the attempt produced one; otherwise they keep the
+ * original's. `inTransaction` runs in the same transaction, after the row is
+ * sealed.
+ */
+export async function commitSeal(input: {
+    mediaRowId: string;
+    token: string;
+    processingStatus: "ready" | "failed";
+    processingError?: string;
+    webp?: { fileName: string; mimeType: string; size: number };
+    inTransaction?: (tx: Executor, mediaRowId: string) => Promise<void>;
+}): Promise<"committed" | "lost" | "missing"> {
+    return await getDb().transaction(async (tx) => {
+        const [row] = await tx
+            .select({ sealClaim: media.sealClaim, temp: media.temp })
+            .from(media)
+            .where(eq(media.id, input.mediaRowId))
+            .for("update");
+        if (!row) return "missing";
+        if (!row.temp || row.sealClaim !== input.token) return "lost";
+        await tx
+            .update(media)
+            .set({
+                temp: false,
+                sealClaim: null,
+                sealingUntil: null,
+                processingStatus: input.processingStatus,
+                processingError: input.processingError ?? null,
+                ...(input.webp
+                    ? {
+                          fileName: input.webp.fileName,
+                          mimeType: input.webp.mimeType,
+                          size: input.webp.size,
+                      }
+                    : {}),
+                updatedAt: now(),
+            })
+            .where(eq(media.id, input.mediaRowId));
+        if (input.inTransaction) {
+            await input.inTransaction(tx, input.mediaRowId);
+        }
+        return "committed";
+    });
+}
+
 /**
  * Records an upload as it starts: a temp row that nothing else shows or
  * returns until `completeUploadingMediaRecord` marks it uploaded. `size` is

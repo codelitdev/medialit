@@ -17,9 +17,6 @@
   },
   "license": "MIT",
   "main": "./lib/index.ts",
-  "bin": {
-    "generate-thumbnail": "./bin/generate-thumbnail.sh"
-  },
   "directories": {
     "lib": "lib",
     "test": "__tests__"
@@ -33,13 +30,16 @@
     "types": "./lib/index.ts"
   },
   "scripts": {
-    "test": "jest",
+    "test": "node --import tsx --test 'lib/**/*.test.ts'",
     "build": "tsc",
     "prepublishOnly": "bun run build"
   },
+  "dependencies": {
+    "@medialit/images": "workspace:*"
+  },
   "devDependencies": {
-    "jest": "^24.8.0",
     "@types/node": "^20.8.7",
+    "tsx": "^4.20.6",
     "typescript": "^5.2.2"
   },
   "gitHead": "5f90ae4867c92ea853fe55962ae3fe677ece0f77"

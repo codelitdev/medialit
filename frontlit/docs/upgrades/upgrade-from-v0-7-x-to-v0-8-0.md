@@ -14,6 +14,9 @@ MediaLit v0.8.0 runs its background jobs in a separate worker process instead of
 - **The job queue can alert you.** Set `OPERATOR_ALERT_EMAIL` to get an email when no worker is running or jobs pile up or fail. See [Operate the job queue](/docs/self-hosting#operate-the-job-queue).
 - **The database gets four new tables,** `jobs`, `workers`, `operator_alerts` and `derivatives`, and the `media` table gets columns for processing status. Existing media is marked `ready`.
 - **Media responses gain `processing` and `derivatives`.** No existing field changes. See [Processing status and derivatives](/docs/concepts#processing-status-and-derivatives).
+- **WebP conversion moves from upload to seal.** For apps with WebP on, the upload response now reports the original file: `main.png` or `main.jpg`, its MIME type and its uploaded size. The seal response reports the WebP file, its MIME type and its size. If you save `file`, `mimeType` or `size` from the upload response, replace them with the values from the seal response. Temporary uploads that are never sealed are no longer converted. A failed conversion keeps the original and no longer fails the request. See [Image processing](/docs/concepts#image-processing).
+- **Thumbnails follow the thumbnail size settings.** Image and video thumbnails are now exactly `thumbnailWidth` × `thumbnailHeight` (120 × 69 unless the app changed them), resized and cropped. Before, image thumbnails were up to 480 pixels tall and video thumbnails 720 pixels tall. Raise the settings if your apps show thumbnails larger than that. Thumbnails made before the upgrade don't change.
+- **Image conversion has limits** you can tune, such as `WEBP_MAX_PIXELS` and `WEBP_CONCURRENCY`. See [Limit image conversion](/docs/self-hosting#limit-image-conversion).
 
 ## 1. Back up the database
 

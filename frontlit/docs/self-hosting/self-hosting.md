@@ -402,6 +402,7 @@ The API and the workers check the job queue every minute. When something is wron
 | `jobs_no_worker`     | No worker has reported for 5 minutes, so nothing is cleaned up. | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
 | `jobs_queue_lag`     | A job has waited more than 10 minutes to start.                 | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
 | `jobs_failure_spike` | More than 10 jobs failed for good in the last 10 minutes.       | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
+| `webp_busy`          | Seal skipped WebP because every conversion slot was busy.       | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
 
 With `POSTHOG_API_KEY` set, the API and the worker also send their logs and errors to PostHog. A job that fails for good shows there as an exception from `worker.<job type>.failed`.
 
@@ -473,6 +474,23 @@ Regular uploads keep their parts in memory, so `MAX_CONCURRENT_FORM_UPLOADS` pro
 Uploads have no overall time limit: a big file on a slow connection can take as long as it needs, as long as data keeps arriving.
 
 An upload counts toward storage from the moment it starts. If MediaLit restarts in the middle of a regular upload, the upload is cleaned up and its storage freed after `UPLOAD_STALE_MINUTES`. A resumable upload is kept until it expires, so the client can still finish it.
+
+## Limit image conversion
+
+When an app turns WebP on, the API converts each JPEG or PNG image with `cwebp` while it seals it. Images come from your users, so the conversion is bounded. When a limit is hit, the seal still succeeds and keeps the original image, and `processing.error` says why.
+
+```sh
+WEBP_MAX_INPUT_BYTES=26214400  # 25 MB: larger images are not converted
+WEBP_MAX_PIXELS=50000000       # 50 megapixels, read from the image header without decoding it
+WEBP_MAX_MEMORY_MB=1024        # memory limit for each cwebp process
+WEBP_TIMEOUT_MS=30000          # a conversion that takes longer is stopped
+WEBP_CONCURRENCY=2             # conversions running at once in each API process
+WEBP_QUEUE_WAIT_MS=10000       # a seal waits this long for a free slot, then seals without converting
+SEAL_CLAIM_MS=120000           # a seal that stops responding for this long is taken over by the next one
+SEAL_WAIT_MS=15000             # a second seal of the same file waits this long, then answers 503 so the client retries
+```
+
+The memory limit uses `prlimit`, from util-linux, which the MediaLit image includes. On a machine without it, conversions run without a memory limit and the API logs a warning. The image limit also applies to thumbnails: images over `WEBP_MAX_PIXELS` get no thumbnail.
 
 ## Create a key at startup
 
