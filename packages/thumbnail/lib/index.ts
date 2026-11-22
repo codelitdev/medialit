@@ -1,4 +1,5 @@
-import { runLimited } from "@medialit/images";
+import { rm, stat } from "node:fs/promises";
+import { ProcessLimitError, runLimited } from "@medialit/images";
 
 /**
  * Container formats ffmpeg may open for video thumbnails. Uploads are
@@ -131,7 +132,115 @@ async function forVideo(
     ]);
 }
 
+/** Frames darker than this average luma (0-255) don't make a poster. */
+export const POSTER_MIN_LUMA = 32;
+/** The poster is the most representative of this many frames. */
+export const POSTER_FRAMES = 50;
+/** How far past the seek point the poster may look, in seconds. */
+const POSTER_WINDOW_SECONDS = 20;
+
+/** Where to look for a poster: 10% of the way in, at most 10 s, and the
+ * start for videos under a second (phase 1, D9). */
+export function posterSeekSeconds(durationSeconds?: number): number {
+    if (!durationSeconds || durationSeconds < 1) return 0;
+    return Math.round(Math.min(durationSeconds * 0.1, 10) * 1000) / 1000;
+}
+
+/** One still WebP image. When no frame gets through the filters, this
+ * writes no file at all, which is how the fallback is detected. */
+const STILL_WEBP = ["-c:v", "libwebp", "-f", "image2", "-update", "1"];
+
+export interface PosterResult {
+    /** True when every candidate frame was black, and the frame at the seek
+     * point was used. */
+    fallback: boolean;
+}
+
+/**
+ * Makes a video's poster: from `seekSeconds` on, drops near-black frames and
+ * lets ffmpeg's `thumbnail` filter pick the most representative of the next
+ * `POSTER_FRAMES`. If every frame there is black, uses the frame at the
+ * seek point. Sized like the upload thumbnail. `source` is a URL MediaLit
+ * made; ffmpeg reads only the bytes it needs.
+ */
+async function forVideoPoster(
+    source: string,
+    destination: string,
+    options: {
+        seekSeconds: number;
+        size?: ThumbnailSize;
+        signal?: AbortSignal;
+    },
+): Promise<PosterResult> {
+    checkPaths(source, destination);
+    const scale = options.size
+        ? coverFilter(options.size)
+        : DEFAULT_VIDEO_FILTER;
+    const input = [
+        "-nostdin",
+        "-y",
+        "-ss",
+        String(options.seekSeconds),
+        "-format_whitelist",
+        VIDEO_INPUT_FORMATS,
+        "-protocol_whitelist",
+        VIDEO_INPUT_PROTOCOLS,
+        "-rw_timeout",
+        NETWORK_TIMEOUT_US,
+        "-i",
+        source,
+        "-an",
+        "-sn",
+        "-dn",
+    ];
+    await rm(destination, { force: true });
+    await runLimited(
+        "ffmpeg",
+        [
+            ...input,
+            "-t",
+            String(POSTER_WINDOW_SECONDS),
+            "-filter:v",
+            `signalstats,metadata=mode=select:key=lavfi.signalstats.YAVG:value=${POSTER_MIN_LUMA}:function=greater,thumbnail=${POSTER_FRAMES},${scale}`,
+            "-frames:v",
+            "1",
+            ...STILL_WEBP,
+            destination,
+        ],
+        { timeoutMs: THUMBNAIL_TIMEOUT_MS, signal: options.signal },
+    ).catch((err: unknown) => {
+        // No frame passed the filter: ffmpeg may fail on an empty output.
+        if (!(err instanceof ProcessLimitError) || err.reason !== "failed") {
+            throw err;
+        }
+    });
+    if ((await size(destination)) > 0) return { fallback: false };
+    await runLimited(
+        "ffmpeg",
+        [
+            ...input,
+            "-frames:v",
+            "1",
+            "-filter:v",
+            scale,
+            ...STILL_WEBP,
+            destination,
+        ],
+        { timeoutMs: THUMBNAIL_TIMEOUT_MS, signal: options.signal },
+    );
+    return { fallback: true };
+}
+
+async function size(file: string): Promise<number> {
+    try {
+        return (await stat(file)).size;
+    } catch {
+        return 0;
+    }
+}
+
 export default {
     forImage,
     forVideo,
+    forVideoPoster,
 };

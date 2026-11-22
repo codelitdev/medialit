@@ -131,7 +131,11 @@ async function main() {
     stopAlertChecks = startAlertChecks({
         check: async () =>
             (await listener.holdsLock(ALERTS_LOCK))
-                ? collectWorkerAlerts(db)
+                ? collectWorkerAlerts(db, {
+                      videoJobTypes: jobDefinitions
+                          .filter((job) => job.class === "video")
+                          .map((job) => job.type),
+                  })
                 : [],
         deps: pageDeps(db),
     });
@@ -144,6 +148,7 @@ async function main() {
             classes: config.classes.join(","),
             concurrency_cpu: config.concurrency.cpu,
             concurrency_io: config.concurrency.io,
+            concurrency_video: config.concurrency.video,
         },
         "Medialit worker running",
     );

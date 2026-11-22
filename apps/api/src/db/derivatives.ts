@@ -38,6 +38,8 @@ export type LockedMedia = {
     accessControl: "public" | "private";
     processingStatus: ProcessingStatus;
     mimeType: string;
+    /** `main.{ext}`, or `main.webp` after WebP conversion. */
+    fileName: string;
 };
 
 /** Derivatives that are public for every media item, as thumbnails are
@@ -131,7 +133,7 @@ export async function lockMedia(
         sql`SELECT id, media_id AS "mediaId", user_id AS "userId",
                 app_id AS "appId", temp, access_control AS "accessControl",
                 processing_status AS "processingStatus",
-                mime_type AS "mimeType"
+                mime_type AS "mimeType", file_name AS "fileName"
             FROM media WHERE id = ${mediaRowId}
             ${options.lock === false ? sql`` : sql`FOR UPDATE`}`,
     );
@@ -231,20 +233,45 @@ export async function unpublishedDerivatives(
  * were copied. Returns the IDs that flipped. */
 export async function markDerivativesPublic(
     db: Executor,
-    copied: Pick<DerivativeRecord, "id" | "key">[],
+    copied: Pick<
+        DerivativeRecord,
+        "id" | "key" | "params" | "name" | "mediaRowId"
+    >[],
 ): Promise<string[]> {
     const flipped: string[] = [];
     for (const row of copied) {
+        // A derivative published under another name (the poster, as
+        // thumb.webp) takes that key in the public bucket.
+        const publicKey = publicKeyOf(row);
         const updated = await rows<{ id: string }>(
             db,
-            sql`UPDATE derivatives SET bucket = 'public', updated_at = now()
+            sql`UPDATE derivatives SET bucket = 'public', key = ${publicKey},
+                    updated_at = now()
                 WHERE id = ${row.id} AND status = 'ready' AND bucket = 'private'
                 AND key = ${row.key}
                 RETURNING id`,
         );
-        if (updated.length > 0) flipped.push(row.id);
+        if (updated.length === 0) continue;
+        flipped.push(row.id);
+        // A thumbnail made after upload (the upload's own one failed) is
+        // the media's thumbnail from now on.
+        if (row.name === "thumbnail") {
+            await db.execute(
+                sql`UPDATE media SET thumbnail_generated = true
+                    WHERE id = ${row.mediaRowId} AND NOT thumbnail_generated`,
+            );
+        }
     }
     return flipped;
+}
+
+/** The key a derivative has once public: `params.publicKey`, or the key it
+ * has in the private bucket. */
+export function publicKeyOf(
+    row: Pick<DerivativeRecord, "key" | "params">,
+): string | null {
+    const publicKey = row.params?.publicKey;
+    return typeof publicKey === "string" && publicKey ? publicKey : row.key;
 }
 
 export type SettledStatus = Extract<ProcessingStatus, "ready" | "failed">;
@@ -265,7 +292,9 @@ export async function settleMedia(
         return null;
     }
     const failed = all.filter((d) => d.status === "failed");
-    const status: SettledStatus = failed.length > 0 ? "failed" : "ready";
+    // Failures that leave the media usable don't fail it (phase 1, D12).
+    const blocking = failed.filter((d) => !leavesMediaUsable(d));
+    const status: SettledStatus = blocking.length > 0 ? "failed" : "ready";
     const error =
         failed.length > 0
             ? failed.map((d) => `${d.name}: ${d.error ?? "failed"}`).join("; ")
@@ -276,6 +305,25 @@ export async function settleMedia(
             WHERE id = ${media.id}`,
     );
     return { status, error };
+}
+
+/** Errors of video outputs refused by MediaLit's own limits. The original
+ * still plays, so the media settles `ready` (phase 1, D12). */
+export const LIMIT_ERRORS = [
+    "out_of_processing_minutes",
+    "source_too_large",
+    "source_too_long",
+] as const;
+
+/** A failed derivative that leaves the media fully usable: a poster (the
+ * upload thumbnail stays), or HLS or MP4 refused by our limits. */
+export function leavesMediaUsable(
+    derivative: Pick<DerivativeRecord, "name" | "error">,
+): boolean {
+    if (derivative.name === "thumbnail") return true;
+    if (derivative.name !== "hls" && derivative.name !== "mp4") return false;
+    const error = derivative.error ?? "";
+    return LIMIT_ERRORS.some((code) => error.startsWith(code));
 }
 
 /** Derivatives stuck in `queued` or `processing` whose job is no longer

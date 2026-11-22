@@ -571,7 +571,7 @@ describe("job runner (Postgres)", { skip }, () => {
             workerId: `runner-${Math.random().toString(36).slice(2)}`,
             definitions,
             classes: ["cpu", "io"],
-            concurrency: { cpu: 2, io: 4 },
+            concurrency: { cpu: 2, io: 4, video: 1 },
             logger,
             pollMs: 100,
             heartbeatMs: 100,
@@ -816,7 +816,7 @@ describe("job runner (Postgres)", { skip }, () => {
                     },
                 },
             ],
-            { concurrency: { cpu: 2, io: 1 } },
+            { concurrency: { cpu: 2, io: 1, video: 1 } },
         );
         const ids: string[] = [];
         for (let i = 0; i < 6; i++) {
@@ -1009,14 +1009,18 @@ describe("job runner (Postgres)", { skip }, () => {
 describe("worker liveness (Postgres)", { skip }, () => {
     test("reports classes with no worker seen in 5 minutes", async () => {
         await db.execute(sql`DELETE FROM workers`);
-        assert.deepEqual(await missingWorkerClasses(db), ["cpu", "io"]);
+        assert.deepEqual(await missingWorkerClasses(db), [
+            "cpu",
+            "io",
+            "video",
+        ]);
         await recordWorker(db, { id: "io-only", classes: ["io"] });
-        assert.deepEqual(await missingWorkerClasses(db), ["cpu"]);
+        assert.deepEqual(await missingWorkerClasses(db), ["cpu", "video"]);
         await recordWorker(db, { id: "old-cpu", classes: ["cpu"] });
         await db.execute(
             sql`UPDATE workers SET last_seen_at = now() - interval '6 minutes' WHERE id = 'old-cpu'`,
         );
-        assert.deepEqual(await missingWorkerClasses(db), ["cpu"]);
+        assert.deepEqual(await missingWorkerClasses(db), ["cpu", "video"]);
     });
 });
 

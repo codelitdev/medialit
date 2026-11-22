@@ -128,11 +128,13 @@ export function runLimited(
             reject(err);
             return;
         }
-        const stdout: Buffer[] = [];
+        const stdout: Uint8Array[] = [];
         let stdoutBytes = 0;
         child.stdout?.on("data", (data: Buffer) => {
             if (stdoutBytes >= capture) return;
-            const part = data.subarray(0, capture - stdoutBytes);
+            const part = Uint8Array.from(
+                data.subarray(0, capture - stdoutBytes),
+            );
             stdout.push(part);
             stdoutBytes += part.length;
         });

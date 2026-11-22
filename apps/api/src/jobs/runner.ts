@@ -18,7 +18,8 @@ import {
     type JobRow,
 } from "./queue";
 
-export const JOB_CLASSES = ["cpu", "io"] as const;
+/** `video` holds encodes that use every core (pipelines-phase-1.md, D3). */
+export const JOB_CLASSES = ["cpu", "io", "video"] as const;
 export type JobClass = (typeof JOB_CLASSES)[number];
 
 export type JobContext = {

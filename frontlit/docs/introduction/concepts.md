@@ -76,6 +76,7 @@ The REST endpoint `POST /media/create` uploads a file in a single request instea
 MediaLit processes files with the app's settings:
 
 - **Thumbnails** are made for images and videos when they are uploaded, and returned as `thumbnail`. When the app sets `thumbnailWidth` and `thumbnailHeight`, each thumbnail is exactly that size: the image or the video's first frame is scaled to cover it and cropped from the center. Otherwise image thumbnails are cropped to 16:9 and at most 480 pixels tall, and video thumbnails are 720 pixels tall.
+- **Video posters** replace a video's thumbnail after it is sealed. The upload thumbnail is the first frame, which is often black; the poster is picked from about 10% into the video (at most 10 seconds in), skipping dark frames. It is published at the same URL, so a saved `thumbnail` URL shows the poster once it is ready. A CDN may keep serving the first frame until its cache expires. If the poster fails, the upload thumbnail stays.
 - **WebP conversion**, when turned on, converts JPEG and PNG images to WebP when they are [sealed](#temporary-uploads-and-sealing). The upload response describes the original file; the seal response describes the WebP, with its own `file`, `mimeType` and `size`, and the original is not kept. Save the URL from the seal response. Temporary uploads that are never sealed are never converted.
 
 If a conversion fails, the seal still succeeds and keeps the original. `processing.status` is then `failed` and `processing.error` says why. Very large images (over 25 MB or 50 megapixels by default) and images sealed while the server is busy converting others also keep the original; their status is `ready` and `processing.error` gives the reason.
@@ -92,7 +93,9 @@ Every media response has two more fields:
 
 - **`processing`** says where background processing of the file stands: `{ "status": "pending" }` until the file is sealed, then `processing` while work runs, and `ready` or `failed` when it ends. A failed step never makes the original unavailable, and `processing.error` says what went wrong.
 - **`metadata`** describes the file: `kind` (`video`, `audio` or `image`), and where they apply `durationSeconds`, `width` and `height` (as displayed, after rotation), `rotation`, `frameRate`, `videoCodec`, `audioCodec`, `bitrate`, `sampleRate`, `channels` and `format`. It is read when the file is sealed, so it is `null` for temporary uploads, and stays `null` if the file can't be read; the seal still succeeds.
-- **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. Today the only derivative is `thumbnail`, the same image as the `thumbnail` field.
+- **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. Today the only derivative is `thumbnail`, the same image as the `thumbnail` field; for videos it is `queued` while the poster is made.
+
+A sealed video is `processing` until its poster is ready, then `ready`. A failed poster, or video processing refused by a limit (out of processing minutes, too large or too long), leaves the file usable: the derivative is `failed` with its reason, `processing.error` says why, and the file's status is still `ready`.
 
 ```json
 {

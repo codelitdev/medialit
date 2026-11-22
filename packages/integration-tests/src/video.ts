@@ -98,6 +98,25 @@ export async function runVideoIntegrationTests(
     const seal = async (mediaId: unknown) =>
         await api(`media/seal/${encodeURIComponent(String(mediaId))}`);
 
+    /** Polls a media item until its processing leaves `processing`. */
+    async function waitForProcessing(
+        mediaId: unknown,
+        timeoutMs = 120_000,
+    ): Promise<JsonObject> {
+        const deadline = Date.now() + timeoutMs;
+        for (;;) {
+            const media = await api(
+                `media/get/${encodeURIComponent(String(mediaId))}`,
+            );
+            const status = object(media.processing).status;
+            if (status !== "processing") return media;
+            if (Date.now() > deadline) {
+                throw new Error(`${String(mediaId)} still processing`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1_000));
+        }
+    }
+
     const settings = async () =>
         (await api("settings/media/get")) as unknown as VideoSettings &
             JsonObject;
@@ -186,6 +205,20 @@ export async function runVideoIntegrationTests(
             );
             assert.deepEqual(fetched.metadata, sealed.metadata);
             log("PASS video metadata read at seal and returned by get");
+
+            // The worker makes a poster and publishes it over thumb.webp
+            // (D9); processing then settles.
+            assert.deepEqual(sealed.processing, { status: "processing" });
+            const done = await waitForProcessing(uploaded.mediaId);
+            assert.deepEqual(done.processing, { status: "ready" });
+            const poster = object(object(done.derivatives).thumbnail);
+            assert.equal(poster.status, "ready");
+            assert.match(String(poster.url), /\/thumb\.webp(\?|$)/);
+            const posterBytes = Buffer.from(
+                await (await fetch(String(poster.url))).arrayBuffer(),
+            );
+            assert.equal(posterBytes.toString("ascii", 8, 12), "WEBP");
+            log("PASS the worker made a poster and processing settled");
         }
         const image = await upload(
             generatePng(64, 36),

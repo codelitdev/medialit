@@ -554,7 +554,7 @@ describe("webhooks (Postgres)", { skip }, () => {
                 },
             ],
             classes: ["io"],
-            concurrency: { cpu: 1, io: 4 },
+            concurrency: { cpu: 1, io: 4, video: 1 },
             logger: silent,
             pollMs: 50,
         });
@@ -657,7 +657,7 @@ describe("webhooks (Postgres)", { skip }, () => {
             workerId: "webhook-test-worker-2",
             definitions: [webhookDeliverJob({ guard: () => localGuard })],
             classes: ["io"],
-            concurrency: { cpu: 1, io: 4 },
+            concurrency: { cpu: 1, io: 4, video: 1 },
             logger: silent,
             pollMs: 50,
         });

@@ -34,7 +34,13 @@ import { imageMetadata, probeMedia, type MediaMetadata } from "./probe";
 import { describeError } from "../jobs/errors";
 import { trackEvent } from "../services/events";
 import { mediaKind } from "./kind";
-import { resolveAccountPlan, storageLimitFor } from "../billing/entitlements";
+import {
+    resolveAccountPlan,
+    storageLimitFor,
+    type AccountPlan,
+} from "../billing/entitlements";
+import { effectiveVideoSettings } from "../media-settings/video";
+import { planProcessing } from "./processing-plan";
 import { getMediaSettings } from "../media-settings/queries";
 import { recordWebpBusy } from "../operations/checks";
 import { claimSeal, commitSeal, releaseSealClaim, renewSealClaim } from "@/db";
@@ -76,6 +82,8 @@ export const sealHooks: {
     afterClaim?: (token: string) => Promise<void>;
     beforeSharedWrite?: (token: string, key: string) => Promise<void>;
     beforeCommit?: (token: string) => Promise<void>;
+    /** After the commit, before the private bucket is cleaned up. */
+    afterCommit?: (token: string) => Promise<void>;
 } = {};
 
 class ClaimLost extends Error {
@@ -95,6 +103,8 @@ type WebpOutcome =
 
 /** What a seal that committed did, for its log line and event. */
 type SealResult = {
+    /** Derivative jobs queued in the commit. */
+    jobsQueued: number;
     webp: WebpOutcome["kind"];
     /** Why WebP was skipped or failed. */
     reason?: string;
@@ -152,7 +162,8 @@ async function sealOrWait(
 
     // The total already includes this unsealed upload. Over the limit means
     // uploads raced past the check at upload time.
-    const limit = storageLimitFor(await resolveAccountPlan({ id: userId }));
+    const plan = await resolveAccountPlan({ id: userId });
+    const limit = storageLimitFor(plan);
     if ((await getTotalSpace({ userId })) > limit) {
         throw new Error(NOT_ENOUGH_STORAGE);
     }
@@ -177,6 +188,7 @@ async function sealOrWait(
                 token,
                 config,
                 limit,
+                plan,
             );
             if (result) {
                 reportSealed(media, appId, result, {
@@ -202,6 +214,7 @@ async function runSeal(
     token: string,
     config: SealConfig,
     storageLimit: number,
+    plan: AccountPlan,
 ): Promise<SealResult | null> {
     const { mediaId } = media;
     const userId = String(media.userId);
@@ -347,13 +360,34 @@ async function runSeal(
             signal,
         });
 
+        // The jobs to queue in the commit (phase 1, D11), with the settings
+        // in effect now copied into them.
+        const planned = planProcessing({
+            mimeType: media.mimeType,
+            metadata,
+            video: effectiveVideoSettings(settings, plan),
+            thumbnail:
+                settings?.thumbnailWidth && settings?.thumbnailHeight
+                    ? {
+                          width: settings.thumbnailWidth,
+                          height: settings.thumbnailHeight,
+                      }
+                    : undefined,
+            plan,
+        });
+
         // Step 5: commit.
         await sealHooks.beforeCommit?.(token);
         const committed = await commitSeal({
             metadata,
             mediaRowId,
             token,
-            processingStatus: webp.kind === "failed" ? "failed" : "ready",
+            processingStatus:
+                planned.length > 0
+                    ? "processing"
+                    : webp.kind === "failed"
+                      ? "failed"
+                      : "ready",
             processingError:
                 webp.kind === "skipped" || webp.kind === "failed"
                     ? webp.message
@@ -365,13 +399,14 @@ async function runSeal(
                       size: converted.size,
                   }
                 : undefined,
-            inTransaction: afterSealCommit,
+            inTransaction: (tx, id) => afterSealCommit(tx, id, planned),
         });
         if (committed !== "committed") {
             lost = true;
             throw committed === "missing" ? new MediaGone() : new ClaimLost();
         }
         committedOk = true;
+        await sealHooks.afterCommit?.(token);
 
         // Step 6: delete what the private bucket no longer needs.
         const unneeded = [...ownKeys.map((k) => k.Key)];
@@ -388,6 +423,7 @@ async function runSeal(
             mediaId,
         );
         return {
+            jobsQueued: planned.length,
             webp: webp.kind,
             reason:
                 webp.kind === "skipped" || webp.kind === "failed"
@@ -431,6 +467,7 @@ function reportSealed(
         media_id: media.mediaId,
         app_id: appId,
         webp: result.webp,
+        jobs_queued: result.jobsQueued,
         ...(result.reason ? { reason: result.reason } : {}),
         ...timing,
     };

@@ -121,7 +121,11 @@ exec "${realCwebp}" "$@"
     );
     await writeFile(
         path.join(bin, "ffmpeg"),
-        `#!/bin/sh\necho "$*" >> "${work}/ffmpeg.log"\nexec "${realFfmpeg}" "$@"\n`,
+        `#!/bin/sh
+echo "$*" >> "${work}/ffmpeg.log"
+if [ -f "${control("ffmpeg-fail")}" ]; then echo "ffmpeg broke" >&2; exit 1; fi
+exec "${realFfmpeg}" "$@"
+`,
     );
     // ffprobe: can be made slow, to check seal's limit on it.
     await writeFile(
@@ -169,7 +173,7 @@ beforeEach(async () => {
     for (const key of Object.keys(process.env)) {
         if (/^(WEBP_|SEAL_)/.test(key)) delete process.env[key];
     }
-    for (const name of ["sleep", "fail", "probe-sleep"]) {
+    for (const name of ["sleep", "fail", "probe-sleep", "ffmpeg-fail"]) {
         await setControl(name, null);
     }
     await rm(path.join(work, "cwebp.log"), { force: true });
@@ -513,6 +517,197 @@ describe("seal", { skip }, () => {
         );
     });
 
+    /** A 10 s video whose first 3 s are black. */
+    async function blackStartVideo(): Promise<Buffer> {
+        const file = path.join(work, "black-start.mp4");
+        execFileSync(realFfmpeg!, [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:size=320x180:rate=25:duration=3",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=320x180:rate=25:duration=7",
+            "-filter_complex",
+            "[0:v][1:v]concat=n=2:v=1:a=0",
+            "-pix_fmt",
+            "yuv420p",
+            file,
+        ]);
+        return await readFile(file);
+    }
+
+    /** Average luma of a WebP in the bucket, 0-255. */
+    async function luma(mediaId: string, where: "private" | "public") {
+        const file = path.join(work, `luma-${mediaId}.webp`);
+        await writeFile(file, await bytes(mediaId, where, "thumb.webp"));
+        const out = execFileSync(
+            realFfmpeg!,
+            [
+                "-v",
+                "error",
+                "-i",
+                file,
+                "-vf",
+                "signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-",
+                "-f",
+                "null",
+                "-",
+            ],
+            { encoding: "utf8" },
+        );
+        return Number(/YAVG=([\d.]+)/.exec(out)?.[1]);
+    }
+
+    /** Runs the jobs seal queued for a media item, as the worker would:
+     * its poster, then media.publish. */
+    async function runPosterAndPublish(mediaId: string) {
+        const { posterJob } = await import("./poster.js");
+        const derivatives = await import("./derivatives.js");
+        const record = await row(mediaId);
+        assert.ok(record);
+        const [job] = (
+            await pgTest.db.execute(
+                sql`SELECT id, payload, priority, max_attempts FROM jobs
+                    WHERE media_id = ${record.id} AND type = 'media.poster'`,
+            )
+        ).rows as Array<{
+            id: string;
+            payload: { derivative: string; params: Record<string, unknown> };
+            priority: number;
+            max_attempts: number;
+        }>;
+        assert.ok(job, "seal queued a poster job");
+        await posterJob
+            .handler(job.payload, {
+                job: {
+                    id: job.id,
+                    mediaId: record.id,
+                    attempts: 1,
+                    maxAttempts: job.max_attempts,
+                } as never,
+                signal: new AbortController().signal,
+                workerId: "test",
+            })
+            .catch(() => undefined);
+        await derivatives.publishDerivatives(record.id);
+        return job;
+    }
+
+    test("sealing a video queues a poster that replaces the public thumb.webp with a frame that isn't black", async () => {
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "black-start.mp4",
+            access: "public",
+        });
+        const sealed = await sealIt(video.mediaId);
+        assert.deepEqual(sealed.processing, { status: "processing" });
+        assert.equal(sealed.derivatives.thumbnail.status, "queued");
+        // The upload thumbnail is the black first frame.
+        assert.ok((await luma(video.mediaId, "public")) < 32);
+
+        const job = await runPosterAndPublish(video.mediaId);
+        assert.equal(job.payload.derivative, "thumbnail");
+        assert.equal(job.payload.params.publicKey, "thumb.webp");
+        assert.equal(job.payload.params.thumbnailWidth, 100);
+        assert.equal(job.payload.params.durationSeconds, 10);
+        // Free-plan jobs run after paid and self-hosted ones.
+        const { resolveAccountPlan } = await import(
+            "../billing/entitlements.js"
+        );
+        const { priorityFor } = await import("./processing-plan.js");
+        assert.equal(
+            job.priority,
+            priorityFor(await resolveAccountPlan({ id: userId })),
+        );
+
+        assert.ok((await luma(video.mediaId, "public")) > 32);
+        assert.deepEqual(await files(video.mediaId, "private"), []);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.deepEqual(after?.processing, { status: "ready" });
+        assert.equal(after?.derivatives.thumbnail.status, "ready");
+        assert.match(
+            String(after?.derivatives.thumbnail.url),
+            /\/thumb\.webp$/,
+        );
+        assert.equal(after?.thumbnail, after?.derivatives.thumbnail.url);
+    });
+
+    test("a poster that finishes before seal cleans up still ends up public", async () => {
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "race.mp4",
+            access: "private",
+        });
+        // Run the poster and publish between seal's commit and its cleanup
+        // of the private bucket.
+        seal.sealHooks.afterCommit = async () => {
+            delete seal.sealHooks.afterCommit;
+            await runPosterAndPublish(video.mediaId);
+        };
+        await sealIt(video.mediaId);
+        assert.ok((await luma(video.mediaId, "public")) > 32);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.equal(after?.derivatives.thumbnail.status, "ready");
+        assert.deepEqual(after?.processing, { status: "ready" });
+    });
+
+    test("a failed poster keeps the upload thumbnail and settles the media ready", async () => {
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "fails.mp4",
+        });
+        await sealIt(video.mediaId);
+        const before = await bytes(video.mediaId, "public", "thumb.webp");
+        await setControl("ffmpeg-fail", "1");
+        await runPosterAndPublish(video.mediaId);
+        await setControl("ffmpeg-fail", null);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.equal(after?.derivatives.thumbnail.status, "failed");
+        // D12: a failed poster leaves the media usable.
+        assert.equal(after?.processing.status, "ready");
+        assert.match(String(after?.processing.error), /^thumbnail: /);
+        assert.deepEqual(
+            await bytes(video.mediaId, "public", "thumb.webp"),
+            before,
+        );
+    });
+
+    test("a poster gives a video whose upload thumbnail failed its thumbnail", async () => {
+        await setControl("ffmpeg-fail", "1");
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "no-thumb.mp4",
+        });
+        await setControl("ffmpeg-fail", null);
+        assert.equal(video.thumbnail, "");
+        await sealIt(video.mediaId);
+        await runPosterAndPublish(video.mediaId);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.match(String(after?.thumbnail), /\/thumb\.webp/);
+        assert.ok((await luma(video.mediaId, "public")) > 32);
+    });
+
     test("sealing a public image publishes only main.webp", async () => {
         const original = png();
         const media = await upload(original, { access: "public" });
@@ -700,7 +895,11 @@ describe("seal", { skip }, () => {
             const sealed = await sealIt(media.mediaId);
             assert.equal(sealed.mimeType, media.mimeType);
             assert.equal(sealed.size, media.size);
-            assert.equal((await row(media.mediaId))?.processingStatus, "ready");
+            // A video goes on to its poster (phase 1, D11).
+            assert.equal(
+                (await row(media.mediaId))?.processingStatus,
+                media === videoMedia ? "processing" : "ready",
+            );
         }
         assert.deepEqual(await files(videoMedia.mediaId, "public"), [
             "main.mp4",

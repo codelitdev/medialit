@@ -384,9 +384,10 @@ You can run several workers. Each job runs once, on one of them.
 | Variable                   | Default          | What it does                                                                                                                |
 | -------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `WORKER_PORT`              | `8001`           | Port for `/health` and `/ready`                                                                                             |
-| `WORKER_CONCURRENCY_CPU`   | one per CPU core | Media processing jobs run at once                                                                                           |
+| `WORKER_CONCURRENCY_CPU`   | one per CPU core | Media processing jobs other than video encodes (posters, for example) run at once                                           |
 | `WORKER_CONCURRENCY_IO`    | `16`             | Cleanup and other network-bound jobs run at once                                                                            |
-| `WORKER_CLASSES`           | `cpu,io`         | Limit a worker to some kinds of jobs, for example `io`                                                                      |
+| `WORKER_CONCURRENCY_VIDEO` | `1`              | Video encodes run at once. Each encode uses every core, so keep this at 1 unless the worker has cores to spare              |
+| `WORKER_CLASSES`           | `cpu,io,video`   | Limit a worker to some kinds of jobs, for example `io`, or `video` for a worker that only encodes                           |
 | `WORKER_SHUTDOWN_GRACE_MS` | `8000`           | On shutdown, how long running jobs get to finish. Unfinished jobs go back to the queue, and another worker runs them again. |
 
 Set your container's stop timeout a few seconds above `WORKER_SHUTDOWN_GRACE_MS`.
@@ -409,12 +410,13 @@ It turns the address check off and also allows `http` URLs in production. Only s
 
 The API and the workers check the job queue every minute. When something is wrong, they log an error with an `alert_code` and email the addresses in `OPERATOR_ALERT_EMAIL` (comma-separated), through the `EMAIL_*` SMTP settings. Each alert emails at most once every 30 minutes, however many API instances and workers you run. Without `OPERATOR_ALERT_EMAIL`, alerts are only logged.
 
-| Alert                | Means                                                           | What to do                                                                                                       |
-| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `jobs_no_worker`     | No worker has reported for 5 minutes, so nothing is cleaned up. | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
-| `jobs_queue_lag`     | A job has waited more than 10 minutes to start.                 | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
-| `jobs_failure_spike` | More than 10 jobs failed for good in the last 10 minutes.       | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
-| `webp_busy`          | Seal skipped WebP because every conversion slot was busy.       | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
+| Alert                | Means                                                                     | What to do                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `jobs_no_worker`     | No worker has reported for 5 minutes, so nothing is cleaned up.           | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
+| `jobs_queue_lag`     | A job other than a video encode has waited more than 10 minutes to start. | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
+| `video_queue_lag`    | A video job has waited more than 6 hours to start.                        | Video encodes run one at a time and can take an hour or two each. Check the worker, or give it more CPU.         |
+| `jobs_failure_spike` | More than 10 jobs failed for good in the last 10 minutes.                 | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
+| `webp_busy`          | Seal skipped WebP because every conversion slot was busy.                 | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
 
 With `POSTHOG_API_KEY` set, the API and the worker also send their logs and errors to PostHog. A job that fails for good shows there as an exception from `worker.<job type>.failed`.
 

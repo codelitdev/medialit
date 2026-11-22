@@ -15,6 +15,7 @@ import {
     listDerivatives,
     lockMedia,
     markDerivativesPublic,
+    publicKeyOf,
     markThumbnailPublic,
     needsPublicCopy,
     orphanedDerivatives,
@@ -50,6 +51,7 @@ import type { JobClass, JobContext, JobDefinition } from "../jobs/runner";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
 import { releaseOrphanedMinutes } from "../billing/processing-minutes";
+import type { PlannedJob } from "./processing-plan";
 import { mediaKind } from "./kind";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
@@ -288,11 +290,32 @@ async function queuePublish(db: Executor, media: LockedMedia): Promise<void> {
 export async function afterSealCommit(
     db: Executor,
     mediaRowId: string,
+    planned: PlannedJob[] = [],
 ): Promise<void> {
     const media = await lockMedia(db, mediaRowId);
     if (!media) return;
     await markThumbnailPublic(db, mediaRowId);
     await queuePublish(db, media);
+    // The jobs seal planned (phase 1, D11): a queued derivative row each,
+    // with the settings copied into its params, and its job.
+    for (const job of planned) {
+        await upsertDerivative(db, {
+            mediaRowId,
+            name: job.derivative,
+            status: "queued",
+            size: 0,
+            error: null,
+            params: job.params,
+        });
+        await enqueue(db, {
+            type: job.type,
+            payload: { derivative: job.derivative, params: job.params },
+            mediaId: mediaRowId,
+            appId: media.appId,
+            priority: job.priority,
+            maxAttempts: job.maxAttempts,
+        });
+    }
 }
 
 export type DerivativeOutput = {
@@ -521,8 +544,10 @@ async function copyToPublic(
 ): Promise<void> {
     const sources = await derivativeObjects(mediaId, "private", row.key!);
     const privateFolderKey = mediaFolder(mediaId, Constants.PathKey.PRIVATE);
+    // A file published under another name (the poster, as thumb.webp).
+    const renamed = row.key!.endsWith("/") ? null : publicKeyOf(row);
     for (const source of sources) {
-        const relative = source.slice(privateFolderKey.length);
+        const relative = renamed ?? source.slice(privateFolderKey.length);
         await copyObject({
             sourceKey: source,
             sourceBucket: cloudBucket,

@@ -67,6 +67,12 @@ export function workerConfig(
                 env.WORKER_CONCURRENCY_IO,
                 16,
             ),
+            // One encode at a time by default: ffmpeg uses every core.
+            video: positiveInt(
+                "WORKER_CONCURRENCY_VIDEO",
+                env.WORKER_CONCURRENCY_VIDEO,
+                1,
+            ),
         },
         shutdownGraceMs: nonNegativeInt(
             "WORKER_SHUTDOWN_GRACE_MS",

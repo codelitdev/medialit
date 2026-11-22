@@ -155,7 +155,7 @@ grep -q "Live workers: 1" <<<"$stats" || {
     echo "jobs stats did not count the running worker"
     exit 1
 }
-(cd apps/api && bun run --silent jobs workers) | grep -Eq "cpu,io .* yes$" || {
+(cd apps/api && bun run --silent jobs workers) | grep -Eq "cpu,io,video .* yes$" || {
     echo "jobs workers did not list the running worker as live"
     exit 1
 }

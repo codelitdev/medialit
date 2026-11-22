@@ -204,6 +204,29 @@ describe("worker checks (Postgres)", { skip }, () => {
         assert.ok(Number(alerts[0].details.age_ms) > 10 * 60 * 1000);
     });
 
+    test("a video job pages video_queue_lag after 6 hours, not jobs_queue_lag after 10 minutes", async () => {
+        await db.execute(sql`DELETE FROM jobs WHERE status = 'queued'`);
+        const id = (await enqueue(db, {
+            type: "test.encode",
+            payload: {},
+            maxAttempts: 1,
+        }))!;
+        const options = { videoJobTypes: ["test.encode"] };
+        await db.execute(
+            sql`UPDATE jobs SET run_at = now() - interval '2 hours' WHERE id = ${id}`,
+        );
+        assert.deepEqual(await collectWorkerAlerts(db, options), []);
+        await db.execute(
+            sql`UPDATE jobs SET run_at = now() - interval '7 hours' WHERE id = ${id}`,
+        );
+        const alerts = await collectWorkerAlerts(db, options);
+        assert.deepEqual(
+            alerts.map((alert) => alert.code),
+            ["video_queue_lag"],
+        );
+        await db.execute(sql`DELETE FROM jobs WHERE id = ${id}`);
+    });
+
     test("more than 10 failures in 10 minutes page jobs_failure_spike, webhooks aside", async () => {
         const failJobs = async (type: string, count: number, ago: string) => {
             for (let index = 0; index < count; index++) {
@@ -257,21 +280,38 @@ describe("API checks (Postgres)", { skip }, () => {
             alerts.map((alert) => alert.code),
             ["jobs_no_worker"],
         );
-        assert.equal(alerts[0].details.reason, "cpu,io");
+        assert.equal(alerts[0].details.reason, "cpu,io,video");
         assert.equal(warnings.length, 1, "the warning waits an hour");
 
         await recordWorker(db, { id: "io-worker", classes: ["io"] });
+        const partial = await check();
         assert.deepEqual(
-            (await check()).map((alert) => alert.details.reason),
-            ["cpu"],
+            partial.map((alert) => alert.details.reason),
+            ["cpu,video"],
         );
+        assert.match(partial[0].message, /posters are not made/);
+        assert.match(partial[0].message, /Videos are not encoded/);
 
         await recordWorker(db, { id: "cpu-worker", classes: ["cpu"] });
+        const videoOnly = await check();
+        assert.deepEqual(
+            videoOnly.map((alert) => alert.details.reason),
+            ["video"],
+        );
+        assert.equal(
+            videoOnly[0].message,
+            "No worker has run video jobs for 5 minutes. Videos are not encoded.",
+        );
+
+        await recordWorker(db, { id: "video-worker", classes: ["video"] });
         assert.deepEqual(await check(), []);
     });
 
     test("a stopped worker counts as live for 5 more minutes", async () => {
-        await recordWorker(db, { id: "stopped", classes: ["cpu", "io"] });
+        await recordWorker(db, {
+            id: "stopped",
+            classes: ["cpu", "io", "video"],
+        });
         await db.execute(
             sql`UPDATE workers SET last_seen_at = now() - interval '4 minutes'`,
         );
@@ -290,7 +330,10 @@ describe("API checks (Postgres)", { skip }, () => {
     });
 
     test("WebP skipped for lack of a slot pages webp_busy", async () => {
-        await recordWorker(db, { id: "worker", classes: ["cpu", "io"] });
+        await recordWorker(db, {
+            id: "worker",
+            classes: ["cpu", "io", "video"],
+        });
         const check = apiAlertCheck({ db, logger: { warn: () => undefined } });
         assert.deepEqual(await check(), []);
         recordWebpBusy();

@@ -1251,7 +1251,7 @@ export async function releaseSealClaim(input: {
 export async function commitSeal(input: {
     mediaRowId: string;
     token: string;
-    processingStatus: "ready" | "failed";
+    processingStatus: "ready" | "failed" | "processing";
     processingError?: string;
     webp?: { fileName: string; mimeType: string; size: number };
     /** Read before the commit (D2); null when it couldn't be read. */
