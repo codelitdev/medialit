@@ -23,7 +23,8 @@ const endpointSchema = z.object({
     url: z.string(),
     events: eventsSchema,
     enabled: z.boolean(),
-    secret: z.string(),
+    secretHint: z.string(),
+    secret: z.string().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
 });
@@ -66,7 +67,7 @@ export const webhookTools = (): MedialitMcpTool[] => [
         title: "List webhooks",
         risk: "read",
         description:
-            "Lists the connected app's webhook endpoints: URL, events, whether each is enabled, and its signing secret. Endpoints receive media.processing.ready and media.processing.failed events, signed per Standard Webhooks.",
+            "Lists the connected app's webhook endpoints: URL, events, whether each is enabled, and the last characters of its signing secret (secretHint). Secrets themselves are returned only by create_webhook and by update_webhook with rotateSecret. Endpoints receive media.processing.ready and media.processing.failed events, signed per Standard Webhooks.",
         inputSchema: z.object({}),
         outputSchema: z.object({ endpoints: z.array(endpointSchema) }),
         annotations: { idempotentHint: true },
@@ -102,7 +103,7 @@ export const webhookTools = (): MedialitMcpTool[] => [
         title: "Update webhook",
         risk: "write",
         description:
-            "Changes a webhook endpoint's URL, events or enabled flag, or rotates its signing secret (rotateSecret: true). Omitted fields keep their values. After a rotation, receivers must use the new secret.",
+            "Changes a webhook endpoint's URL, events or enabled flag, or rotates its signing secret (rotateSecret: true). Omitted fields keep their values. Only a rotation returns the secret: the new one, which receivers must switch to.",
         inputSchema: z.object({
             id: idSchema,
             url: z.string().optional().describe("New receiving URL"),

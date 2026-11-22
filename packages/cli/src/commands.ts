@@ -210,7 +210,7 @@ export async function remove(ids: string[], flags: Flags): Promise<void> {
 }
 
 const WEBHOOKS_USAGE =
-    "Usage: medialit webhooks <ls|create|update|rotate|test|rm>. Run `medialit --help`.";
+    "Usage: medialit webhooks <ls|create|update|rotate|secret|test|rm>. Run `medialit --help`.";
 
 export async function webhooks(args: string[], flags: Flags): Promise<void> {
     const [action, ...rest] = args;
@@ -224,6 +224,8 @@ export async function webhooks(args: string[], flags: Flags): Promise<void> {
             return webhooksUpdate(rest, flags);
         case "rotate":
             return webhooksRotate(rest, flags);
+        case "secret":
+            return webhooksSecret(rest, flags);
         case "test":
             return webhooksTest(rest, flags);
         case "rm":
@@ -261,7 +263,9 @@ function describeEndpoint(endpoint: WebhookEndpoint): string {
         `URL:     ${endpoint.url}`,
         `Events:  ${endpoint.events.join(", ")}`,
         `Enabled: ${endpoint.enabled ? "yes" : "no"}`,
-        `Secret:  ${endpoint.secret}`,
+        endpoint.secret
+            ? `Secret:  ${endpoint.secret}`
+            : `Secret:  ${endpoint.secretHint} (show it with \`medialit webhooks secret ${endpoint.id}\`)`,
     ].join("\n");
 }
 
@@ -312,7 +316,14 @@ async function webhooksRotate(args: string[], flags: Flags): Promise<void> {
     const id = requireWebhookId(args);
     const { client } = await getClient(flags.endpoint);
     const endpoint = await client.updateWebhook(id, { rotateSecret: true });
-    output(flags, endpoint, () => endpoint.secret);
+    output(flags, endpoint, () => endpoint.secret ?? "");
+}
+
+async function webhooksSecret(args: string[], flags: Flags): Promise<void> {
+    const id = requireWebhookId(args);
+    const { client } = await getClient(flags.endpoint);
+    const secret = await client.revealWebhookSecret(id);
+    output(flags, { id, secret }, () => secret);
 }
 
 async function webhooksTest(args: string[], flags: Flags): Promise<void> {

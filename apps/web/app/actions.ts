@@ -323,3 +323,25 @@ export async function testWebhook(
         return { success: false, error: err.message };
     }
 }
+
+/** An endpoint's signing secret. The list leaves secrets out. */
+export async function revealWebhookSecret(
+    appId: string,
+    webhookId: string,
+): Promise<
+    { success: true; secret: string } | { success: false; error: string }
+> {
+    try {
+        const response = await serverApi(
+            `${webhooksPath(appId, webhookId)}/secret`,
+            { method: "POST" },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return { success: false, error: data.error || "Request failed" };
+        }
+        return { success: true, secret: data.secret };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}

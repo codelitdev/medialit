@@ -228,7 +228,7 @@ Overwrites specific image processing defaults. Supply only the properties you wi
 
 Lists the app's webhook endpoints.
 
-- **Output:** `{ endpoints: [{ id, url, events, enabled, secret, createdAt, updatedAt }] }`
+- **Output:** `{ endpoints: [{ id, url, events, enabled, secretHint, createdAt, updatedAt }] }`. Signing secrets aren't listed, only their last characters; the MCP server doesn't reveal existing secrets. Use the dashboard, the REST API or the CLI to read one, or rotate it.
 
 #### `create_webhook`
 
@@ -248,7 +248,7 @@ Changes an endpoint. Omitted fields keep their values.
     - `id` _(string)_: The endpoint's ID (`wh_…`).
     - `url`, `events`, `enabled` _(optional)_: New values.
     - `rotateSecret` _(boolean, optional)_: Replace the signing secret.
-- **Output:** The updated endpoint.
+- **Output:** The updated endpoint, with the new `secret` when it was rotated.
 
 #### `delete_webhook`
 

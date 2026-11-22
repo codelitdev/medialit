@@ -57,6 +57,7 @@ const EXPECTED_CLI_COMMANDS = [
     "webhooks ls",
     "webhooks rm",
     "webhooks rotate",
+    "webhooks secret",
     "webhooks test",
     "webhooks update",
     "whoami",
@@ -350,6 +351,11 @@ export async function runCliIntegrationTests(
                 assert.deepEqual(result, { deleted: true, id });
             },
             test: async (id) => object(await json(["webhooks", "test", id])),
+            reveal: async (id) => {
+                const result = object(await json(["webhooks", "secret", id]));
+                assert.equal(result.id, id);
+                return String(result.secret);
+            },
         };
     }
 
@@ -507,6 +513,7 @@ export async function runCliIntegrationTests(
             /not both/,
         );
         await fails(["webhooks", "test", "wh_missing"], /not found/);
+        await fails(["webhooks", "secret", "wh_missing"], /not found/);
         await checkWebhooks(webhookClient(), group, log);
         // Human output: the secret alone, so it can be piped.
         const humanHook = await webhookClient().create({
@@ -517,10 +524,15 @@ export async function runCliIntegrationTests(
                 await ok(["webhooks", "rotate", String(humanHook.id)])
             ).stdout.trim();
             assert.match(rotated, /^whsec_/);
-            assert.match(
-                (await ok(["webhooks", "ls"])).stdout,
-                new RegExp(String(humanHook.id)),
+            assert.equal(
+                (
+                    await ok(["webhooks", "secret", String(humanHook.id)])
+                ).stdout.trim(),
+                rotated,
             );
+            const listedHuman = (await ok(["webhooks", "ls"])).stdout;
+            assert.match(listedHuman, new RegExp(String(humanHook.id)));
+            assert.equal(listedHuman.includes("whsec_"), false);
             assert.match(
                 (await ok(["webhooks", "test", String(humanHook.id)])).stdout,
                 /^Failed \(connection_failed\)\./,

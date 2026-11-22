@@ -20,15 +20,16 @@ curl -X POST https://api.medialit.cloud/settings/webhooks/create \
   -d '{"url": "https://example.com/hooks/medialit"}'
 ```
 
-The response includes the endpoint's `id` and its `secret` (`whsec_…`). You can read the secret again with `POST /settings/webhooks/get`.
+The response includes the endpoint's `id` and its `secret` (`whsec_…`). Listing endpoints doesn't return secrets, only their last characters (`secretHint`), because listing needs only read access and the secret lets its holder sign webhooks. Read a secret again with `POST /settings/webhooks/secret`, which needs write access (an API key, or an OAuth token with `data:write`), or with **Show** in the dashboard.
 
-| Route                            | What it does                                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------ |
-| `POST /settings/webhooks/create` | Adds an endpoint: `url`, and optionally `events` and `enabled`. Returns its secret.  |
-| `POST /settings/webhooks/get`    | Lists the app's endpoints, with their secrets.                                       |
-| `POST /settings/webhooks/update` | Changes an endpoint (`id`, then `url`, `events`, `enabled` or `rotateSecret: true`). |
-| `POST /settings/webhooks/delete` | Removes an endpoint (`id`). Deliveries still waiting for it are not sent.            |
-| `POST /settings/webhooks/test`   | Sends a signed `webhook.test` event to the endpoint now (`id`).                      |
+| Route                            | What it does                                                                                                            |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `POST /settings/webhooks/create` | Adds an endpoint: `url`, and optionally `events` and `enabled`. Returns its secret.                                     |
+| `POST /settings/webhooks/get`    | Lists the app's endpoints, without their secrets.                                                                       |
+| `POST /settings/webhooks/secret` | Returns an endpoint's signing secret (`id`). Needs write access.                                                        |
+| `POST /settings/webhooks/update` | Changes an endpoint (`id`, then `url`, `events`, `enabled` or `rotateSecret: true`). A rotation returns the new secret. |
+| `POST /settings/webhooks/delete` | Removes an endpoint (`id`). Deliveries still waiting for it are not sent.                                               |
+| `POST /settings/webhooks/test`   | Sends a signed `webhook.test` event to the endpoint now (`id`).                                                         |
 
 The URL must use `https`, and it must not point at a private or internal address, such as `localhost`, `10.0.0.0/8` or a cloud metadata address. MediaLit checks the URL when you save it and again before every delivery. On a self-hosted server you can allow internal addresses with [`WEBHOOK_ALLOW_PRIVATE_NETWORKS`](/docs/self-hosting#webhooks).
 

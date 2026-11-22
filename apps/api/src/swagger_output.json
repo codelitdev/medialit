@@ -339,7 +339,7 @@
           "Webhooks"
         ],
         "summary": "List webhook endpoints",
-        "description": "Lists the app’s webhook endpoints, with their signing secrets.",
+        "description": "Lists the app’s webhook endpoints. Signing secrets are not included, only their last characters (`secretHint`); read a secret with `POST /settings/webhooks/secret`.",
         "responses": {
           "200": {
             "description": "The endpoints",
@@ -406,13 +406,108 @@
         "operationId": "listWebhooks"
       }
     },
+    "/settings/webhooks/secret": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Reveal a signing secret",
+        "description": "Returns the endpoint’s signing secret. Needs write access (`data:write`), like creating or rotating one, because the secret lets its holder sign webhooks.",
+        "responses": {
+          "200": {
+            "description": "The signing secret",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSecret"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookIdPayload"
+              }
+            }
+          }
+        },
+        "operationId": "revealWebhookSecret"
+      }
+    },
     "/settings/webhooks/update": {
       "post": {
         "tags": [
           "Webhooks"
         ],
         "summary": "Update a webhook endpoint",
-        "description": "Changes the URL, events or enabled flag, or rotates the signing secret. Fields left out keep their values.",
+        "description": "Changes the URL, events or enabled flag, or rotates the signing secret. Fields left out keep their values. The response includes `secret` only when it was rotated.",
         "responses": {
           "200": {
             "description": "The updated endpoint",
@@ -1791,9 +1886,14 @@
           "enabled": {
             "type": "boolean"
           },
+          "secretHint": {
+            "type": "string",
+            "description": "The signing secret's last characters.",
+            "example": "…LaSw"
+          },
           "secret": {
             "type": "string",
-            "description": "Signing secret (Standard Webhooks).",
+            "description": "Signing secret (Standard Webhooks). Returned only when the endpoint is created or its secret rotated; read it with POST /settings/webhooks/secret.",
             "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
           },
           "createdAt": {
@@ -1810,7 +1910,7 @@
           "url",
           "events",
           "enabled",
-          "secret",
+          "secretHint",
           "createdAt",
           "updatedAt"
         ],
@@ -1847,9 +1947,14 @@
                 "enabled": {
                   "type": "boolean"
                 },
+                "secretHint": {
+                  "type": "string",
+                  "description": "The signing secret's last characters.",
+                  "example": "…LaSw"
+                },
                 "secret": {
                   "type": "string",
-                  "description": "Signing secret (Standard Webhooks).",
+                  "description": "Signing secret (Standard Webhooks). Returned only when the endpoint is created or its secret rotated; read it with POST /settings/webhooks/secret.",
                   "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
                 },
                 "createdAt": {
@@ -1866,7 +1971,7 @@
                 "url",
                 "events",
                 "enabled",
-                "secret",
+                "secretHint",
                 "createdAt",
                 "updatedAt"
               ],
@@ -1984,6 +2089,24 @@
         },
         "required": [
           "result"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookSecret": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "wh_V1StGXR8_Z5jdHi6B-myT"
+          },
+          "secret": {
+            "type": "string",
+            "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+          }
+        },
+        "required": [
+          "id",
+          "secret"
         ],
         "additionalProperties": false
       },

@@ -45,8 +45,12 @@ export interface WebhookEndpoint {
     url: string;
     events: WebhookEvent[];
     enabled: boolean;
-    /** Signing secret (Standard Webhooks). */
-    secret: string;
+    /** The signing secret's last characters. */
+    secretHint: string;
+    /** Signing secret (Standard Webhooks). Returned only by `createWebhook`
+     * and by `updateWebhook` with `rotateSecret`; read it later with
+     * `revealWebhookSecret`. */
+    secret?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -343,7 +347,7 @@ export class MediaLit {
     }
 
     private async webhookRequest<T>(
-        action: "create" | "get" | "update" | "delete" | "test",
+        action: "create" | "get" | "update" | "delete" | "test" | "secret",
         body: Record<string, unknown>,
         failure: string,
     ): Promise<T> {
@@ -365,7 +369,8 @@ export class MediaLit {
         return response.json();
     }
 
-    /** The app's webhook endpoints, with their signing secrets. */
+    /** The app's webhook endpoints. Secrets are left out; see
+     * `revealWebhookSecret`. */
     async listWebhooks(): Promise<WebhookEndpoint[]> {
         const result = await this.webhookRequest<{
             endpoints: WebhookEndpoint[];
@@ -391,6 +396,16 @@ export class MediaLit {
             { ...update, id },
             "Failed to update webhook",
         );
+    }
+
+    /** An endpoint's signing secret. Needs write access. */
+    async revealWebhookSecret(id: string): Promise<string> {
+        const result = await this.webhookRequest<{ secret: string }>(
+            "secret",
+            { id },
+            "Failed to read the webhook secret",
+        );
+        return result.secret;
     }
 
     async deleteWebhook(id: string): Promise<void> {

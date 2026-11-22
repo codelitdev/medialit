@@ -1,13 +1,16 @@
 export type WebhookEvent = "media.processing.ready" | "media.processing.failed";
 
 /** A webhook endpoint as the dashboard sees it. `id` is the public ID. The
- * signing secret can be shown again and rotated. */
+ * signing secret is returned only on create and rotate; it can be read
+ * again with an explicit reveal action. */
 export interface WebhookEndpoint {
     id: string;
     url: string;
     events: WebhookEvent[];
     enabled: boolean;
-    secret: string;
+    /** The signing secret's last characters. */
+    secretHint: string;
+    secret?: string;
     createdAt: string;
     updatedAt: string;
 }

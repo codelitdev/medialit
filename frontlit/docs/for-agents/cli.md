@@ -101,6 +101,7 @@ medialit webhooks ls
 medialit webhooks test <id>     # sends a signed test event
 medialit webhooks update <id> --disable
 medialit webhooks rotate <id>   # prints the new secret
+medialit webhooks secret <id>   # prints the current secret
 medialit webhooks rm <id>
 ```
 

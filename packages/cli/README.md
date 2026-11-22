@@ -52,6 +52,7 @@ Webhook endpoints are told when processing of sealed media finishes or fails. Se
 | `medialit webhooks create <url>` | Adds an endpoint and prints its signing secret          |
 | `medialit webhooks update <id>`  | Changes `--url`, `--events`, `--enable` or `--disable`  |
 | `medialit webhooks rotate <id>`  | Replaces an endpoint's signing secret and prints it     |
+| `medialit webhooks secret <id>`  | Prints an endpoint's signing secret                     |
 | `medialit webhooks test <id>`    | Sends a signed test event and prints whether it arrived |
 | `medialit webhooks rm <id>`      | Deletes an endpoint                                     |
 

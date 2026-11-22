@@ -11,6 +11,7 @@ import {
     createWebhook,
     deleteWebhook,
     listWebhooks,
+    revealWebhookSecret,
     testWebhook,
     updateWebhook,
 } from "./service";
@@ -83,7 +84,7 @@ router.post(
     /*
         #swagger.tags = ['Webhooks']
         #swagger.summary = 'List webhook endpoints'
-        #swagger.description = 'Lists the app’s webhook endpoints, with their signing secrets.'
+        #swagger.description = 'Lists the app’s webhook endpoints. Signing secrets are not included, only their last characters (`secretHint`); read a secret with `POST /settings/webhooks/secret`.'
         #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.responses[200] = {
             description: 'The endpoints',
@@ -105,11 +106,49 @@ router.post(
 );
 
 router.post(
+    "/secret",
+    /*
+        #swagger.tags = ['Webhooks']
+        #swagger.summary = 'Reveal a signing secret'
+        #swagger.description = 'Returns the endpoint’s signing secret. Needs write access (`data:write`), like creating or rotating one, because the secret lets its holder sign webhooks.'
+        #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
+        #swagger.requestBody = {
+            required: true,
+            content: {
+                "application/json": {
+                    schema: { $ref: "#/components/schemas/WebhookIdPayload" }
+                }
+            }
+        }
+        #swagger.responses[200] = {
+            description: 'The signing secret',
+            content: {
+                "application/json": {
+                    schema: { $ref: "#/components/schemas/WebhookSecret" }
+                }
+            }
+        }
+        #swagger.responses[400] = { description: 'Bad Request' }
+        #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[404] = { description: 'Not Found' }
+        #swagger.responses[500] = { description: 'Internal Server Error' }
+    */
+    authenticatedApiLimiter,
+    apikey,
+    requireScope(DATA_WRITE_SCOPE),
+    handle(async (req, res) => {
+        res.status(200).json(
+            await revealWebhookSecret(req.appId, req.body?.id),
+        );
+    }),
+);
+
+router.post(
     "/update",
     /*
         #swagger.tags = ['Webhooks']
         #swagger.summary = 'Update a webhook endpoint'
-        #swagger.description = 'Changes the URL, events or enabled flag, or rotates the signing secret. Fields left out keep their values.'
+        #swagger.description = 'Changes the URL, events or enabled flag, or rotates the signing secret. Fields left out keep their values. The response includes `secret` only when it was rotated.'
         #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.requestBody = {
             required: true,

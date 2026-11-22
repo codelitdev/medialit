@@ -208,6 +208,65 @@ describe("sending a webhook", () => {
         assert.equal(allowed.ok, true);
     });
 
+    test("an unreachable first address falls through to the next checked one", async () => {
+        behavior = (_req, res) => res.writeHead(204).end();
+        for (const first of ["::1", "127.0.0.2"]) {
+            seen.length = 0;
+            const result = await post(
+                `http://receiver.test:${server.port}/hook`,
+                {
+                    guard: guard(async () => [
+                        // Nothing listens there on this port (an unusable
+                        // AAAA record, or another host).
+                        { address: first, family: first.includes(":") ? 6 : 4 },
+                        { address: "127.0.0.1", family: 4 },
+                    ]),
+                },
+            );
+            assert.equal(result.ok, true, first);
+            assert.deepEqual(seen, [
+                { host: `receiver.test:${server.port}`, path: "/hook" },
+            ]);
+        }
+        // Every address unreachable: one failed attempt.
+        const closed = await listen(http.createServer());
+        await closed.close();
+        const result = await post(`http://receiver.test:${closed.port}/hook`, {
+            guard: guard(async () => [
+                { address: "127.0.0.2", family: 4 },
+                { address: "127.0.0.1", family: 4 },
+            ]),
+        });
+        assert.equal(!result.ok && result.error, "connection_failed");
+    });
+
+    test("a connection dropped after the request was sent is not retried on another address", async () => {
+        behavior = (req) => req.socket.destroy();
+        let otherHits = 0;
+        const other = http.createServer((_req, res) => {
+            otherHits++;
+            res.writeHead(200).end();
+        });
+        await new Promise<void>((resolve) =>
+            other.listen(server.port, "127.0.0.3", resolve),
+        );
+        try {
+            const result = await post(
+                `http://receiver.test:${server.port}/hook`,
+                {
+                    guard: guard(async () => [
+                        { address: "127.0.0.1", family: 4 },
+                        { address: "127.0.0.3", family: 4 },
+                    ]),
+                },
+            );
+            assert.equal(!result.ok && result.error, "connection_failed");
+            assert.equal(otherHits, 0);
+        } finally {
+            await new Promise<void>((resolve) => other.close(() => resolve()));
+        }
+    });
+
     test("an unresolvable hostname fails with connection_failed", async () => {
         const result = await post("http://nowhere.test/hook", {
             guard: guard(async () => {

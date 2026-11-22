@@ -46,7 +46,11 @@ export type WebhookEndpoint = {
     url: string;
     events: WebhookEvent[];
     enabled: boolean;
-    secret: string;
+    /** The last characters of the signing secret, to tell secrets apart. */
+    secretHint: string;
+    /** The signing secret: only in the answers to create, rotate and the
+     * reveal action, which need write access. */
+    secret?: string;
     createdAt: string;
     updatedAt: string;
 };
@@ -68,13 +72,25 @@ export type WebhookDelivery = {
     nextAttemptAt: string | null;
 };
 
-export function publicEndpoint(row: WebhookEndpointRecord): WebhookEndpoint {
+/** `…` and the secret's last 4 characters. */
+export function secretHint(secret: string): string {
+    return `…${secret.slice(-4)}`;
+}
+
+/** An endpoint as clients see it. The secret is left out unless
+ * `withSecret`: reading endpoints needs only read access, and the secret
+ * would let its holder sign webhooks. */
+export function publicEndpoint(
+    row: WebhookEndpointRecord,
+    options: { withSecret?: boolean } = {},
+): WebhookEndpoint {
     return {
         id: row.id,
         url: row.url,
         events: row.events,
         enabled: row.enabled,
-        secret: row.secret,
+        secretHint: secretHint(row.secret),
+        ...(options.withSecret ? { secret: row.secret } : {}),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
     };
@@ -171,11 +187,24 @@ export async function createWebhook(
         enabled,
         events,
     });
-    return publicEndpoint(row);
+    return publicEndpoint(row, { withSecret: true });
 }
 
 export async function listWebhooks(appId: string): Promise<WebhookEndpoint[]> {
-    return (await listEndpoints(appId)).map(publicEndpoint);
+    return (await listEndpoints(appId)).map((row) => publicEndpoint(row));
+}
+
+/** The endpoint's signing secret. Callers must require write access. */
+export async function revealWebhookSecret(
+    appId: string,
+    id: unknown,
+): Promise<{ id: string; secret: string }> {
+    if (typeof id !== "string" || !id) {
+        throw new WebhookInputError("id is required");
+    }
+    const endpoint = await getEndpoint(appId, id);
+    if (!endpoint) throw new WebhookNotFoundError();
+    return { id: endpoint.id, secret: endpoint.secret };
 }
 
 export async function listWebhookDeliveries(
@@ -223,7 +252,8 @@ export async function updateWebhook(
     }
     const row = await updateEndpoint(appId, id, patch);
     if (!row) throw new WebhookNotFoundError();
-    return publicEndpoint(row);
+    // A new secret is returned once, to the caller who rotated it.
+    return publicEndpoint(row, { withSecret: patch.secret !== undefined });
 }
 
 export async function deleteWebhook(appId: string, id: unknown): Promise<void> {

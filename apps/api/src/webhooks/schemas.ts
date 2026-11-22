@@ -12,9 +12,14 @@ export const webhookEndpointSchema = Joi.object({
     url: Joi.string().uri().required().example("https://example.com/hooks"),
     events: events.required(),
     enabled: Joi.boolean().required(),
-    secret: Joi.string()
+    secretHint: Joi.string()
         .required()
-        .description("Signing secret (Standard Webhooks).")
+        .description("The signing secret's last characters.")
+        .example("…LaSw"),
+    secret: Joi.string()
+        .description(
+            "Signing secret (Standard Webhooks). Returned only when the endpoint is created or its secret rotated; read it with POST /settings/webhooks/secret.",
+        )
         .example("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"),
     createdAt: Joi.string().isoDate().required(),
     updatedAt: Joi.string().isoDate().required(),
@@ -56,4 +61,11 @@ export const webhookTestResultSchema = Joi.object({
     error: Joi.string()
         .valid("timeout", "connection_failed", "tls_error", "blocked_address")
         .description("Why no response came back."),
+});
+
+export const webhookSecretSchema = Joi.object({
+    id: Joi.string().required().example("wh_V1StGXR8_Z5jdHi6B-myT"),
+    secret: Joi.string()
+        .required()
+        .example("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"),
 });

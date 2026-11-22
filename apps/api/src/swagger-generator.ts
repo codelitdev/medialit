@@ -22,6 +22,7 @@ import {
     webhookEndpointListSchema,
     webhookEndpointSchema,
     webhookIdSchema,
+    webhookSecretSchema,
     webhookTestResultSchema,
 } from "./webhooks/schemas";
 
@@ -106,6 +107,7 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         "post /settings/media/get": "getMediaSettings",
         "post /settings/webhooks/create": "createWebhook",
         "post /settings/webhooks/get": "listWebhooks",
+        "post /settings/webhooks/secret": "revealWebhookSecret",
         "post /settings/webhooks/update": "updateWebhook",
         "post /settings/webhooks/delete": "deleteWebhook",
         "post /settings/webhooks/test": "testWebhook",
@@ -145,6 +147,7 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         UpdateWebhookPayload: joiToSwagger(updateWebhookSchema).swagger,
         WebhookIdPayload: joiToSwagger(webhookIdSchema).swagger,
         WebhookTestResult: joiToSwagger(webhookTestResultSchema).swagger,
+        WebhookSecret: joiToSwagger(webhookSecretSchema).swagger,
         ErrorResponse: {
             type: "object",
             properties: {

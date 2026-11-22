@@ -17,6 +17,7 @@ Commands:
   webhooks create <url>   Add an endpoint and print its signing secret
   webhooks update <id>    Change an endpoint (--url, --events, --enable, --disable)
   webhooks rotate <id>    Replace an endpoint's signing secret and print it
+  webhooks secret <id>    Print an endpoint's signing secret
   webhooks test <id>      Send a signed test event to an endpoint
   webhooks rm <id>        Delete an endpoint
 

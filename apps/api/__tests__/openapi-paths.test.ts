@@ -17,6 +17,7 @@ const expectedPaths = [
     "/settings/webhooks/create",
     "/settings/webhooks/delete",
     "/settings/webhooks/get",
+    "/settings/webhooks/secret",
     "/settings/webhooks/test",
     "/settings/webhooks/update",
 ];

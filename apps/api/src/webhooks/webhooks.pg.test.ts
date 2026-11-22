@@ -39,6 +39,7 @@ import {
     deleteWebhook,
     listWebhookDeliveries,
     listWebhooks,
+    revealWebhookSecret,
     testWebhook,
     updateWebhook,
 } from "./service.js";
@@ -215,13 +216,20 @@ describe("webhooks (Postgres)", { skip }, () => {
             { guard: localGuard },
         );
         assert.match(created.id, /^wh_/);
-        assert.match(created.secret, /^whsec_/);
+        assert.match(created.secret!, /^whsec_/);
+        assert.equal(created.secretHint, `…${created.secret!.slice(-4)}`);
         assert.deepEqual(created.events, [
             "media.processing.ready",
             "media.processing.failed",
         ]);
         assert.equal(created.enabled, true);
-        assert.deepEqual(await listWebhooks(app.id), [created]);
+        // Reading endpoints never returns the secret, only its hint.
+        const { secret: createdSecret, ...withoutSecret } = created;
+        assert.deepEqual(await listWebhooks(app.id), [withoutSecret]);
+        assert.deepEqual(await revealWebhookSecret(app.id, created.id), {
+            id: created.id,
+            secret: createdSecret,
+        });
 
         const updated = await updateWebhook(
             app.id,
@@ -236,13 +244,22 @@ describe("webhooks (Postgres)", { skip }, () => {
         assert.equal(updated.enabled, false);
         assert.deepEqual(updated.events, ["media.processing.failed"]);
         assert.equal(updated.url, `${hookUrl}/v2`);
-        assert.equal(updated.secret, created.secret);
+        assert.equal(updated.secret, undefined);
+        assert.equal(updated.secretHint, created.secretHint);
 
         const rotated = await updateWebhook(app.id, created.id, {
             rotateSecret: true,
         });
         assert.notEqual(rotated.secret, created.secret);
-        assert.match(rotated.secret, /^whsec_/);
+        assert.match(rotated.secret!, /^whsec_/);
+        assert.equal(
+            (await revealWebhookSecret(app.id, created.id)).secret,
+            rotated.secret,
+        );
+        await assert.rejects(
+            revealWebhookSecret(app.id, "wh_missing"),
+            /not found/,
+        );
 
         await assert.rejects(
             updateWebhook(app.id, created.id, { events: ["media.uploaded"] }),
@@ -260,6 +277,10 @@ describe("webhooks (Postgres)", { skip }, () => {
         );
         await assert.rejects(
             deleteWebhook(other.app.id, created.id),
+            /not found/,
+        );
+        await assert.rejects(
+            revealWebhookSecret(other.app.id, created.id),
             /not found/,
         );
 
@@ -282,7 +303,7 @@ describe("webhooks (Postgres)", { skip }, () => {
         const [request] = hooks.received;
         // Connected to the checked address, with the hostname kept.
         assert.equal(request.headers.host, `receiver.test:${port}`);
-        const payload = new Webhook(endpoint.secret).verify(request.body, {
+        const payload = new Webhook(endpoint.secret!).verify(request.body, {
             "webhook-id": String(request.headers["webhook-id"]),
             "webhook-timestamp": String(request.headers["webhook-timestamp"]),
             "webhook-signature": String(request.headers["webhook-signature"]),
@@ -549,7 +570,7 @@ describe("webhooks (Postgres)", { skip }, () => {
         assert.equal(ids[0], queued.payload.webhookId);
         for (const request of hooks.received) {
             assert.equal(request.body, queued.payload.body);
-            new Webhook(endpoint.secret).verify(request.body, {
+            new Webhook(endpoint.secret!).verify(request.body, {
                 "webhook-id": String(request.headers["webhook-id"]),
                 "webhook-timestamp": String(
                     request.headers["webhook-timestamp"],

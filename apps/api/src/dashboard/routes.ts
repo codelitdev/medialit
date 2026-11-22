@@ -47,6 +47,7 @@ import {
     deleteWebhook,
     listWebhookDeliveries,
     listWebhooks,
+    revealWebhookSecret,
     testWebhook,
     updateWebhook,
 } from "../webhooks/service";
@@ -724,6 +725,25 @@ export function createDashboardRouter(auth: MedialitAuth) {
             sendWebhookError(res, error);
         }
     });
+
+    // The list leaves secrets out; showing one is an explicit action.
+    router.post(
+        "/api/apps/:appId/webhooks/:webhookId/secret",
+        async (req, res) => {
+            const owned = await ownedApp(req, res);
+            if (!owned) return;
+            try {
+                res.json(
+                    await revealWebhookSecret(
+                        owned.app.id,
+                        String(req.params.webhookId),
+                    ),
+                );
+            } catch (error) {
+                sendWebhookError(res, error);
+            }
+        },
+    );
 
     router.post(
         "/api/apps/:appId/webhooks/:webhookId/test",

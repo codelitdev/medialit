@@ -291,6 +291,7 @@ describe("MediaLit", () => {
                 url: "https://example.com/hooks",
                 events: ["media.processing.ready"],
                 enabled: true,
+                secretHint: "…_abc",
                 secret: "whsec_abc",
                 createdAt: "2026-01-01T00:00:00.000Z",
                 updatedAt: "2026-01-01T00:00:00.000Z",
@@ -300,6 +301,7 @@ describe("MediaLit", () => {
                 { endpoints: [endpoint] },
                 { ...endpoint, enabled: false },
                 { result: "failed", error: "timeout" },
+                { id: "wh_1", secret: "whsec_abc" },
                 { message: "success" },
             ];
             const fetchMock = mock.fn(
@@ -332,6 +334,10 @@ describe("MediaLit", () => {
                 result: "failed",
                 error: "timeout",
             });
+            assert.strictEqual(
+                await client.revealWebhookSecret("wh_1"),
+                "whsec_abc",
+            );
             await client.deleteWebhook("wh_1");
 
             const calls = fetchMock.mock.calls.map((call) => {
@@ -361,6 +367,7 @@ describe("MediaLit", () => {
                     { enabled: false, id: "wh_1" },
                 ],
                 ["/settings/webhooks/test", "POST", { id: "wh_1" }],
+                ["/settings/webhooks/secret", "POST", { id: "wh_1" }],
                 ["/settings/webhooks/delete", "POST", { id: "wh_1" }],
             ]);
         });

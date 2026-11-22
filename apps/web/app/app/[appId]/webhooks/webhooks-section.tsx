@@ -11,6 +11,7 @@ import type {
 import {
     createWebhook,
     deleteWebhook,
+    revealWebhookSecret,
     testWebhook,
     updateWebhook,
 } from "@/app/actions";
@@ -132,6 +133,8 @@ function EndpointRow({
     );
     const [feedback, setFeedback] = useState("");
     const [error, setError] = useState("");
+    // A rotation returns the new secret once; show it right away.
+    const [rotatedSecret, setRotatedSecret] = useState<string | undefined>();
 
     async function runTest() {
         setPending("test");
@@ -160,6 +163,8 @@ function EndpointRow({
             setError(response.error);
             return;
         }
+        if (response.endpoint.secret)
+            setRotatedSecret(response.endpoint.secret);
         setFeedback(done);
         onChanged();
     }
@@ -221,7 +226,15 @@ function EndpointRow({
                     </button>
                 </div>
             </div>
-            <SecretField secret={endpoint.secret} />
+            <SecretField
+                // A rotation changes the hint and starts the field afresh.
+                key={endpoint.secretHint}
+                appId={appId}
+                endpointId={endpoint.id}
+                hint={endpoint.secretHint}
+                secret={rotatedSecret}
+                initiallyShown={rotatedSecret !== undefined}
+            />
             <div className="flex flex-wrap items-center gap-3">
                 <button
                     type="button"
@@ -252,20 +265,58 @@ function EndpointRow({
     );
 }
 
-/** The signing secret, hidden until asked for, with a copy button. */
+/**
+ * The signing secret, hidden until asked for, with a copy button. The
+ * endpoint list carries only the secret's last characters, so showing or
+ * copying it fetches it with the reveal action, unless it was just
+ * returned (create, rotate).
+ */
 function SecretField({
-    secret,
+    appId,
+    endpointId,
+    hint,
+    secret: known,
     initiallyShown = false,
 }: {
-    secret: string;
+    appId: string;
+    endpointId: string;
+    hint: string;
+    secret?: string;
     initiallyShown?: boolean;
 }) {
-    const [shown, setShown] = useState(initiallyShown);
+    const [secret, setSecret] = useState<string | undefined>(known);
+    const [shown, setShown] = useState(initiallyShown && Boolean(known));
     const [copied, setCopied] = useState(false);
+    const [pending, setPending] = useState(false);
+    const [error, setError] = useState("");
+
+    async function load(): Promise<string | undefined> {
+        if (secret) return secret;
+        setPending(true);
+        setError("");
+        const response = await revealWebhookSecret(appId, endpointId);
+        setPending(false);
+        if (!response.success) {
+            setError(response.error);
+            return undefined;
+        }
+        setSecret(response.secret);
+        return response.secret;
+    }
+
+    async function toggle() {
+        if (shown) {
+            setShown(false);
+            return;
+        }
+        if (await load()) setShown(true);
+    }
 
     async function copy() {
+        const value = await load();
+        if (!value) return;
         try {
-            await navigator.clipboard.writeText(secret);
+            await navigator.clipboard.writeText(value);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1800);
         } catch {
@@ -274,39 +325,50 @@ function SecretField({
     }
 
     return (
-        <div className="settings-control-row">
-            <input
-                className="settings-input settings-mono-input"
-                value={shown ? secret : "whsec_••••••••••••••••••••••••"}
-                readOnly
-                aria-label="Signing secret"
-                onFocus={(event) => shown && event.currentTarget.select()}
-            />
-            <button
-                type="button"
-                className="workspace-button secondary"
-                onClick={() => setShown(!shown)}
-                aria-label={shown ? "Hide secret" : "Show secret"}
-            >
-                {shown ? (
-                    <EyeOff aria-hidden="true" />
-                ) : (
-                    <Eye aria-hidden="true" />
-                )}
-                {shown ? "Hide" : "Show"}
-            </button>
-            <button
-                type="button"
-                className="workspace-button secondary"
-                onClick={copy}
-            >
-                {copied ? (
-                    <Check aria-hidden="true" />
-                ) : (
-                    <Copy aria-hidden="true" />
-                )}
-                {copied ? "Copied" : "Copy"}
-            </button>
+        <div className="grid gap-2">
+            <div className="settings-control-row">
+                <input
+                    className="settings-input settings-mono-input"
+                    value={
+                        shown && secret ? secret : `whsec_••••••••••••${hint}`
+                    }
+                    readOnly
+                    aria-label="Signing secret"
+                    onFocus={(event) => shown && event.currentTarget.select()}
+                />
+                <button
+                    type="button"
+                    className="workspace-button secondary"
+                    disabled={pending}
+                    onClick={toggle}
+                    aria-label={shown ? "Hide secret" : "Show secret"}
+                >
+                    {shown ? (
+                        <EyeOff aria-hidden="true" />
+                    ) : (
+                        <Eye aria-hidden="true" />
+                    )}
+                    {shown ? "Hide" : "Show"}
+                </button>
+                <button
+                    type="button"
+                    className="workspace-button secondary"
+                    disabled={pending}
+                    onClick={copy}
+                >
+                    {copied ? (
+                        <Check aria-hidden="true" />
+                    ) : (
+                        <Copy aria-hidden="true" />
+                    )}
+                    {copied ? "Copied" : "Copy"}
+                </button>
+            </div>
+            {error ? (
+                <p className="inline-error" role="alert">
+                    {error}
+                </p>
+            ) : null}
         </div>
     );
 }
@@ -387,7 +449,13 @@ function EndpointDialog({
                 </DialogHeader>
                 {created ? (
                     <>
-                        <SecretField secret={created.secret} initiallyShown />
+                        <SecretField
+                            appId={appId}
+                            endpointId={created.id}
+                            hint={created.secretHint}
+                            secret={created.secret}
+                            initiallyShown
+                        />
                         <DialogFooter>
                             <button
                                 type="button"

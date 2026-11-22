@@ -407,6 +407,11 @@ export async function runIntegrationTests(
                 assert.equal((await call("delete", { id })).message, "success");
             },
             test: (id) => call("test", { id }),
+            reveal: async (id) => {
+                const result = await call("secret", { id });
+                assert.equal(result.id, id);
+                return String(result.secret);
+            },
         };
     }
 

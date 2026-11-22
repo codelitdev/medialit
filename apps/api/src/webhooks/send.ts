@@ -69,6 +69,29 @@ function errorClass(error: unknown): DeliveryErrorClass {
 
 class DeadlineError extends Error {}
 
+/** How long each address but the last gets to connect, so one that drops
+ * packets doesn't use up the whole deadline. */
+export const CONNECT_TIMEOUT_MS = 3_000;
+
+const CONNECT_ERROR_CODES = new Set([
+    "ECONNREFUSED",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "EHOSTDOWN",
+    "ENETDOWN",
+    "EADDRNOTAVAIL",
+    "EAFNOSUPPORT",
+    "ETIMEDOUT",
+    "ECONNECT_TIMEOUT",
+]);
+
+/** True for failures that happen before any of the request is sent: the
+ * connection or the TLS handshake failed. */
+function beforeSending(error: unknown): boolean {
+    const code = String((error as { code?: unknown })?.code ?? "");
+    return CONNECT_ERROR_CODES.has(code) || errorClass(error) === "tls_error";
+}
+
 export type SendInput = {
     url: string;
     body: string;
@@ -94,14 +117,13 @@ export async function sendWebhook(input: SendInput): Promise<DeliveryResult> {
     if (input.signal?.aborted) onAbort();
     try {
         let url: URL;
-        let address: string;
+        let addresses: { address: string }[];
         try {
             url = parseWebhookUrl(input.url, input.guard);
-            const addresses = await withAbort(
+            addresses = await withAbort(
                 resolveAndCheck(url, input.guard),
                 controller.signal,
             );
-            address = addresses[0].address;
         } catch (error) {
             if (controller.signal.aborted) throw error;
             if (
@@ -120,7 +142,32 @@ export async function sendWebhook(input: SendInput): Promise<DeliveryResult> {
                 durationMs: elapsed(),
             };
         }
-        const status = await request(url, address, input, controller.signal);
+        // Every address was checked; try them in order within the one
+        // deadline. Move on only when nothing could have reached a
+        // receiver yet (the connection or TLS handshake failed), so an
+        // event is never sent twice.
+        let status = 0;
+        for (let index = 0; ; index++) {
+            const last = index === addresses.length - 1;
+            try {
+                status = await request(
+                    url,
+                    addresses[index].address,
+                    input,
+                    controller.signal,
+                    last ? undefined : CONNECT_TIMEOUT_MS,
+                );
+                break;
+            } catch (error) {
+                if (
+                    last ||
+                    controller.signal.aborted ||
+                    !beforeSending(error)
+                ) {
+                    throw error;
+                }
+            }
+        }
         const durationMs = elapsed();
         if (status >= 200 && status < 300) {
             return { ok: true, status, durationMs };
@@ -167,6 +214,7 @@ function request(
     address: string,
     input: SendInput,
     signal: AbortSignal,
+    connectTimeoutMs?: number,
 ): Promise<number> {
     const secure = url.protocol === "https:";
     const hostname = bareHostname(url);
@@ -222,6 +270,23 @@ function request(
                 if (!settled) reject(error);
             });
         });
+        if (connectTimeoutMs !== undefined) {
+            req.once("socket", (socket) => {
+                const timer = setTimeout(
+                    () =>
+                        req.destroy(
+                            Object.assign(new Error("connect timed out"), {
+                                code: "ECONNECT_TIMEOUT",
+                            }),
+                        ),
+                    connectTimeoutMs,
+                );
+                socket.once(secure ? "secureConnect" : "connect", () =>
+                    clearTimeout(timer),
+                );
+                socket.once("close", () => clearTimeout(timer));
+            });
+        }
         req.on("error", reject);
         req.end(body);
     });

@@ -118,15 +118,24 @@ export interface WebhookClient {
     ): Promise<Record<string, unknown>>;
     remove(id: string): Promise<void>;
     test(id: string): Promise<Record<string, unknown>>;
+    /** Reads an endpoint's secret, where the transport offers it (REST and
+     * the CLI; MCP doesn't). */
+    reveal?(id: string): Promise<string>;
 }
 
 export class WebhookRefused extends Error {}
 
 const WEBHOOK_EVENTS = ["media.processing.ready", "media.processing.failed"];
 
-function checkEndpoint(value: unknown): {
+/** Checks an endpoint's shape. With `secret`, it must carry the full
+ * secret (create and rotate); without, it must not (everything else). */
+function checkEndpoint(
+    value: unknown,
+    expect: { secret: boolean },
+): {
     id: string;
-    secret: string;
+    secret?: string;
+    secretHint: string;
     url: string;
     events: string[];
     enabled: boolean;
@@ -134,7 +143,20 @@ function checkEndpoint(value: unknown): {
     const endpoint = value as Record<string, unknown>;
     assert.equal(typeof endpoint?.id, "string");
     assert.match(String(endpoint.id), /^wh_/);
-    assert.match(String(endpoint.secret), /^whsec_[A-Za-z0-9+/]+=*$/);
+    assert.match(String(endpoint.secretHint), /^….{4}$/);
+    if (expect.secret) {
+        assert.match(String(endpoint.secret), /^whsec_[A-Za-z0-9+/]+=*$/);
+        assert.equal(
+            endpoint.secretHint,
+            `…${String(endpoint.secret).slice(-4)}`,
+        );
+    } else {
+        assert.equal(
+            "secret" in endpoint,
+            false,
+            "Only create and rotate may return the signing secret",
+        );
+    }
     assert.equal(typeof endpoint.url, "string");
     assert.equal(typeof endpoint.enabled, "boolean");
     assert(Array.isArray(endpoint.events));
@@ -158,17 +180,24 @@ export async function checkWebhooks(
     let failure: unknown;
     try {
         const before = await client.list();
-        const endpoint = checkEndpoint(await client.create({ url }));
+        const endpoint = checkEndpoint(await client.create({ url }), {
+            secret: true,
+        });
         created.add(endpoint.id);
         assert.equal(endpoint.url, url);
         assert.deepEqual(endpoint.events, WEBHOOK_EVENTS);
         assert.equal(endpoint.enabled, true);
         const listed = await client.list();
         assert.equal(listed.length, before.length + 1);
+        for (const item of listed) checkEndpoint(item, { secret: false });
+        const { secret: createdSecret, ...withoutSecret } = endpoint;
         assert.deepEqual(
             listed.find((item) => item.id === endpoint.id),
-            endpoint,
+            withoutSecret,
         );
+        if (client.reveal) {
+            assert.equal(await client.reveal(endpoint.id), createdSecret);
+        }
 
         const updated = checkEndpoint(
             await client.update(endpoint.id, {
@@ -176,20 +205,25 @@ export async function checkWebhooks(
                 events: ["media.processing.failed"],
                 enabled: false,
             }),
+            { secret: false },
         );
         assert.equal(updated.url, `${url}/v2`);
         assert.deepEqual(updated.events, ["media.processing.failed"]);
         assert.equal(updated.enabled, false);
-        assert.equal(updated.secret, endpoint.secret);
+        assert.equal(updated.secretHint, endpoint.secretHint);
         const rotated = checkEndpoint(
             await client.update(endpoint.id, { rotateSecret: true }),
+            { secret: true },
         );
-        assert.notEqual(rotated.secret, endpoint.secret);
+        assert.notEqual(rotated.secret, createdSecret);
         assert.equal(
             (await client.list()).find((item) => item.id === endpoint.id)
-                ?.secret,
-            rotated.secret,
+                ?.secretHint,
+            rotated.secretHint,
         );
+        if (client.reveal) {
+            assert.equal(await client.reveal(endpoint.id), rotated.secret);
+        }
         log("PASS webhook endpoint create, list, update and secret rotation");
 
         assert.deepEqual(await client.test(endpoint.id), {
@@ -209,6 +243,7 @@ export async function checkWebhooks(
             try {
                 const accepted = checkEndpoint(
                     await client.create({ url: internal }),
+                    { secret: true },
                 );
                 created.add(accepted.id);
                 allowsPrivate = true;
