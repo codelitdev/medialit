@@ -315,17 +315,19 @@ describe("runLimited", () => {
         resetPrlimitWarningForTests();
         const warnings: string[] = [];
         const shDir = path.dirname(findExecutable("sh") as string);
-        process.env.PATH = path.join(dir, "empty");
+        const noPrlimit = path.join(dir, "empty");
         const out = path.join(dir, "noprlimit");
         await runLimited(path.join(shDir, "sh"), ["-c", `echo ok > "${out}"`], {
             timeoutMs: 5000,
             memoryMb: 64,
             onNoPrlimit: () => warnings.push("no prlimit"),
+            prlimitDirs: noPrlimit,
         });
         await runLimited(path.join(shDir, "sh"), ["-c", "true"], {
             timeoutMs: 5000,
             memoryMb: 64,
             onNoPrlimit: () => warnings.push("no prlimit"),
+            prlimitDirs: noPrlimit,
         });
         assert.equal((await readFile(out, "utf8")).trim(), "ok");
         assert.deepEqual(warnings, ["no prlimit"]);

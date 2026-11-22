@@ -31,6 +31,12 @@ export function findExecutable(
     return null;
 }
 
+/** Where util-linux installs `prlimit`. Fixed directories, not PATH, so
+ * the environment can't choose which binary wraps every conversion. */
+const PRLIMIT_DIRS = ["/usr/bin", "/bin", "/usr/local/bin"].join(
+    path.delimiter,
+);
+
 let warnedNoPrlimit = false;
 
 export interface RunLimitedOptions {
@@ -43,6 +49,9 @@ export interface RunLimitedOptions {
     /** Called once if `prlimit` isn't installed and the memory limit can't
      * be applied. Defaults to a console warning. */
     onNoPrlimit?: () => void;
+    /** Directories searched for `prlimit`, joined with the path delimiter.
+     * For tests; defaults to the system directories. */
+    prlimitDirs?: string;
 }
 
 /**
@@ -63,7 +72,10 @@ export function runLimited(
     let file = command;
     let argv = args;
     if (options.memoryMb && options.memoryMb > 0) {
-        const prlimit = findExecutable("prlimit");
+        const prlimit = findExecutable(
+            "prlimit",
+            options.prlimitDirs ?? PRLIMIT_DIRS,
+        );
         if (prlimit) {
             file = prlimit;
             argv = [
