@@ -32,12 +32,33 @@ export const mediaSchema = z.object({
         )
         .optional()
         .describe("Outputs made from the original, by name"),
+    metadata: z
+        .object({
+            kind: z.enum(["video", "audio", "image"]),
+            durationSeconds: z.number().optional(),
+            width: z.number().optional(),
+            height: z.number().optional(),
+            rotation: z.number().optional(),
+            frameRate: z.number().optional(),
+            videoCodec: z.string().optional(),
+            audioCodec: z.string().optional(),
+            bitrate: z.number().optional(),
+            sampleRate: z.number().optional(),
+            channels: z.number().optional(),
+            format: z.string().optional(),
+        })
+        .nullable()
+        .optional()
+        .describe(
+            "Duration, size, codecs and format, read at seal. Null before seal",
+        ),
 });
 
 export const mediaListItemSchema = mediaSchema.omit({
     file: true,
     processing: true,
     derivatives: true,
+    metadata: true,
 });
 
 export const mediaListSchema = z.object({

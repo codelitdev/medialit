@@ -25,6 +25,7 @@ import { webpLimits } from "./webp-limits";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
 import { mediaKind } from "./kind";
+import { describeError } from "../jobs/errors";
 import { getMediaSettings } from "../media-settings/queries";
 import * as presignedUrlService from "../signature/service";
 import generateFileName from "./utils/generate-file-name";
@@ -268,8 +269,9 @@ export async function finalizeStoredUpload(
                         "thumbnail skipped",
                     );
                 } else {
+                    // Video errors name the presigned URL; keep it out.
                     logger.error(
-                        { err, media_id: mediaId },
+                        { error: describeError(err), media_id: mediaId },
                         "Failed to generate thumbnail",
                     );
                 }

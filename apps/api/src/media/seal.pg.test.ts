@@ -39,12 +39,13 @@ import type { AppDb } from "../db/client.js";
 
 const realCwebp = findExecutable("cwebp");
 const realFfmpeg = findExecutable("ffmpeg");
+const realFfprobe = findExecutable("ffprobe");
 const skip = !testPostgresUrl
     ? "set JOBS_TEST_DATABASE_URL to run against real Postgres"
     : !process.env.CLOUD_ENDPOINT
       ? "set the CLOUD_* settings of a test MinIO"
-      : !realCwebp || !realFfmpeg
-        ? "cwebp and ffmpeg must be installed"
+      : !realCwebp || !realFfmpeg || !realFfprobe
+        ? "cwebp, ffmpeg and ffprobe must be installed"
         : false;
 
 // Loaded in before(), after the environment is set.
@@ -122,6 +123,15 @@ exec "${realCwebp}" "$@"
         path.join(bin, "ffmpeg"),
         `#!/bin/sh\necho "$*" >> "${work}/ffmpeg.log"\nexec "${realFfmpeg}" "$@"\n`,
     );
+    // ffprobe: can be made slow, to check seal's limit on it.
+    await writeFile(
+        path.join(bin, "ffprobe"),
+        `#!/bin/sh
+if [ -f "${control("probe-sleep")}" ]; then sleep "$(cat "${control("probe-sleep")}")"; fi
+exec "${realFfprobe}" "$@"
+`,
+    );
+    await chmod(path.join(bin, "ffprobe"), 0o755);
     await chmod(path.join(bin, "cwebp"), 0o755);
     await chmod(path.join(bin, "ffmpeg"), 0o755);
     process.env.PATH = `${bin}${path.delimiter}${realPath}`;
@@ -159,7 +169,9 @@ beforeEach(async () => {
     for (const key of Object.keys(process.env)) {
         if (/^(WEBP_|SEAL_)/.test(key)) delete process.env[key];
     }
-    for (const name of ["sleep", "fail"]) await setControl(name, null);
+    for (const name of ["sleep", "fail", "probe-sleep"]) {
+        await setControl(name, null);
+    }
     await rm(path.join(work, "cwebp.log"), { force: true });
     await rm(path.join(work, "ffmpeg.log"), { force: true });
     await settings({ useWebP: true });
@@ -402,6 +414,103 @@ describe("seal", { skip }, () => {
         } finally {
             restore();
         }
+    });
+
+    test("seal reads metadata: ffprobe for video, the header for images", async () => {
+        const videoPath = path.join(work, "metadata.mp4");
+        execFileSync("ffmpeg", [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=320x180:rate=25:duration=2",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=2",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-shortest",
+            videoPath,
+        ]);
+        const video = await upload(await readFile(videoPath), {
+            mimeType: "video/mp4",
+            fileName: "metadata.mp4",
+            access: "public",
+        });
+        assert.equal(video.metadata, null, "temp media has no metadata");
+        const sealedVideo = await sealIt(video.mediaId);
+        const meta = sealedVideo.metadata as Record<string, unknown>;
+        assert.equal(meta.kind, "video");
+        assert.equal(meta.width, 320);
+        assert.equal(meta.height, 180);
+        assert.equal(meta.videoCodec, "h264");
+        assert.equal(meta.audioCodec, "aac");
+        assert.equal(meta.frameRate, 25);
+        assert.ok(Math.abs(Number(meta.durationSeconds) - 2) < 0.2);
+        // Stored, so later reads return it too.
+        assert.deepEqual((await row(video.mediaId))?.metadata, meta);
+
+        const image = await upload(png(300, 200), { access: "private" });
+        const sealedImage = await sealIt(image.mediaId);
+        assert.deepEqual(sealedImage.metadata, {
+            kind: "image",
+            width: 300 + pngCount,
+            height: 200,
+            format: "webp",
+        });
+
+        await settings({ useWebP: false });
+        const kept = await upload(png(120, 80));
+        assert.deepEqual((await sealIt(kept.mediaId)).metadata, {
+            kind: "image",
+            width: 120 + pngCount,
+            height: 80,
+            format: "png",
+        });
+    });
+
+    test("a file that can't be read, or a slow ffprobe, still seals without metadata", async () => {
+        const broken = await upload(Buffer.from("not really a video"), {
+            mimeType: "video/mp4",
+            fileName: "broken.mp4",
+        });
+        const sealedBroken = await sealIt(broken.mediaId);
+        assert.equal(sealedBroken.metadata, null);
+        assert.equal((await row(broken.mediaId))?.temp, false);
+
+        const videoPath = path.join(work, "slow-probe.mp4");
+        execFileSync("ffmpeg", [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=160x90:duration=1",
+            "-pix_fmt",
+            "yuv420p",
+            videoPath,
+        ]);
+        const slow = await upload(await readFile(videoPath), {
+            mimeType: "video/mp4",
+            fileName: "slow.mp4",
+        });
+        await setControl("probe-sleep", "10");
+        const startedAt = Date.now();
+        const sealedSlow = await sealIt(slow.mediaId);
+        const took = Date.now() - startedAt;
+        assert.equal(sealedSlow.metadata, null);
+        assert.ok(
+            took < seal.SEAL_PROBE_TIMEOUT_MS + 3_000,
+            `seal waited ${took} ms for ffprobe`,
+        );
     });
 
     test("sealing a public image publishes only main.webp", async () => {

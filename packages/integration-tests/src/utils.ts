@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 
 // Build a valid transparent RGBA PNG, including PNG chunk checksums. The
@@ -335,5 +339,59 @@ export async function retryRateLimited<T extends { stderr: string }>(
         }
         log("WAIT rate limited; retrying in 65s");
         await sleep(MAX_RATE_LIMIT_WAIT_MS);
+    }
+}
+
+/**
+ * A short test video made with ffmpeg (`testsrc` and a sine tone), or null
+ * when ffmpeg isn't installed. The video suites skip their uploads then.
+ */
+export function generateVideo(
+    options: {
+        width?: number;
+        height?: number;
+        seconds?: number;
+        audio?: boolean;
+        codec?: "h264" | "vp9";
+    } = {},
+): Buffer | null {
+    const { width = 640, height = 360, seconds = 2, audio = true } = options;
+    const codec = options.codec ?? "h264";
+    const dir = mkdtempSync(join(tmpdir(), "medialit-video-"));
+    const file = join(dir, codec === "vp9" ? "clip.webm" : "clip.mp4");
+    try {
+        execFileSync(
+            "ffmpeg",
+            [
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                `testsrc=size=${width}x${height}:rate=25:duration=${seconds}`,
+                ...(audio
+                    ? [
+                          "-f",
+                          "lavfi",
+                          "-i",
+                          `sine=frequency=440:duration=${seconds}`,
+                      ]
+                    : []),
+                ...(codec === "vp9"
+                    ? ["-c:v", "libvpx-vp9", "-deadline", "realtime"]
+                    : ["-c:v", "libx264", "-pix_fmt", "yuv420p"]),
+                ...(audio ? ["-c:a", codec === "vp9" ? "libopus" : "aac"] : []),
+                "-shortest",
+                file,
+            ],
+            { stdio: "ignore" },
+        );
+        return readFileSync(file);
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw error;
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
     }
 }

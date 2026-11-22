@@ -449,6 +449,9 @@ export async function runCliIntegrationTests(
         const fetched = object(await json(withId("get", tempId)), "media");
         checkMedia(fetched, { name: tempName, access: "private", caption });
         await checkProcessing(fetched, "sealed");
+        const fetchedMetadata = object(fetched.metadata, "metadata");
+        assert.equal(fetchedMetadata.kind, "image");
+        assert.equal(fetchedMetadata.format, "png");
         const privateUrl = (await ok(withId("get", tempId))).stdout.trim();
         assert.match(privateUrl, /^https?:\/\//);
         assert.deepEqual(await download(privateUrl), png);

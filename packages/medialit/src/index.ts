@@ -456,6 +456,7 @@ export class MediaLit {
 export type {
     Media,
     MediaDerivative,
+    MediaMetadata,
     MediaProcessing,
     ProcessingStatus,
 } from "./types";

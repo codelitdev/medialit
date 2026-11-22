@@ -230,6 +230,24 @@ export const deleteObject = async (params: DeleteParams) => {
     return response;
 };
 
+/* Reads the first `bytes` bytes of an object (fewer if it is shorter). */
+export const getObjectHead = async (params: {
+    Key: string;
+    Bucket?: string;
+    bytes: number;
+}): Promise<Buffer> => {
+    const bucket = params.Bucket || cloudBucket;
+    const response = await getS3Client(bucket).send(
+        new GetObjectCommand({
+            Bucket: bucket,
+            Key: params.Key,
+            Range: `bytes=0-${Math.max(0, params.bytes - 1)}`,
+        }),
+    );
+    const bytes = await response.Body!.transformToByteArray();
+    return Buffer.from(bytes.subarray(0, params.bytes));
+};
+
 /* Reads a whole object into memory. Callers check `ContentLength` against
    their own limit first, so pass `maxBytes` to refuse anything larger. */
 export const getObjectBytes = async (params: {

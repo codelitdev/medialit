@@ -632,6 +632,9 @@ export async function runMcpIntegrationTests(
         assert.equal(retrieved.size, png.length);
         assert.equal(retrieved.group, group);
         await checkProcessing(retrieved, "sealed");
+        const retrievedMetadata = object(retrieved.metadata, "metadata");
+        assert.equal(retrievedMetadata.kind, "image");
+        assert.ok(Number(retrievedMetadata.width) > 0, "metadata width");
         assert.deepEqual(
             (await list(group)).map((item) => item.mediaId),
             [mediaId],

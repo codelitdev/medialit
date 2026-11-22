@@ -1660,6 +1660,72 @@
               ],
               "additionalProperties": false
             }
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "video",
+                  "audio",
+                  "image"
+                ]
+              },
+              "durationSeconds": {
+                "type": "number",
+                "format": "float"
+              },
+              "width": {
+                "type": "number",
+                "format": "float"
+              },
+              "height": {
+                "type": "number",
+                "format": "float"
+              },
+              "rotation": {
+                "type": "number",
+                "format": "float",
+                "enum": [
+                  0,
+                  90,
+                  180,
+                  270
+                ]
+              },
+              "frameRate": {
+                "type": "number",
+                "format": "float"
+              },
+              "videoCodec": {
+                "type": "string"
+              },
+              "audioCodec": {
+                "type": "string"
+              },
+              "bitrate": {
+                "type": "number",
+                "format": "float"
+              },
+              "sampleRate": {
+                "type": "number",
+                "format": "float"
+              },
+              "channels": {
+                "type": "number",
+                "format": "float"
+              },
+              "format": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "nullable": true,
+            "description": "Duration, size, codecs and format, read at seal. Null before seal or when the file couldn't be read."
           }
         },
         "required": [

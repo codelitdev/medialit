@@ -21,6 +21,7 @@ export {
     findExecutable,
     runLimited,
     type RunLimitedOptions,
+    type RunLimitedResult,
 } from "./process";
 export { Slots, type ReleaseSlot } from "./slots";
 export {

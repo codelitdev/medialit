@@ -1,5 +1,6 @@
 import Joi from "joi";
 import { AccessControl } from "@medialit/models";
+import type { MediaMetadata } from "../db/schema";
 
 export const uploadMediaSchema = Joi.object({
     caption: Joi.string().optional().allow(""),
@@ -40,6 +41,9 @@ export interface MediaResponse {
             error?: string;
         }
     >;
+    /** Duration, size, codecs and format, read at seal. Null before seal,
+     * or when the file couldn't be read. */
+    metadata: MediaMetadata | null;
 }
 
 export interface MediaListItemResponse {
@@ -84,6 +88,24 @@ export const mediaResponseSchema = Joi.object<MediaResponse>({
             }),
         )
         .required(),
+    metadata: Joi.object({
+        kind: Joi.string().valid("video", "audio", "image").required(),
+        durationSeconds: Joi.number().optional(),
+        width: Joi.number().optional(),
+        height: Joi.number().optional(),
+        rotation: Joi.number().valid(0, 90, 180, 270).optional(),
+        frameRate: Joi.number().optional(),
+        videoCodec: Joi.string().optional(),
+        audioCodec: Joi.string().optional(),
+        bitrate: Joi.number().optional(),
+        sampleRate: Joi.number().optional(),
+        channels: Joi.number().optional(),
+        format: Joi.string().optional(),
+    })
+        .allow(null)
+        .description(
+            "Duration, size, codecs and format, read at seal. Null before seal or when the file couldn't be read.",
+        ),
 });
 
 export const mediaListItemResponseSchema = Joi.object<MediaListItemResponse>({

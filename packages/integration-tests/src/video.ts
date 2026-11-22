@@ -7,6 +7,7 @@
  * no concurrent media writes.
  */
 import assert from "node:assert/strict";
+import { generatePng, generateVideo } from "./utils";
 
 type JsonObject = Record<string, unknown>;
 
@@ -41,10 +42,11 @@ export async function runVideoIntegrationTests(
     base.pathname = `${base.pathname.replace(/\/+$/, "")}/`;
     const log = options.log ?? console.log;
     let original: VideoSettings | undefined;
+    const created: string[] = [];
 
-    async function call(path: string, body?: JsonObject) {
+    async function call(path: string, body?: JsonObject, method = "POST") {
         const response = await fetch(new URL(path, base), {
-            method: "POST",
+            method,
             headers: {
                 "x-medialit-apikey": apiKey!,
                 "content-type": "application/json",
@@ -69,6 +71,32 @@ export async function runVideoIntegrationTests(
         );
         return object(response.body);
     }
+
+    /** A form-data upload; returns the upload response. */
+    async function upload(
+        bytes: Buffer,
+        name: string,
+        type: string,
+        access: "public" | "private" = "private",
+    ): Promise<JsonObject> {
+        const form = new FormData();
+        form.set("file", new Blob([Uint8Array.from(bytes)], { type }), name);
+        form.set("access", access);
+        const response = await fetch(new URL("media/create", base), {
+            method: "POST",
+            headers: { "x-medialit-apikey": apiKey! },
+            body: form,
+            signal: AbortSignal.timeout(120_000),
+        });
+        const text = (await response.text()).split(apiKey!).join("");
+        assert.equal(response.status, 200, `upload ${name}: ${text}`);
+        const media = object(JSON.parse(text));
+        created.push(String(media.mediaId));
+        return media;
+    }
+
+    const seal = async (mediaId: unknown) =>
+        await api(`media/seal/${encodeURIComponent(String(mediaId))}`);
 
     const settings = async () =>
         (await api("settings/media/get")) as unknown as VideoSettings &
@@ -137,9 +165,55 @@ export async function runVideoIntegrationTests(
         log(
             `PASS storage stats report processing minutes (${minutes.used} of ${minutes.allowed ?? "no limit"})`,
         );
+
+        // Metadata is read at seal (D2): none while temp, then stored.
+        const video = generateVideo({ width: 320, height: 180, seconds: 2 });
+        if (!video) {
+            log("SKIP video metadata (ffmpeg is not installed here)");
+        } else {
+            const uploaded = await upload(video, "clip.mp4", "video/mp4");
+            assert.equal(uploaded.metadata, null);
+            const sealed = await seal(uploaded.mediaId);
+            const meta = object(sealed.metadata);
+            assert.equal(meta.kind, "video");
+            assert.equal(meta.width, 320);
+            assert.equal(meta.height, 180);
+            assert.equal(meta.videoCodec, "h264");
+            assert.equal(meta.audioCodec, "aac");
+            assert.ok(Math.abs(Number(meta.durationSeconds) - 2) < 0.3);
+            const fetched = await api(
+                `media/get/${encodeURIComponent(String(uploaded.mediaId))}`,
+            );
+            assert.deepEqual(fetched.metadata, sealed.metadata);
+            log("PASS video metadata read at seal and returned by get");
+        }
+        const image = await upload(
+            generatePng(64, 36),
+            "image.png",
+            "image/png",
+        );
+        const sealedImage = await seal(image.mediaId);
+        const imageMeta = object(sealedImage.metadata);
+        assert.equal(imageMeta.kind, "image");
+        assert.equal(imageMeta.width, 64);
+        assert.equal(imageMeta.height, 36);
+        log("PASS image metadata read at seal");
     } catch (error) {
         failure = error;
     } finally {
+        for (const mediaId of created) {
+            const deleted = await call(
+                `media/delete/${encodeURIComponent(mediaId)}`,
+                undefined,
+                "DELETE",
+            ).catch((error) => ({ status: 0, body: String(error) }));
+            if (deleted.status !== 200) {
+                log(
+                    `CLEANUP FAILED for ${mediaId}: ${JSON.stringify(deleted.body)}`,
+                );
+                failure ??= new Error(`Could not delete ${mediaId}`);
+            }
+        }
         if (original) {
             try {
                 await api("settings/media/create", {
@@ -157,5 +231,5 @@ export async function runVideoIntegrationTests(
         }
     }
     if (failure) throw failure;
-    log("PASS video settings and processing minutes");
+    log("PASS video settings, processing minutes and metadata");
 }

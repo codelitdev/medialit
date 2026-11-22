@@ -7,6 +7,13 @@ export class ProcessLimitError extends Error {
     constructor(
         message: string,
         readonly reason: "timeout" | "aborted" | "failed",
+        /** For `failed`: how the process ended. A signal means it was
+         * killed (for example by the out-of-memory killer), not that it
+         * refused its input. */
+        readonly exit: { code: number | null; signal: string | null } = {
+            code: null,
+            signal: null,
+        },
     ) {
         super(message);
         this.name = "ProcessLimitError";
@@ -52,6 +59,14 @@ export interface RunLimitedOptions {
     /** Directories searched for `prlimit`, joined with the path delimiter.
      * For tests; defaults to the system directories. */
     prlimitDirs?: string;
+    /** Keep up to this many bytes of stdout and return them. Stdout is
+     * discarded otherwise. */
+    captureStdoutBytes?: number;
+}
+
+export interface RunLimitedResult {
+    /** What the process wrote to stdout, when `captureStdoutBytes` is set. */
+    stdout: string;
 }
 
 /**
@@ -68,7 +83,7 @@ export function runLimited(
     command: string,
     args: string[],
     options: RunLimitedOptions,
-): Promise<void> {
+): Promise<RunLimitedResult> {
     let file = command;
     let argv = args;
     if (options.memoryMb && options.memoryMb > 0) {
@@ -96,7 +111,8 @@ export function runLimited(
         }
     }
 
-    return new Promise<void>((resolve, reject) => {
+    const capture = options.captureStdoutBytes ?? 0;
+    return new Promise<RunLimitedResult>((resolve, reject) => {
         if (options.signal?.aborted) {
             reject(new ProcessLimitError(`${command} was aborted`, "aborted"));
             return;
@@ -106,12 +122,20 @@ export function runLimited(
             child = spawn(file, argv, {
                 detached: true,
                 shell: false,
-                stdio: ["ignore", "ignore", "pipe"],
+                stdio: ["ignore", capture > 0 ? "pipe" : "ignore", "pipe"],
             });
         } catch (err) {
             reject(err);
             return;
         }
+        const stdout: Buffer[] = [];
+        let stdoutBytes = 0;
+        child.stdout?.on("data", (data: Buffer) => {
+            if (stdoutBytes >= capture) return;
+            const part = data.subarray(0, capture - stdoutBytes);
+            stdout.push(part);
+            stdoutBytes += part.length;
+        });
         let stderr = "";
         child.stderr?.on("data", (data: Buffer) => {
             if (stderr.length < 2000) stderr += data.toString();
@@ -152,7 +176,7 @@ export function runLimited(
                     new ProcessLimitError(`${command} was aborted`, "aborted"),
                 );
             } else if (code === 0) {
-                resolve();
+                resolve({ stdout: Buffer.concat(stdout).toString("utf8") });
             } else {
                 const detail = stderr
                     .trim()
@@ -164,6 +188,7 @@ export function runLimited(
                     new ProcessLimitError(
                         `${command} exited with ${signal ? `signal ${signal}` : `code ${code}`}${detail ? `: ${detail}` : ""}`,
                         "failed",
+                        { code, signal },
                     ),
                 );
             }

@@ -22,12 +22,16 @@ import {
     copyObject,
     deleteObject,
     downloadObject,
+    generateSignedUrl,
+    getObjectHead,
     getObjectTagging,
     headObject,
     putObject,
     type CopyParams,
 } from "../services/s3";
-import logger from "../services/log";
+import logger, { captureException } from "../services/log";
+import { imageMetadata, probeMedia, type MediaMetadata } from "./probe";
+import { describeError } from "../jobs/errors";
 import { trackEvent } from "../services/events";
 import { mediaKind } from "./kind";
 import { resolveAccountPlan, storageLimitFor } from "../billing/entitlements";
@@ -333,9 +337,20 @@ async function runSeal(
             });
         }
 
+        // Metadata (phase 1, D2). Never fails the seal.
+        const metadata = await readSealMetadata({
+            mediaId,
+            appId,
+            mimeType: media.mimeType,
+            key: privateMain,
+            convertedToWebp: Boolean(converted),
+            signal,
+        });
+
         // Step 5: commit.
         await sealHooks.beforeCommit?.(token);
         const committed = await commitSeal({
+            metadata,
             mediaRowId,
             token,
             processingStatus: webp.kind === "failed" ? "failed" : "ready",
@@ -431,6 +446,91 @@ function reportSealed(
             access: media.accessControl,
         },
     });
+}
+
+/** ffprobe's limits at seal: seal waits for it (D2). */
+export const SEAL_PROBE_TIMEOUT_MS = 2_000;
+export const SEAL_PROBE_BYTES = 2_000_000;
+/** Enough of an image's start for its header in practice; a JPEG whose
+ * frame header comes later gets no metadata. */
+const IMAGE_HEAD_BYTES = 256 * 1024;
+
+/**
+ * Reads the original's metadata before seal commits: the image header for
+ * images, ffprobe over a presigned URL for audio and video. Returns null
+ * when it can't be read, and logs why. Never throws for the file itself.
+ */
+async function readSealMetadata(input: {
+    mediaId: string;
+    appId: string;
+    mimeType: string;
+    key: string;
+    convertedToWebp: boolean;
+    signal: AbortSignal;
+}): Promise<MediaMetadata | null> {
+    const type = input.mimeType.toLowerCase();
+    const startedAt = Date.now();
+    const fields = { media_id: input.mediaId, app_id: input.appId };
+    try {
+        let metadata: MediaMetadata | null = null;
+        if (type.startsWith("image/")) {
+            const head = await getObjectHead({
+                Key: input.key,
+                Bucket: cloudBucket,
+                bytes: IMAGE_HEAD_BYTES,
+            });
+            metadata = await imageMetadata(head);
+            // Converting keeps the size and changes the format.
+            if (metadata && input.convertedToWebp) metadata.format = "webp";
+        } else if (type.startsWith("video/") || type.startsWith("audio/")) {
+            const url = await generateSignedUrl(input.key, cloudBucket);
+            metadata =
+                (
+                    await probeMedia(url, {
+                        timeoutMs: SEAL_PROBE_TIMEOUT_MS,
+                        probeBytes: SEAL_PROBE_BYTES,
+                        signal: input.signal,
+                    })
+                )?.metadata ?? null;
+        } else {
+            return null;
+        }
+        if (!metadata) {
+            logger.warn(
+                { ...fields, reason: "unreadable" },
+                "metadata probe failed",
+            );
+            return null;
+        }
+        logger.debug(
+            {
+                ...fields,
+                media_kind: metadata.kind,
+                duration_ms: Date.now() - startedAt,
+            },
+            "metadata read",
+        );
+        return metadata;
+    } catch (err) {
+        if (input.signal.aborted) throw new ClaimLost();
+        const reason =
+            err instanceof ProcessLimitError && err.reason === "timeout"
+                ? "timeout"
+                : "failed";
+        // The message names the presigned URL; never log or send it.
+        const error = describeError(err);
+        logger.warn({ ...fields, reason, error }, "metadata probe failed");
+        // ffprobe killed by a signal is a crash, not an unreadable file.
+        if (err instanceof ProcessLimitError && err.exit.signal) {
+            captureException({
+                error: new Error(error),
+                source: "api.metadata_probe",
+                severity: "warning",
+                context: fields,
+            });
+        }
+        return null;
+    }
 }
 
 class MediaGone extends Error {

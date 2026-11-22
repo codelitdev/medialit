@@ -91,6 +91,7 @@ Video processing is measured in minutes of video. Each account has a monthly all
 Every media response has two more fields:
 
 - **`processing`** says where background processing of the file stands: `{ "status": "pending" }` until the file is sealed, then `processing` while work runs, and `ready` or `failed` when it ends. A failed step never makes the original unavailable, and `processing.error` says what went wrong.
+- **`metadata`** describes the file: `kind` (`video`, `audio` or `image`), and where they apply `durationSeconds`, `width` and `height` (as displayed, after rotation), `rotation`, `frameRate`, `videoCodec`, `audioCodec`, `bitrate`, `sampleRate`, `channels` and `format`. It is read when the file is sealed, so it is `null` for temporary uploads, and stays `null` if the file can't be read; the seal still succeeds.
 - **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. Today the only derivative is `thumbnail`, the same image as the `thumbnail` field.
 
 ```json

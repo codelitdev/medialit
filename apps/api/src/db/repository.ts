@@ -36,6 +36,7 @@ import {
     type ApiKeyCreatedByType,
     type ProcessingStatus,
     type VideoStreaming,
+    type MediaMetadata,
 } from "./schema/index.js";
 
 const SIGNATURE_LENGTH = 100;
@@ -116,6 +117,7 @@ export type MediaRecord = {
     uploaded?: boolean;
     processingStatus: ProcessingStatus;
     processingError?: string;
+    metadata?: MediaMetadata;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -253,6 +255,7 @@ function mapMedia(row: typeof media.$inferSelect): MediaRecord {
         uploaded: row.uploaded,
         processingStatus: row.processingStatus,
         processingError: row.processingError || undefined,
+        metadata: row.metadata ?? undefined,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -1251,6 +1254,8 @@ export async function commitSeal(input: {
     processingStatus: "ready" | "failed";
     processingError?: string;
     webp?: { fileName: string; mimeType: string; size: number };
+    /** Read before the commit (D2); null when it couldn't be read. */
+    metadata?: MediaMetadata | null;
     inTransaction?: (tx: Executor, mediaRowId: string) => Promise<void>;
 }): Promise<"committed" | "lost" | "missing"> {
     return await getDb().transaction(async (tx) => {
@@ -1269,6 +1274,9 @@ export async function commitSeal(input: {
                 sealingUntil: null,
                 processingStatus: input.processingStatus,
                 processingError: input.processingError ?? null,
+                ...(input.metadata !== undefined
+                    ? { metadata: input.metadata }
+                    : {}),
                 ...(input.webp
                     ? {
                           fileName: input.webp.fileName,

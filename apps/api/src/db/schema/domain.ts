@@ -131,6 +131,10 @@ export const media = pgTable(
             .notNull()
             .default("ready"),
         processingError: text("processing_error"),
+        /** Duration, size, codecs and format, read at seal
+         * (pipelines-phase-1.md, D2). Null until then, or when it couldn't
+         * be read. */
+        metadata: jsonb("metadata").$type<MediaMetadata>(),
         /** The token of the seal that holds this media, and when its claim
          * expires. Set only while a seal is converting and copying. */
         sealClaim: text("seal_claim"),
@@ -172,6 +176,23 @@ export const mediaSettings = pgTable("media_settings", {
 });
 
 export type VideoStreaming = "off" | "hls" | "mp4";
+
+/** A media item's technical metadata. Fields that don't apply are left
+ * out. Width and height are as displayed, after rotation. */
+export type MediaMetadata = {
+    kind: "video" | "audio" | "image";
+    durationSeconds?: number;
+    width?: number;
+    height?: number;
+    rotation?: 0 | 90 | 180 | 270;
+    frameRate?: number;
+    videoCodec?: string;
+    audioCodec?: string;
+    bitrate?: number;
+    sampleRate?: number;
+    channels?: number;
+    format?: string;
+};
 
 /**
  * Processing minutes an account used (pipelines-phase-1.md, D8). One row per

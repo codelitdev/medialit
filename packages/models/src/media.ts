@@ -19,6 +19,9 @@ export interface Media {
     /** Outputs made from the original, by name (`thumbnail`; `poster`,
      * `hls` and others later). `url` is set once a derivative is ready. */
     derivatives?: Record<string, MediaDerivative>;
+    /** Duration, size, codecs and format, read at seal. Null before seal,
+     * or when the file couldn't be read. Missing on older servers. */
+    metadata?: MediaMetadata | null;
 }
 
 export type ProcessingStatus = "pending" | "processing" | "ready" | "failed";
@@ -34,4 +37,23 @@ export interface MediaDerivative {
     mimeType?: string;
     size?: number;
     error?: string;
+}
+
+/** Technical metadata, read when the media is sealed. Fields that don't
+ * apply are left out. Width and height are as displayed. */
+export interface MediaMetadata {
+    kind: "video" | "audio" | "image";
+    durationSeconds?: number;
+    width?: number;
+    height?: number;
+    rotation?: 0 | 90 | 180 | 270;
+    frameRate?: number;
+    videoCodec?: string;
+    audioCodec?: string;
+    /** Bits per second, the whole file. */
+    bitrate?: number;
+    sampleRate?: number;
+    channels?: number;
+    /** The container or image format. */
+    format?: string;
 }

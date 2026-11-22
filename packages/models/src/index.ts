@@ -5,6 +5,7 @@ export type {
     MediaDerivative,
     MediaProcessing,
     ProcessingStatus,
+    MediaMetadata,
 } from "./media";
 export type { MediaWithUserId } from "./media-schema";
 export type { User } from "./user";

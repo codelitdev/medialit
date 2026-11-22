@@ -69,7 +69,9 @@ function checkPaths(source: string, destination: string): void {
 function runFfmpeg(args: string[]): Promise<void> {
     // No shell: paths contain a client-controlled extension. Its own process
     // group, killed on timeout.
-    return runLimited("ffmpeg", args, { timeoutMs: THUMBNAIL_TIMEOUT_MS });
+    return runLimited("ffmpeg", args, { timeoutMs: THUMBNAIL_TIMEOUT_MS }).then(
+        () => undefined,
+    );
 }
 
 /**

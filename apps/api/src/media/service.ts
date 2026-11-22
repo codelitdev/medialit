@@ -233,6 +233,8 @@ async function getMediaResponse(
                 : {}),
         },
         derivatives: await derivativesResponse(media.mediaId, derivativeRows),
+        // Read at seal (phase 1, D2); null before, or when unreadable.
+        metadata: record.metadata ?? null,
     };
 }
 
