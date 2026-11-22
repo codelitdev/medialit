@@ -219,7 +219,9 @@ So from phase 1 on, every sealed video goes through `processing` and fires a web
 Today any failed derivative settles the media `failed` (`settleMedia`). From phase 1, a failure that leaves the media fully usable doesn't:
 
 - **The poster**, whatever the error. The upload thumbnail stays.
-- **HLS or MP4 with `out_of_processing_minutes`.** The original plays.
+- **HLS or MP4 refused by our limits:** `out_of_processing_minutes`, `source_too_large` or `source_too_long`. The original plays, and the file isn't at fault.
+
+Encode failures (`bad_input`, `internal`, `timeout`) and any other failed derivative still settle the media `failed`, so the client and operators notice them.
 
 `settleMedia` settles `ready` when every failed derivative is one of these, and `failed` when any other derivative failed, as today. Either way:
 
@@ -412,6 +414,7 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
         - metadata is returned through REST, MCP and the CLI, and a probe that fails still seals;
         - out of minutes fails the `hls` derivative with the reason, settles the media `ready`, and sends `media.processing.ready` with the failed derivative in its payload; the original still plays;
         - a failed poster settles the media `ready` and keeps the upload thumbnail, and any other failed derivative still settles it `failed`;
+        - HLS refused with `source_too_large` or `source_too_long` settles the media `ready`, and a corrupt video that ffmpeg can't decode settles it `failed`;
         - deleting media during an encode kills ffmpeg and leaves nothing in either bucket;
         - each event in 7.3 is sent once per occurrence with only allowlisted properties, and no payload contains a file name, URL, host or secret (checked with a capture client in tests);
         - a video refused for bad input, length or minutes raises no exception, and an encoder killed by `prlimit` raises a `critical` one;
@@ -461,6 +464,5 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 2. **The free plan's default.** #247 says HLS is on by default for OSS and the paid plan. This doc reads that as `"off"` for the free plan, so free accounts don't spend their 5 minutes on their first upload without asking for it.
 3. **Audio extraction in phase 1 or phase 2.** It has no caller until captions. Building it in phase 1 (as #258 says) means unused code for a while. Moving it to the start of phase 2 means it ships with its first user. Proposal: phase 2.
 4. **Metadata at seal vs. as a job** (D2). Inline adds up to a few hundred milliseconds per video seal, up to 5 s for a slow source. Needed before step 2.
-5. **Do our limits also settle the media `ready`?** (D12, needed before step 3.) A paid user's 1.5 GB video fails HLS with `source_too_large`, and a 3-hour one with `source_too_long`. Both originals play, but under D12 as written they settle `failed`. Proposal: `source_too_large` and `source_too_long` settle `ready`, like `out_of_processing_minutes`, because they are our limits, not a problem with the file. Encode failures (`bad_input`, `internal`) still settle `failed`.
 
 Decision 2 is needed before step 1. #247 still says to send the failure webhook when minutes run out; it is updated once D12 is approved here.
