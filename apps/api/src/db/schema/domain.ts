@@ -164,7 +164,44 @@ export const mediaSettings = pgTable("media_settings", {
     webpOutputQuality: bigint("webp_output_quality", { mode: "number" }),
     thumbnailWidth: bigint("thumbnail_width", { mode: "number" }),
     thumbnailHeight: bigint("thumbnail_height", { mode: "number" }),
+    /** `off`, `hls` or `mp4`; null means the account plan's default
+     * (pipelines-phase-1.md, D1). */
+    videoStreaming: text("video_streaming").$type<VideoStreaming>(),
+    /** Renditions to make for HLS; null means the default ladder. */
+    hlsRenditions: text("hls_renditions").array(),
 });
+
+export type VideoStreaming = "off" | "hls" | "mp4";
+
+/**
+ * Processing minutes an account used (pipelines-phase-1.md, D8). One row per
+ * encode, keyed by its job so a retry doesn't charge twice. Deleting media
+ * keeps its rows: the minutes were spent.
+ */
+export const processingUsage = pgTable(
+    "processing_usage",
+    {
+        id: text("id").primaryKey(),
+        userId: text("user_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        mediaId: text("media_id").references(() => media.id, {
+            onDelete: "set null",
+        }),
+        jobId: text("job_id").notNull().unique(),
+        kind: text("kind").notNull(),
+        minutes: integer("minutes").notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => ({
+        userCreated: index("processing_usage_user_created_idx").on(
+            table.userId,
+            table.createdAt,
+        ),
+    }),
+);
 
 export const signatures = pgTable(
     "signatures",

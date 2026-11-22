@@ -31,7 +31,23 @@ import {
     accountSubscription,
     maxStorageFor,
     resolveAccountBilling,
+    resolveAccountPlan,
+    storageLimitFor,
 } from "../billing/entitlements";
+import { minutesSummary } from "../billing/processing-minutes";
+import { getMediaSettings } from "../media-settings/service";
+import { updateMediaSettings } from "../media-settings/queries";
+import { mediaSettingsSchema } from "../media-settings/schemas";
+import { VideoSettingsError } from "../media-settings/video";
+
+const MEDIA_SETTINGS_FIELDS = [
+    "useWebP",
+    "webpOutputQuality",
+    "thumbnailWidth",
+    "thumbnailHeight",
+    "videoStreaming",
+    "hlsRenditions",
+] as const;
 import { deploymentMode } from "../billing/catalog";
 import mediaService from "../media/service";
 import { sealErrorStatus } from "../media/handlers";
@@ -438,9 +454,11 @@ export function createDashboardRouter(auth: MedialitAuth) {
             userId: owned.user.id,
             appId: owned.app.id,
         });
+        const plan = await resolveAccountPlan(owned.user);
         res.json({
             storage,
-            maxStorage: await maxStorageFor(owned.user),
+            maxStorage: storageLimitFor(plan),
+            processingMinutes: await minutesSummary(owned.user.id, plan),
         });
     });
 
@@ -678,6 +696,44 @@ export function createDashboardRouter(auth: MedialitAuth) {
             listWebhookDeliveries(owned.app.id),
         ]);
         res.json({ endpoints, deliveries, events: WEBHOOK_EVENTS });
+    });
+
+    router.get("/api/apps/:appId/media-settings", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        res.json(await getMediaSettings(owned.user.id, owned.app.id));
+    });
+
+    /* Changes only the fields it is given; null sets a video setting back
+       to the plan's default. */
+    router.patch("/api/apps/:appId/media-settings", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        const body = req.body ?? {};
+        const input = Object.fromEntries(
+            MEDIA_SETTINGS_FIELDS.filter(
+                (field) => body[field] !== undefined,
+            ).map((field) => [field, body[field]]),
+        );
+        const { error } = mediaSettingsSchema.validate(input);
+        if (error) {
+            res.status(400).json({ error: error.message });
+            return;
+        }
+        try {
+            await updateMediaSettings({
+                userId: owned.user.id,
+                appId: owned.app.id,
+                ...input,
+            });
+        } catch (err) {
+            if (err instanceof VideoSettingsError) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            throw err;
+        }
+        res.json(await getMediaSettings(owned.user.id, owned.app.id));
     });
 
     router.post("/api/apps/:appId/webhooks", async (req, res) => {

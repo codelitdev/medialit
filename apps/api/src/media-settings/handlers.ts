@@ -2,23 +2,35 @@ import { SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { updateMediaSettings } from "./queries";
 import * as mediaSettingsService from "./service";
+import { VideoSettingsError } from "./video";
 
 import { mediaSettingsSchema } from "./schemas";
+
+/** The fields an update may carry. A field missing from the body stays
+ * undefined, so it is left unchanged; `null` is kept, so it resets. */
+const FIELDS = [
+    "useWebP",
+    "webpOutputQuality",
+    "thumbnailWidth",
+    "thumbnailHeight",
+    "videoStreaming",
+    "hlsRenditions",
+] as const;
 
 export async function updateMediaSettingsHandler(
     req: any,
     res: any,
     next: (...args: any[]) => void,
 ) {
-    const { useWebP, webpOutputQuality, thumbnailWidth, thumbnailHeight } =
-        req.body;
+    const body = req.body ?? {};
+    const input = Object.fromEntries(
+        FIELDS.filter((field) => body[field] !== undefined).map((field) => [
+            field,
+            body[field],
+        ]),
+    );
 
-    const { error, value } = mediaSettingsSchema.validate({
-        useWebP,
-        webpOutputQuality,
-        thumbnailWidth,
-        thumbnailHeight,
-    });
+    const { error } = mediaSettingsSchema.validate(input);
 
     if (error) {
         return res.status(400).json({ error: error.message });
@@ -28,13 +40,13 @@ export async function updateMediaSettingsHandler(
         await updateMediaSettings({
             userId: req.user.id,
             appId: req.appId,
-            useWebP,
-            webpOutputQuality,
-            thumbnailWidth,
-            thumbnailHeight,
+            ...input,
         });
         return res.status(200).json({ message: SUCCESS });
     } catch (err: any) {
+        if (err instanceof VideoSettingsError) {
+            return res.status(400).json({ error: err.message });
+        }
         logger.error({ err, app_id: req.appId }, err.message);
         return res.status(500).json({ error: err.message });
     }

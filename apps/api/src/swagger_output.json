@@ -83,7 +83,7 @@
           "Settings"
         ],
         "summary": "Update Media Settings",
-        "description": "Update configuration for media processing.",
+        "description": "Change media processing settings: WebP, thumbnail size and video streaming. Send only the fields to change; null sets videoStreaming or hlsRenditions back to the default. Applies to media sealed afterwards.",
         "responses": {
           "200": {
             "description": "Settings updated successfully",
@@ -1742,6 +1742,29 @@
             "type": "number",
             "format": "float",
             "minimum": 1
+          },
+          "videoStreaming": {
+            "type": "string",
+            "enum": [
+              "off",
+              "hls",
+              "mp4"
+            ]
+          },
+          "videoStreamingDefault": {
+            "type": "boolean"
+          },
+          "hlsRenditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "1080p",
+                "720p",
+                "480p",
+                "360p"
+              ]
+            }
           }
         },
         "additionalProperties": false
@@ -1767,6 +1790,29 @@
             "type": "number",
             "format": "float",
             "minimum": 1
+          },
+          "videoStreaming": {
+            "type": "string",
+            "enum": [
+              "off",
+              "hls",
+              "mp4"
+            ],
+            "nullable": true
+          },
+          "hlsRenditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "1080p",
+                "720p",
+                "480p",
+                "360p"
+              ]
+            },
+            "minItems": 1,
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1852,6 +1898,27 @@
           "maxStorage": {
             "type": "number",
             "format": "float"
+          },
+          "processingMinutes": {
+            "type": "object",
+            "properties": {
+              "used": {
+                "type": "number",
+                "format": "float"
+              },
+              "allowed": {
+                "type": "number",
+                "format": "float",
+                "nullable": true,
+                "description": "Null when there is no limit"
+              }
+            },
+            "required": [
+              "used",
+              "allowed"
+            ],
+            "additionalProperties": false,
+            "description": "Video processing minutes this calendar month (UTC)"
           }
         },
         "required": [

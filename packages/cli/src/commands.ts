@@ -4,7 +4,14 @@ import { stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { lookup } from "mime-types";
 import { uploadFile, type UploadedMedia } from "@medialit/uploader";
-import type { WebhookEndpoint, WebhookEvent } from "medialit";
+import type {
+    HlsRendition,
+    MediaSettings,
+    MediaSettingsUpdate,
+    VideoStreaming,
+    WebhookEndpoint,
+    WebhookEvent,
+} from "medialit";
 import { loadCredentials, saveCredentials } from "./credentials";
 import { authorize, discover, register, revoke } from "./oauth";
 import { getClient, resolveEndpoint } from "./session";
@@ -24,6 +31,11 @@ export interface Flags {
     events?: string;
     enable?: boolean;
     disable?: boolean;
+    videoStreaming?: string;
+    hlsRenditions?: string;
+    webp?: string;
+    webpQuality?: string;
+    thumbnail?: string;
 }
 
 export async function login(flags: Flags): Promise<void> {
@@ -99,6 +111,7 @@ export async function whoami(flags: Flags): Promise<void> {
         files: count,
         storage: stats.storage,
         maxStorage: stats.maxStorage,
+        processingMinutes: stats.processingMinutes,
     };
     output(flags, info, () =>
         [
@@ -109,6 +122,13 @@ export async function whoami(flags: Flags): Promise<void> {
             info.appId ? `App:     ${info.appId}` : "",
             `Files:   ${count}`,
             `Storage: ${formatBytes(stats.storage)} of ${formatBytes(stats.maxStorage)}`,
+            stats.processingMinutes
+                ? `Video minutes this month: ${stats.processingMinutes.used}${
+                      stats.processingMinutes.allowed === null
+                          ? " (no limit)"
+                          : ` of ${stats.processingMinutes.allowed}`
+                  }`
+                : "",
         ]
             .filter(Boolean)
             .join("\n"),
@@ -207,6 +227,105 @@ export async function remove(ids: string[], flags: Flags): Promise<void> {
     const id = requireId(ids);
     await client.delete(id);
     output(flags, { deleted: true, mediaId: id }, () => `Deleted ${id}.`);
+}
+
+const SETTINGS_USAGE =
+    "Usage: medialit settings [get|set]. Run `medialit --help`.";
+
+/** `medialit settings` shows the app's media settings; `settings set`
+ * changes only the options given. */
+export async function settings(args: string[], flags: Flags): Promise<void> {
+    const [action = "get", ...rest] = args;
+    if (rest.length > 0) throw new Error(SETTINGS_USAGE);
+    const { client } = await getClient(flags.endpoint);
+    if (action === "get" || action === "show") {
+        const current = await client.getSettings();
+        output(flags, current, () => describeSettings(current));
+        return;
+    }
+    if (action !== "set") {
+        throw new Error(
+            `Unknown settings command "${action}". ${SETTINGS_USAGE}`,
+        );
+    }
+    const update = settingsUpdate(flags);
+    if (Object.keys(update).length === 0) {
+        throw new Error(
+            "Pass --video-streaming, --hls-renditions, --webp, --webp-quality or --thumbnail.",
+        );
+    }
+    await client.updateSettings(update);
+    const current = await client.getSettings();
+    output(flags, current, () => describeSettings(current));
+}
+
+const VIDEO_STREAMING: VideoStreaming[] = ["off", "hls", "mp4"];
+
+/** The settings flags as an update. `default` sets a video setting back to
+ * the plan's default. */
+export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
+    const update: MediaSettingsUpdate = {};
+    if (flags.videoStreaming !== undefined) {
+        const value = flags.videoStreaming.trim().toLowerCase();
+        if (value === "default") {
+            update.videoStreaming = null;
+        } else if (VIDEO_STREAMING.includes(value as VideoStreaming)) {
+            update.videoStreaming = value as VideoStreaming;
+        } else {
+            throw new Error(
+                "--video-streaming takes off, hls, mp4 or default.",
+            );
+        }
+    }
+    if (flags.hlsRenditions !== undefined) {
+        const value = flags.hlsRenditions.trim();
+        update.hlsRenditions =
+            value.toLowerCase() === "default"
+                ? null
+                : (value
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter(Boolean) as HlsRendition[]);
+    }
+    if (flags.webp !== undefined) {
+        const value = flags.webp.trim().toLowerCase();
+        if (value !== "on" && value !== "off") {
+            throw new Error("--webp takes on or off.");
+        }
+        update.useWebP = value === "on";
+    }
+    if (flags.webpQuality !== undefined) {
+        const quality = Number(flags.webpQuality);
+        if (!Number.isInteger(quality) || quality < 0 || quality > 100) {
+            throw new Error(
+                "--webp-quality takes a whole number from 0 to 100.",
+            );
+        }
+        update.webpOutputQuality = quality;
+    }
+    if (flags.thumbnail !== undefined) {
+        const match = flags.thumbnail.trim().match(/^(\d+)x(\d+)$/i);
+        if (!match || Number(match[1]) < 1 || Number(match[2]) < 1) {
+            throw new Error("--thumbnail takes a size such as 640x360.");
+        }
+        update.thumbnailWidth = Number(match[1]);
+        update.thumbnailHeight = Number(match[2]);
+    }
+    return update;
+}
+
+function describeSettings(settings: MediaSettings): string {
+    const lines = [
+        `WebP:            ${settings.useWebP ? `on (quality ${settings.webpOutputQuality})` : "off"}`,
+        `Thumbnail:       ${settings.thumbnailWidth}x${settings.thumbnailHeight}`,
+    ];
+    if (settings.videoStreaming) {
+        lines.push(
+            `Video streaming: ${settings.videoStreaming}${settings.videoStreamingDefault ? " (plan default)" : ""}`,
+            `HLS renditions:  ${(settings.hlsRenditions ?? []).join(", ")}`,
+        );
+    }
+    return lines.join("\n");
 }
 
 const WEBHOOKS_USAGE =

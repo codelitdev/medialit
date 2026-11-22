@@ -1,7 +1,11 @@
 import { z } from "zod";
 import mediaService from "../../media/service";
 import mediaQueries from "../../media/queries";
-import { maxStorageFor } from "../../billing/entitlements";
+import {
+    resolveAccountPlan,
+    storageLimitFor,
+} from "../../billing/entitlements";
+import { minutesSummary } from "../../billing/processing-minutes";
 import { NOT_ENOUGH_STORAGE, SUCCESS } from "../../config/strings";
 import type { MedialitMcpTool } from "../context";
 import { medialitTool } from "../tool";
@@ -108,7 +112,12 @@ export const mediaTools = (): MedialitMcpTool[] => [
                 userId: context.userId,
                 appId: context.appId,
             });
-            return { storage, maxStorage: await maxStorageFor(context.user) };
+            const plan = await resolveAccountPlan(context.user);
+            return {
+                storage,
+                maxStorage: storageLimitFor(plan),
+                processingMinutes: await minutesSummary(context.user.id, plan),
+            };
         },
     }),
 

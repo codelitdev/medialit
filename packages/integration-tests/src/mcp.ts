@@ -277,6 +277,12 @@ export async function runMcpIntegrationTests(
 
     async function storage(): Promise<Stats> {
         const result = await client.callTool("get_total_storage");
+        const minutes = object(result.processingMinutes, "processingMinutes");
+        integer(minutes.used, "processingMinutes.used");
+        assert(
+            minutes.allowed === null || Number.isInteger(minutes.allowed),
+            "processingMinutes.allowed must be a whole number or null",
+        );
         return {
             storage: integer(result.storage, "storage"),
             maxStorage: integer(result.maxStorage, "maxStorage"),
@@ -473,6 +479,40 @@ export async function runMcpIntegrationTests(
         assert.deepEqual(await getMediaSettings(), changedSettings);
         await restoreMediaSettings();
         log("PASS get_media_settings and update_media_settings round trip");
+
+        // Video settings: chosen values, a refused rendition, and null
+        // going back to the plan's default.
+        const videoBefore = await client.callTool("get_media_settings");
+        try {
+            await client.callTool("update_media_settings", {
+                videoStreaming: "hls",
+                hlsRenditions: ["480p", "720p"],
+            });
+            const video = await client.callTool("get_media_settings");
+            assert.equal(video.videoStreaming, "hls");
+            assert.equal(video.videoStreamingDefault, false);
+            assert.deepEqual(video.hlsRenditions, ["720p", "480p"]);
+            const refused = await client.callToolResult(
+                "update_media_settings",
+                { hlsRenditions: ["4k"] },
+            );
+            assert.equal(refused.isError, true, "4k was accepted");
+            await client.callTool("update_media_settings", {
+                videoStreaming: null,
+                hlsRenditions: null,
+            });
+            const reset = await client.callTool("get_media_settings");
+            assert.equal(reset.videoStreamingDefault, true);
+            assert.deepEqual(reset.hlsRenditions, ["1080p", "720p", "480p"]);
+        } finally {
+            await client.callTool("update_media_settings", {
+                videoStreaming: videoBefore.videoStreamingDefault
+                    ? null
+                    : videoBefore.videoStreaming,
+                hlsRenditions: videoBefore.hlsRenditions as string[],
+            });
+        }
+        log("PASS video settings through MCP");
 
         baseline = await storage();
         baselineCount = await count();

@@ -105,6 +105,17 @@ medialit webhooks secret <id>   # prints the current secret
 medialit webhooks rm <id>
 ```
 
+## Change media settings
+
+```bash
+medialit settings                                    # show the app's settings
+medialit settings set --video-streaming hls --hls-renditions 1080p,720p,480p
+medialit settings set --video-streaming default      # follow your plan again
+medialit settings set --webp on --webp-quality 80 --thumbnail 640x360
+```
+
+`settings set` changes only the options you pass, and changes apply to files sealed afterwards. `--video-streaming` takes `off`, `hls`, `mp4` or `default`. `medialit whoami` also shows the video processing minutes used this month.
+
 ## Use it from a coding agent
 
 Log in once yourself with `medialit login`. A coding agent running on the same machine can then run `medialit` like any other command, so you can ask it things like:

@@ -345,3 +345,76 @@ export async function revealWebhookSecret(
         return { success: false, error: err.message };
     }
 }
+
+export type VideoStreaming = "off" | "hls" | "mp4";
+export type HlsRendition = "1080p" | "720p" | "480p" | "360p";
+
+export type MediaSettings = {
+    useWebP: boolean;
+    webpOutputQuality: number;
+    thumbnailWidth: number;
+    thumbnailHeight: number;
+    videoStreaming: VideoStreaming;
+    /** True when the app hasn't chosen and the account's plan decides. */
+    videoStreamingDefault: boolean;
+    hlsRenditions: HlsRendition[];
+};
+
+export type MediaSettingsUpdate = Partial<
+    Omit<
+        MediaSettings,
+        "videoStreamingDefault" | "videoStreaming" | "hlsRenditions"
+    >
+> & {
+    /** null goes back to the plan's default. */
+    videoStreaming?: VideoStreaming | null;
+    hlsRenditions?: HlsRendition[] | null;
+};
+
+function mediaSettingsPath(appId: string) {
+    return `/api/apps/${encodeURIComponent(appId)}/media-settings`;
+}
+
+export async function getMediaSettings(appId: string): Promise<MediaSettings> {
+    const response = await serverApi(mediaSettingsPath(appId));
+    if (!response.ok) {
+        throw new Error(await errorMessage(response));
+    }
+    return response.json();
+}
+
+export async function updateMediaSettings(
+    appId: string,
+    input: MediaSettingsUpdate,
+): Promise<
+    | { success: true; settings: MediaSettings }
+    | { success: false; error: string }
+> {
+    try {
+        const response = await serverApi(mediaSettingsPath(appId), {
+            method: "PATCH",
+            body: JSON.stringify(input),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return { success: false, error: data.error || "Request failed" };
+        }
+        return { success: true, settings: data };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export type ProcessingMinutes = { used: number; allowed: number | null };
+
+/** This month's video processing minutes for the account. */
+export async function getProcessingMinutes(
+    appId: string,
+): Promise<ProcessingMinutes | null> {
+    const response = await serverApi(
+        `/api/apps/${encodeURIComponent(appId)}/stats`,
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.processingMinutes ?? null;
+}

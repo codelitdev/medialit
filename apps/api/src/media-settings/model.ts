@@ -1,3 +1,5 @@
+import type { VideoStreaming } from "./video";
+
 export interface MediaSettings {
     userId: string | undefined;
     appId: string;
@@ -5,4 +7,6 @@ export interface MediaSettings {
     webpOutputQuality?: number;
     thumbnailWidth?: number;
     thumbnailHeight?: number;
+    videoStreaming?: VideoStreaming | null;
+    hlsRenditions?: string[] | null;
 }

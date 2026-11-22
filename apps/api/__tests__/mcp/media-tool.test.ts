@@ -4,6 +4,7 @@ import mediaQueries from "../../src/media/queries";
 import { callTool } from "./call-tool";
 import { maxStorageAllowedSubscribed } from "../../src/config/constants";
 import { billingStateSource } from "../../src/billing/entitlements";
+import { minutesSource } from "../../src/billing/processing-minutes";
 
 function mockPaidPlan() {
     mock.method(billingStateSource, "read").mock.mockImplementation(
@@ -42,12 +43,21 @@ describe("MCP get_total_storage", () => {
                 return 2103931;
             },
         );
+        let minutesUserId: unknown;
+        mock.method(minutesSource, "used").mock.mockImplementation(
+            async (userId: string) => {
+                minutesUserId = userId;
+                return 12;
+            },
+        );
         const response = await callTool("get_total_storage", { user });
 
         assert.equal(queriedUserId, user._id);
+        assert.equal(minutesUserId, user.id);
         assert.deepEqual(response, {
             storage: 2103931,
             maxStorage: maxStorageAllowedSubscribed,
+            processingMinutes: { used: 12, allowed: 300 },
         });
     });
 });

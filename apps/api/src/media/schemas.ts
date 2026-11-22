@@ -105,4 +105,11 @@ export const mediaCountResponseSchema = Joi.object({
 export const mediaSizeResponseSchema = Joi.object({
     storage: Joi.number().required(),
     maxStorage: Joi.number().required(),
+    processingMinutes: Joi.object({
+        used: Joi.number().required(),
+        allowed: Joi.number()
+            .allow(null)
+            .required()
+            .description("Null when there is no limit"),
+    }).description("Video processing minutes this calendar month (UTC)"),
 });

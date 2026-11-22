@@ -35,6 +35,7 @@ import {
     webhookEndpoints,
     type ApiKeyCreatedByType,
     type ProcessingStatus,
+    type VideoStreaming,
 } from "./schema/index.js";
 
 const SIGNATURE_LENGTH = 100;
@@ -142,6 +143,9 @@ export type MediaSettingsRecord = {
     webpOutputQuality?: number;
     thumbnailWidth?: number;
     thumbnailHeight?: number;
+    /** Undefined leaves it unchanged; null goes back to the default. */
+    videoStreaming?: VideoStreaming | null;
+    hlsRenditions?: string[] | null;
 };
 
 export type SignatureRecord = {
@@ -1479,6 +1483,8 @@ export async function getMediaSettingsRecord(
         webpOutputQuality: row.webpOutputQuality ?? undefined,
         thumbnailWidth: row.thumbnailWidth ?? undefined,
         thumbnailHeight: row.thumbnailHeight ?? undefined,
+        videoStreaming: row.videoStreaming ?? null,
+        hlsRenditions: row.hlsRenditions ?? null,
     };
 }
 
@@ -1496,6 +1502,8 @@ export async function upsertMediaSettings(
             webpOutputQuality: input.webpOutputQuality,
             thumbnailWidth: input.thumbnailWidth,
             thumbnailHeight: input.thumbnailHeight,
+            videoStreaming: input.videoStreaming,
+            hlsRenditions: input.hlsRenditions,
         })
         .onConflictDoUpdate({
             target: mediaSettings.appId,
@@ -1504,6 +1512,8 @@ export async function upsertMediaSettings(
                 webpOutputQuality: input.webpOutputQuality,
                 thumbnailWidth: input.thumbnailWidth,
                 thumbnailHeight: input.thumbnailHeight,
+                videoStreaming: input.videoStreaming,
+                hlsRenditions: input.hlsRenditions,
             },
         });
 }

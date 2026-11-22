@@ -29,13 +29,38 @@ export interface UploadOptions {
 export interface MediaStats {
     storage: number;
     maxStorage: number;
+    /** This month's video processing minutes. `allowed` is null when there
+     * is no limit, as on self-hosted servers. Missing on older servers. */
+    processingMinutes?: { used: number; allowed: number | null };
 }
 
+export type VideoStreaming = "off" | "hls" | "mp4";
+export type HlsRendition = "1080p" | "720p" | "480p" | "360p";
+
+/** What `getSettings` returns. The video fields are missing on servers
+ * from before video streaming. */
 export interface MediaSettings {
     useWebP?: boolean;
     webpOutputQuality?: number;
     thumbnailWidth?: number;
     thumbnailHeight?: number;
+    /** How sealed videos are prepared for playback. */
+    videoStreaming?: VideoStreaming;
+    /** True when the app hasn't chosen, and the account's plan decides. */
+    videoStreamingDefault?: boolean;
+    /** HLS sizes to make, largest first. */
+    hlsRenditions?: HlsRendition[];
+}
+
+/** What `updateSettings` accepts: only the fields to change. `null` sets a
+ * video setting back to its default. */
+export interface MediaSettingsUpdate {
+    useWebP?: boolean;
+    webpOutputQuality?: number;
+    thumbnailWidth?: number;
+    thumbnailHeight?: number;
+    videoStreaming?: VideoStreaming | null;
+    hlsRenditions?: HlsRendition[] | null;
 }
 
 export type WebhookEvent = "media.processing.ready" | "media.processing.failed";
@@ -322,13 +347,15 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to get media settings");
+            throw new Error(
+                error.error || error.message || "Failed to get media settings",
+            );
         }
 
         return response.json();
     }
 
-    async updateSettings(settings: MediaSettings): Promise<void> {
+    async updateSettings(settings: MediaSettingsUpdate): Promise<void> {
         const response = await fetch(`${this.endpoint}/settings/media/create`, {
             method: "POST",
             headers: {
@@ -342,7 +369,11 @@ export class MediaLit {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || "Failed to update media settings");
+            throw new Error(
+                error.error ||
+                    error.message ||
+                    "Failed to update media settings",
+            );
         }
     }
 

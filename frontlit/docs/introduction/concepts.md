@@ -80,7 +80,11 @@ MediaLit processes files with the app's settings:
 
 If a conversion fails, the seal still succeeds and keeps the original. `processing.status` is then `failed` and `processing.error` says why. Very large images (over 25 MB or 50 megapixels by default) and images sealed while the server is busy converting others also keep the original; their status is `ready` and `processing.error` gives the reason.
 
-Change these settings with the [Node.js SDK](/docs/node-sdk#getsettings-and-updatesettings), the [REST API](/docs/api/upload-media) or the [MCP server](/docs/mcp-server).
+Change these settings in the dashboard under **Settings** > **Media processing**, or with the [Node.js SDK](/docs/node-sdk#getsettings-and-updatesettings), the [CLI](/docs/cli#change-media-settings), the [REST API](/docs/api/upload-media) or the [MCP server](/docs/mcp-server).
+
+### Processing minutes
+
+Video processing is measured in minutes of video. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.
 
 ### Processing status and derivatives
 

@@ -1,5 +1,5 @@
 /**
- * Runs the REST, WebP, MCP and CLI integration tests against one live API:
+ * Runs the REST, WebP, video, MCP and CLI integration tests against one live API:
  * MEDIALIT_APIKEY=... MEDIALIT_SERVER=localhost:8000 \
  *   bun --filter @medialit/integration-tests test:integration
  *
@@ -11,6 +11,7 @@ import { runCliIntegrationTests } from "./cli";
 import { runMcpIntegrationTests } from "./mcp";
 import { runIntegrationTests } from "./rest";
 import { runWebpIntegrationTests } from "./webp";
+import { runVideoIntegrationTests } from "./video";
 
 export { runSyntheticCheck } from "./synthetic";
 export {
@@ -18,12 +19,14 @@ export {
     runIntegrationTests,
     runMcpIntegrationTests,
     runWebpIntegrationTests,
+    runVideoIntegrationTests,
 };
 
 export async function runAllIntegrationTests(): Promise<boolean> {
     const suites = [
         ["REST", runIntegrationTests],
         ["WebP", runWebpIntegrationTests],
+        ["Video", runVideoIntegrationTests],
         ["MCP", runMcpIntegrationTests],
         ["CLI", runCliIntegrationTests],
     ] as const;

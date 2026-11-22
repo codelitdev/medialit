@@ -52,6 +52,8 @@ const EXPECTED_CLI_COMMANDS = [
     "ls",
     "rm",
     "seal",
+    "settings",
+    "settings set",
     "upload",
     "webhooks create",
     "webhooks ls",
@@ -544,6 +546,65 @@ export async function runCliIntegrationTests(
             );
         }
         log("PASS webhooks commands: errors and human output");
+
+        const settingsBefore = object(await json(["settings"]));
+        try {
+            const changed = object(
+                await json([
+                    "settings",
+                    "set",
+                    "--video-streaming",
+                    "mp4",
+                    "--hls-renditions",
+                    "480p,1080p",
+                ]),
+            );
+            assert.equal(changed.videoStreaming, "mp4");
+            assert.equal(changed.videoStreamingDefault, false);
+            assert.deepEqual(changed.hlsRenditions, ["1080p", "480p"]);
+            assert.equal(changed.useWebP, settingsBefore.useWebP);
+            assert.match(
+                (await ok(["settings"])).stdout,
+                /Video streaming: mp4\nHLS renditions: {2}1080p, 480p/,
+            );
+            await fails(["settings", "set"], /Pass --video-streaming/);
+            await fails(
+                ["settings", "set", "--video-streaming", "dash"],
+                /off, hls, mp4 or default/,
+            );
+            await fails(
+                ["settings", "set", "--hls-renditions", "4k"],
+                /Unknown rendition|must be one of|hlsRenditions/,
+            );
+            const reset = object(
+                await json([
+                    "settings",
+                    "set",
+                    "--video-streaming",
+                    "default",
+                    "--hls-renditions",
+                    "default",
+                ]),
+            );
+            assert.equal(reset.videoStreamingDefault, true);
+            assert.deepEqual(reset.hlsRenditions, ["1080p", "720p", "480p"]);
+            assert.match(
+                (await ok(["whoami"])).stdout,
+                /Video minutes this month: \d+/,
+            );
+        } finally {
+            await json([
+                "settings",
+                "set",
+                "--video-streaming",
+                settingsBefore.videoStreamingDefault
+                    ? "default"
+                    : String(settingsBefore.videoStreaming),
+                "--hls-renditions",
+                (settingsBefore.hlsRenditions as string[]).join(","),
+            ]);
+        }
+        log("PASS settings commands: get, set, errors and reset");
 
         if (testLogin) {
             await checkLoginReachesSignIn();

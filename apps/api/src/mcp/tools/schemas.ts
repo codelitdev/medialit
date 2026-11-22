@@ -1,3 +1,4 @@
+import { HLS_RENDITIONS } from "../../media-settings/video";
 import { z } from "zod";
 
 const accessSchema = z.enum(["public", "private"]);
@@ -46,6 +47,12 @@ export const mediaListSchema = z.object({
 export const storageSchema = z.object({
     storage: z.number(),
     maxStorage: z.number(),
+    /** This month's video processing minutes; `allowed` is null when there
+     * is no limit. */
+    processingMinutes: z.object({
+        used: z.number(),
+        allowed: z.number().nullable(),
+    }),
 });
 
 export const mediaSettingsSchema = z.object({
@@ -53,6 +60,9 @@ export const mediaSettingsSchema = z.object({
     webpOutputQuality: z.number().min(0).max(100),
     thumbnailWidth: z.number().positive(),
     thumbnailHeight: z.number().positive(),
+    videoStreaming: z.enum(["off", "hls", "mp4"]),
+    videoStreamingDefault: z.boolean(),
+    hlsRenditions: z.array(z.enum(HLS_RENDITIONS)),
 });
 
 export const successMessageSchema = z.object({

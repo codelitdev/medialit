@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import {
     AlertTriangle,
     Database,
+    Film,
     History,
     KeyRound,
     Settings2,
@@ -11,9 +12,12 @@ import { auth } from "@/auth";
 import {
     getApp,
     getAppSummary,
+    getMediaSettings,
+    getProcessingMinutes,
     listApiKeys,
     listWebhooks,
 } from "@/app/actions";
+import MediaSettingsSection from "./media-settings-section";
 import { formatAppStorage } from "@/lib/media-format";
 import ApiKeysSection from "./api-keys-section";
 import DeleteAppButton from "./delete-app-button";
@@ -29,12 +33,15 @@ export default async function Settings(props: {
     const [{ appId }, session] = await Promise.all([props.params, auth()]);
     if (!session) redirect("/login");
 
-    const [app, appSummary, apiKeys, webhooks] = await Promise.all([
-        getApp(appId),
-        getAppSummary(appId).catch(() => null),
-        listApiKeys(appId).catch(() => null),
-        listWebhooks(appId).catch(() => null),
-    ]);
+    const [app, appSummary, apiKeys, webhooks, mediaSettings, minutes] =
+        await Promise.all([
+            getApp(appId),
+            getAppSummary(appId).catch(() => null),
+            listApiKeys(appId).catch(() => null),
+            listWebhooks(appId).catch(() => null),
+            getMediaSettings(appId).catch(() => null),
+            getProcessingMinutes(appId).catch(() => null),
+        ]);
     if (!app) redirect("/");
 
     if (!appSummary || !apiKeys) {
@@ -51,8 +58,8 @@ export default async function Settings(props: {
                 <div>
                     <h1>App settings</h1>
                     <p>
-                        Storage, API keys, webhooks, and options for{" "}
-                        {app.name || "this app"}.
+                        Storage, API keys, media processing, webhooks, and
+                        options for {app.name || "this app"}.
                     </p>
                 </div>
             </div>
@@ -115,6 +122,33 @@ export default async function Settings(props: {
                         keys={apiKeys.items}
                         limit={apiKeys.limit}
                     />
+                </section>
+
+                <section className="settings-card scroll-mt-20" id="media">
+                    <div className="settings-card-title">
+                        <span className="settings-card-icon">
+                            <Film aria-hidden="true" />
+                        </span>
+                        <div>
+                            <h2>Media processing</h2>
+                            <p className="settings-subtle">
+                                What happens to images and videos when they are
+                                sealed. Changes apply to files sealed
+                                afterwards.
+                            </p>
+                        </div>
+                    </div>
+                    {mediaSettings ? (
+                        <MediaSettingsSection
+                            appId={app.appId}
+                            settings={mediaSettings}
+                            minutes={minutes}
+                        />
+                    ) : (
+                        <div className="inline-error" role="alert">
+                            Could not load this app’s media settings.
+                        </div>
+                    )}
                 </section>
 
                 <section className="settings-card scroll-mt-20" id="webhooks">

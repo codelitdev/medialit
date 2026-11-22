@@ -5,6 +5,8 @@ import { SUCCESS } from "../../config/strings";
 import type { MedialitMcpTool } from "../context";
 import { medialitTool } from "../tool";
 import { mediaSettingsSchema, successMessageSchema } from "./schemas";
+import { toolError } from "./errors";
+import { HLS_RENDITIONS, VideoSettingsError } from "../../media-settings/video";
 
 export const settingsTools = (): MedialitMcpTool[] => [
     medialitTool({
@@ -12,7 +14,7 @@ export const settingsTools = (): MedialitMcpTool[] => [
         title: "Get media settings",
         risk: "read",
         description:
-            "Returns the current image processing configuration for the connected app, including WebP conversion settings and thumbnail dimensions.",
+            "Returns the current media processing configuration for the connected app: WebP conversion, thumbnail dimensions, and video streaming (videoStreaming is off, hls or mp4; videoStreamingDefault is true when the account's plan decides; hlsRenditions lists the HLS sizes made).",
         inputSchema: z.object({}),
         outputSchema: mediaSettingsSchema,
         annotations: { idempotentHint: true },
@@ -26,7 +28,7 @@ export const settingsTools = (): MedialitMcpTool[] => [
         // Settings can be set back, and only affect files uploaded later.
         risk: "write",
         description:
-            "Overwrites image processing settings for the connected app. Supply only the fields you want to change; omitted fields retain their current values.",
+            "Changes media processing settings for the connected app. Supply only the fields you want to change; omitted fields retain their current values. Settings apply to files sealed afterwards.",
         inputSchema: z.object({
             useWebP: z
                 .boolean()
@@ -51,19 +53,46 @@ export const settingsTools = (): MedialitMcpTool[] => [
                 .positive()
                 .optional()
                 .describe("Generated thumbnail height in pixels"),
+            videoStreaming: z
+                .enum(["off", "hls", "mp4"])
+                .nullable()
+                .optional()
+                .describe(
+                    "How sealed videos are prepared for playback: hls (adaptive streaming), mp4 (one file optimized for the web) or off. null goes back to the account plan's default",
+                ),
+            hlsRenditions: z
+                .array(z.enum(HLS_RENDITIONS))
+                .min(1)
+                .nullable()
+                .optional()
+                .describe(
+                    'HLS sizes to make, e.g. ["1080p", "720p", "480p"]. Sizes larger than the video are skipped. null goes back to the default',
+                ),
         }),
         outputSchema: successMessageSchema,
         annotations: { idempotentHint: true },
         async handler({ context, args }) {
             // The upsert leaves a field it is given as undefined unchanged.
-            await updateMediaSettings({
-                userId: context.userId,
-                appId: context.appId,
-                useWebP: args.useWebP as boolean,
-                webpOutputQuality: args.webpOutputQuality as number,
-                thumbnailWidth: args.thumbnailWidth as number,
-                thumbnailHeight: args.thumbnailHeight as number,
-            });
+            try {
+                await updateMediaSettings({
+                    userId: context.userId,
+                    appId: context.appId,
+                    useWebP: args.useWebP,
+                    webpOutputQuality: args.webpOutputQuality,
+                    thumbnailWidth: args.thumbnailWidth,
+                    thumbnailHeight: args.thumbnailHeight,
+                    videoStreaming: args.videoStreaming,
+                    hlsRenditions: args.hlsRenditions,
+                });
+            } catch (error) {
+                if (error instanceof VideoSettingsError) {
+                    return toolError("validation_failed", {
+                        reason: "invalid_media_settings",
+                        message: error.message,
+                    });
+                }
+                throw error;
+            }
             return { message: SUCCESS };
         },
     }),

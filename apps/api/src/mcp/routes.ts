@@ -14,6 +14,7 @@ import rateLimit from "express-rate-limit";
 import { getMcpResourceMetadataUrl } from "../auth/bearer";
 import { runMcpRequest } from "./context";
 import { createMedialitMcp } from "./server";
+import { mcpRequestsPerMinute } from "../auth/limiters";
 
 /** MediaLit's own API-key header, allowed on top of the kit's CORS list. */
 const MEDIALIT_CORS_HEADERS = "x-medialit-apikey";
@@ -23,7 +24,7 @@ const mcp = createMedialitMcp();
 
 const mcpLimiter = rateLimit({
     windowMs: 60_000,
-    max: 60,
+    max: mcpRequestsPerMinute(),
     skip: (req) => req.method === "OPTIONS",
     standardHeaders: true,
     legacyHeaders: false,

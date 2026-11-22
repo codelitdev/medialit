@@ -27,7 +27,10 @@ export type ProductEvent =
     | "webhook.delivered"
     | "webhook.delivery_failed"
     | "webhook.endpoint_changed"
-    | "media_settings.updated";
+    | "media_settings.updated"
+    | "video.encoded"
+    | "video.encode_failed"
+    | "processing_minutes.exhausted";
 
 /** Work that belongs to no account reports as `system`, as exceptions do. */
 export const SYSTEM_SUBJECT = "system";

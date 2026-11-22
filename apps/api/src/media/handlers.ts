@@ -4,7 +4,12 @@ import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount, getTotalSpace } from "./queries";
-import { maxStorageFor, maxUploadFor } from "../billing/entitlements";
+import {
+    maxUploadFor,
+    resolveAccountPlan,
+    storageLimitFor,
+} from "../billing/entitlements";
+import { minutesSummary } from "../billing/processing-minutes";
 import {
     maxFileUploadSizeSubscribed,
     UPLOAD_HEARTBEAT_MS,
@@ -164,9 +169,11 @@ export async function getTotalSpaceOccupied(req: any, res: any) {
 
     try {
         const totalSpaceOccupied = await getTotalSpace({ userId, appId });
+        const plan = await resolveAccountPlan(req.user);
         return res.status(200).json({
             storage: totalSpaceOccupied,
-            maxStorage: await maxStorageFor(req.user),
+            maxStorage: storageLimitFor(plan),
+            processingMinutes: await minutesSummary(req.user.id, plan),
         });
     } catch (err: any) {
         return res.status(500).json({ error: err.message });

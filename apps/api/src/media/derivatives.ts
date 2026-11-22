@@ -49,6 +49,7 @@ import { JobError, describeError, permanentError } from "../jobs/errors";
 import type { JobClass, JobContext, JobDefinition } from "../jobs/runner";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
+import { releaseOrphanedMinutes } from "../billing/processing-minutes";
 import { mediaKind } from "./kind";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
@@ -608,6 +609,9 @@ export async function reconcileProcessing(
 ): Promise<{ failed: number }> {
     const orphans = await orphanedDerivatives(getDb(), olderThanMs);
     for (const row of orphans) {
+        // An encode whose worker died on its last attempt still holds the
+        // minutes it reserved; nothing was made, so give them back.
+        await releaseOrphanedMinutes(getDb(), row.mediaRowId, row.name);
         await finishDerivative({
             mediaRowId: row.mediaRowId,
             name: row.name,
