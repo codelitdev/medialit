@@ -11,7 +11,7 @@ Events fire only when background processing changes a file's [processing status]
 
 ## Add an endpoint
 
-Each app can have up to 10 endpoints. An endpoint has a URL, a signing secret, the events it receives and an enabled flag. You can manage endpoints from the dashboard (**Webhooks** in the sidebar), the REST API, the [CLI](/docs/cli#manage-webhooks), the [MCP server](/docs/mcp-server) or the [Node.js SDK](/docs/node-sdk).
+Each app can have up to 10 endpoints. An endpoint has a URL, a signing secret, the events it receives and an enabled flag. You can manage endpoints from the dashboard (**App settings** › **Webhooks**), the REST API, the [CLI](/docs/cli#manage-webhooks), the [MCP server](/docs/mcp-server) or the [Node.js SDK](/docs/node-sdk).
 
 ```bash
 curl -X POST https://api.medialit.cloud/settings/webhooks/create \

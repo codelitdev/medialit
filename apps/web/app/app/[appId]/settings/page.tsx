@@ -1,12 +1,27 @@
 import { redirect } from "next/navigation";
-import { AlertTriangle, Database, KeyRound, Settings2 } from "lucide-react";
+import {
+    AlertTriangle,
+    Database,
+    History,
+    KeyRound,
+    Settings2,
+    Webhook,
+} from "lucide-react";
 import { auth } from "@/auth";
-import { getApp, getAppSummary, listApiKeys } from "@/app/actions";
+import {
+    getApp,
+    getAppSummary,
+    listApiKeys,
+    listWebhooks,
+} from "@/app/actions";
 import { formatAppStorage } from "@/lib/media-format";
 import ApiKeysSection from "./api-keys-section";
 import DeleteAppButton from "./delete-app-button";
 import UpdateSettingsForm from "./update-settings-form";
 import DefaultAppControl from "./default-app-control";
+import WebhooksSection from "./webhooks-section";
+import DeliveriesTable from "./deliveries-table";
+import ScrollToHash from "./scroll-to-hash";
 
 export default async function Settings(props: {
     params: Promise<{ appId: string }>;
@@ -14,10 +29,11 @@ export default async function Settings(props: {
     const [{ appId }, session] = await Promise.all([props.params, auth()]);
     if (!session) redirect("/login");
 
-    const [app, appSummary, apiKeys] = await Promise.all([
+    const [app, appSummary, apiKeys, webhooks] = await Promise.all([
         getApp(appId),
         getAppSummary(appId).catch(() => null),
         listApiKeys(appId).catch(() => null),
+        listWebhooks(appId).catch(() => null),
     ]);
     if (!app) redirect("/");
 
@@ -35,12 +51,13 @@ export default async function Settings(props: {
                 <div>
                     <h1>App settings</h1>
                     <p>
-                        Storage, API keys, and options for{" "}
+                        Storage, API keys, webhooks, and options for{" "}
                         {app.name || "this app"}.
                     </p>
                 </div>
             </div>
 
+            <ScrollToHash />
             <div className="settings-stack">
                 <section className="settings-card">
                     <div className="settings-card-title">
@@ -99,6 +116,56 @@ export default async function Settings(props: {
                         limit={apiKeys.limit}
                     />
                 </section>
+
+                <section className="settings-card scroll-mt-20" id="webhooks">
+                    <div className="settings-card-title">
+                        <span className="settings-card-icon">
+                            <Webhook aria-hidden="true" />
+                        </span>
+                        <div>
+                            <h2>Webhooks</h2>
+                            <p className="settings-subtle">
+                                Tell your server when processing of a sealed
+                                file finishes or fails. Each request is signed
+                                with the endpoint’s secret, following Standard
+                                Webhooks. Verify the signature before trusting a
+                                request.
+                            </p>
+                        </div>
+                    </div>
+                    {webhooks ? (
+                        <WebhooksSection
+                            appId={app.appId}
+                            endpoints={webhooks.endpoints}
+                            events={webhooks.events}
+                        />
+                    ) : (
+                        <div className="inline-error" role="alert">
+                            Could not load this app’s webhooks.
+                        </div>
+                    )}
+                </section>
+
+                {webhooks ? (
+                    <section className="settings-card">
+                        <div className="settings-card-title">
+                            <span className="settings-card-icon">
+                                <History aria-hidden="true" />
+                            </span>
+                            <div>
+                                <h2>Recent webhook deliveries</h2>
+                                <p className="settings-subtle">
+                                    Failed deliveries are retried for about a
+                                    day. Test events aren’t listed.
+                                </p>
+                            </div>
+                        </div>
+                        <DeliveriesTable
+                            deliveries={webhooks.deliveries}
+                            endpoints={webhooks.endpoints}
+                        />
+                    </section>
+                ) : null}
 
                 <section className="settings-card">
                     <div className="settings-card-title">

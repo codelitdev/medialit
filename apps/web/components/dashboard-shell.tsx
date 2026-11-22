@@ -16,7 +16,6 @@ import {
     Search,
     Settings2,
     TerminalSquare,
-    Webhook,
     UserRound,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -88,15 +87,13 @@ export default function DashboardShell({
         apps[0];
     const section = pathname.includes("/connect")
         ? "Connect"
-        : pathname.includes("/webhooks")
-          ? "Webhooks"
-          : pathname.includes("/settings")
-            ? "App settings"
-            : pathname.startsWith("/account")
-              ? "Account settings"
-              : pathname.startsWith("/app/")
-                ? "Files"
-                : "All apps";
+        : pathname.includes("/settings")
+          ? "App settings"
+          : pathname.startsWith("/account")
+            ? "Account settings"
+            : pathname.startsWith("/app/")
+              ? "Files"
+              : "All apps";
 
     const filteredApps = useMemo(() => {
         const query = appSearch.trim().toLowerCase();
@@ -116,12 +113,6 @@ export default function DashboardShell({
             href: activeApp ? `/app/${activeApp.appId}/connect` : "/",
             icon: TerminalSquare,
             active: pathname.includes("/connect"),
-        },
-        {
-            label: "Webhooks",
-            href: activeApp ? `/app/${activeApp.appId}/webhooks` : "/",
-            icon: Webhook,
-            active: pathname.includes("/webhooks"),
         },
         {
             label: "App settings",
