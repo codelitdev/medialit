@@ -184,17 +184,24 @@ describe("job queue (Postgres)", { skip }, () => {
         for (let i = 0; i < 50; i++) {
             await enqueue(db, { type, payload: { i }, maxAttempts: 1 });
         }
-        const claims = await Promise.all(
-            Array.from({ length: 10 }, (_, i) =>
-                claim(db, {
-                    types: [type],
-                    limit: 7,
-                    workerId: `racer-${i}`,
-                    leaseMs: 60_000,
-                }),
-            ),
-        );
-        const ids = claims.flat().map((job) => job.id);
+        // SKIP LOCKED lets one round of racing claims return fewer jobs
+        // than remain, so race in rounds until the queue is drained.
+        const ids: string[] = [];
+        for (let round = 0; round < 20; round++) {
+            const claims = await Promise.all(
+                Array.from({ length: 10 }, (_, i) =>
+                    claim(db, {
+                        types: [type],
+                        limit: 7,
+                        workerId: `racer-${i}`,
+                        leaseMs: 60_000,
+                    }),
+                ),
+            );
+            const claimed = claims.flat().map((job) => job.id);
+            if (claimed.length === 0) break;
+            ids.push(...claimed);
+        }
         assert.equal(new Set(ids).size, ids.length, "no job claimed twice");
         assert.equal(ids.length, 50);
     });
