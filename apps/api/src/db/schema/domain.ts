@@ -94,6 +94,9 @@ export const apiKeys = pgTable(
     }),
 );
 
+export type ProcessingStatus = "pending" | "processing" | "ready" | "failed";
+export type DerivativeStatus = "queued" | "processing" | "ready" | "failed";
+
 export const media = pgTable(
     "media",
     {
@@ -120,10 +123,26 @@ export const media = pgTable(
          * an upload starts, so the temp cleanup job can remove what a crash
          * leaves behind. */
         uploaded: boolean("uploaded").notNull().default(true),
+        /** `pending` until seal, then `processing` while derivative jobs run,
+         * then `ready` or `failed`. Rows from before processing existed are
+         * `ready`. */
+        processingStatus: text("processing_status")
+            .$type<ProcessingStatus>()
+            .notNull()
+            .default("ready"),
+        processingError: text("processing_error"),
+        /** The token of the seal that holds this media, and when its claim
+         * expires. Set only while a seal is converting and copying. */
+        sealClaim: text("seal_claim"),
+        sealingUntil: timestamp("sealing_until", { withTimezone: true }),
         createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     },
     (table) => ({
+        processingStatusCheck: check(
+            "media_processing_status_check",
+            sql`${table.processingStatus} IN ('pending', 'processing', 'ready', 'failed')`,
+        ),
         owner: index("media_owner_idx").on(
             table.userId,
             table.appId,
@@ -291,3 +310,49 @@ export const operatorAlerts = pgTable("operator_alerts", {
     code: text("code").primaryKey(),
     lastPagedAt: timestamp("last_paged_at", { withTimezone: true }).notNull(),
 });
+
+/** An output made from a media item's original: `thumbnail` now; `poster`,
+ * `hls`, `mp4` and `captions` later. One row per media item and name. */
+export const derivatives = pgTable(
+    "derivatives",
+    {
+        id: text("id").primaryKey(),
+        mediaId: text("media_id")
+            .notNull()
+            .references(() => media.id, { onDelete: "cascade" }),
+        name: text("name").notNull(),
+        status: text("status").$type<DerivativeStatus>().notNull(),
+        bucket: text("bucket")
+            .$type<"private" | "public">()
+            .notNull()
+            .default("private"),
+        /** A file, or a prefix ending in `/` for outputs with several files. */
+        key: text("key"),
+        mimeType: text("mime_type"),
+        size: bigint("size", { mode: "number" }).notNull().default(0),
+        /** The settings copied at seal, so a retried job uses them. */
+        params: jsonb("params").notNull().default({}),
+        error: text("error"),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+        completedAt: timestamp("completed_at", { withTimezone: true }),
+    },
+    (table) => ({
+        statusCheck: check(
+            "derivatives_status_check",
+            sql`${table.status} IN ('queued', 'processing', 'ready', 'failed')`,
+        ),
+        bucketCheck: check(
+            "derivatives_bucket_check",
+            sql`${table.bucket} IN ('private', 'public')`,
+        ),
+        mediaName: uniqueIndex("derivatives_media_name_uidx").on(
+            table.mediaId,
+            table.name,
+        ),
+    }),
+);

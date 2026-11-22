@@ -22,7 +22,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generatePng } from "./utils";
+import { checkProcessing, generatePng } from "./utils";
 
 type JsonObject = Record<string, unknown>;
 
@@ -115,7 +115,7 @@ export async function runCliIntegrationTests(
         options.testLogin ?? process.env.MEDIALIT_CLI_TEST_LOGIN === "true";
     const log = options.log ?? console.log;
     const group = `__cli_integration_${randomUUID()}`;
-    const png = generatePng();
+    const png = generatePng(64, 36);
     const pending = new Set<string>();
     const workDir = await mkdtemp(join(tmpdir(), "medialit-cli-it-"));
     const configDir = join(workDir, "config");
@@ -343,6 +343,7 @@ export async function runCliIntegrationTests(
         await checkTotals(png.length, 1);
         const fetched = object(await json(["get", tempId]), "media");
         checkMedia(fetched, { name: tempName, access: "private", caption });
+        await checkProcessing(fetched, "sealed");
         const privateUrl = (await ok(["get", tempId])).stdout.trim();
         assert.match(privateUrl, /^https?:\/\//);
         assert.deepEqual(await download(privateUrl), png);

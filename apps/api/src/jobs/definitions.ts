@@ -8,6 +8,10 @@ import {
     cleanupExpiredTempUploads,
     cleanupStaleUploads,
 } from "../media/cleanup";
+import {
+    PROCESSING_RECONCILE_JOB,
+    derivativeJobDefinitions,
+} from "../media/derivatives";
 import { prune } from "./queue";
 import type { JobDefinition, PeriodicJob } from "./runner";
 
@@ -51,6 +55,7 @@ export const jobDefinitions: JobDefinition[] = [
         timeoutMs: 10 * 60 * 1000,
         handler: async () => prune(getDb()),
     },
+    ...derivativeJobDefinitions,
 ];
 
 export const periodicJobs: PeriodicJob[] = [
@@ -60,4 +65,6 @@ export const periodicJobs: PeriodicJob[] = [
     // storage within UPLOAD_STALE_MINUTES plus this interval.
     { type: "media.stale_upload_cleanup", everyMs: 15 * 60 * 1000 },
     { type: "jobs.prune", everyMs: HOUR_MS },
+    // Settles media whose derivative jobs stopped without a result.
+    { type: PROCESSING_RECONCILE_JOB, everyMs: 5 * 60 * 1000 },
 ];

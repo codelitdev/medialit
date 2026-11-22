@@ -309,7 +309,12 @@ export class MediaLit {
     }
 }
 
-export type { Media } from "./types";
+export type {
+    Media,
+    MediaDerivative,
+    MediaProcessing,
+    ProcessingStatus,
+} from "./types";
 export { createSignatureHandler } from "./signature-handler";
 export type {
     SignatureGrant,

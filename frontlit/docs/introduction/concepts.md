@@ -80,6 +80,29 @@ MediaLit processes files as they are uploaded:
 
 Change these settings with the [Node.js SDK](/docs/node-sdk#getsettings-and-updatesettings), the [REST API](/docs/api/upload-media) or the [MCP server](/docs/mcp-server).
 
+### Processing status and derivatives
+
+Every media response has two more fields:
+
+- **`processing`** says where background processing of the file stands: `{ "status": "pending" }` until the file is sealed, then `processing` while work runs, and `ready` or `failed` when it ends. A failed step never makes the original unavailable, and `processing.error` says what went wrong.
+- **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. Today the only derivative is `thumbnail`, the same image as the `thumbnail` field.
+
+```json
+{
+    "processing": { "status": "ready" },
+    "derivatives": {
+        "thumbnail": {
+            "status": "ready",
+            "url": "https://…/thumb.webp",
+            "mimeType": "image/webp",
+            "size": 2048
+        }
+    }
+}
+```
+
+Derivatives other than thumbnails count toward your storage.
+
 ## Limits
 
 Your plan sets the largest file you can upload and your total storage. Uploads that would go over either limit are refused with a message you can show to the user. When you [self-host](/docs/self-hosting), you set the limits yourself.

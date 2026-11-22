@@ -438,7 +438,8 @@ describe("dashboard routes: bulk delete", () => {
         );
         assert.equal(status, 200);
         assert.deepEqual(body, { deleted: 1, failed: 3 });
-        assert.deepEqual(removed, ["text-plain"]);
+        // Removed twice: before the row is deleted, and once after it.
+        assert.deepEqual(removed, ["text-plain", "text-plain"]);
 
         const lookup = (userId: string, appId: string, mediaId: string) =>
             getMediaRecord({ userId, appId, mediaId });

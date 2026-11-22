@@ -17,10 +17,12 @@ import {
     sql,
     type SQL,
 } from "drizzle-orm";
-import { getDb } from "./client.js";
+import { getDb, type AppDb } from "./client.js";
+import { recordThumbnailDerivative, type Executor } from "./derivatives.js";
 import {
     apiKeys,
     apps,
+    derivatives,
     media,
     mediaSettings,
     oauthAppSelections,
@@ -30,6 +32,7 @@ import {
     tusUploads,
     user,
     type ApiKeyCreatedByType,
+    type ProcessingStatus,
 } from "./schema/index.js";
 
 const SIGNATURE_LENGTH = 100;
@@ -108,6 +111,8 @@ export type MediaRecord = {
     temp: boolean;
     /** False while the file is still uploading. */
     uploaded?: boolean;
+    processingStatus: ProcessingStatus;
+    processingError?: string;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -240,6 +245,8 @@ function mapMedia(row: typeof media.$inferSelect): MediaRecord {
         caption: row.caption || undefined,
         temp: row.temp,
         uploaded: row.uploaded,
+        processingStatus: row.processingStatus,
+        processingError: row.processingError || undefined,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -814,9 +821,18 @@ function mediaKindCondition(kind: MediaKindFilter): SQL {
 }
 
 export async function createMediaRecord(
-    input: Omit<MediaRecord, "id" | "_id" | "createdAt" | "updatedAt"> & {
+    input: Omit<
+        MediaRecord,
+        | "id"
+        | "_id"
+        | "createdAt"
+        | "updatedAt"
+        | "processingStatus"
+        | "processingError"
+    > & {
         id?: string;
         createdAt?: Date;
+        processingStatus?: ProcessingStatus;
     },
 ): Promise<MediaRecord> {
     const db = getDb();
@@ -837,6 +853,9 @@ export async function createMediaRecord(
             group: input.group,
             caption: input.caption,
             temp: input.temp,
+            ...(input.processingStatus
+                ? { processingStatus: input.processingStatus }
+                : {}),
             createdAt: timestamp,
             updatedAt: input.createdAt || timestamp,
         })
@@ -950,11 +969,15 @@ export async function listMedia(input: {
     return rows.map(mapMedia);
 }
 
-export async function totalMediaSize(input: {
-    userId: string;
-    appId?: string;
-}): Promise<number> {
-    const db = getDb();
+/** Bytes an account occupies. Pass a transaction as `db` to count inside
+ * it, without taking another pool connection. */
+export async function totalMediaSize(
+    input: {
+        userId: string;
+        appId?: string;
+    },
+    db: Pick<AppDb, "select"> = getDb(),
+): Promise<number> {
     // Unsealed uploads occupy storage too. Skipping them let an account stack
     // uploads past its quota before sealing.
     const filters = [eq(media.userId, input.userId)];
@@ -963,7 +986,23 @@ export async function totalMediaSize(input: {
         .select({ total: sql<number>`coalesce(sum(${media.size}), 0)::float8` })
         .from(media)
         .where(and(...filters));
-    return Number(row?.total ?? 0);
+    // Ready derivatives (posters, HLS and captions) take space too.
+    // Thumbnails never counted, and still don't: storage stays the bytes
+    // clients uploaded plus what processing made from them.
+    const [derived] = await db
+        .select({
+            total: sql<number>`coalesce(sum(${derivatives.size}), 0)::float8`,
+        })
+        .from(derivatives)
+        .innerJoin(media, eq(media.id, derivatives.mediaId))
+        .where(
+            and(
+                eq(derivatives.status, "ready"),
+                ne(derivatives.name, "thumbnail"),
+                ...filters,
+            ),
+        );
+    return Number(row?.total ?? 0) + Number(derived?.total ?? 0);
 }
 
 export async function listAppMediaSummaries(
@@ -1043,23 +1082,34 @@ export async function deleteMediaRecord(
         .where(and(eq(media.userId, userId), eq(media.mediaId, mediaId)));
 }
 
+/**
+ * Marks media sealed. `inTransaction` runs in the same transaction with the
+ * media row's internal ID, for work that must commit with the seal, such as
+ * queueing jobs.
+ */
 export async function sealMediaRecord(input: {
     userId: string;
     appId: string;
     mediaId: string;
+    inTransaction?: (tx: Executor, mediaRowId: string) => Promise<void>;
 }): Promise<void> {
-    const db = getDb();
-    await db
-        .update(media)
-        .set({ temp: false, updatedAt: now() })
-        .where(
-            and(
-                eq(media.userId, input.userId),
-                eq(media.appId, input.appId),
-                eq(media.mediaId, input.mediaId),
-                eq(media.uploaded, true),
-            ),
-        );
+    await getDb().transaction(async (tx) => {
+        const rows = await tx
+            .update(media)
+            .set({ temp: false, processingStatus: "ready", updatedAt: now() })
+            .where(
+                and(
+                    eq(media.userId, input.userId),
+                    eq(media.appId, input.appId),
+                    eq(media.mediaId, input.mediaId),
+                    eq(media.uploaded, true),
+                ),
+            )
+            .returning({ id: media.id });
+        if (rows.length > 0 && input.inTransaction) {
+            await input.inTransaction(tx, rows[0].id);
+        }
+    });
 }
 
 /**
@@ -1091,6 +1141,7 @@ export async function createUploadingMediaRecord(input: {
         accessControl: "private",
         temp: true,
         uploaded: false,
+        processingStatus: "pending",
         createdAt: timestamp,
         updatedAt: timestamp,
     });
@@ -1104,27 +1155,42 @@ export async function completeUploadingMediaRecord(input: {
     mimeType: string;
     size: number;
     thumbnailGenerated: boolean;
+    /** The thumbnail's size, recorded as its `thumbnail` derivative. */
+    thumbnailSize?: number;
     accessControl: "public" | "private";
     group?: string;
     caption?: string;
 }): Promise<boolean> {
-    const db = getDb();
-    const rows = await db
-        .update(media)
-        .set({
-            fileName: input.fileName,
-            mimeType: input.mimeType,
-            size: input.size,
-            thumbnailGenerated: input.thumbnailGenerated,
-            accessControl: input.accessControl,
-            group: input.group ?? null,
-            caption: input.caption ?? null,
-            uploaded: true,
-            updatedAt: now(),
-        })
-        .where(and(eq(media.mediaId, input.mediaId), eq(media.uploaded, false)))
-        .returning({ id: media.id });
-    return rows.length > 0;
+    return await getDb().transaction(async (tx) => {
+        const rows = await tx
+            .update(media)
+            .set({
+                fileName: input.fileName,
+                mimeType: input.mimeType,
+                size: input.size,
+                thumbnailGenerated: input.thumbnailGenerated,
+                accessControl: input.accessControl,
+                group: input.group ?? null,
+                caption: input.caption ?? null,
+                uploaded: true,
+                updatedAt: now(),
+            })
+            .where(
+                and(
+                    eq(media.mediaId, input.mediaId),
+                    eq(media.uploaded, false),
+                ),
+            )
+            .returning({ id: media.id });
+        if (rows.length === 0) return false;
+        if (input.thumbnailGenerated) {
+            await recordThumbnailDerivative(tx, {
+                mediaRowId: rows[0].id,
+                size: input.thumbnailSize ?? 0,
+            });
+        }
+        return true;
+    });
 }
 
 /** Removes the row of an upload that failed or was rejected. Returns false

@@ -262,7 +262,7 @@ There is no separate table for webhook deliveries. The `webhook.deliver` job row
 
 **Deleting an app:** apps are soft-deleted (`softDeleteApp` sets `apps.deleted`), so `on delete cascade` never fires for them. In the same transaction, `softDeleteApp` also deletes the app's webhook endpoints and sets its `queued` and `running` jobs to `cancelled`. Running jobs abort on their next heartbeat. As a second check, `webhook.deliver` confirms at send time that the app isn't deleted and the endpoint still exists and is enabled.
 
-**Storage:** before seal, the media counts with its uploaded size. After seal, it counts with the WebP size. `getTotalSpace` also adds up the `size` of ready derivatives. A derivative that would go over the account's storage limit fails with `not_enough_storage`, and its files are deleted.
+**Storage:** before seal, the media counts with its uploaded size. After seal, it counts with the WebP size. `getTotalSpace` also adds up the `size` of ready derivatives, except thumbnails, which never counted toward storage and still don't. A derivative that would go over the account's storage limit fails with `not_enough_storage`, and its files are deleted.
 
 ## 7. API surface
 
