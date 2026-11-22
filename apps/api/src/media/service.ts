@@ -1,7 +1,6 @@
 import path from "path";
 import {
     ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT,
-    DISABLE_TAGGING,
     cloudBucket,
     cloudPublicBucket,
 } from "../config/constants";
@@ -9,14 +8,9 @@ import {
     generateSignedUrl,
     generateCloudfrontSignedUrl,
     streamToObject,
-    deleteObject,
-    copyObject,
-    getObjectTagging,
     getObjectBytes,
 } from "../services/s3";
 import logger from "../services/log";
-import { resolveAccountPlan, storageLimitFor } from "../billing/entitlements";
-import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import generateKey from "./utils/generate-key";
 import GetPageProps from "./GetPageProps";
 import {
@@ -24,20 +18,11 @@ import {
     getMedia,
     getMediaCount,
     getPaginatedMedia,
-    getTotalSpace,
 } from "./queries";
-import {
-    getDb,
-    listDerivativesByMediaIds,
-    listMediaRecordsByIds,
-    sealMediaRecord,
-} from "@/db";
+import { getDb, listDerivativesByMediaIds, listMediaRecordsByIds } from "@/db";
 import type { ProcessingStatus } from "../db/schema";
-import {
-    afterSealCommit,
-    deleteMediaFolders,
-    derivativesResponse,
-} from "./derivatives";
+import { deleteMediaFolders, derivativesResponse } from "./derivatives";
+import { sealStoredMedia } from "./seal";
 import {
     abandonUpload,
     finalizeStoredUpload,
@@ -400,6 +385,9 @@ async function deleteMediaMany({
     return { deleted, failed: uniqueIds.length - deleted };
 }
 
+/* Seals temp media (pipelines-phase-0.md, D5): converts it to WebP when the
+   app asks for it, publishes it, and returns the sealed media. Already sealed
+   media is returned unchanged. */
 async function sealMedia({
     userId,
     appId,
@@ -409,119 +397,12 @@ async function sealMedia({
     appId: string;
     mediaId: string;
 }): Promise<MediaResponse> {
-    const media = await getMedia({ userId, appId, mediaId });
-    if (!media) {
+    await sealStoredMedia({ userId, appId, mediaId });
+    const sealed = await getMedia({ userId, appId, mediaId });
+    if (!sealed) {
         throw new Error("Media not found");
     }
-
-    if (!media.temp) {
-        return await getMediaResponse(media);
-    }
-
-    // The total already includes this unsealed upload. Over the limit means
-    // uploads raced past the check at upload time.
-    const plan = await resolveAccountPlan({ id: String(userId) });
-    if ((await getTotalSpace({ userId })) > storageLimitFor(plan)) {
-        throw new Error(NOT_ENOUGH_STORAGE);
-    }
-
-    const fileExtension = path.extname(media.fileName).replace(".", "");
-
-    // Get tags from source object (in private bucket)
-    const tmpMainKey = generateKey({
-        mediaId,
-        path: Constants.PathKey.PRIVATE,
-        filename: `main.${fileExtension}`,
-    });
-    let tags: string | undefined;
-    if (!DISABLE_TAGGING) {
-        try {
-            const taggingResponse = await getObjectTagging({
-                Key: tmpMainKey,
-                Bucket: cloudBucket,
-            });
-            if (taggingResponse.TagSet && taggingResponse.TagSet.length > 0) {
-                tags = taggingResponse.TagSet.map(
-                    (tag: any) => `${tag.Key}=${tag.Value}`,
-                ).join("&");
-            }
-        } catch (err: any) {
-            logger.warn({ err }, "Failed to get tags from source object");
-        }
-    }
-
-    // Determine destination bucket for main file
-    const isPublic = media.accessControl === Constants.AccessControl.PUBLIC;
-
-    // Copy main file from private bucket to public bucket (only if public)
-    if (isPublic) {
-        const finalMainKey = generateKey({
-            mediaId,
-            path: Constants.PathKey.PUBLIC,
-            filename: `main.${fileExtension}`,
-        });
-
-        await copyObject({
-            sourceKey: tmpMainKey,
-            sourceBucket: cloudBucket,
-            destinationKey: finalMainKey,
-            destinationBucket: cloudPublicBucket,
-            ContentType: media.mimeType,
-            Tagging: tags,
-        });
-    }
-
-    // Copy thumbnail from private bucket to public bucket (if exists)
-    if (media.thumbnailGenerated) {
-        const tmpThumbKey = generateKey({
-            mediaId,
-            path: Constants.PathKey.PRIVATE,
-            filename: "thumb.webp",
-        });
-        const finalThumbKey = generateKey({
-            mediaId,
-            path: Constants.PathKey.PUBLIC,
-            filename: "thumb.webp",
-        });
-
-        await copyObject({
-            sourceKey: tmpThumbKey,
-            sourceBucket: cloudBucket,
-            destinationKey: finalThumbKey,
-            destinationBucket: cloudPublicBucket,
-            ContentType: "image/webp",
-            Tagging: tags,
-        });
-
-        // Delete thumbnail from private bucket (it's now in public bucket)
-        await deleteObject({
-            Key: tmpThumbKey,
-            Bucket: cloudBucket,
-        });
-    }
-
-    // Delete main file from private bucket only if it was copied to public bucket
-    if (isPublic) {
-        await deleteObject({
-            Key: tmpMainKey,
-            Bucket: cloudBucket,
-        });
-    }
-
-    // Update media record to remove temp flag
-    await sealMediaRecord({
-        mediaId,
-        userId: String(userId),
-        appId,
-        inTransaction: afterSealCommit,
-    });
-
-    // Fetch and return the updated media
-    const updatedMedia = await getMedia({ userId, appId, mediaId });
-    if (!updatedMedia) {
-        throw new Error("Failed to retrieve updated media");
-    }
-    return await getMediaResponse(updatedMedia);
+    return await getMediaResponse(sealed);
 }
 
 const mediaService = {

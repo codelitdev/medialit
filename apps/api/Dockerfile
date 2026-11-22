@@ -1,6 +1,8 @@
 FROM oven/bun:1.4.4
 WORKDIR /app
 
+# cwebp (webp) converts images at seal under prlimit, which util-linux in the
+# base image provides.
 # libbrotli1 is named so apt pulls in the CVE-2026-111497 fix (1.1.0-2+deb13u1)
 # even when the base image layer predates it.
 RUN apt-get update \

@@ -182,8 +182,19 @@ export async function runCliIntegrationTests(
         return result;
     }
 
+    /** Media IDs can start with "-", so commands pass them after "--". */
+    function withId(command: string, id: string): string[] {
+        return [command, "--", id];
+    }
+
     async function json(args: string[]): Promise<unknown> {
-        const result = await ok([...args, "--json"]);
+        // Options go before "--"; everything after it is positional.
+        const end = args.indexOf("--");
+        const result = await ok(
+            end === -1
+                ? [...args, "--json"]
+                : [...args.slice(0, end), "--json", ...args.slice(end)],
+        );
         try {
             return JSON.parse(result.stdout);
         } catch {
@@ -334,17 +345,20 @@ export async function runCliIntegrationTests(
         await checkTotals(png.length, 0);
         log("PASS upload --temp leaves the upload temporary and hidden");
 
-        const sealed = object(await json(["seal", tempId]), "sealed media");
+        const sealed = object(
+            await json(withId("seal", tempId)),
+            "sealed media",
+        );
         assert.equal(sealed.mediaId, tempId);
         assert.deepEqual(
             (await list()).map((media) => media.mediaId),
             [tempId],
         );
         await checkTotals(png.length, 1);
-        const fetched = object(await json(["get", tempId]), "media");
+        const fetched = object(await json(withId("get", tempId)), "media");
         checkMedia(fetched, { name: tempName, access: "private", caption });
         await checkProcessing(fetched, "sealed");
-        const privateUrl = (await ok(["get", tempId])).stdout.trim();
+        const privateUrl = (await ok(withId("get", tempId))).stdout.trim();
         assert.match(privateUrl, /^https?:\/\//);
         assert.deepEqual(await download(privateUrl), png);
         log("PASS seal, get --json, get URL download and storage/count totals");
@@ -391,12 +405,12 @@ export async function runCliIntegrationTests(
         log("PASS ls filters (--public, --private, --group), paging and table");
 
         for (const id of [tempId, ...publicIds]) {
-            const deleted = object(await json(["rm", id]), "rm result");
+            const deleted = object(await json(withId("rm", id)), "rm result");
             assert.equal(deleted.deleted, true);
             assert.equal(deleted.mediaId, id);
             pending.delete(id);
         }
-        await fails(["get", tempId], /./);
+        await fails(withId("get", tempId), /./);
         assert.deepEqual(await list(), []);
         await checkTotals(0, 0);
         log("PASS rm and restored storage/count totals");
@@ -414,7 +428,7 @@ export async function runCliIntegrationTests(
     } finally {
         for (const mediaId of pending) {
             try {
-                await ok(["rm", mediaId]);
+                await ok(withId("rm", mediaId));
                 pending.delete(mediaId);
                 log(`CLEANUP deleted ${mediaId}`);
             } catch (error) {

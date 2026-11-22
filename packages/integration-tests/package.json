@@ -15,6 +15,7 @@
         "test:integration": "bun --filter @medialit/cli build && bun src/bin.ts all",
         "test:all": "bun src/bin.ts all",
         "test:rest": "bun src/bin.ts rest",
+        "test:webp": "bun src/bin.ts webp",
         "test:mcp": "bun src/bin.ts mcp",
         "test:cli": "bun --filter @medialit/cli build && bun src/bin.ts cli",
         "prepublishOnly": "bun run build"

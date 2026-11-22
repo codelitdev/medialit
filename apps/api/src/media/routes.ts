@@ -197,7 +197,7 @@ router.post(
     /* 
         #swagger.tags = ['Media']
         #swagger.summary = 'Seal Media'
-        #swagger.description = 'Seal a media file (mark as processed/finalized).'
+        #swagger.description = 'Seal a temporary upload so it is kept. Public media is published to the public bucket. When the app has WebP on, JPEG and PNG images are converted to WebP first, and the response describes the WebP. Sealing media that is already sealed returns it unchanged.'
         #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.parameters['mediaId'] = {
             in: 'path',
@@ -214,8 +214,30 @@ router.post(
             }
         }
         #swagger.responses[401] = { description: 'Unauthorized' }
+        #swagger.responses[403] = {
+            description: 'Not enough storage',
+            content: {
+                "application/json": {
+                    schema: { type: 'object', properties: { error: { type: 'string' } } }
+                }
+            }
+        }
         #swagger.responses[404] = { description: 'Media not found' }
         #swagger.responses[500] = { description: 'Internal Server Error' }
+        #swagger.responses[503] = {
+            description: 'Another request is sealing this media and did not finish in time. Retry after the number of seconds in Retry-After; the retry returns the sealed media.',
+            headers: {
+                'Retry-After': {
+                    description: 'Seconds to wait before retrying',
+                    schema: { type: 'integer', example: 1 }
+                }
+            },
+            content: {
+                "application/json": {
+                    schema: { type: 'object', properties: { error: { type: 'string' } } }
+                }
+            }
+        }
     */
     authenticatedApiLimiter,
     apikey,

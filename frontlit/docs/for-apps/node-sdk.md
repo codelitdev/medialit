@@ -120,7 +120,7 @@ await medialit.updateSettings({ useWebP: true, webpOutputQuality: 80 });
 const settings = await medialit.getSettings();
 ```
 
-Image processing settings for the app. `useWebP` converts uploaded images to WebP, at a `webpOutputQuality` from 0 to 100.
+Image processing settings for the app. `useWebP` converts JPEG and PNG images to WebP when they are sealed, at a `webpOutputQuality` from 0 to 100. `thumbnailWidth` and `thumbnailHeight`, when you set both, make thumbnails exactly that size (resized and cropped); without them, thumbnails keep their default sizes.
 
 ## getSignature
 

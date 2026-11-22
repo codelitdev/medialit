@@ -11,6 +11,7 @@ import {
 } from "../config/constants";
 import { touchUploadingMediaRecord } from "@/db";
 import { abandonUpload, finalizeStoredUpload, startUpload } from "./ingest";
+import { SEAL_IN_PROGRESS } from "./seal";
 import { MULTIPART_OVERHEAD_BYTES } from "./upload-guards";
 import {
     receiveMultipartUpload,
@@ -214,6 +215,8 @@ export function sealErrorStatus(err: { message?: string }): number {
     if (err.message === "Media not found") return 404;
     if (err.message === "Media is already sealed") return 409;
     if (err.message === NOT_ENOUGH_STORAGE) return 403;
+    // Another request is sealing it; retrying returns the sealed media.
+    if (err.message === SEAL_IN_PROGRESS) return 503;
     return 500;
 }
 
@@ -233,6 +236,7 @@ export async function sealMedia(req: any, res: any) {
         if (statusCode === 500) {
             logger.error({ err }, err.message);
         }
+        if (statusCode === 503) res.set("Retry-After", "1");
         return res.status(statusCode).json({ error: err.message });
     }
 }

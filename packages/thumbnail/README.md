@@ -2,7 +2,7 @@
 
 > Create thumbnails from your image and video files for your Node.js based application.
 
-The generated thumbnails are going to be of `16:9` aspect ratio.
+Each thumbnail is exactly the size you ask for: the image or video frame is scaled to cover it, keeping its aspect ratio, and the overflow is cropped from the center.
 
 For generating thumbnails, this package uses ffmpeg (for videos) utilities, so make sure that is installed on your machine before using this package.
 
@@ -27,39 +27,23 @@ apt install ffmpeg
 
 ## Usage
 
-With default options
-
 ```
-const mt = require('@medialit/thumbnail')
+import thumbnail from "@medialit/thumbnail";
 
-mt.forImage(
-  './path/to/file.png',
-  './path/to/thumb.png')
-  .then(() => console.log('Success'), err => console.error(err))
+await thumbnail.forImage("./path/to/file.png", "./path/to/thumb.webp", {
+    width: 320,
+    height: 180,
+});
 ```
 
 ## API
 
-### forImage(source, destination, [options])
+### forImage(source, destination, size)
 
-**source**
+Makes a `size.width` × `size.height` thumbnail of a local image file (PNG, JPEG, WebP or GIF).
 
-An absolute or relative path to the original image.
+### forVideo(source, destination, size)
 
-**destination**
+Makes a `size.width` × `size.height` thumbnail of a video's first frame. `source` is an `http(s)` URL; ffmpeg reads only the bytes it needs.
 
-An absolute or relative path to the thumbnail folder.
-
-### forVideo(source, destination, [options])
-
-**source**
-
-An absolute or relative path to the original video.
-
-**destination**
-
-An absolute or relative path to the thumbnail folder.
-
-## Debugging
-
-Set the environment variable `DEBUG` to `true` to see logs.
+ffmpeg runs without a shell, in its own process group, and is killed after `THUMBNAIL_TIMEOUT_MS` (60 s). Sides are capped at `MAX_THUMBNAIL_SIDE` (4096).

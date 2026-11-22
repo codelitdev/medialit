@@ -28,7 +28,7 @@
     "url": "https://github.com/codelitdev/medialit"
   },
   "scripts": {
-    "test": "echo \"Error: run tests from root\" && exit 1",
+    "test": "node --import tsx --test 'lib/**/*.test.ts'",
     "build": "tsc",
     "prepublishOnly": "bun run build"
   },
@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.8.7",
+    "tsx": "^4.20.6",
     "typescript": "^5.2.2"
   },
   "types": "./lib/index.ts",

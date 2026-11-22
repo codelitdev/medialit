@@ -24,7 +24,7 @@ MediaLit stores files and gives you a URL for each one. Your app uploads through
 - **Uploads straight from the browser.** Your server hands out a short-lived signature, and the browser sends the file to MediaLit. Your API key never leaves your server, and large files resume after a dropped connection.
 - **No orphaned files.** Uploads through the API and MCP are temporary until you seal them. If a user abandons a form, MediaLit deletes the file for you. [How this works](/docs/concepts#temporary-uploads-and-sealing).
 - **Public and private files.** Public files get a permanent URL. Private files get a signed URL that expires.
-- **Thumbnails and WebP.** MediaLit makes thumbnails for images and videos, and can convert images to WebP when they are uploaded.
+- **Thumbnails and WebP.** MediaLit makes thumbnails for images and videos, and can convert images to WebP when they are sealed.
 - **Open source.** Use [medialit.cloud](https://medialit.cloud), or [run it yourself](/docs/self-hosting) on AWS S3, Cloudflare R2, MinIO or any S3-compatible storage.
 
 ## Start here

@@ -516,6 +516,10 @@ export async function runMcpIntegrationTests(
         await checkTotals(png.length, 0);
         log("PASS upload_media and draft visibility");
 
+        // seal_media's conflict (reason seal_in_progress) needs a seal held
+        // open by another request, which a live API can't do on demand. It
+        // is covered in apps/api/src/mcp/__tests__/routes.test.ts, which
+        // holds the claim in the database.
         const sealed = await client.callTool("seal_media", {
             mediaId,
             confirm: true,

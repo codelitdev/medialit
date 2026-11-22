@@ -18,12 +18,24 @@ import type { AppDb } from "../../db/client.js";
  * official MCP client. Requests are stateless; there are no sessions.
  */
 process.env.MEDIALIT_DEPLOYMENT_MODE = "oss";
+// The seal-in-progress test seals a private document with no thumbnail, which
+// touches no storage once tag lookups are off.
+process.env.DISABLE_TAGGING = "true";
+// Response URLs are presigned locally; no request reaches this endpoint.
+process.env.CLOUD_REGION ??= "us-east-1";
+process.env.CLOUD_KEY ??= "test";
+process.env.CLOUD_SECRET ??= "test";
+process.env.CLOUD_BUCKET_NAME ??= "medialit";
+process.env.CLOUD_ENDPOINT ??= "http://127.0.0.1:9";
 
 let server: Server;
 let origin: string;
 let client: PGlite;
 let apiKey: string;
 let appPublicId: string;
+let userId: string;
+let appRowId: string;
+let pglite: AppDb;
 const clients: Client[] = [];
 
 before(async () => {
@@ -38,12 +50,15 @@ before(async () => {
         ),
     });
     setDb(db as unknown as AppDb);
+    pglite = db as unknown as AppDb;
 
     const { createAccount, listApps } = await import("../../db/index.js");
     const { createApiKey } = await import("../../apikey/queries.js");
     const user = await createAccount({ email: "mcp@example.com" });
     const [app] = await listApps(user._id);
     appPublicId = app.appId;
+    userId = user._id;
+    appRowId = app.id;
     ({ secret: apiKey } = await createApiKey({
         appId: app.id,
         name: "MCP test",
@@ -263,4 +278,72 @@ test("CORS preflight allows MediaLit's key header; GET, non-JSON and bad JSON ar
     });
     assert.equal(malformed.status, 400);
     assert.equal((await malformed.json()).error.code, -32700);
+});
+
+test("seal_media and POST /media/seal report a seal in progress, and a retry seals", async () => {
+    // A live API can't hold a seal open on demand, so this holds the claim
+    // in the database, as a slow seal in another request would.
+    const { sql } = await import("drizzle-orm");
+    const { createMediaRecord } = await import("../../db/index.js");
+    const { SEAL_IN_PROGRESS } = await import("../../media/seal.js");
+    const mediaId = "seal-in-progress";
+    await createMediaRecord({
+        fileName: "main.txt",
+        mediaId,
+        userId,
+        appId: appRowId,
+        originalFileName: "notes.txt",
+        mimeType: "text/plain",
+        size: 5,
+        thumbnailGenerated: false,
+        accessControl: "private",
+        temp: true,
+    });
+    const holdClaim = (until: string) =>
+        pglite.execute(
+            sql`update media set seal_claim = 'other-request', sealing_until = now() + ${until}::interval where media_id = ${mediaId}`,
+        );
+    await holdClaim("1 minute");
+    process.env.SEAL_WAIT_MS = "300";
+    try {
+        const mcp = await connect({ "x-medialit-apikey": apiKey });
+        const conflict = await mcp.callTool({
+            name: "seal_media",
+            arguments: { mediaId, confirm: true },
+        });
+        assert.equal(conflict.isError, true);
+        assert.deepEqual(conflict.structuredContent, {
+            code: "conflict",
+            message: (conflict.structuredContent as any).message,
+            details: { reason: "seal_in_progress", message: SEAL_IN_PROGRESS },
+        });
+
+        const rest = await fetch(`${origin}/media/seal/${mediaId}`, {
+            method: "POST",
+            headers: { "x-medialit-apikey": apiKey },
+        });
+        assert.equal(rest.status, 503);
+        assert.equal(rest.headers.get("retry-after"), "1");
+        assert.deepEqual(await rest.json(), { error: SEAL_IN_PROGRESS });
+
+        // The other request died: its claim expires, and the retry seals.
+        await holdClaim("-1 second");
+        const sealed = await mcp.callTool({
+            name: "seal_media",
+            arguments: { mediaId, confirm: true },
+        });
+        assert.equal(sealed.isError, undefined);
+        assert.equal((sealed.structuredContent as any).mediaId, mediaId);
+        assert.equal(
+            (sealed.structuredContent as any).processing.status,
+            "ready",
+        );
+        const again = await fetch(`${origin}/media/seal/${mediaId}`, {
+            method: "POST",
+            headers: { "x-medialit-apikey": apiKey },
+        });
+        assert.equal(again.status, 200);
+    } finally {
+        delete process.env.SEAL_WAIT_MS;
+    }
 });
