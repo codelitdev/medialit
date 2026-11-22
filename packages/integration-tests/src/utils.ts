@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { deflateSync } from "node:zlib";
 
 // Build a valid transparent RGBA PNG, including PNG chunk checksums. The
@@ -94,4 +95,153 @@ export async function checkProcessing(
     }
     await fetchWebp(media.thumbnail, "thumbnail");
     await fetchWebp(thumbnail.url, "derivatives.thumbnail.url");
+}
+
+/** What each suite's transport (REST, MCP, CLI) provides to manage
+ * webhook endpoints. `create` and `update` throw `WebhookRefused` when the
+ * server refuses the URL. */
+export interface WebhookClient {
+    create(input: {
+        url: string;
+        events?: string[];
+        enabled?: boolean;
+    }): Promise<Record<string, unknown>>;
+    list(): Promise<Record<string, unknown>[]>;
+    update(
+        id: string,
+        input: {
+            url?: string;
+            events?: string[];
+            enabled?: boolean;
+            rotateSecret?: boolean;
+        },
+    ): Promise<Record<string, unknown>>;
+    remove(id: string): Promise<void>;
+    test(id: string): Promise<Record<string, unknown>>;
+}
+
+export class WebhookRefused extends Error {}
+
+const WEBHOOK_EVENTS = ["media.processing.ready", "media.processing.failed"];
+
+function checkEndpoint(value: unknown): {
+    id: string;
+    secret: string;
+    url: string;
+    events: string[];
+    enabled: boolean;
+} {
+    const endpoint = value as Record<string, unknown>;
+    assert.equal(typeof endpoint?.id, "string");
+    assert.match(String(endpoint.id), /^wh_/);
+    assert.match(String(endpoint.secret), /^whsec_[A-Za-z0-9+/]+=*$/);
+    assert.equal(typeof endpoint.url, "string");
+    assert.equal(typeof endpoint.enabled, "boolean");
+    assert(Array.isArray(endpoint.events));
+    return endpoint as never;
+}
+
+/**
+ * Creates, lists, updates, rotates, tests and deletes a webhook endpoint
+ * through one client, and checks that internal URLs are refused at save.
+ * The endpoint's host never resolves (`.invalid`), so the test event fails
+ * with a generic error class and no request leaves the server. Deletes
+ * only the endpoints it created.
+ */
+export async function checkWebhooks(
+    client: WebhookClient,
+    runId: string,
+    log: (message: string) => void,
+): Promise<void> {
+    const created = new Set<string>();
+    const url = `https://webhooks-${runId.replace(/[^a-z0-9-]/gi, "").slice(-40)}.invalid/medialit`;
+    let failure: unknown;
+    try {
+        const before = await client.list();
+        const endpoint = checkEndpoint(await client.create({ url }));
+        created.add(endpoint.id);
+        assert.equal(endpoint.url, url);
+        assert.deepEqual(endpoint.events, WEBHOOK_EVENTS);
+        assert.equal(endpoint.enabled, true);
+        const listed = await client.list();
+        assert.equal(listed.length, before.length + 1);
+        assert.deepEqual(
+            listed.find((item) => item.id === endpoint.id),
+            endpoint,
+        );
+
+        const updated = checkEndpoint(
+            await client.update(endpoint.id, {
+                url: `${url}/v2`,
+                events: ["media.processing.failed"],
+                enabled: false,
+            }),
+        );
+        assert.equal(updated.url, `${url}/v2`);
+        assert.deepEqual(updated.events, ["media.processing.failed"]);
+        assert.equal(updated.enabled, false);
+        assert.equal(updated.secret, endpoint.secret);
+        const rotated = checkEndpoint(
+            await client.update(endpoint.id, { rotateSecret: true }),
+        );
+        assert.notEqual(rotated.secret, endpoint.secret);
+        assert.equal(
+            (await client.list()).find((item) => item.id === endpoint.id)
+                ?.secret,
+            rotated.secret,
+        );
+        log("PASS webhook endpoint create, list, update and secret rotation");
+
+        assert.deepEqual(await client.test(endpoint.id), {
+            result: "failed",
+            error: "connection_failed",
+        });
+        log("PASS webhook test event reports only a generic error class");
+
+        let allowsPrivate = false;
+        for (const internal of [
+            "https://127.0.0.1/hooks",
+            "https://2130706433/hooks",
+            "https://[::ffff:127.0.0.1]/hooks",
+            "https://169.254.169.254/latest/meta-data",
+            "https://localhost/hooks",
+        ]) {
+            try {
+                const accepted = checkEndpoint(
+                    await client.create({ url: internal }),
+                );
+                created.add(accepted.id);
+                allowsPrivate = true;
+            } catch (error) {
+                if (!(error instanceof WebhookRefused)) throw error;
+            }
+        }
+        if (allowsPrivate) {
+            log(
+                "SKIP internal webhook URLs (the server sets WEBHOOK_ALLOW_PRIVATE_NETWORKS)",
+            );
+        } else {
+            log("PASS internal webhook URLs are refused at save");
+        }
+
+        await client.remove(endpoint.id);
+        created.delete(endpoint.id);
+        assert.equal(
+            (await client.list()).some((item) => item.id === endpoint.id),
+            false,
+        );
+        log("PASS webhook endpoint delete");
+    } catch (error) {
+        failure = error;
+    } finally {
+        for (const id of created) {
+            try {
+                await client.remove(id);
+                log(`CLEANUP deleted webhook ${id}`);
+            } catch (error) {
+                failure ??= error;
+            }
+        }
+    }
+    if (failure) throw failure;
 }

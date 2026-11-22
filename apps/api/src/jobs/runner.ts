@@ -35,6 +35,9 @@ export type JobDefinition<P = any> = {
     maxAttempts: number;
     /** Aborts an attempt that runs longer, as a retryable `timeout`. */
     timeoutMs?: number;
+    /** How long to wait before retrying after this many attempts. Defaults
+     * to `retryDelayMs` with the runner's settings. */
+    retryDelayMs?: (attempt: number, random: () => number) => number;
     /** Returns what is stored in `jobs.result`. Throws a `JobError` to say
      * whether to retry. */
     handler: (payload: P, context: JobContext) => Promise<unknown>;
@@ -304,12 +307,14 @@ export function createRunner(options: RunnerOptions): Runner {
             const reason: FailedReason = jobError?.reason ?? "internal";
             const retryable = jobError?.retryable ?? true;
             const message = describeError(jobError ?? failure);
-            const retryInMs = retryDelayMs(
-                job.attempts,
-                random,
-                settings.retryBaseMs,
-                settings.retryMaxMs,
-            );
+            const retryInMs = definition.retryDelayMs
+                ? definition.retryDelayMs(job.attempts, random)
+                : retryDelayMs(
+                      job.attempts,
+                      random,
+                      settings.retryBaseMs,
+                      settings.retryMaxMs,
+                  );
             const outcome = await fail(db, {
                 id: job.id,
                 workerId,

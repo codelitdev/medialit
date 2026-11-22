@@ -283,4 +283,101 @@ describe("MediaLit", () => {
             });
         });
     });
+
+    describe("webhooks", () => {
+        test("each method posts to its /settings/webhooks route", async () => {
+            const endpoint = {
+                id: "wh_1",
+                url: "https://example.com/hooks",
+                events: ["media.processing.ready"],
+                enabled: true,
+                secret: "whsec_abc",
+                createdAt: "2026-01-01T00:00:00.000Z",
+                updatedAt: "2026-01-01T00:00:00.000Z",
+            };
+            const responses: unknown[] = [
+                endpoint,
+                { endpoints: [endpoint] },
+                { ...endpoint, enabled: false },
+                { result: "failed", error: "timeout" },
+                { message: "success" },
+            ];
+            const fetchMock = mock.fn(
+                async () =>
+                    ({
+                        ok: true,
+                        json: async () => responses.shift(),
+                    }) as Response,
+            );
+            global.fetch = fetchMock;
+            const client = new MediaLit({
+                apiKey: mockApiKey,
+                endpoint: mockEndpoint,
+            });
+
+            assert.deepStrictEqual(
+                await client.createWebhook({
+                    url: endpoint.url,
+                    events: ["media.processing.ready"],
+                }),
+                endpoint,
+            );
+            assert.deepStrictEqual(await client.listWebhooks(), [endpoint]);
+            assert.strictEqual(
+                (await client.updateWebhook("wh_1", { enabled: false }))
+                    .enabled,
+                false,
+            );
+            assert.deepStrictEqual(await client.testWebhook("wh_1"), {
+                result: "failed",
+                error: "timeout",
+            });
+            await client.deleteWebhook("wh_1");
+
+            const calls = fetchMock.mock.calls.map((call) => {
+                const [url, init] = call.arguments as unknown as [
+                    string,
+                    RequestInit,
+                ];
+                return [
+                    url.replace(mockEndpoint, ""),
+                    init.method,
+                    JSON.parse(init.body as string),
+                ];
+            });
+            assert.deepStrictEqual(calls, [
+                [
+                    "/settings/webhooks/create",
+                    "POST",
+                    {
+                        url: endpoint.url,
+                        events: ["media.processing.ready"],
+                    },
+                ],
+                ["/settings/webhooks/get", "POST", {}],
+                [
+                    "/settings/webhooks/update",
+                    "POST",
+                    { enabled: false, id: "wh_1" },
+                ],
+                ["/settings/webhooks/test", "POST", { id: "wh_1" }],
+                ["/settings/webhooks/delete", "POST", { id: "wh_1" }],
+            ]);
+        });
+
+        test("an error response throws its message", async () => {
+            global.fetch = mock.fn(
+                async () =>
+                    ({
+                        ok: false,
+                        json: async () => ({ error: "url must use https" }),
+                    }) as Response,
+            );
+            const client = new MediaLit({ apiKey: mockApiKey });
+            await assert.rejects(
+                client.createWebhook({ url: "http://example.com" }),
+                /url must use https/,
+            );
+        });
+    });
 });

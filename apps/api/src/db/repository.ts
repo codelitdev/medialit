@@ -23,6 +23,7 @@ import {
     apiKeys,
     apps,
     derivatives,
+    jobs,
     media,
     mediaSettings,
     oauthAppSelections,
@@ -31,6 +32,7 @@ import {
     signatures,
     tusUploads,
     user,
+    webhookEndpoints,
     type ApiKeyCreatedByType,
     type ProcessingStatus,
 } from "./schema/index.js";
@@ -493,8 +495,9 @@ export async function setDefaultApp(
     });
 }
 
-/** Deletes the app, revokes all of its keys and deletes its signatures, so
- * nothing issued for it keeps working. The default app can't be deleted. */
+/** Deletes the app, revokes all of its keys, deletes its signatures and
+ * webhook endpoints, and cancels its queued and running jobs, so nothing
+ * issued for it keeps working. The default app can't be deleted. */
 export async function softDeleteApp(
     userId: string,
     appId: string,
@@ -518,6 +521,26 @@ export async function softDeleteApp(
                 and(eq(apiKeys.appId, existing.id), isNull(apiKeys.revokedAt)),
             );
         await tx.delete(signatures).where(eq(signatures.appId, existing.id));
+        // `on delete cascade` never fires for a soft delete. Running jobs
+        // abort at their next heartbeat, and webhook deliveries also check
+        // the app at send time.
+        await tx
+            .delete(webhookEndpoints)
+            .where(eq(webhookEndpoints.appId, existing.id));
+        await tx
+            .update(jobs)
+            .set({
+                status: "cancelled",
+                finishedAt: timestamp,
+                lockedBy: null,
+                lockedUntil: null,
+            })
+            .where(
+                and(
+                    eq(jobs.appId, existing.id),
+                    inArray(jobs.status, ["queued", "running"]),
+                ),
+            );
     });
 }
 

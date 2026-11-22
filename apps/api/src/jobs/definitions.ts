@@ -13,9 +13,13 @@ import {
     derivativeJobDefinitions,
 } from "../media/derivatives";
 import { prune } from "./queue";
+import { registerWebhookHooks, webhookDeliverJob } from "../webhooks/delivery";
 import type { JobDefinition, PeriodicJob } from "./runner";
 
 const HOUR_MS = 60 * 60 * 1000;
+
+// Settling happens in derivative jobs, so the worker queues webhooks.
+registerWebhookHooks();
 
 /** Periodic jobs run once; the next scheduled run tries again. */
 const PERIODIC_ATTEMPTS = 1;
@@ -56,6 +60,7 @@ export const jobDefinitions: JobDefinition[] = [
         handler: async () => prune(getDb()),
     },
     ...derivativeJobDefinitions,
+    webhookDeliverJob(),
 ];
 
 export const periodicJobs: PeriodicJob[] = [

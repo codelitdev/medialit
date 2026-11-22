@@ -4,6 +4,8 @@ import rateLimit from "express-rate-limit";
 import mediaRoutes from "./media/routes";
 import signatureRoutes from "./signature/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
+import webhookRoutes from "./webhooks/routes";
+import { registerWebhookHooks } from "./webhooks/delivery";
 import tusRoutes from "./tus/routes";
 import mcpRoutes from "./mcp/routes";
 import { captureException } from "./services/log";
@@ -48,6 +50,8 @@ export function createApp(input: {
     readiness: () => Promise<ReadinessReport>;
 }): express.Express {
     const { auth, webOrigin } = input;
+    // Settling can happen in the API too; queue webhooks wherever it does.
+    registerWebhookHooks();
     const loginCaptcha = loginCaptchaConfig();
     // The sign-in and app-picker pages are served from the API host, so the
     // icon comes from the web app. The color matches the dashboard's medialit
@@ -135,7 +139,7 @@ export function createApp(input: {
     // which belongs on a server: only the "Try it" panel in our docs calls
     // those from a browser.
     app.use(
-        ["/health", "/media", "/settings/media"],
+        ["/health", "/media", "/settings/media", "/settings/webhooks"],
         cors<express.Request>((req, callback) =>
             callback(null, {
                 origin: /^\/media\/create(\/|\?|$)/.test(req.originalUrl)
@@ -212,6 +216,7 @@ export function createApp(input: {
     );
 
     app.use("/settings/media", mediaSettingsRoutes(undefined));
+    app.use("/settings/webhooks", webhookRoutes);
     app.use("/media/signature", signatureRoutes);
     app.use("/media", tusRoutes);
     app.use("/media", mediaRoutes);

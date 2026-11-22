@@ -8,5 +8,11 @@ export type {
 } from "./media";
 export type { MediaWithUserId } from "./media-schema";
 export type { User } from "./user";
+export type {
+    WebhookDelivery,
+    WebhookEndpoint,
+    WebhookEvent,
+    WebhookTestResult,
+} from "./webhook";
 export * from "./access-control";
 export * from "./path-key";

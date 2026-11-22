@@ -198,6 +198,16 @@ Updates the media settings.
     - `thumbnailWidth`: Width of generated thumbnails
     - `thumbnailHeight`: Height of generated thumbnails
 
+### Webhooks
+
+Webhook endpoints are told when processing of sealed media finishes (`media.processing.ready`) or fails (`media.processing.failed`). Requests are signed per [Standard Webhooks](https://www.standardwebhooks.com/) with the endpoint's `secret`.
+
+- `listWebhooks(): Promise<WebhookEndpoint[]>`: the app's endpoints, with their secrets.
+- `createWebhook({ url, events?, enabled? }): Promise<WebhookEndpoint>`: adds an endpoint. `events` defaults to every event. In production the URL must use `https`, and it may not point at a private or internal address.
+- `updateWebhook(id, { url?, events?, enabled?, rotateSecret? }): Promise<WebhookEndpoint>`: changes an endpoint. `rotateSecret: true` replaces its secret.
+- `deleteWebhook(id): Promise<void>`
+- `testWebhook(id): Promise<WebhookTestResult>`: sends a signed `webhook.test` event now. Returns `{ result: "delivered", status }` or `{ result: "failed" }` with a `status` or a generic `error` (`timeout`, `connection_failed`, `tls_error`, `blocked_address`).
+
 ### `getSignature(options?: { group?: string }): Promise<string>`
 
 Creates a short-lived signature that lets a browser upload to MediaLit without your API key. Uploads made with it go into `group` when you pass one.

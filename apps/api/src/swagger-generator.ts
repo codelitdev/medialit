@@ -16,6 +16,14 @@ import {
     mediaSettingsResponseSchema,
 } from "./media-settings/schemas";
 import { signatureResponseSchema } from "./signature/schemas";
+import {
+    createWebhookSchema,
+    updateWebhookSchema,
+    webhookEndpointListSchema,
+    webhookEndpointSchema,
+    webhookIdSchema,
+    webhookTestResultSchema,
+} from "./webhooks/schemas";
 
 const doc = {
     openapi: "3.0.3",
@@ -57,6 +65,11 @@ const doc = {
             name: "Settings",
             description: "Manage media processing configuration.",
         },
+        {
+            name: "Webhooks",
+            description:
+                "Endpoints that receive signed events when media processing finishes or fails.",
+        },
     ],
     components: {
         securitySchemes: {
@@ -91,6 +104,11 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         "get /health": "getHealth",
         "post /settings/media/create": "updateMediaSettings",
         "post /settings/media/get": "getMediaSettings",
+        "post /settings/webhooks/create": "createWebhook",
+        "post /settings/webhooks/get": "listWebhooks",
+        "post /settings/webhooks/update": "updateWebhook",
+        "post /settings/webhooks/delete": "deleteWebhook",
+        "post /settings/webhooks/test": "testWebhook",
         "post /media/signature/create": "createUploadSignature",
         "post /media/create": "uploadMedia",
         "post /media/get/count": "getMediaCount",
@@ -121,6 +139,12 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
         SignatureResponse: joiToSwagger(signatureResponseSchema).swagger,
         MediaCountResponse: joiToSwagger(mediaCountResponseSchema).swagger,
         MediaSizeResponse: joiToSwagger(mediaSizeResponseSchema).swagger,
+        WebhookEndpoint: joiToSwagger(webhookEndpointSchema).swagger,
+        WebhookEndpointList: joiToSwagger(webhookEndpointListSchema).swagger,
+        CreateWebhookPayload: joiToSwagger(createWebhookSchema).swagger,
+        UpdateWebhookPayload: joiToSwagger(updateWebhookSchema).swagger,
+        WebhookIdPayload: joiToSwagger(webhookIdSchema).swagger,
+        WebhookTestResult: joiToSwagger(webhookTestResultSchema).swagger,
         ErrorResponse: {
             type: "object",
             properties: {
