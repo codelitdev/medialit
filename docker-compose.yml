@@ -113,6 +113,7 @@ services:
       - EMAIL_PASS=${EMAIL_PASS}
       - EMAIL_FROM=${EMAIL_FROM}
       - ENABLE_TRUST_PROXY=${ENABLE_TRUST_PROXY}
+      - TRUST_PROXY=${TRUST_PROXY}
       - CDN_MAX_AGE=${CDN_MAX_AGE}
       # true lets webhooks reach private and internal addresses, for
       # receivers on your own network. See the self-hosting docs.

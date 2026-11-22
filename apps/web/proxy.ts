@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { safeNextPath } from "@/lib/safe-next-path";
 
+// Plain over http, `__Secure-` when the API shares cookies with the dashboard
+// across subdomains (AUTH_COOKIE_DOMAIN), `__Host-` on a single https host.
 const SESSION_COOKIES = [
     "medialit.session_token",
     "__Secure-medialit.session_token",
+    "__Host-medialit.session_token",
 ];
 
 type SessionCheck = "valid" | "invalid" | "unavailable";
@@ -27,7 +30,9 @@ function clearSessionCookies(request: NextRequest, response: NextResponse) {
         response.cookies.set(cookie.name, "", {
             path: "/",
             maxAge: 0,
-            secure: cookie.name.startsWith("__Secure-"),
+            secure:
+                cookie.name.startsWith("__Secure-") ||
+                cookie.name.startsWith("__Host-"),
         });
     }
     return response;
