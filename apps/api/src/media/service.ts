@@ -338,6 +338,22 @@ async function deleteMedia({
 
     await mediaService.removeStoredFiles(media);
     await deleteMediaQuery(userId, mediaId);
+    await sweepAfterDelete(media);
+}
+
+/* A seal or job that committed between removing the files and deleting the
+   row may have published files since. Anything committing later finds no
+   row and removes its own. Failures here are only logged: the row is gone,
+   so a retry can't reach them. */
+async function sweepAfterDelete(media: MediaWithUserId): Promise<void> {
+    try {
+        await mediaService.removeStoredFiles(media);
+    } catch (err) {
+        logger.error(
+            { err, media_id: media.mediaId },
+            "Failed to remove files published during a delete",
+        );
+    }
 }
 
 const DELETE_CONCURRENCY = 10;
@@ -369,6 +385,7 @@ async function deleteMediaMany({
                 .map(async (media) => {
                     await mediaService.removeStoredFiles(media);
                     await deleteMediaQuery(userId, media.mediaId);
+                    await sweepAfterDelete(media);
                 }),
         );
         for (const result of results) {
