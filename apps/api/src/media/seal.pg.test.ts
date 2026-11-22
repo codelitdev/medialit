@@ -283,6 +283,44 @@ function isWebp(data: Buffer): boolean {
 }
 
 describe("seal", { skip }, () => {
+    test("an app that never stored a thumbnail size keeps the old thumbnail sizes", async () => {
+        await pgTest.db.execute(
+            sql`update media_settings set thumbnail_width = null, thumbnail_height = null where user_id = ${userId} and app_id = ${appId}`,
+        );
+        const thumbSize = async (mediaId: string) => {
+            const info = await readImageInfoFromBuffer(
+                await bytes(mediaId, "private", "thumb.webp"),
+            );
+            return `${info?.width}x${info?.height}`;
+        };
+        const big = await upload(makePng(1600, 1200));
+        assert.equal(await thumbSize(big.mediaId), "853x480");
+        const wide = await upload(makePng(640, 200));
+        assert.equal(await thumbSize(wide.mediaId), "355x200");
+        const pixel = await upload(makePng(1, 1));
+        assert.ok(pixel.thumbnail, "a 1x1 image still gets a thumbnail");
+        assert.equal(await thumbSize(pixel.mediaId), "1x1");
+
+        const videoPath = path.join(work, "default-size.mp4");
+        execFileSync("ffmpeg", [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=640x360:duration=1",
+            "-pix_fmt",
+            "yuv420p",
+            videoPath,
+        ]);
+        const video = await upload(await readFile(videoPath), {
+            mimeType: "video/mp4",
+            fileName: "clip.mp4",
+        });
+        assert.equal(await thumbSize(video.mediaId), "1280x720");
+    });
+
     test("upload keeps the original, makes a sized thumbnail and never converts", async () => {
         const original = png();
         const media = await upload(original, { access: "public" });

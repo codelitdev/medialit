@@ -47,6 +47,19 @@ export function coverFilter(size: ThumbnailSize): string {
     return `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
 }
 
+/**
+ * Image thumbnails without a size, as MediaLit always made them: cropped to
+ * 16:9 from the center, then scaled down to at most 480 pixels tall. Each
+ * side is at least 1 pixel, so tiny images work too.
+ */
+export const DEFAULT_IMAGE_FILTER =
+    "crop=w='max(1,if(gt(trunc(iw*9/16),ih),trunc(ih*16/9),iw))'" +
+    ":h='max(1,if(gt(trunc(iw*9/16),ih),ih,trunc(iw*9/16)))'," +
+    "scale=w='if(gt(ih,480),853,iw)':h='min(ih,480)'";
+
+/** Video thumbnails without a size: the first frame, 720 pixels tall. */
+export const DEFAULT_VIDEO_FILTER = "scale=-2:720";
+
 function checkPaths(source: string, destination: string): void {
     if (!source || !destination) {
         throw new Error("Source or destination path missing");
@@ -59,11 +72,14 @@ function runFfmpeg(args: string[]): Promise<void> {
     return runLimited("ffmpeg", args, { timeoutMs: THUMBNAIL_TIMEOUT_MS });
 }
 
-/** Makes a `size` thumbnail (resized and cropped) of a local image file. */
+/**
+ * Makes a thumbnail of a local image file: exactly `size` (resized and
+ * cropped) when given, otherwise `DEFAULT_IMAGE_FILTER`.
+ */
 async function forImage(
     source: string,
     destination: string,
-    size: ThumbnailSize,
+    size?: ThumbnailSize,
 ): Promise<void> {
     checkPaths(source, destination);
     await runFfmpeg([
@@ -78,19 +94,20 @@ async function forImage(
         "-frames:v",
         "1",
         "-filter:v",
-        coverFilter(size),
+        size ? coverFilter(size) : DEFAULT_IMAGE_FILTER,
         destination,
     ]);
 }
 
 /**
- * Makes a `size` thumbnail (resized and cropped) of a video's first frame.
- * `source` is a URL MediaLit made; ffmpeg reads only the bytes it needs.
+ * Makes a thumbnail of a video's first frame: exactly `size` (resized and
+ * cropped) when given, otherwise `DEFAULT_VIDEO_FILTER`. `source` is a URL
+ * MediaLit made; ffmpeg reads only the bytes it needs.
  */
 async function forVideo(
     source: string,
     destination: string,
-    size: ThumbnailSize,
+    size?: ThumbnailSize,
 ): Promise<void> {
     checkPaths(source, destination);
     await runFfmpeg([
@@ -107,7 +124,7 @@ async function forVideo(
         "-frames:v",
         "1",
         "-filter:v",
-        coverFilter(size),
+        size ? coverFilter(size) : DEFAULT_VIDEO_FILTER,
         destination,
     ]);
 }

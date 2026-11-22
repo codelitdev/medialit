@@ -147,9 +147,9 @@ export async function readImageInfoFromFile(
     const file = await open(path, "r");
     try {
         return await readImageInfo(async (offset, length) => {
-            const buffer = Buffer.alloc(length);
-            const { bytesRead } = await file.read(buffer, 0, length, offset);
-            return buffer.subarray(0, bytesRead);
+            const bytes = new Uint8Array(length);
+            const { bytesRead } = await file.read(bytes, 0, length, offset);
+            return Buffer.from(bytes.buffer, 0, bytesRead);
         });
     } finally {
         await file.close();
