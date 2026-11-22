@@ -42,6 +42,22 @@ Uploads are private unless you pass `--public`. Add `--caption <text>` or `--gro
 
 `ls` takes `--public`, `--private`, `--group <name>`, `--page <n>` and `--limit <n>`.
 
+### Webhooks
+
+Webhook endpoints are told when processing of sealed media finishes or fails. See [Webhooks](https://medialit.cloud/docs/webhooks).
+
+| Command                          | What it does                                            |
+| -------------------------------- | ------------------------------------------------------- |
+| `medialit webhooks ls`           | Lists the app's endpoints                               |
+| `medialit webhooks create <url>` | Adds an endpoint and prints its signing secret          |
+| `medialit webhooks update <id>`  | Changes `--url`, `--events`, `--enable` or `--disable`  |
+| `medialit webhooks rotate <id>`  | Replaces an endpoint's signing secret and prints it     |
+| `medialit webhooks secret <id>`  | Prints an endpoint's signing secret                     |
+| `medialit webhooks test <id>`    | Sends a signed test event and prints whether it arrived |
+| `medialit webhooks rm <id>`      | Deletes an endpoint                                     |
+
+`--events` takes a comma-separated list of `media.processing.ready` and `media.processing.failed`; endpoints get both by default.
+
 Every command takes `--json`. URLs and JSON go to stdout and messages to stderr, so you can pipe the output:
 
 ```bash

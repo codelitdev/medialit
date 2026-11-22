@@ -22,7 +22,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkProcessing, generatePng } from "./utils";
+import {
+    checkProcessing,
+    checkWebhooks,
+    generatePng,
+    retryRateLimited,
+    WebhookRefused,
+    type WebhookClient,
+} from "./utils";
 
 type JsonObject = Record<string, unknown>;
 
@@ -46,6 +53,13 @@ const EXPECTED_CLI_COMMANDS = [
     "rm",
     "seal",
     "upload",
+    "webhooks create",
+    "webhooks ls",
+    "webhooks rm",
+    "webhooks rotate",
+    "webhooks secret",
+    "webhooks test",
+    "webhooks update",
     "whoami",
 ].sort();
 
@@ -128,10 +142,18 @@ export async function runCliIntegrationTests(
         return value.split(apiKey!).join("[redacted]");
     }
 
-    /** Runs the CLI as a user would, in its own config folder. */
+    /** Runs the CLI as a user would, in its own config folder, waiting out
+     * the API's rate limit. */
     function medialit(
         args: string[],
         env: { apiKey?: string | null } = {},
+    ): Promise<RunResult> {
+        return retryRateLimited(() => spawnCli(args, env), log);
+    }
+
+    function spawnCli(
+        args: string[],
+        env: { apiKey?: string | null },
     ): Promise<RunResult> {
         const [command, commandArgs] = cli
             ? [cli, args]
@@ -278,6 +300,65 @@ export async function runCliIntegrationTests(
         return mediaId;
     }
 
+    /** `medialit webhooks …` with --json. A refused URL exits with 1. */
+    function webhookClient(): WebhookClient {
+        const eventsFlag = (events?: string[]) =>
+            events ? ["--events", events.join(",")] : [];
+        const enabledFlag = (enabled?: boolean) =>
+            enabled === undefined ? [] : [enabled ? "--enable" : "--disable"];
+        async function write(args: string[]): Promise<JsonObject> {
+            const result = await medialit([...args, "--json"]);
+            if (result.code !== 0) {
+                if (/^error: .*(url|not allowed)/m.test(result.stderr)) {
+                    throw new WebhookRefused(result.stderr);
+                }
+                throw new Error(
+                    `medialit ${args.join(" ")}: ${redact(result.stderr).slice(0, 500)}`,
+                );
+            }
+            return object(JSON.parse(result.stdout));
+        }
+        return {
+            create: (input) =>
+                write([
+                    "webhooks",
+                    "create",
+                    input.url,
+                    ...eventsFlag(input.events),
+                    ...enabledFlag(input.enabled),
+                ]),
+            list: async () => {
+                const result = await json(["webhooks", "ls"]);
+                assert(
+                    Array.isArray(result),
+                    "webhooks ls --json prints an array",
+                );
+                return result.map((item) => object(item));
+            },
+            update: (id, input) =>
+                input.rotateSecret
+                    ? write(["webhooks", "rotate", id])
+                    : write([
+                          "webhooks",
+                          "update",
+                          id,
+                          ...(input.url ? ["--url", input.url] : []),
+                          ...eventsFlag(input.events),
+                          ...enabledFlag(input.enabled),
+                      ]),
+            remove: async (id) => {
+                const result = object(await json(["webhooks", "rm", id]));
+                assert.deepEqual(result, { deleted: true, id });
+            },
+            test: async (id) => object(await json(["webhooks", "test", id])),
+            reveal: async (id) => {
+                const result = object(await json(["webhooks", "secret", id]));
+                assert.equal(result.id, id);
+                return String(result.secret);
+            },
+        };
+    }
+
     log(`MediaLit CLI integration run ${group} against ${endpoint}`);
     try {
         const version = (await ok(["--version"])).stdout.trim();
@@ -289,10 +370,18 @@ export async function runCliIntegrationTests(
         }
         const help = (await ok(["--help"])).stdout;
         const commandsSection = help.split(/\n\s*\n/)[1] ?? "";
+        // "webhooks create <url>   Add …" is the command "webhooks create".
         const commands = commandsSection
             .split("\n")
             .slice(1)
-            .map((line) => line.trim().split(/\s+/)[0])
+            .map((line) =>
+                line
+                    .trim()
+                    .split(/\s{2,}/)[0]
+                    .split(/\s+/)
+                    .filter((word) => !/^[<[]/.test(word))
+                    .join(" "),
+            )
             .filter(Boolean)
             .sort();
         assert.deepEqual(
@@ -414,6 +503,47 @@ export async function runCliIntegrationTests(
         assert.deepEqual(await list(), []);
         await checkTotals(0, 0);
         log("PASS rm and restored storage/count totals");
+
+        await fails(["webhooks"], /Usage: medialit webhooks/);
+        await fails(["webhooks", "frobnicate"], /Unknown webhooks command/);
+        await fails(["webhooks", "create"], /Pass the endpoint's URL/);
+        await fails(["webhooks", "update", "wh_x"], /Pass --url, --events/);
+        await fails(
+            ["webhooks", "update", "wh_x", "--enable", "--disable"],
+            /not both/,
+        );
+        await fails(["webhooks", "test", "wh_missing"], /not found/);
+        await fails(["webhooks", "secret", "wh_missing"], /not found/);
+        await checkWebhooks(webhookClient(), group, log);
+        // Human output: the secret alone, so it can be piped.
+        const humanHook = await webhookClient().create({
+            url: "https://cli-human.invalid/hooks",
+        });
+        try {
+            const rotated = (
+                await ok(["webhooks", "rotate", String(humanHook.id)])
+            ).stdout.trim();
+            assert.match(rotated, /^whsec_/);
+            assert.equal(
+                (
+                    await ok(["webhooks", "secret", String(humanHook.id)])
+                ).stdout.trim(),
+                rotated,
+            );
+            const listedHuman = (await ok(["webhooks", "ls"])).stdout;
+            assert.match(listedHuman, new RegExp(String(humanHook.id)));
+            assert.equal(listedHuman.includes("whsec_"), false);
+            assert.match(
+                (await ok(["webhooks", "test", String(humanHook.id)])).stdout,
+                /^Failed \(connection_failed\)\./,
+            );
+        } finally {
+            assert.match(
+                (await ok(["webhooks", "rm", String(humanHook.id)])).stdout,
+                /^Deleted wh_/,
+            );
+        }
+        log("PASS webhooks commands: errors and human output");
 
         if (testLogin) {
             await checkLoginReachesSignIn();

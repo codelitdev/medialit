@@ -120,6 +120,12 @@ async function main() {
         res.writeHead(404).end();
     });
 
+    if (process.env.WEBHOOK_ALLOW_PRIVATE_NETWORKS === "true") {
+        logger.warn(
+            { worker_id: workerId },
+            "WEBHOOK_ALLOW_PRIVATE_NETWORKS is set: webhooks may be delivered to private and internal addresses. Never set it on a shared or hosted install.",
+        );
+    }
     await runner.start();
     // Only the worker holding the lock checks, so replicas page once.
     stopAlertChecks = startAlertChecks({

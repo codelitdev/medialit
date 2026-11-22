@@ -41,6 +41,17 @@ import { getMediaCount, getTotalSpace } from "../media/queries";
 import { validatePresigningOptions } from "../signature/handlers";
 import { generateSignature } from "../signature/service";
 import logger from "../services/log";
+import {
+    WEBHOOK_EVENTS,
+    createWebhook,
+    deleteWebhook,
+    listWebhookDeliveries,
+    listWebhooks,
+    revealWebhookSecret,
+    testWebhook,
+    updateWebhook,
+} from "../webhooks/service";
+import { sendWebhookError } from "../webhooks/routes";
 
 function publicApp(row: AppRecord) {
     return {
@@ -658,6 +669,99 @@ export function createDashboardRouter(auth: MedialitAuth) {
         logApiKeyEvent("API key revoked", owned.user, owned.app, key);
         res.status(204).end();
     });
+
+    router.get("/api/apps/:appId/webhooks", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        const [endpoints, deliveries] = await Promise.all([
+            listWebhooks(owned.app.id),
+            listWebhookDeliveries(owned.app.id),
+        ]);
+        res.json({ endpoints, deliveries, events: WEBHOOK_EVENTS });
+    });
+
+    router.post("/api/apps/:appId/webhooks", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        try {
+            const endpoint = await createWebhook(owned.app.id, {
+                url: req.body?.url,
+                events: req.body?.events,
+                enabled: req.body?.enabled,
+            });
+            res.status(201).json(endpoint);
+        } catch (error) {
+            sendWebhookError(res, error);
+        }
+    });
+
+    router.patch("/api/apps/:appId/webhooks/:webhookId", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        try {
+            const endpoint = await updateWebhook(
+                owned.app.id,
+                String(req.params.webhookId),
+                {
+                    url: req.body?.url,
+                    events: req.body?.events,
+                    enabled: req.body?.enabled,
+                    rotateSecret: req.body?.rotateSecret,
+                },
+            );
+            res.json(endpoint);
+        } catch (error) {
+            sendWebhookError(res, error);
+        }
+    });
+
+    router.delete("/api/apps/:appId/webhooks/:webhookId", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        try {
+            await deleteWebhook(owned.app.id, String(req.params.webhookId));
+            res.status(204).end();
+        } catch (error) {
+            sendWebhookError(res, error);
+        }
+    });
+
+    // The list leaves secrets out; showing one is an explicit action.
+    router.post(
+        "/api/apps/:appId/webhooks/:webhookId/secret",
+        async (req, res) => {
+            const owned = await ownedApp(req, res);
+            if (!owned) return;
+            try {
+                res.json(
+                    await revealWebhookSecret(
+                        owned.app.id,
+                        String(req.params.webhookId),
+                    ),
+                );
+            } catch (error) {
+                sendWebhookError(res, error);
+            }
+        },
+    );
+
+    router.post(
+        "/api/apps/:appId/webhooks/:webhookId/test",
+        async (req, res) => {
+            const owned = await ownedApp(req, res);
+            if (!owned) return;
+            try {
+                res.json(
+                    await testWebhook(
+                        owned.app.id,
+                        String(req.params.webhookId),
+                    ),
+                );
+            } catch (error) {
+                sendWebhookError(res, error);
+            }
+        },
+    );
 
     router.patch("/api/apps/:appId", async (req, res) => {
         const owned = await ownedApp(req, res);

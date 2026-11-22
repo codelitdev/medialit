@@ -90,6 +90,21 @@ medialit whoami                # server, account, app and storage used
 medialit logout
 ```
 
+## Manage webhooks
+
+[Webhooks](/docs/webhooks) tell your server when processing of a sealed file finishes or fails.
+
+```bash
+medialit webhooks create https://example.com/hooks/medialit   # prints the signing secret
+medialit webhooks create https://example.com/hooks --events media.processing.failed
+medialit webhooks ls
+medialit webhooks test <id>     # sends a signed test event
+medialit webhooks update <id> --disable
+medialit webhooks rotate <id>   # prints the new secret
+medialit webhooks secret <id>   # prints the current secret
+medialit webhooks rm <id>
+```
+
 ## Use it from a coding agent
 
 Log in once yourself with `medialit login`. A coding agent running on the same machine can then run `medialit` like any other command, so you can ask it things like:

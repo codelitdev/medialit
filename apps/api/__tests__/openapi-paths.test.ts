@@ -14,6 +14,12 @@ const expectedPaths = [
     "/media/signature/create",
     "/settings/media/create",
     "/settings/media/get",
+    "/settings/webhooks/create",
+    "/settings/webhooks/delete",
+    "/settings/webhooks/get",
+    "/settings/webhooks/secret",
+    "/settings/webhooks/test",
+    "/settings/webhooks/update",
 ];
 
 test("public OpenAPI paths stay the same", () => {

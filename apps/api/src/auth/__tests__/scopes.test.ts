@@ -10,6 +10,7 @@ const READ_ONLY_TOOLS = new Set([
     "get_media_count",
     "get_total_storage",
     "get_media_settings",
+    "list_webhooks",
     "whoami",
 ]);
 
@@ -41,7 +42,7 @@ test("tools marked read-only are exactly the read tools", () => {
 
 test("every MCP tool rejects a token without its scope", async () => {
     const tools = medialitMcpTools();
-    assert.equal(tools.length, 11);
+    assert.equal(tools.length, 16);
     for (const tool of tools) {
         const scope = READ_ONLY_TOOLS.has(tool.name)
             ? "data:read"

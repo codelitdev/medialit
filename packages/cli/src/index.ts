@@ -5,14 +5,21 @@ import * as commands from "./commands";
 const HELP = `Usage: medialit <command> [options]
 
 Commands:
-  login                 Log in with your browser and choose an app
-  logout                Log out of the server
-  whoami                Show the server, account, app and storage used
-  upload <files...>     Upload and seal files, then print their URLs
-  ls                    List sealed files, newest first
-  get <id>              Print a file's URL (a fresh one for private files)
-  seal <id>             Keep a temporary upload
-  rm <id>               Delete a file
+  login                   Log in with your browser and choose an app
+  logout                  Log out of the server
+  whoami                  Show the server, account, app and storage used
+  upload <files...>       Upload and seal files, then print their URLs
+  ls                      List sealed files, newest first
+  get <id>                Print a file's URL (a fresh one for private files)
+  seal <id>               Keep a temporary upload
+  rm <id>                 Delete a file
+  webhooks ls             List webhook endpoints
+  webhooks create <url>   Add an endpoint and print its signing secret
+  webhooks update <id>    Change an endpoint (--url, --events, --enable, --disable)
+  webhooks rotate <id>    Replace an endpoint's signing secret and print it
+  webhooks secret <id>    Print an endpoint's signing secret
+  webhooks test <id>      Send a signed test event to an endpoint
+  webhooks rm <id>        Delete an endpoint
 
 Options:
   --endpoint <url>      MediaLit server, for self-hosted instances
@@ -26,6 +33,11 @@ Options:
   --temp                upload: don't seal, so unused files are deleted
   --page <n>, --limit <n>   ls: page through files
   --no-browser          login: print the URL instead of opening it
+  --url <url>           webhooks update: new receiving URL
+  --events <list>       webhooks create/update: comma-separated events,
+                        media.processing.ready and media.processing.failed
+                        (default: both)
+  --enable, --disable   webhooks create/update: turn sending on or off
   -h, --help            Show this help
   -v, --version         Show the version
 
@@ -49,6 +61,10 @@ async function main(argv: string[]): Promise<void> {
             page: { type: "string" },
             limit: { type: "string" },
             "no-browser": { type: "boolean" },
+            url: { type: "string" },
+            events: { type: "string" },
+            enable: { type: "boolean" },
+            disable: { type: "boolean" },
             help: { type: "boolean", short: "h" },
             version: { type: "boolean", short: "v" },
         },
@@ -88,6 +104,8 @@ async function main(argv: string[]): Promise<void> {
         case "rm":
         case "delete":
             return commands.remove(args, flags);
+        case "webhooks":
+            return commands.webhooks(args, flags);
         default:
             throw new Error(
                 `Unknown command "${command}". Run \`medialit --help\`.`,

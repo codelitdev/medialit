@@ -9,7 +9,13 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { checkProcessing, generatePng } from "./utils";
+import {
+    checkProcessing,
+    checkWebhooks,
+    generatePng,
+    WebhookRefused,
+    type WebhookClient,
+} from "./utils";
 
 type JsonObject = Record<string, unknown>;
 type MediaSettings = JsonObject & {
@@ -26,14 +32,19 @@ interface Stats {
 
 const EXPECTED_MCP_TOOLS = [
     "create_upload_signature",
+    "create_webhook",
     "delete_media",
+    "delete_webhook",
     "get_media",
     "get_media_count",
     "get_media_settings",
     "get_total_storage",
     "list_media",
+    "list_webhooks",
     "seal_media",
+    "test_webhook",
     "update_media_settings",
+    "update_webhook",
     "upload_media",
     "whoami",
 ].sort();
@@ -370,6 +381,49 @@ export async function runMcpIntegrationTests(
         await checkWhoami({ ...current, files: baselineCount + files });
     }
 
+    /** The webhook tools. A validation_failed result means the URL was
+     * refused. */
+    function webhookClient(): WebhookClient {
+        async function call(name: string, args: JsonObject) {
+            const result = await client.callToolResult(name, args);
+            if (result.isError === true) {
+                const content = object(result.structuredContent, name);
+                if (content.code === "validation_failed") {
+                    const details = (content.details ?? {}) as JsonObject;
+                    throw new WebhookRefused(
+                        String(details.message ?? content.message),
+                    );
+                }
+                throw new Error(
+                    `MCP tool ${name} failed: ${JSON.stringify(content)}`,
+                );
+            }
+            return object(result.structuredContent, name);
+        }
+        return {
+            create: (input) => call("create_webhook", input),
+            list: async () => {
+                const result = await call("list_webhooks", {});
+                assert(Array.isArray(result.endpoints));
+                return result.endpoints.map((item) => object(item));
+            },
+            update: (id, input) => call("update_webhook", { ...input, id }),
+            remove: async (id) => {
+                const unconfirmed = await client.callToolResult(
+                    "delete_webhook",
+                    { id },
+                );
+                assert.equal(unconfirmed.isError, true);
+                const result = await call("delete_webhook", {
+                    id,
+                    confirm: true,
+                });
+                assert.equal(result.message, "success");
+            },
+            test: (id) => call("test_webhook", { id }),
+        };
+    }
+
     log(`MediaLit MCP integration run ${group} against ${endpoint.origin}`);
     try {
         await client.connect();
@@ -560,6 +614,22 @@ export async function runMcpIntegrationTests(
         assert.deepEqual(await list(group), []);
         await checkTotals(0, 0);
         log("PASS delete_media and restored storage/count totals");
+
+        const deleteWebhookTool = object(
+            listedTools.tools.find(
+                (tool) => object(tool).name === "delete_webhook",
+            ),
+            "delete_webhook definition",
+        );
+        assert(
+            object(
+                object(deleteWebhookTool.inputSchema, "delete_webhook input")
+                    .properties,
+                "delete_webhook properties",
+            ).confirm,
+            "delete_webhook must ask for confirmation",
+        );
+        await checkWebhooks(webhookClient(), group, log);
     } catch (error) {
         failure = error;
     } finally {

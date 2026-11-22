@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { deflateSync } from "node:zlib";
 
 // Build a valid transparent RGBA PNG, including PNG chunk checksums. The
@@ -94,4 +95,245 @@ export async function checkProcessing(
     }
     await fetchWebp(media.thumbnail, "thumbnail");
     await fetchWebp(thumbnail.url, "derivatives.thumbnail.url");
+}
+
+/** What each suite's transport (REST, MCP, CLI) provides to manage
+ * webhook endpoints. `create` and `update` throw `WebhookRefused` when the
+ * server refuses the URL. */
+export interface WebhookClient {
+    create(input: {
+        url: string;
+        events?: string[];
+        enabled?: boolean;
+    }): Promise<Record<string, unknown>>;
+    list(): Promise<Record<string, unknown>[]>;
+    update(
+        id: string,
+        input: {
+            url?: string;
+            events?: string[];
+            enabled?: boolean;
+            rotateSecret?: boolean;
+        },
+    ): Promise<Record<string, unknown>>;
+    remove(id: string): Promise<void>;
+    test(id: string): Promise<Record<string, unknown>>;
+    /** Reads an endpoint's secret, where the transport offers it (REST and
+     * the CLI; MCP doesn't). */
+    reveal?(id: string): Promise<string>;
+}
+
+export class WebhookRefused extends Error {}
+
+const WEBHOOK_EVENTS = ["media.processing.ready", "media.processing.failed"];
+
+/** Checks an endpoint's shape. With `secret`, it must carry the full
+ * secret (create and rotate); without, it must not (everything else). */
+function checkEndpoint(
+    value: unknown,
+    expect: { secret: boolean },
+): {
+    id: string;
+    secret?: string;
+    secretHint: string;
+    url: string;
+    events: string[];
+    enabled: boolean;
+} {
+    const endpoint = value as Record<string, unknown>;
+    assert.equal(typeof endpoint?.id, "string");
+    assert.match(String(endpoint.id), /^wh_/);
+    assert.match(String(endpoint.secretHint), /^….{4}$/);
+    if (expect.secret) {
+        assert.match(String(endpoint.secret), /^whsec_[A-Za-z0-9+/]+=*$/);
+        assert.equal(
+            endpoint.secretHint,
+            `…${String(endpoint.secret).slice(-4)}`,
+        );
+    } else {
+        assert.equal(
+            "secret" in endpoint,
+            false,
+            "Only create and rotate may return the signing secret",
+        );
+    }
+    assert.equal(typeof endpoint.url, "string");
+    assert.equal(typeof endpoint.enabled, "boolean");
+    assert(Array.isArray(endpoint.events));
+    return endpoint as never;
+}
+
+/**
+ * Creates, lists, updates, rotates, tests and deletes a webhook endpoint
+ * through one client, and checks that internal URLs are refused at save.
+ * The endpoint's host never resolves (`.invalid`), so the test event fails
+ * with a generic error class and no request leaves the server. Deletes
+ * only the endpoints it created.
+ */
+export async function checkWebhooks(
+    client: WebhookClient,
+    runId: string,
+    log: (message: string) => void,
+): Promise<void> {
+    const created = new Set<string>();
+    const url = `https://webhooks-${runId.replace(/[^a-z0-9-]/gi, "").slice(-40)}.invalid/medialit`;
+    let failure: unknown;
+    try {
+        const before = await client.list();
+        const endpoint = checkEndpoint(await client.create({ url }), {
+            secret: true,
+        });
+        created.add(endpoint.id);
+        assert.equal(endpoint.url, url);
+        assert.deepEqual(endpoint.events, WEBHOOK_EVENTS);
+        assert.equal(endpoint.enabled, true);
+        const listed = await client.list();
+        assert.equal(listed.length, before.length + 1);
+        for (const item of listed) checkEndpoint(item, { secret: false });
+        const { secret: createdSecret, ...withoutSecret } = endpoint;
+        assert.deepEqual(
+            listed.find((item) => item.id === endpoint.id),
+            withoutSecret,
+        );
+        if (client.reveal) {
+            assert.equal(await client.reveal(endpoint.id), createdSecret);
+        }
+
+        const updated = checkEndpoint(
+            await client.update(endpoint.id, {
+                url: `${url}/v2`,
+                events: ["media.processing.failed"],
+                enabled: false,
+            }),
+            { secret: false },
+        );
+        assert.equal(updated.url, `${url}/v2`);
+        assert.deepEqual(updated.events, ["media.processing.failed"]);
+        assert.equal(updated.enabled, false);
+        assert.equal(updated.secretHint, endpoint.secretHint);
+        const rotated = checkEndpoint(
+            await client.update(endpoint.id, { rotateSecret: true }),
+            { secret: true },
+        );
+        assert.notEqual(rotated.secret, createdSecret);
+        assert.equal(
+            (await client.list()).find((item) => item.id === endpoint.id)
+                ?.secretHint,
+            rotated.secretHint,
+        );
+        if (client.reveal) {
+            assert.equal(await client.reveal(endpoint.id), rotated.secret);
+        }
+        log("PASS webhook endpoint create, list, update and secret rotation");
+
+        assert.deepEqual(await client.test(endpoint.id), {
+            result: "failed",
+            error: "connection_failed",
+        });
+        log("PASS webhook test event reports only a generic error class");
+
+        let allowsPrivate = false;
+        for (const internal of [
+            "https://127.0.0.1/hooks",
+            "https://2130706433/hooks",
+            "https://[::ffff:127.0.0.1]/hooks",
+            "https://169.254.169.254/latest/meta-data",
+            "https://localhost/hooks",
+        ]) {
+            try {
+                const accepted = checkEndpoint(
+                    await client.create({ url: internal }),
+                    { secret: true },
+                );
+                created.add(accepted.id);
+                allowsPrivate = true;
+            } catch (error) {
+                if (!(error instanceof WebhookRefused)) throw error;
+            }
+        }
+        if (allowsPrivate) {
+            log(
+                "SKIP internal webhook URLs (the server sets WEBHOOK_ALLOW_PRIVATE_NETWORKS)",
+            );
+        } else {
+            log("PASS internal webhook URLs are refused at save");
+        }
+
+        await client.remove(endpoint.id);
+        created.delete(endpoint.id);
+        assert.equal(
+            (await client.list()).some((item) => item.id === endpoint.id),
+            false,
+        );
+        log("PASS webhook endpoint delete");
+    } catch (error) {
+        failure = error;
+    } finally {
+        for (const id of created) {
+            try {
+                await client.remove(id);
+                log(`CLEANUP deleted webhook ${id}`);
+            } catch (error) {
+                failure ??= error;
+            }
+        }
+    }
+    if (failure) throw failure;
+}
+
+/** Longest wait for a rate limit window: the API's window is a minute. */
+const MAX_RATE_LIMIT_WAIT_MS = 65_000;
+const RATE_LIMIT_RETRIES = 2;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * fetch that waits out a 429 and tries again, so a run against a server
+ * with the default rate limit, and its cleanup, isn't cut short. The
+ * limiter answers before the request is handled, so retrying is safe.
+ * `init` is called per attempt, for a fresh timeout signal.
+ */
+export async function fetchWithRateLimit(
+    target: URL | string,
+    init: () => RequestInit,
+    log: (message: string) => void = console.log,
+): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+        const response = await fetch(target, init());
+        if (response.status !== 429 || attempt >= RATE_LIMIT_RETRIES) {
+            return response;
+        }
+        await response.body?.cancel();
+        const seconds = Number(
+            response.headers.get("retry-after") ??
+                response.headers.get("ratelimit-reset"),
+        );
+        const waitMs =
+            Number.isFinite(seconds) && seconds > 0
+                ? Math.min(seconds * 1000 + 250, MAX_RATE_LIMIT_WAIT_MS)
+                : MAX_RATE_LIMIT_WAIT_MS;
+        log(`WAIT rate limited; retrying in ${Math.ceil(waitMs / 1000)}s`);
+        await sleep(waitMs);
+    }
+}
+
+/** Runs a command until it isn't rate limited, waiting a window between
+ * tries. */
+export async function retryRateLimited<T extends { stderr: string }>(
+    run: () => Promise<T>,
+    log: (message: string) => void = console.log,
+): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+        const result = await run();
+        if (
+            !/too_many_requests/.test(result.stderr) ||
+            attempt >= RATE_LIMIT_RETRIES
+        ) {
+            return result;
+        }
+        log("WAIT rate limited; retrying in 65s");
+        await sleep(MAX_RATE_LIMIT_WAIT_MS);
+    }
 }

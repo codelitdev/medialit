@@ -217,3 +217,49 @@ Overwrites specific image processing defaults. Supply only the properties you wi
     - `thumbnailWidth` _(number, optional)_: Default width of generated thumbnails.
     - `thumbnailHeight` _(number, optional)_: Default height of generated thumbnails.
 - **Output:** `{ updated: true }`
+
+---
+
+### Webhooks
+
+[Webhooks](/docs/webhooks) tell your server when processing of a sealed file finishes or fails.
+
+#### `list_webhooks`
+
+Lists the app's webhook endpoints.
+
+- **Output:** `{ endpoints: [{ id, url, events, enabled, secretHint, createdAt, updatedAt }] }`. Signing secrets aren't listed, only their last characters; the MCP server doesn't reveal existing secrets. Use the dashboard, the REST API or the CLI to read one, or rotate it.
+
+#### `create_webhook`
+
+Adds an endpoint. The URL must use `https` and must not point at a private or internal address.
+
+- **Inputs:**
+    - `url` _(string)_: The URL that receives events.
+    - `events` _(string[], optional)_: `media.processing.ready` and/or `media.processing.failed`. Defaults to both.
+    - `enabled` _(boolean, optional)_: Defaults to `true`.
+- **Output:** The endpoint, with its signing `secret`.
+
+#### `update_webhook`
+
+Changes an endpoint. Omitted fields keep their values.
+
+- **Inputs:**
+    - `id` _(string)_: The endpoint's ID (`wh_…`).
+    - `url`, `events`, `enabled` _(optional)_: New values.
+    - `rotateSecret` _(boolean, optional)_: Replace the signing secret.
+- **Output:** The updated endpoint, with the new `secret` when it was rotated.
+
+#### `delete_webhook`
+
+Removes an endpoint. Destructive: pass `confirm: true` once the user has agreed.
+
+- **Inputs:** `id` _(string)_
+- **Output:** `{ message: "success" }`
+
+#### `test_webhook`
+
+Sends a signed `webhook.test` event to an endpoint now.
+
+- **Inputs:** `id` _(string)_
+- **Output:** `{ result: "delivered", status }`, or `{ result: "failed" }` with the `status` the endpoint answered or a generic `error` (`timeout`, `connection_failed`, `tls_error`, `blocked_address`).

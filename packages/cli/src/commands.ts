@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { lookup } from "mime-types";
 import { uploadFile, type UploadedMedia } from "@medialit/uploader";
+import type { WebhookEndpoint, WebhookEvent } from "medialit";
 import { loadCredentials, saveCredentials } from "./credentials";
 import { authorize, discover, register, revoke } from "./oauth";
 import { getClient, resolveEndpoint } from "./session";
@@ -19,6 +20,10 @@ export interface Flags {
     page?: string;
     limit?: string;
     browser?: boolean;
+    url?: string;
+    events?: string;
+    enable?: boolean;
+    disable?: boolean;
 }
 
 export async function login(flags: Flags): Promise<void> {
@@ -202,6 +207,146 @@ export async function remove(ids: string[], flags: Flags): Promise<void> {
     const id = requireId(ids);
     await client.delete(id);
     output(flags, { deleted: true, mediaId: id }, () => `Deleted ${id}.`);
+}
+
+const WEBHOOKS_USAGE =
+    "Usage: medialit webhooks <ls|create|update|rotate|secret|test|rm>. Run `medialit --help`.";
+
+export async function webhooks(args: string[], flags: Flags): Promise<void> {
+    const [action, ...rest] = args;
+    switch (action) {
+        case "ls":
+        case "list":
+            return webhooksList(flags);
+        case "create":
+            return webhooksCreate(rest, flags);
+        case "update":
+            return webhooksUpdate(rest, flags);
+        case "rotate":
+            return webhooksRotate(rest, flags);
+        case "secret":
+            return webhooksSecret(rest, flags);
+        case "test":
+            return webhooksTest(rest, flags);
+        case "rm":
+        case "delete":
+            return webhooksRemove(rest, flags);
+        default:
+            throw new Error(
+                action
+                    ? `Unknown webhooks command "${action}". ${WEBHOOKS_USAGE}`
+                    : WEBHOOKS_USAGE,
+            );
+    }
+}
+
+function parseEvents(value: string | undefined): WebhookEvent[] | undefined {
+    if (value === undefined) return undefined;
+    return value
+        .split(",")
+        .map((event) => event.trim())
+        .filter(Boolean) as WebhookEvent[];
+}
+
+function enabledFlag(flags: Flags): boolean | undefined {
+    if (flags.enable && flags.disable) {
+        throw new Error("Pass --enable or --disable, not both.");
+    }
+    if (flags.enable) return true;
+    if (flags.disable) return false;
+    return undefined;
+}
+
+function describeEndpoint(endpoint: WebhookEndpoint): string {
+    return [
+        `ID:      ${endpoint.id}`,
+        `URL:     ${endpoint.url}`,
+        `Events:  ${endpoint.events.join(", ")}`,
+        `Enabled: ${endpoint.enabled ? "yes" : "no"}`,
+        endpoint.secret
+            ? `Secret:  ${endpoint.secret}`
+            : `Secret:  ${endpoint.secretHint} (show it with \`medialit webhooks secret ${endpoint.id}\`)`,
+    ].join("\n");
+}
+
+async function webhooksList(flags: Flags): Promise<void> {
+    const { client } = await getClient(flags.endpoint);
+    const endpoints = await client.listWebhooks();
+    output(flags, endpoints, () =>
+        endpoints.length
+            ? table(
+                  endpoints.map((endpoint) => [
+                      endpoint.id,
+                      endpoint.enabled ? "enabled" : "disabled",
+                      endpoint.events.join(","),
+                      endpoint.url,
+                  ]),
+              )
+            : "No webhook endpoints.",
+    );
+}
+
+async function webhooksCreate(args: string[], flags: Flags): Promise<void> {
+    if (args.length !== 1) throw new Error("Pass the endpoint's URL.");
+    const { client } = await getClient(flags.endpoint);
+    const endpoint = await client.createWebhook({
+        url: args[0],
+        events: parseEvents(flags.events),
+        enabled: enabledFlag(flags),
+    });
+    output(flags, endpoint, () => describeEndpoint(endpoint));
+}
+
+async function webhooksUpdate(args: string[], flags: Flags): Promise<void> {
+    const id = requireWebhookId(args);
+    const update = {
+        url: flags.url,
+        events: parseEvents(flags.events),
+        enabled: enabledFlag(flags),
+    };
+    if (Object.values(update).every((value) => value === undefined)) {
+        throw new Error("Pass --url, --events, --enable or --disable.");
+    }
+    const { client } = await getClient(flags.endpoint);
+    const endpoint = await client.updateWebhook(id, update);
+    output(flags, endpoint, () => describeEndpoint(endpoint));
+}
+
+async function webhooksRotate(args: string[], flags: Flags): Promise<void> {
+    const id = requireWebhookId(args);
+    const { client } = await getClient(flags.endpoint);
+    const endpoint = await client.updateWebhook(id, { rotateSecret: true });
+    output(flags, endpoint, () => endpoint.secret ?? "");
+}
+
+async function webhooksSecret(args: string[], flags: Flags): Promise<void> {
+    const id = requireWebhookId(args);
+    const { client } = await getClient(flags.endpoint);
+    const secret = await client.revealWebhookSecret(id);
+    output(flags, { id, secret }, () => secret);
+}
+
+async function webhooksTest(args: string[], flags: Flags): Promise<void> {
+    const id = requireWebhookId(args);
+    const { client } = await getClient(flags.endpoint);
+    const result = await client.testWebhook(id);
+    output(flags, result, () =>
+        result.result === "delivered"
+            ? `Delivered (HTTP ${result.status}).`
+            : `Failed (${result.status !== undefined ? `HTTP ${result.status}` : result.error}).`,
+    );
+}
+
+async function webhooksRemove(args: string[], flags: Flags): Promise<void> {
+    const id = requireWebhookId(args);
+    const { client } = await getClient(flags.endpoint);
+    await client.deleteWebhook(id);
+    output(flags, { deleted: true, id }, () => `Deleted ${id}.`);
+}
+
+function requireWebhookId(ids: string[]): string {
+    if (ids.length !== 1) throw new Error("Pass one webhook endpoint ID.");
+    return ids[0];
 }
 
 function requireId(ids: string[]): string {

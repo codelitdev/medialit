@@ -391,6 +391,18 @@ You can run several workers. Each job runs once, on one of them.
 
 Set your container's stop timeout a few seconds above `WORKER_SHUTDOWN_GRACE_MS`.
 
+## Webhooks
+
+The worker delivers [webhooks](/docs/webhooks). The tenant picks the URL, so MediaLit refuses URLs that resolve to loopback, private, link-local (including cloud metadata such as `169.254.169.254`), CGNAT, multicast and reserved addresses, and their IPv6 forms. It checks every address the hostname resolves to, when the endpoint is saved and before every delivery, and then connects to the address it checked. With `NODE_ENV=production`, only `https` URLs are accepted.
+
+If your receivers run on your own network, for example another service in the same Compose project, set this on the API and the worker:
+
+```sh
+WEBHOOK_ALLOW_PRIVATE_NETWORKS=true
+```
+
+It turns the address check off and also allows `http` URLs in production. Only set it when everyone who can create an endpoint is trusted: it lets them make the worker send requests to anything it can reach. The worker logs a warning at startup while it is set.
+
 ## Operate the job queue
 
 ### Alerts

@@ -2,7 +2,15 @@
 
 import { auth, type Session } from "@/auth";
 import { serverApi } from "@/lib/server-api";
-import type { ApiKey, App, User } from "@medialit/models";
+import type {
+    ApiKey,
+    App,
+    User,
+    WebhookDelivery,
+    WebhookEndpoint,
+    WebhookEvent,
+    WebhookTestResult,
+} from "@medialit/models";
 
 async function errorMessage(response: Response) {
     const data = await response.json().catch(() => ({}));
@@ -207,6 +215,132 @@ export async function revokeApiKey(
             };
         }
         return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export type WebhooksData = {
+    endpoints: WebhookEndpoint[];
+    deliveries: WebhookDelivery[];
+    events: WebhookEvent[];
+};
+
+function webhooksPath(appId: string, webhookId?: string) {
+    const base = `/api/apps/${encodeURIComponent(appId)}/webhooks`;
+    return webhookId ? `${base}/${encodeURIComponent(webhookId)}` : base;
+}
+
+export async function listWebhooks(appId: string): Promise<WebhooksData> {
+    const response = await serverApi(webhooksPath(appId));
+    if (!response.ok) {
+        throw new Error(await errorMessage(response));
+    }
+    return response.json();
+}
+
+type WebhookResult =
+    | { success: true; endpoint: WebhookEndpoint }
+    | { success: false; error: string };
+
+async function webhookRequest(
+    path: string,
+    init: RequestInit,
+): Promise<WebhookResult> {
+    try {
+        const response = await serverApi(path, init);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return { success: false, error: data.error || "Request failed" };
+        }
+        return { success: true, endpoint: data };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function createWebhook(
+    appId: string,
+    input: { url: string; events: WebhookEvent[] },
+): Promise<WebhookResult> {
+    return webhookRequest(webhooksPath(appId), {
+        method: "POST",
+        body: JSON.stringify(input),
+    });
+}
+
+export async function updateWebhook(
+    appId: string,
+    webhookId: string,
+    input: {
+        url?: string;
+        events?: WebhookEvent[];
+        enabled?: boolean;
+        rotateSecret?: boolean;
+    },
+): Promise<WebhookResult> {
+    return webhookRequest(webhooksPath(appId, webhookId), {
+        method: "PATCH",
+        body: JSON.stringify(input),
+    });
+}
+
+export async function deleteWebhook(
+    appId: string,
+    webhookId: string,
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const response = await serverApi(webhooksPath(appId, webhookId), {
+            method: "DELETE",
+        });
+        if (!response.ok) {
+            return { success: false, error: await errorMessage(response) };
+        }
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function testWebhook(
+    appId: string,
+    webhookId: string,
+): Promise<
+    | { success: true; result: WebhookTestResult }
+    | { success: false; error: string }
+> {
+    try {
+        const response = await serverApi(
+            `${webhooksPath(appId, webhookId)}/test`,
+            { method: "POST" },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return { success: false, error: data.error || "Request failed" };
+        }
+        return { success: true, result: data };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+/** An endpoint's signing secret. The list leaves secrets out. */
+export async function revealWebhookSecret(
+    appId: string,
+    webhookId: string,
+): Promise<
+    { success: true; secret: string } | { success: false; error: string }
+> {
+    try {
+        const response = await serverApi(
+            `${webhooksPath(appId, webhookId)}/secret`,
+            { method: "POST" },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return { success: false, error: data.error || "Request failed" };
+        }
+        return { success: true, secret: data.secret };
     } catch (err: any) {
         return { success: false, error: err.message };
     }

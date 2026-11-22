@@ -8,7 +8,14 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { checkProcessing, generatePng } from "./utils";
+import {
+    checkProcessing,
+    checkWebhooks,
+    fetchWithRateLimit,
+    generatePng,
+    WebhookRefused,
+    type WebhookClient,
+} from "./utils";
 export { generatePng } from "./utils";
 
 type JsonObject = Record<string, unknown>;
@@ -91,11 +98,15 @@ export async function runIntegrationTests(
         init: RequestInit,
         status = 200,
     ): Promise<Response> {
-        const response = await fetch(target, {
-            ...init,
-            redirect: "error",
-            signal: AbortSignal.timeout(30_000),
-        });
+        const response = await fetchWithRateLimit(
+            target,
+            () => ({
+                ...init,
+                redirect: "error",
+                signal: AbortSignal.timeout(30_000),
+            }),
+            log,
+        );
         if (response.status !== status) {
             const detail = (await response.text())
                 .split(apiKey!)
@@ -355,6 +366,55 @@ export async function runIntegrationTests(
         log(`PASS upload and get ${label} (${access})`);
     }
 
+    /** The /settings/webhooks routes. A 400 means the URL was refused. */
+    function webhookClient(): WebhookClient {
+        async function call(action: string, body: JsonObject) {
+            const response = await fetchWithRateLimit(
+                url(`settings/webhooks/${action}`),
+                () => ({
+                    method: "POST",
+                    headers: {
+                        "x-medialit-apikey": apiKey!,
+                        "content-type": "application/json",
+                    },
+                    body: JSON.stringify(body),
+                    redirect: "error",
+                    signal: AbortSignal.timeout(30_000),
+                }),
+                log,
+            );
+            const result = await response.json();
+            if (response.status === 400) {
+                throw new WebhookRefused(String(result.error));
+            }
+            const expected = action === "create" ? 201 : 200;
+            assert.equal(
+                response.status,
+                expected,
+                `POST /settings/webhooks/${action}: ${JSON.stringify(result).slice(0, 500)}`,
+            );
+            return object(result);
+        }
+        return {
+            create: (input) => call("create", input),
+            list: async () => {
+                const result = await call("get", {});
+                assert(Array.isArray(result.endpoints));
+                return result.endpoints.map(object);
+            },
+            update: (id, input) => call("update", { ...input, id }),
+            remove: async (id) => {
+                assert.equal((await call("delete", { id })).message, "success");
+            },
+            test: (id) => call("test", { id }),
+            reveal: async (id) => {
+                const result = await call("secret", { id });
+                assert.equal(result.id, id);
+                return String(result.secret);
+            },
+        };
+    }
+
     log(
         `MediaLit integration run ${group} against ${base.origin}${base.pathname}`,
     );
@@ -458,6 +518,8 @@ export async function runIntegrationTests(
             log(`PASS delete ${mediaId} and storage increment`);
         }
         assert.deepEqual(await list({ group }), []);
+
+        await checkWebhooks(webhookClient(), group, log);
     } catch (error) {
         failure = error;
     } finally {

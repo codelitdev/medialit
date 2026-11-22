@@ -38,6 +38,44 @@ export interface MediaSettings {
     thumbnailHeight?: number;
 }
 
+export type WebhookEvent = "media.processing.ready" | "media.processing.failed";
+
+export interface WebhookEndpoint {
+    id: string;
+    url: string;
+    events: WebhookEvent[];
+    enabled: boolean;
+    /** The signing secret's last characters. */
+    secretHint: string;
+    /** Signing secret (Standard Webhooks). Returned only by `createWebhook`
+     * and by `updateWebhook` with `rotateSecret`; read it later with
+     * `revealWebhookSecret`. */
+    secret?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface WebhookEndpointInput {
+    url: string;
+    /** Defaults to every event. */
+    events?: WebhookEvent[];
+    /** Defaults to true. */
+    enabled?: boolean;
+}
+
+export interface WebhookEndpointUpdate {
+    url?: string;
+    events?: WebhookEvent[];
+    enabled?: boolean;
+    /** Replace the signing secret with a new one. */
+    rotateSecret?: boolean;
+}
+
+/** A test event's outcome: only a status code or a generic error class. */
+export type WebhookTestResult =
+    | { result: "delivered"; status: number }
+    | { result: "failed"; status?: number; error?: string };
+
 // Type to handle both file paths and buffers/streams
 export type FileInput = string | Buffer | Readable;
 
@@ -306,6 +344,81 @@ export class MediaLit {
             const error = await response.json();
             throw new Error(error.message || "Failed to update media settings");
         }
+    }
+
+    private async webhookRequest<T>(
+        action: "create" | "get" | "update" | "delete" | "test" | "secret",
+        body: Record<string, unknown>,
+        failure: string,
+    ): Promise<T> {
+        const response = await fetch(
+            `${this.endpoint}/settings/webhooks/${action}`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...this.authHeaders(),
+                },
+                body: JSON.stringify(body),
+            },
+        );
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || failure);
+        }
+        return response.json();
+    }
+
+    /** The app's webhook endpoints. Secrets are left out; see
+     * `revealWebhookSecret`. */
+    async listWebhooks(): Promise<WebhookEndpoint[]> {
+        const result = await this.webhookRequest<{
+            endpoints: WebhookEndpoint[];
+        }>("get", {}, "Failed to list webhooks");
+        return result.endpoints;
+    }
+
+    /** Adds an endpoint and returns it with its signing secret. */
+    async createWebhook(input: WebhookEndpointInput): Promise<WebhookEndpoint> {
+        return this.webhookRequest(
+            "create",
+            { ...input },
+            "Failed to create webhook",
+        );
+    }
+
+    async updateWebhook(
+        id: string,
+        update: WebhookEndpointUpdate,
+    ): Promise<WebhookEndpoint> {
+        return this.webhookRequest(
+            "update",
+            { ...update, id },
+            "Failed to update webhook",
+        );
+    }
+
+    /** An endpoint's signing secret. Needs write access. */
+    async revealWebhookSecret(id: string): Promise<string> {
+        const result = await this.webhookRequest<{ secret: string }>(
+            "secret",
+            { id },
+            "Failed to read the webhook secret",
+        );
+        return result.secret;
+    }
+
+    async deleteWebhook(id: string): Promise<void> {
+        await this.webhookRequest("delete", { id }, "Failed to delete webhook");
+    }
+
+    /** Sends a signed `webhook.test` event to the endpoint now. */
+    async testWebhook(id: string): Promise<WebhookTestResult> {
+        return this.webhookRequest(
+            "test",
+            { id },
+            "Failed to send a test webhook",
+        );
     }
 }
 

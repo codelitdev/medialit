@@ -13,6 +13,7 @@ import { mediaTools } from "./tools/media";
 import { settingsTools } from "./tools/settings";
 import { signatureTools } from "./tools/signature";
 import { uploadTools } from "./tools/upload";
+import { webhookTools } from "./tools/webhooks";
 import { whoamiTools } from "./tools/whoami";
 
 export const MEDIALIT_MCP_VERSION = "2.0.0";
@@ -25,6 +26,7 @@ export function medialitMcpTools(): MedialitMcpTool[] {
         ...mediaTools(),
         ...signatureTools(),
         ...settingsTools(),
+        ...webhookTools(),
         ...uploadTools(),
     ];
 }
@@ -39,7 +41,7 @@ export function createMedialitMcp(): McpServerKit<MedialitMcpContext> {
         name: "MediaLit",
         version: MEDIALIT_MCP_VERSION,
         description:
-            "MediaLit MCP server — manage media files, storage, and upload settings for one MediaLit app: the app picked when the client was authorized, or the API key's app. Supports listing, inspecting, deleting, and sealing media items, checking the connected account and app (whoami), querying storage usage, generating upload signatures, and configuring media processing settings.",
+            "MediaLit MCP server — manage media files, storage, and upload settings for one MediaLit app: the app picked when the client was authorized, or the API key's app. Supports listing, inspecting, deleting, and sealing media items, checking the connected account and app (whoami), querying storage usage, generating upload signatures, configuring media processing settings, and managing webhook endpoints that are told when processing finishes.",
         instructions:
             "Every tool acts on one MediaLit app; whoami shows which. Uploads are temporary until sealed. Deleting and sealing media can't be undone: confirm the target with the user, then pass confirm: true.",
         authenticate: authenticateMcpRequest,

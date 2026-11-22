@@ -75,6 +75,9 @@ export TEMP_FILE_DIR_FOR_UPLOADS="$workdir/uploads"
 # The limit is set to an unusual value so it can't match by accident.
 export MEDIALIT_DEPLOYMENT_MODE=cloud
 export MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED=1234567890
+# The REST and CLI suites make a few hundred API-key calls from this machine
+# within a minute, more than the default limit of 120 a minute allows.
+export API_RATE_LIMIT_PER_MINUTE="${API_RATE_LIMIT_PER_MINUTE:-5000}"
 mkdir -p "$TEMP_FILE_DIR_FOR_UPLOADS"
 # The API seeds this key for the EMAIL user at startup, the same way a bundled
 # self-hosted install gets its key. It is never logged.

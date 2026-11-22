@@ -356,3 +356,32 @@ export const derivatives = pgTable(
         ),
     }),
 );
+
+/**
+ * Where an app's processing events are sent (pipelines-phase-0.md, D8). The
+ * secret is stored as plain text so the dashboard can show it again; it
+ * signs every delivery (Standard Webhooks). Apps are soft-deleted, so
+ * `softDeleteApp` deletes these rows itself.
+ */
+export const webhookEndpoints = pgTable(
+    "webhook_endpoints",
+    {
+        id: text("id").primaryKey(),
+        appId: text("app_id")
+            .notNull()
+            .references(() => apps.id, { onDelete: "cascade" }),
+        url: text("url").notNull(),
+        secret: text("secret").notNull(),
+        enabled: boolean("enabled").notNull().default(true),
+        events: text("events").array().notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => ({
+        app: index("webhook_endpoints_app_idx").on(table.appId),
+    }),
+);
