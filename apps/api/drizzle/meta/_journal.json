@@ -92,6 +92,13 @@
       "when": 1795226356751,
       "tag": "0012_operator_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795330759582,
+      "tag": "0013_derivatives",
+      "breakpoints": true
     }
   ]
 }

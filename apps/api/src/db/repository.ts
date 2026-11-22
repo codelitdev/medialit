@@ -1051,7 +1051,7 @@ export async function sealMediaRecord(input: {
     const db = getDb();
     await db
         .update(media)
-        .set({ temp: false, updatedAt: now() })
+        .set({ temp: false, processingStatus: "ready", updatedAt: now() })
         .where(
             and(
                 eq(media.userId, input.userId),
@@ -1091,6 +1091,7 @@ export async function createUploadingMediaRecord(input: {
         accessControl: "private",
         temp: true,
         uploaded: false,
+        processingStatus: "pending",
         createdAt: timestamp,
         updatedAt: timestamp,
     });
