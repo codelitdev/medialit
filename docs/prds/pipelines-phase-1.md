@@ -229,7 +229,7 @@ Encode failures (`bad_input`, `internal`, `timeout`) and any other failed deriva
 - `processing.error` gives the reasons, as phase 0 does for a skipped WebP (`thumbnail: …; hls: out_of_processing_minutes`).
 - The webhook sent is `media.processing.ready`. Clients that want to tell a client "out of minutes" read `derivatives.hls.error`.
 
-This follows phase 0's rule that clients see `failed` only when the media isn't usable. #247 says to "send the failure webhook" when minutes run out. This decision replaces that: the event is `media.processing.ready`, with the failed `hls` derivative in its payload, and #247 is updated to match.
+This follows phase 0's rule that clients see `failed` only when the media isn't usable. #247 says to "send the failure webhook" when minutes run out. This decision replaces that: the event is `media.processing.ready`, with the failed `hls` derivative in its payload. #247 has been updated to match.
 
 ### D13. A player in `@medialit/react`
 
@@ -465,4 +465,4 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 3. **Audio extraction in phase 1 or phase 2.** It has no caller until captions. Building it in phase 1 (as #258 says) means unused code for a while. Moving it to the start of phase 2 means it ships with its first user. Proposal: phase 2.
 4. **Metadata at seal vs. as a job** (D2). Inline adds up to a few hundred milliseconds per video seal, up to 5 s for a slow source. Needed before step 2.
 
-Decision 2 is needed before step 1. #247 still says to send the failure webhook when minutes run out; it is updated once D12 is approved here.
+Decision 2 is needed before step 1.
