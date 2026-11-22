@@ -1,14 +1,14 @@
 # Pipelines phase 1: video streaming and media processing
 
-**Issue:** #258 (part of #247). Sub-issues: #139 (HLS), #264 (MP4 for the web), #267 (metadata), #265 (posters), #266 (audio extraction).
+**Issue:** #258 (part of #247). Sub-issues: #139 (HLS), #264 (MP4 for the web), #267 (metadata), #265 (posters). Audio extraction (#266) moved to phase 2 (D10).
 
-**Status:** Draft for review. The open decisions are in section 12; decisions made in review are recorded where they apply (D12). Observability, including what phase 0 left out, is in section 7.
+**Status:** Ready for development. The decisions made in review are in section 12. Observability, including what phase 0 left out, is in section 7.
 
 ## 1. Goal
 
 Stream video with HLS, or serve an MP4 optimized for web playback, and do the processing they depend on. Everything runs on MediaLit's own workers with ffmpeg and needs no outside service, so self-hosted installs and the cloud work the same.
 
-Two media settings control it: `videoStreaming` (`"off"`, `"hls"` or `"mp4"`) and `hlsRenditions`. Metadata, posters and audio extraction are internal steps with no settings.
+Two media settings control it: `videoStreaming` (`"off"`, `"hls"` or `"mp4"`) and `hlsRenditions`. Metadata and posters are internal steps with no settings.
 
 This is the first phase with derivative jobs, so it is also the first phase in which webhooks fire for real uploads.
 
@@ -80,7 +80,7 @@ type MediaMetadata = {
 HLS and MP4 encodes use every core they get. Under the `cpu` class, whose default concurrency is the number of cores, a worker would run that many encodes at once, each with that many threads.
 
 - New class `video`, default concurrency 1, set with `WORKER_CONCURRENCY_VIDEO`. ffmpeg uses all cores.
-- Posters stay in `cpu`. Audio extraction is `cpu` too: it copies or re-encodes audio only.
+- Posters stay in `cpu`.
 - `WORKER_CLASSES` can keep video off a worker, so the cloud can later run encodes on separate nodes.
 
 ### D4. What a video job does with its input
@@ -173,8 +173,8 @@ Alternative rejected: **CloudFront signed cookies** for the prefix. They need th
 
 Encoding costs real CPU, and HLS is the default for new paid and self-hosted apps. The cloud can't turn it on without a limit, so metering ships with phase 1.
 
-- **What counts:** the source's duration, rounded up to whole minutes, once per HLS job (not per rendition) and once per MP4 re-encode. Remuxes, posters, metadata and audio extraction don't count.
-- **Allowance per calendar month (UTC):** free plan `PROCESSING_MINUTES_FREE` (default 5), paid plan `PROCESSING_MINUTES_PAID` (default 300, see section 12), self-hosted unlimited and not recorded.
+- **What counts:** the source's duration, rounded up to whole minutes, once per HLS job (not per rendition) and once per MP4 re-encode. Remuxes, posters and metadata don't count.
+- **Allowance per calendar month (UTC):** free plan `PROCESSING_MINUTES_FREE` (default 5), paid plan `PROCESSING_MINUTES_PAID` (default 300 until the benchmark, section 12), self-hosted unlimited and not recorded.
 - **Reserving:** when an encode starts, after the probe, the job takes a per-account advisory lock in a transaction, adds up the month's usage, and inserts a usage row if the minutes fit. The row is keyed by job ID, so a retry doesn't charge twice.
 - **If the encode fails for good,** the row is deleted. Accounts pay only for output they get. The reconciler (phase 0) deletes it too when it fails a derivative whose job stopped without a result, for example when the worker died on the last attempt.
 - **Out of minutes:** the derivative fails with `error: "out_of_processing_minutes"`, and the original stays playable (#247). The media settles `ready`, not `failed` (D12).
@@ -192,11 +192,9 @@ Phase 0 (D4) left this here: the upload thumbnail is the first frame, often blac
 - If the upload thumbnail failed, the poster makes the first thumbnail, and `thumbnailGenerated` is set.
 - If the poster fails, the upload thumbnail stays. The derivative is marked failed, and the media still settles `ready` (D12).
 
-### D10. Audio extraction (#266)
+### D10. Audio extraction moves to phase 2 (#266)
 
-- Job `media.audio`, class `cpu`. Copies the audio stream into an `.m4a` when it is AAC, otherwise encodes AAC 128 kbps. Derivative `audio`, key `audio.m4a`.
-- Videos with no audio stream don't get the job (known from metadata at seal). If metadata is missing and the job finds no audio, the derivative is removed instead of failed, and the media settles without it.
-- **Nothing queues it in phase 1.** `generateCaptions` (#269) will. Phase 1 builds and tests the handler so phase 2 starts from it (see section 12).
+Nothing uses the extracted audio until captions (#269). Building it in phase 1 would leave it unused for a phase, so it ships at the start of phase 2, with its first user. #266 moved to phase 2 (#259).
 
 ### D11. Which jobs seal queues
 
@@ -269,7 +267,7 @@ Migration: backfill `video_streaming = 'off'` for every existing app, inserting 
 
 **Playback:** public media plays straight from the CDN. Private media plays through the API's playlist routes, with segments from storage (D6).
 
-**Delete:** unchanged. The prefix delete removes `hls/`, `web.mp4`, `poster.webp` and `audio.m4a`. A running encode aborts on its next heartbeat. Usage rows stay.
+**Delete:** unchanged. The prefix delete removes `hls/`, `web.mp4` and `poster.webp`. A running encode aborts on its next heartbeat. Usage rows stay.
 
 ## 6. API surface
 
@@ -428,7 +426,7 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
         - a free-plan video job queued before a paid-plan one runs after it;
         - a private playlist token is still accepted after `CDN_MAX_AGE` and before the video's duration plus `CDN_MAX_AGE`, and an invalid token is refused without a database query.
     - The AGENTS.md end-to-end checks (REST form-data and tus, browser, CLI) pass with the worker running. For videos, also check that the HLS derivative plays through `@medialit/react` **in Chrome** (hls.js, which needs the bucket CORS) and in Safari (native), for both public and private media, with a source close to 1 GB.
-    - **Benchmark** on the QA worker in steps 4 and 5: encode speed for 720p and 1080p sources of 10 and 60 minutes. It sets the timeout factor (D4), `video_queue_lag` (7.6) and the paid plan allowance (section 12).
+    - **Benchmark** on the QA worker in steps 4 and 5: encode speed for 720p and 1080p sources of 10 and 60 minutes. It sets the timeout factor (D4), `video_queue_lag` (7.6) and the paid plan allowance (section 12, decision 3).
 
 ## 9. Rollout
 
@@ -444,9 +442,8 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
 3. **#265 posters** (D9), the `publicKey` destination in `media.publish`, the `video` class (D3), and the worker's new resources in the infra repo. The first derivative job: sealed videos start firing webhooks. The settling rule from D12 lands here.
 4. **#264 MP4** (D7). Smaller than HLS, and it proves the shared video job code (D4): the size check, the download, the retry rules and the timeout. The first benchmark runs here.
 5. **#139 HLS** (D5, D6), the bucket CORS settings, then the player (D13). The benchmark is repeated for the ladder.
-6. **#266 audio extraction** (D10), unqueued until phase 2.
 
-Each later step ships its own events, logs, exceptions and alerts from section 7, not as a separate step at the end. Steps 4 and 5 depend on 1 to 3. Steps 4 and 6 can run in parallel with 5.
+Each later step ships its own events, logs, exceptions and alerts from section 7, not as a separate step at the end. Steps 4 and 5 depend on 1 to 3. Step 4 can run in parallel with 5.
 
 ## 11. Out of scope
 
@@ -458,11 +455,11 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 - **Processing sources over 1 GB.** Paid uploads can be up to 2 GB; larger videos keep their original and poster and fail HLS or MP4 with `source_too_large`. Raising `VIDEO_MAX_SOURCE_BYTES` needs a bigger worker, not code changes.
 - `1440p` and `2160p` renditions (D1).
 
-## 12. Open decisions
+## 12. Decisions made in review
 
-1. **Paid plan allowance.** Default `PROCESSING_MINUTES_PAID` to 300 until the HLS encoding benchmark is done? The benchmark runs on the QA worker with step 5.
-2. **The free plan's default.** #247 says HLS is on by default for OSS and the paid plan. This doc reads that as `"off"` for the free plan, so free accounts don't spend their 5 minutes on their first upload without asking for it.
-3. **Audio extraction in phase 1 or phase 2.** It has no caller until captions. Building it in phase 1 (as #258 says) means unused code for a while. Moving it to the start of phase 2 means it ships with its first user. Proposal: phase 2.
-4. **Metadata at seal vs. as a job** (D2). Inline adds up to a few hundred milliseconds per video seal, up to 5 s for a slow source. Needed before step 2.
-
-Decision 2 is needed before step 1.
+1. **Free plan default `"off"`** (D1). #247 puts HLS on by default for self-hosted installs and the paid plan only, so free accounts don't spend their 5 minutes on their first upload without asking for it. They can still turn HLS on.
+2. **Metadata is read at seal, not as a job** (D2), accepting up to a few hundred milliseconds per video seal, at most 5 s.
+3. **Paid plan allowance:** `PROCESSING_MINUTES_PAID` defaults to 300 a month, revised after the encoding benchmark in steps 4 and 5. Changing it is a config change.
+4. **Audio extraction moves to phase 2** (D10).
+5. **Failures that leave the media usable settle it `ready`** (D12): a failed poster, and HLS or MP4 refused by our limits (`out_of_processing_minutes`, `source_too_large`, `source_too_long`). #247 was updated to match.
+6. **Video processing is sized for sources up to about 1 GB** (D4), on a 2 CPU, 2 GiB worker with 5 GiB of temp disk.
