@@ -229,7 +229,7 @@ Encode failures (`bad_input`, `internal`, `timeout`) and any other failed deriva
 - `processing.error` gives the reasons, as phase 0 does for a skipped WebP (`thumbnail: …; hls: out_of_processing_minutes`).
 - The webhook sent is `media.processing.ready`. Clients that want to tell a client "out of minutes" read `derivatives.hls.error`.
 
-This follows phase 0's rule that clients see `failed` only when the media isn't usable. #247 says to "send the failure webhook" when minutes run out. This decision replaces that: the event is `media.processing.ready`, with the failed `hls` derivative in its payload. #247 has been updated to match.
+This follows phase 0's rule that clients see `failed` only when the media isn't usable. #247 first said to "send the failure webhook" when minutes run out. This decision replaces that: the event is `media.processing.ready`, with the failed `hls` derivative in its payload. #247 has been updated to match.
 
 ### D13. A player in `@medialit/react`
 
