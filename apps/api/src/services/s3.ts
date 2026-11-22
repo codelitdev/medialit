@@ -298,6 +298,31 @@ export const copyObject = async (params: CopyParams) => {
     return response;
 };
 
+/** Every key under a prefix. */
+export const listKeys = async (
+    prefix: string,
+    bucket?: string,
+): Promise<string[]> => {
+    const targetBucket = bucket || cloudBucket;
+    const client = getS3Client(targetBucket);
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+        const response = await client.send(
+            new ListObjectsV2Command({
+                Bucket: targetBucket,
+                Prefix: prefix,
+                ContinuationToken: continuationToken,
+            }),
+        );
+        for (const object of response.Contents ?? []) {
+            if (object.Key) keys.push(object.Key);
+        }
+        continuationToken = response.NextContinuationToken;
+    } while (continuationToken);
+    return keys;
+};
+
 export const deleteFolder = async (
     prefix: string,
     bucket?: string,

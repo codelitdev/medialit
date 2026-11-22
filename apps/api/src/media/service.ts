@@ -26,7 +26,18 @@ import {
     getPaginatedMedia,
     getTotalSpace,
 } from "./queries";
-import { listMediaRecordsByIds, sealMediaRecord } from "@/db";
+import {
+    getDb,
+    listDerivativesByMediaIds,
+    listMediaRecordsByIds,
+    sealMediaRecord,
+} from "@/db";
+import type { ProcessingStatus } from "../db/schema";
+import {
+    afterSealCommit,
+    deleteMediaFolders,
+    derivativesResponse,
+} from "./derivatives";
 import {
     abandonUpload,
     finalizeStoredUpload,
@@ -205,6 +216,15 @@ async function getMediaResponse(
         }
     }
 
+    const record = media as MediaWithUserId & {
+        processingStatus?: ProcessingStatus;
+        processingError?: string;
+    };
+    const derivativeRows =
+        (await listDerivativesByMediaIds(getDb(), [media.mediaId])).get(
+            media.mediaId,
+        ) ?? [];
+
     return {
         mediaId: media.mediaId,
         originalFileName: media.originalFileName,
@@ -218,6 +238,13 @@ async function getMediaResponse(
         thumbnail: thumbnailUrl,
         caption: media.caption,
         group: media.group,
+        processing: {
+            status: record.processingStatus ?? "ready",
+            ...(record.processingError
+                ? { error: record.processingError }
+                : {}),
+        },
+        derivatives: await derivativesResponse(media.mediaId, derivativeRows),
     };
 }
 
@@ -291,23 +318,10 @@ async function getTextContent({
     };
 }
 
-/* Removes a media item's main file and thumbnail from storage. */
+/* Removes everything stored for a media item: its whole folder in both
+   buckets, so derivatives and leftovers of unfinished seals go too. */
 async function removeStoredFiles(media: MediaWithUserId): Promise<void> {
-    await deleteObject(mainFileLocation(media));
-
-    if (media.thumbnailGenerated) {
-        // Thumbnails are in public bucket if sealed, private bucket if temp
-        const thumbBucket = media.temp ? cloudBucket : cloudPublicBucket;
-        const thumbPath = media.temp
-            ? Constants.PathKey.PRIVATE
-            : Constants.PathKey.PUBLIC;
-        const thumbKey = generateKey({
-            mediaId: media.mediaId,
-            path: thumbPath,
-            filename: "thumb.webp",
-        });
-        await deleteObject({ Key: thumbKey, Bucket: thumbBucket });
-    }
+    await deleteMediaFolders(media.mediaId);
 }
 
 async function deleteMedia({
@@ -478,7 +492,12 @@ async function sealMedia({
     }
 
     // Update media record to remove temp flag
-    await sealMediaRecord({ mediaId, userId: String(userId), appId });
+    await sealMediaRecord({
+        mediaId,
+        userId: String(userId),
+        appId,
+        inTransaction: afterSealCommit,
+    });
 
     // Fetch and return the updated media
     const updatedMedia = await getMedia({ userId, appId, mediaId });

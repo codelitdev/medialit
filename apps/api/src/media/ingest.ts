@@ -218,6 +218,7 @@ export async function finalizeStoredUpload(
         }
 
         let thumbnailGenerated = false;
+        let thumbnailSize = 0;
         if (isImage || isVideo) {
             const thumbKey = generateKey({
                 mediaId,
@@ -242,6 +243,7 @@ export async function finalizeStoredUpload(
                 });
                 stored.add(thumbKey);
                 thumbnailGenerated = true;
+                thumbnailSize = (await stat(thumbPath)).size;
             } catch (err: any) {
                 logger.error(
                     { err, media_id: mediaId },
@@ -256,6 +258,7 @@ export async function finalizeStoredUpload(
             mimeType,
             size,
             thumbnailGenerated,
+            thumbnailSize,
             accessControl:
                 upload.access === Constants.AccessControl.PUBLIC
                     ? Constants.AccessControl.PUBLIC
