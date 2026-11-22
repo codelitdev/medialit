@@ -1,5 +1,14 @@
 # @medialit/web
 
+## 0.3.1
+
+### Patch Changes
+
+- ef88146: The sign-in and app-picker pages show the MediaLit logo and favicon again. A stale `public/icon.svg` from 2024 was shadowing the current logo at `/icon.svg`. The app picker also fits phone screens.
+- 561593b: Update the Codelit platform packages to 0.14.1 and Better Auth to 1.7.22, which carries Better Auth security fixes. On the sign-in page, "Continue with email" now waits for the security check, and the page fits phone screens. Sessions use hardened cookie settings without renaming the cookie when `AUTH_COOKIE_DOMAIN` is set, so nobody is signed out. A new `TRUST_PROXY` setting lists the proxies to trust for the client address; `ENABLE_TRUST_PROXY` keeps working.
+- ad8729d: Update the Codelit platform packages to 0.15.0: dialog header spacing in the dashboard and PostHog ingestion fixes for logs and errors.
+- e483c35: Webhooks moved into App settings, next to API keys, and the sidebar no longer has a separate Webhooks item. Links to the old page open App settings at the Webhooks section.
+
 ## 0.3.0
 
 ### Minor Changes
