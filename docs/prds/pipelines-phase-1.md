@@ -49,10 +49,10 @@ This is the first phase with derivative jobs, so it is also the first phase in w
 
 Seal reads the metadata before it commits and stores it in `media.metadata`. Video jobs then know at queue time what to do: which renditions fit, whether the MP4 can be remuxed, whether there is audio.
 
-- **Video and audio:** `ffprobe` over a presigned URL, so only the container header and index are read. It runs under the same input allowlist and `runLimited` as the video thumbnail, with a 5 s timeout. Without a shell, in its own process group.
+- **Video and audio:** `ffprobe` over a presigned URL, so only the container header and index are read. It runs under the same input allowlist and `runLimited` as the video thumbnail, without a shell, in its own process group, with a 2 s timeout and `-probesize 2M -analyzeduration 2M`, so it reads at most about 2 MB. Formats that don't describe their streams in a header (MKV, AVI, MPEG-TS) are read until ffprobe can tell the codecs, and the cap keeps that to 2 MB. If the cap leaves a field unknown, it is omitted, and the video job fills it in from its own probe of the downloaded copy.
 - **Images:** width, height and format from the header with `packages/images` (`readImageInfo` over ranged reads), as WebP already does. This covers PNG, JPEG, WebP and GIF. Other formats get no image metadata. We don't add libvips for this: the header reader already exists, is bounded, and doesn't decode.
 - **Seal never fails because of metadata.** If the probe fails or times out, `metadata` stays null, seal still queues the jobs the MIME type calls for, and each video job probes again before it starts (D4). A job that probes successfully fills `metadata` if it is still null.
-- **Cost:** one ffprobe per audio or video seal, typically 100–500 ms. CourseLit seals media one at a time when it publishes a page (phase 0, section 2, point 4), so this adds up for pages with many videos. It is bounded by the 5 s timeout.
+- **Cost:** one ffprobe per audio or video seal, typically 100–500 ms. CourseLit seals media one at a time when it publishes a page (phase 0, section 2, point 4), so this adds up for pages with many videos. It is bounded by the 2 s timeout. Nothing is lost when it runs out: the jobs probe again anyway, so a short limit costs only the metadata in the seal response for that one file.
 
 Why inline and not a job: metadata has no file, so it isn't a derivative, and processing status is settled from derivatives. A metadata job would either be a fake derivative shown to users, or would have to queue the HLS and MP4 jobs itself, which leaves their derivative rows without a job while it runs and confuses the reconciler. Reading it at seal avoids both.
 
@@ -458,7 +458,7 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 ## 12. Decisions made in review
 
 1. **Free plan default `"off"`** (D1). #247 puts HLS on by default for self-hosted installs and the paid plan only, so free accounts don't spend their 5 minutes on their first upload without asking for it. They can still turn HLS on.
-2. **Metadata is read at seal, not as a job** (D2), accepting up to a few hundred milliseconds per video seal, at most 5 s.
+2. **Metadata is read at seal, not as a job** (D2), accepting a few hundred milliseconds per video seal, at most 2 s, with ffprobe reading at most about 2 MB.
 3. **Paid plan allowance:** `PROCESSING_MINUTES_PAID` defaults to 300 a month, revised after the encoding benchmark in steps 4 and 5. Changing it is a config change.
 4. **Audio extraction moves to phase 2** (D10).
 5. **Failures that leave the media usable settle it `ready`** (D12): a failed poster, and HLS or MP4 refused by our limits (`out_of_processing_minutes`, `source_too_large`, `source_too_long`). #247 was updated to match.
