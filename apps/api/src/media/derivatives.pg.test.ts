@@ -260,6 +260,34 @@ describe("derivatives (Postgres)", { skip }, () => {
         assert.equal(await totalMediaSize({ userId: media.userId }), 13);
     });
 
+    test("a derivative that finishes while publishing runs gets its own publish job", async () => {
+        const { media } = await processingMedia({ access: "public" });
+        await upsertDerivative(db, {
+            mediaRowId: media.id,
+            name: "poster",
+            status: "queued",
+        });
+        // A publish job that already read its rows is running.
+        await db.execute(
+            sql`INSERT INTO jobs (id, type, payload, media_id, status, max_attempts, attempts, locked_by, locked_until)
+                VALUES (${`running-${media.id}`}, ${MEDIA_PUBLISH_JOB}, '{}'::jsonb, ${media.id},
+                    'running', 5, 1, 'worker', now() + interval '1 minute')`,
+        );
+        await finishDerivative({
+            mediaRowId: media.id,
+            name: "poster",
+            result: {
+                status: "ready",
+                output: { key: "poster.webp", size: 1 },
+            },
+        });
+        const queued = await db.execute(
+            sql`SELECT id FROM jobs WHERE media_id = ${media.id}
+                AND type = ${MEDIA_PUBLISH_JOB} AND status = 'queued'`,
+        );
+        assert.equal(queued.rows.length, 1);
+    });
+
     test("media settles only after its last derivative finishes", async () => {
         const { media } = await processingMedia();
         for (const name of ["poster", "mp4"]) {

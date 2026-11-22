@@ -17,7 +17,7 @@ import {
     sql,
     type SQL,
 } from "drizzle-orm";
-import { getDb } from "./client.js";
+import { getDb, type AppDb } from "./client.js";
 import { recordThumbnailDerivative, type Executor } from "./derivatives.js";
 import {
     apiKeys,
@@ -969,11 +969,15 @@ export async function listMedia(input: {
     return rows.map(mapMedia);
 }
 
-export async function totalMediaSize(input: {
-    userId: string;
-    appId?: string;
-}): Promise<number> {
-    const db = getDb();
+/** Bytes an account occupies. Pass a transaction as `db` to count inside
+ * it, without taking another pool connection. */
+export async function totalMediaSize(
+    input: {
+        userId: string;
+        appId?: string;
+    },
+    db: Pick<AppDb, "select"> = getDb(),
+): Promise<number> {
     // Unsealed uploads occupy storage too. Skipping them let an account stack
     // uploads past its quota before sealing.
     const filters = [eq(media.userId, input.userId)];

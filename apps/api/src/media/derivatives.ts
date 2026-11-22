@@ -9,6 +9,7 @@
  * bucket.
  */
 import { Constants, type PathKey } from "@medialit/models";
+import { sql } from "drizzle-orm";
 import {
     getDb,
     listDerivatives,
@@ -18,6 +19,7 @@ import {
     needsPublicCopy,
     orphanedDerivatives,
     settleMedia,
+    totalMediaSize,
     unpublishedDerivatives,
     upsertDerivative,
     type DerivativeRecord,
@@ -45,7 +47,6 @@ import { resolveAccountPlan, storageLimitFor } from "../billing/entitlements";
 import { enqueue } from "../jobs/queue";
 import { JobError, describeError, permanentError } from "../jobs/errors";
 import type { JobClass, JobContext, JobDefinition } from "../jobs/runner";
-import { getTotalSpace } from "./queries";
 import logger from "../services/log";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
@@ -197,15 +198,25 @@ async function settle(db: Executor, media: LockedMedia): Promise<void> {
     }
 }
 
+/**
+ * Queues `media.publish` unless one is already queued for the media; that
+ * one will see this derivative when it runs. A running one may already have
+ * read its rows, so it doesn't count. The caller holds the media row lock,
+ * so two callers can't both queue one.
+ */
 async function queuePublish(db: Executor, media: LockedMedia): Promise<void> {
     if ((await unpublishedDerivatives(db, media)).length === 0) return;
+    const queued = await db.execute(
+        sql`SELECT 1 FROM jobs WHERE media_id = ${media.id}
+            AND type = ${MEDIA_PUBLISH_JOB} AND status = 'queued' LIMIT 1`,
+    );
+    if (queued.rows.length > 0) return;
     await enqueue(db, {
         type: MEDIA_PUBLISH_JOB,
         payload: {},
         mediaId: media.id,
         appId: media.appId,
         maxAttempts: MEDIA_PUBLISH_ATTEMPTS,
-        dedupeKey: `${MEDIA_PUBLISH_JOB}:${media.id}`,
     });
 }
 
@@ -249,7 +260,16 @@ export async function finishDerivative(input: {
         | { status: "failed"; error: string };
 }): Promise<FinishOutcome> {
     const { result } = input;
-    return await getDb().transaction(async (tx): Promise<FinishOutcome> => {
+    const db = getDb();
+    // Read before the transaction: the plan lookup uses the pool, and a
+    // transaction waiting on a second connection can starve the pool.
+    const owner = await lockMedia(db, input.mediaRowId, { lock: false });
+    if (!owner) return "media_gone";
+    const storageLimit =
+        result.status === "ready"
+            ? storageLimitFor(await resolveAccountPlan({ id: owner.userId }))
+            : 0;
+    return await db.transaction(async (tx): Promise<FinishOutcome> => {
         const media = await lockMedia(tx, input.mediaRowId);
         if (!media) return "media_gone";
 
@@ -265,13 +285,10 @@ export async function finishDerivative(input: {
             return "recorded";
         }
 
-        const storageLimit = storageLimitFor(
-            await resolveAccountPlan({ id: media.userId }),
-        );
         const existing = (await listDerivatives(tx, media.id)).find(
             (d) => d.name === input.name && d.status === "ready",
         );
-        const total = await getTotalSpace({ userId: media.userId });
+        const total = await totalMediaSize({ userId: media.userId }, tx);
         const after = total - (existing?.size ?? 0) + result.output.size;
         if (after > storageLimit) {
             await upsertDerivative(tx, {
@@ -413,6 +430,27 @@ export function derivativeJob(definition: {
     };
 }
 
+/** Copies a derivative's files from the private to the public bucket. */
+async function copyToPublic(
+    mediaId: string,
+    row: DerivativeRecord,
+): Promise<void> {
+    const sources = await derivativeObjects(mediaId, "private", row.key!);
+    const privateFolderKey = mediaFolder(mediaId, Constants.PathKey.PRIVATE);
+    for (const source of sources) {
+        const relative = source.slice(privateFolderKey.length);
+        await copyObject({
+            sourceKey: source,
+            sourceBucket: cloudBucket,
+            destinationKey: `${mediaFolder(mediaId, Constants.PathKey.PUBLIC)}${relative}`,
+            destinationBucket: cloudPublicBucket,
+            ContentType: row.key!.endsWith("/")
+                ? undefined
+                : (row.mimeType ?? undefined),
+        });
+    }
+}
+
 /**
  * Copies a media item's ready derivatives that must be public to the public
  * bucket, then records them as public and deletes the private copies.
@@ -429,26 +467,16 @@ export async function publishDerivatives(mediaRowId: string): Promise<{
 
     const copied: DerivativeRecord[] = [];
     for (const row of pending) {
-        const sources = await derivativeObjects(
-            media.mediaId,
-            "private",
-            row.key!,
-        );
-        const privateFolderKey = mediaFolder(
-            media.mediaId,
-            Constants.PathKey.PRIVATE,
-        );
-        for (const source of sources) {
-            const relative = source.slice(privateFolderKey.length);
-            await copyObject({
-                sourceKey: source,
-                sourceBucket: cloudBucket,
-                destinationKey: `${mediaFolder(media.mediaId, Constants.PathKey.PUBLIC)}${relative}`,
-                destinationBucket: cloudPublicBucket,
-                ContentType: row.key!.endsWith("/")
-                    ? undefined
-                    : (row.mimeType ?? undefined),
-            });
+        try {
+            await copyToPublic(media.mediaId, row);
+        } catch (err) {
+            // Another publisher may have published it and deleted the
+            // private copy meanwhile. Only a row still waiting is an error.
+            const still = await unpublishedDerivatives(db, media);
+            if (still.some((r) => r.id === row.id && r.key === row.key)) {
+                throw err;
+            }
+            continue;
         }
         copied.push(row);
     }
