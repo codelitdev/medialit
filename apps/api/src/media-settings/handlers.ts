@@ -35,7 +35,7 @@ export async function updateMediaSettingsHandler(
         });
         return res.status(200).json({ message: SUCCESS });
     } catch (err: any) {
-        logger.error({ err }, err.message);
+        logger.error({ err, app_id: req.appId }, err.message);
         return res.status(500).json({ error: err.message });
     }
 }
@@ -48,7 +48,7 @@ export async function getMediaSettingsHandler(req: any, res: any) {
         );
         return res.status(200).json(mediaSettings);
     } catch (err: any) {
-        logger.error({ err }, err.message);
+        logger.error({ err, app_id: req.appId }, err.message);
         return res.status(500).json({ error: err.message });
     }
 }

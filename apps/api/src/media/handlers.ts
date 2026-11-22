@@ -69,7 +69,7 @@ export async function uploadMedia(
         if (err instanceof UploadRejectedError) {
             return res.status(err.status).json({ error: err.message });
         }
-        logger.error({ err }, err.message);
+        logger.error({ err, ...logContext(req) }, err.message);
         return res.status(500).json({ error: err.message });
     }
 
@@ -85,6 +85,7 @@ export async function uploadMedia(
 
     try {
         const mediaId = await finalizeStoredUpload({
+            transport: "form",
             mediaId: received.mediaId,
             ext: received.ext,
             key: received.key,
@@ -109,7 +110,7 @@ export async function uploadMedia(
         if (err.message === NOT_ENOUGH_STORAGE) {
             return res.status(403).json({ error: err.message });
         }
-        logger.error({ err }, err.message);
+        logger.error({ err, ...logContext(req) }, err.message);
         return res.status(500).json({ error: err.message });
     }
 }
@@ -140,7 +141,7 @@ export async function getMedia(
         });
         return res.status(200).json(result);
     } catch (err: any) {
-        logger.error({ err }, err.message);
+        logger.error({ err, ...logContext(req) }, err.message);
         return res.status(500).json({ error: err.message });
     }
 }
@@ -187,7 +188,7 @@ export async function getMediaDetails(req: any, res: any) {
 
         return res.status(200).json(media);
     } catch (err: any) {
-        logger.error({ err }, err.message);
+        logger.error({ err, ...logContext(req) }, err.message);
         return res.status(500).json({ error: err.message });
     }
 }
@@ -204,7 +205,7 @@ export async function deleteMedia(req: any, res: any) {
 
         return res.status(200).json({ message: SUCCESS });
     } catch (err: any) {
-        logger.error({ err }, err.message);
+        logger.error({ err, ...logContext(req) }, err.message);
         return res.status(500).json({ error: err.message });
     }
 }
@@ -234,9 +235,18 @@ export async function sealMedia(req: any, res: any) {
     } catch (err: any) {
         const statusCode = sealErrorStatus(err);
         if (statusCode === 500) {
-            logger.error({ err }, err.message);
+            logger.error({ err, ...logContext(req) }, err.message);
         }
         if (statusCode === 503) res.set("Retry-After", "1");
         return res.status(statusCode).json({ error: err.message });
     }
+}
+
+/* The IDs a handler's log line carries, when the request names them. */
+function logContext(req: any): { app_id?: string; media_id?: string } {
+    const mediaId = req.params?.mediaId ?? req.body?.mediaId;
+    return {
+        ...(req.appId ? { app_id: String(req.appId) } : {}),
+        ...(typeof mediaId === "string" ? { media_id: mediaId } : {}),
+    };
 }

@@ -23,6 +23,8 @@ import {
 } from "../services/s3";
 import { webpLimits } from "./webp-limits";
 import logger from "../services/log";
+import { trackEvent } from "../services/events";
+import { mediaKind } from "./kind";
 import { getMediaSettings } from "../media-settings/queries";
 import * as presignedUrlService from "../signature/service";
 import generateFileName from "./utils/generate-file-name";
@@ -127,7 +129,11 @@ export async function abandonUpload(
     });
 }
 
+/** How an upload arrived, for logs and events. */
+export type UploadTransport = "form" | "tus" | "mcp";
+
 export interface StoredUpload extends UploadTarget {
+    transport: UploadTransport;
     userId: string;
     appId: string;
     /** The name the client gave the file. */
@@ -159,6 +165,9 @@ export async function finalizeStoredUpload(
     upload: StoredUpload,
 ): Promise<string> {
     const { mediaId, ext, key, userId, appId } = upload;
+    const startedAt = Date.now();
+    let storedSize = 0;
+    let thumbnailOutcome: "made" | "skipped" | "failed" | "none" = "none";
     const tags = getTags(userId, upload.group);
     const stored = new Set<string>([key]);
     let workDir: string | undefined;
@@ -189,6 +198,7 @@ export async function finalizeStoredUpload(
         const mimeType = upload.mimeType;
         const head = await headObject({ Key: key, Bucket: cloudBucket });
         const size = head.ContentLength ?? 0;
+        storedSize = size;
         await putObjectTagging({ Key: key, Tagging: tags });
 
         // The total already holds this upload's declared size; swap it for
@@ -248,7 +258,10 @@ export async function finalizeStoredUpload(
                 stored.add(thumbKey);
                 thumbnailGenerated = true;
                 thumbnailSize = (await stat(thumbPath)).size;
+                thumbnailOutcome = "made";
             } catch (err: any) {
+                thumbnailOutcome =
+                    err instanceof ThumbnailSkipped ? "skipped" : "failed";
                 if (err instanceof ThumbnailSkipped) {
                     logger.info(
                         { media_id: mediaId, reason: err.reason },
@@ -289,6 +302,29 @@ export async function finalizeStoredUpload(
             await rm(workDir, { recursive: true, force: true }).catch(() => {});
         }
     }
+
+    const finished = {
+        media_id: mediaId,
+        app_id: appId,
+        transport: upload.transport,
+        media_kind: mediaKind(upload.mimeType),
+        size_bytes: storedSize,
+        duration_ms: Date.now() - startedAt,
+    };
+    logger.info(finished, "upload finished");
+    trackEvent({
+        event: "media.uploaded",
+        source: "media.upload",
+        appId,
+        userId,
+        properties: {
+            media_id: mediaId,
+            transport: finished.transport,
+            media_kind: finished.media_kind,
+            size_bytes: finished.size_bytes,
+            thumbnail: thumbnailOutcome,
+        },
+    });
 
     if (upload.signature) {
         presignedUrlService

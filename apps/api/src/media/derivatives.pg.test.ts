@@ -37,6 +37,11 @@ import {
 } from "./derivatives.js";
 import { cloudBucket, cloudPublicBucket } from "../config/constants.js";
 import { headObject, listKeys, putObject } from "../services/s3.js";
+import type { CaptureEventInput } from "@codelitdev/observability";
+import {
+    flushEventsForTests,
+    setEventSinkForTests,
+} from "../services/events.js";
 
 const skip = testPostgresUrl
     ? false
@@ -227,6 +232,10 @@ describe("derivatives (Postgres)", { skip }, () => {
         const stop = onProcessingSettled(async (_tx, event) => {
             events.push(event);
         });
+        const sent: CaptureEventInput[] = [];
+        const restoreSink = setEventSinkForTests((input) => {
+            sent.push(input);
+        });
         try {
             const job = derivativeJob({
                 type: "test.poster",
@@ -243,9 +252,23 @@ describe("derivatives (Postgres)", { skip }, () => {
                 },
             });
             await job.handler({ derivative: "poster" }, context(media.id));
+            await flushEventsForTests();
         } finally {
             stop();
+            restoreSink();
         }
+        // Sent once, after the commit, under the account.
+        assert.equal(sent.length, 1);
+        assert.equal(sent[0].event, "media.processing.settled");
+        assert.equal(sent[0].subjectId, media.userId);
+        assert.deepEqual(sent[0].properties, {
+            media_id: media.mediaId,
+            media_kind: "video",
+            status: "ready",
+            derivatives: ["poster"],
+            failed_derivatives: [],
+            app_id: media.appId,
+        });
         const [poster] = await listDerivatives(db, media.id);
         assert.equal(poster.status, "ready");
         assert.equal(poster.size, 3);

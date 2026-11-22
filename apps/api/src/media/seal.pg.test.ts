@@ -348,6 +348,62 @@ describe("seal", { skip }, () => {
         assert.equal((await row(media.mediaId))?.processingStatus, "pending");
     });
 
+    test("upload, seal and delete each send one event with only allowlisted properties", async () => {
+        const events = await import("../services/events.js");
+        const sent: Array<{
+            event: string;
+            subjectId?: unknown;
+            groups?: Record<string, unknown>;
+            properties?: Record<string, unknown>;
+        }> = [];
+        const restore = events.setEventSinkForTests((input) => {
+            sent.push(input);
+        });
+        try {
+            const media = await upload(png(), {
+                access: "public",
+                fileName: "secret-holiday.png",
+            });
+            await sealIt(media.mediaId);
+            await mediaService.deleteMedia({
+                userId,
+                appId,
+                mediaId: media.mediaId,
+            });
+            await events.flushEventsForTests();
+
+            assert.deepEqual(
+                sent.map((e) => e.event),
+                ["media.uploaded", "media.sealed", "media.deleted"],
+            );
+            const app = await db.getAppById(appId);
+            for (const event of sent) {
+                assert.equal(event.subjectId, userId);
+                assert.deepEqual(event.groups, { app: app?.appId });
+                assert.equal(event.properties?.media_id, media.mediaId);
+                assert.equal(event.properties?.app_id, appId);
+                assert.doesNotMatch(
+                    JSON.stringify(event),
+                    /secret-holiday|https?:/,
+                );
+            }
+            assert.deepEqual(
+                {
+                    transport: sent[0].properties?.transport,
+                    media_kind: sent[0].properties?.media_kind,
+                    thumbnail: sent[0].properties?.thumbnail,
+                },
+                { transport: "mcp", media_kind: "image", thumbnail: "made" },
+            );
+            assert.equal(sent[1].properties?.webp, "converted");
+            assert.equal(sent[1].properties?.access, "public");
+            assert.equal(typeof sent[1].properties?.duration_ms, "number");
+            assert.equal(sent[2].properties?.temp, false);
+        } finally {
+            restore();
+        }
+    });
+
     test("sealing a public image publishes only main.webp", async () => {
         const original = png();
         const media = await upload(original, { access: "public" });

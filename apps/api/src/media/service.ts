@@ -11,6 +11,8 @@ import {
     getObjectBytes,
 } from "../services/s3";
 import logger from "../services/log";
+import { trackEvent } from "../services/events";
+import { mediaKind } from "./kind";
 import generateKey from "./utils/generate-key";
 import GetPageProps from "./GetPageProps";
 import {
@@ -80,6 +82,7 @@ async function upload({
     }
     return await finalizeStoredUpload({
         ...target,
+        transport: "mcp",
         userId,
         appId,
         originalFileName: fileName,
@@ -324,6 +327,24 @@ async function deleteMedia({
     await mediaService.removeStoredFiles(media);
     await deleteMediaQuery(userId, mediaId);
     await sweepAfterDelete(media);
+    reportDeleted(media, appId);
+}
+
+function reportDeleted(media: MediaWithUserId, appId: string): void {
+    const fields = {
+        media_id: media.mediaId,
+        app_id: appId,
+        media_kind: mediaKind(media.mimeType),
+        temp: Boolean(media.temp),
+    };
+    logger.info(fields, "media deleted");
+    trackEvent({
+        event: "media.deleted",
+        source: "media.delete",
+        appId,
+        userId: String(media.userId),
+        properties: fields,
+    });
 }
 
 /* A seal or job that committed between removing the files and deleting the
@@ -371,6 +392,7 @@ async function deleteMediaMany({
                     await mediaService.removeStoredFiles(media);
                     await deleteMediaQuery(userId, media.mediaId);
                     await sweepAfterDelete(media);
+                    reportDeleted(media, appId);
                 }),
         );
         for (const result of results) {

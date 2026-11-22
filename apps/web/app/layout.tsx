@@ -65,7 +65,7 @@ export default async function RootLayout({
                     {children}
                 </DashboardShell>
                 <Toaster />
-                <Scripts />
+                <Scripts userId={session?.user.id ?? null} />
                 <ServiceWorker />
             </body>
         </html>

@@ -48,6 +48,8 @@ import { enqueue } from "../jobs/queue";
 import { JobError, describeError, permanentError } from "../jobs/errors";
 import type { JobClass, JobContext, JobDefinition } from "../jobs/runner";
 import logger from "../services/log";
+import { trackEvent } from "../services/events";
+import { mediaKind } from "./kind";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
 export const PROCESSING_RECONCILE_JOB = "media.processing_reconcile";
@@ -189,13 +191,69 @@ export function onProcessingSettled(hook: SettledHook): () => void {
     };
 }
 
-async function settle(db: Executor, media: LockedMedia): Promise<void> {
+/** Returns the event when the media settled, so the caller can report it
+ * once the transaction commits. */
+async function settle(
+    db: Executor,
+    media: LockedMedia,
+): Promise<ProcessingSettledEvent | null> {
     const settled = await settleMedia(db, media);
-    if (!settled) return;
+    if (!settled) return null;
     const derivatives = await listDerivatives(db, media.id);
+    const event = { media, ...settled, derivatives };
     for (const hook of settledHooks) {
-        await hook(db, { media, ...settled, derivatives });
+        await hook(db, event);
     }
+    return event;
+}
+
+/** Logs and sends what a committed finish did. */
+function reportFinished(
+    name: string,
+    result:
+        | { status: "ready"; size: number }
+        | { status: "failed"; error: string },
+    media: LockedMedia,
+    settled: ProcessingSettledEvent | null,
+): void {
+    logger.info(
+        {
+            media_id: media.mediaId,
+            app_id: media.appId,
+            derivative: name,
+            status: result.status,
+            ...(result.status === "ready"
+                ? { size_bytes: result.size }
+                : { error: result.error }),
+        },
+        "derivative recorded",
+    );
+    if (!settled) return;
+    const failed = settled.derivatives
+        .filter((d) => d.status === "failed")
+        .map((d) => d.name);
+    logger.info(
+        {
+            media_id: media.mediaId,
+            app_id: media.appId,
+            status: settled.status,
+            failed_derivatives: failed,
+        },
+        "processing settled",
+    );
+    trackEvent({
+        event: "media.processing.settled",
+        source: "media.derivatives",
+        appId: media.appId,
+        userId: media.userId,
+        properties: {
+            media_id: media.mediaId,
+            media_kind: mediaKind(media.mimeType),
+            status: settled.status,
+            derivatives: settled.derivatives.map((d) => d.name),
+            failed_derivatives: failed,
+        },
+    });
 }
 
 /**
@@ -269,7 +327,8 @@ export async function finishDerivative(input: {
         result.status === "ready"
             ? storageLimitFor(await resolveAccountPlan({ id: owner.userId }))
             : 0;
-    return await db.transaction(async (tx): Promise<FinishOutcome> => {
+    let report: (() => void) | undefined;
+    const outcome = await db.transaction(async (tx): Promise<FinishOutcome> => {
         const media = await lockMedia(tx, input.mediaRowId);
         if (!media) return "media_gone";
 
@@ -281,7 +340,14 @@ export async function finishDerivative(input: {
                 size: 0,
                 error: result.error,
             });
-            await settle(tx, media);
+            const settled = await settle(tx, media);
+            report = () =>
+                reportFinished(
+                    input.name,
+                    { status: "failed", error: result.error },
+                    media,
+                    settled,
+                );
             return "recorded";
         }
 
@@ -298,7 +364,14 @@ export async function finishDerivative(input: {
                 size: 0,
                 error: "not_enough_storage",
             });
-            await settle(tx, media);
+            const settled = await settle(tx, media);
+            report = () =>
+                reportFinished(
+                    input.name,
+                    { status: "failed", error: "not_enough_storage" },
+                    media,
+                    settled,
+                );
             return "not_enough_storage";
         }
 
@@ -315,9 +388,19 @@ export async function finishDerivative(input: {
         if (needsPublicCopy(media, input.name)) {
             await queuePublish(tx, media);
         }
-        await settle(tx, media);
+        const settled = await settle(tx, media);
+        report = () =>
+            reportFinished(
+                input.name,
+                { status: "ready", size: result.output.size },
+                media,
+                settled,
+            );
         return "recorded";
     });
+    // Only after the commit: a rolled-back finish reports nothing.
+    report?.();
+    return outcome;
 }
 
 /** Marks a derivative `processing` when its job starts. False when the
@@ -460,6 +543,7 @@ export async function publishDerivatives(mediaRowId: string): Promise<{
     published: number;
 }> {
     const db = getDb();
+    const startedAt = Date.now();
     const media = await lockMedia(db, mediaRowId, { lock: false });
     if (!media) return { published: 0 };
     const pending = await unpublishedDerivatives(db, media);
@@ -499,6 +583,15 @@ export async function publishDerivatives(mediaRowId: string): Promise<{
             await deleteDerivativeObjects(media.mediaId, "private", row.key!);
         }
     }
+    logger.info(
+        {
+            media_id: media.mediaId,
+            app_id: media.appId,
+            count: flipped.length,
+            duration_ms: Date.now() - startedAt,
+        },
+        "derivatives published",
+    );
     return { published: flipped.length };
 }
 

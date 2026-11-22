@@ -22,6 +22,11 @@ import {
     type TestPostgres,
 } from "../jobs/test-postgres.js";
 import { finishDerivative, onProcessingSettled } from "../media/derivatives.js";
+import type { CaptureEventInput } from "@codelitdev/observability";
+import {
+    flushEventsForTests,
+    setEventSinkForTests,
+} from "../services/events.js";
 import {
     registerWebhookHooks,
     unregisterWebhookHooks,
@@ -519,6 +524,10 @@ describe("webhooks (Postgres)", { skip }, () => {
 
     test("a receiver that answers 500 then 200 gets the same webhook-id twice, and the delivery succeeds", async () => {
         await cancelQueuedDeliveries();
+        const sent: CaptureEventInput[] = [];
+        const restoreSink = setEventSinkForTests((input) => {
+            sent.push(input);
+        });
         const { user, app } = await owner();
         const endpoint = await createWebhook(
             app.id,
@@ -563,7 +572,25 @@ describe("webhooks (Postgres)", { skip }, () => {
             assert.equal((done.result as { status: number }).status, 200);
         } finally {
             await runner.stop(1_000);
+            await flushEventsForTests();
+            restoreSink();
         }
+        // The retried attempt isn't a failure for good, so it sends no event.
+        assert.deepEqual(
+            sent.map((e) => e.event),
+            [
+                "webhook.endpoint_changed",
+                "media.processing.settled",
+                "webhook.delivered",
+            ],
+        );
+        const delivered = sent[2];
+        assert.equal(delivered.subjectId, user.id);
+        assert.deepEqual(delivered.groups, { app: app.appId });
+        assert.equal(delivered.properties?.endpoint_id, endpoint.id);
+        assert.equal(delivered.properties?.response_code, 200);
+        assert.equal(delivered.properties?.attempts_made, 2);
+        assert.doesNotMatch(JSON.stringify(sent), /https?:|127\.0\.0\.1/);
         assert.equal(hooks.received.length, 2);
         const ids = hooks.received.map((r) => r.headers["webhook-id"]);
         assert.equal(ids[0], ids[1]);

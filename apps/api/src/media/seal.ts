@@ -28,6 +28,8 @@ import {
     type CopyParams,
 } from "../services/s3";
 import logger from "../services/log";
+import { trackEvent } from "../services/events";
+import { mediaKind } from "./kind";
 import { resolveAccountPlan, storageLimitFor } from "../billing/entitlements";
 import { getMediaSettings } from "../media-settings/queries";
 import { recordWebpBusy } from "../operations/checks";
@@ -87,6 +89,23 @@ type WebpOutcome =
           message: string;
       };
 
+/** What a seal that committed did, for its log line and event. */
+type SealResult = {
+    webp: WebpOutcome["kind"];
+    /** Why WebP was skipped or failed. */
+    reason?: string;
+};
+
+/** A seal failure as a fixed class, for the `seal failed` log line. */
+function sealFailureReason(err: unknown): string {
+    const message = err instanceof Error ? err.message : "";
+    if (message === SEAL_IN_PROGRESS) return "timeout";
+    if (message === "Media not found") return "media_gone";
+    if (message === NOT_ENOUGH_STORAGE) return "not_enough_storage";
+    if (err instanceof ClaimLost) return "claim_lost";
+    return "storage";
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -100,6 +119,27 @@ export async function sealStoredMedia(input: {
     appId: string;
     mediaId: string;
 }): Promise<void> {
+    const startedAt = Date.now();
+    try {
+        await sealOrWait(input, startedAt);
+    } catch (err) {
+        logger.warn(
+            {
+                media_id: input.mediaId,
+                app_id: input.appId,
+                reason: sealFailureReason(err),
+                duration_ms: Date.now() - startedAt,
+            },
+            "seal failed",
+        );
+        throw err;
+    }
+}
+
+async function sealOrWait(
+    input: { userId: string; appId: string; mediaId: string },
+    startedAt: number,
+): Promise<void> {
     const userId = String(input.userId);
     const { appId, mediaId } = input;
     const media = await getMedia({ userId, appId, mediaId });
@@ -125,7 +165,21 @@ export async function sealStoredMedia(input: {
             claimMs: config.claimMs,
         });
         if (claim.status === "claimed") {
-            await runSeal(media, appId, claim.mediaRowId, token, config, limit);
+            const claimedAt = Date.now();
+            const result = await runSeal(
+                media,
+                appId,
+                claim.mediaRowId,
+                token,
+                config,
+                limit,
+            );
+            if (result) {
+                reportSealed(media, appId, result, {
+                    duration_ms: Date.now() - startedAt,
+                    wait_ms: claimedAt - startedAt,
+                });
+            }
             return;
         }
         if (claim.status === "sealed") return;
@@ -144,7 +198,7 @@ async function runSeal(
     token: string,
     config: SealConfig,
     storageLimit: number,
-): Promise<void> {
+): Promise<SealResult | null> {
     const { mediaId } = media;
     const userId = String(media.userId);
     const isPublic = media.accessControl === Constants.AccessControl.PUBLIC;
@@ -318,6 +372,13 @@ async function runSeal(
             unneeded.map((Key) => ({ Key, Bucket: cloudBucket })),
             mediaId,
         );
+        return {
+            webp: webp.kind,
+            reason:
+                webp.kind === "skipped" || webp.kind === "failed"
+                    ? webp.reason
+                    : undefined,
+        };
     } catch (err) {
         await deleteQuietly(ownKeys, mediaId);
         const current = await getMedia({ userId, appId, mediaId }).catch(
@@ -331,7 +392,8 @@ async function runSeal(
         }
         if (lost || err instanceof ClaimLost) {
             // Another seal owns the final keys now; leave them alone.
-            if (current && !current.temp) return;
+            // Another seal committed it, and reports it.
+            if (current && !current.temp) return null;
             throw new Error(SEAL_IN_PROGRESS);
         }
         await releaseSealClaim({ mediaRowId, token }).catch(() => {});
@@ -342,6 +404,33 @@ async function runSeal(
             await rm(workDir, { recursive: true, force: true }).catch(() => {});
         }
     }
+}
+
+function reportSealed(
+    media: MediaWithUserId,
+    appId: string,
+    result: SealResult,
+    timing: { duration_ms: number; wait_ms: number },
+): void {
+    const fields = {
+        media_id: media.mediaId,
+        app_id: appId,
+        webp: result.webp,
+        ...(result.reason ? { reason: result.reason } : {}),
+        ...timing,
+    };
+    logger.info(fields, "seal committed");
+    trackEvent({
+        event: "media.sealed",
+        source: "media.seal",
+        appId,
+        userId: String(media.userId),
+        properties: {
+            ...fields,
+            media_kind: mediaKind(media.mimeType),
+            access: media.accessControl,
+        },
+    });
 }
 
 class MediaGone extends Error {

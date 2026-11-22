@@ -37,6 +37,7 @@ export type LockedMedia = {
     temp: boolean;
     accessControl: "public" | "private";
     processingStatus: ProcessingStatus;
+    mimeType: string;
 };
 
 /** Derivatives that are public for every media item, as thumbnails are
@@ -129,7 +130,8 @@ export async function lockMedia(
         db,
         sql`SELECT id, media_id AS "mediaId", user_id AS "userId",
                 app_id AS "appId", temp, access_control AS "accessControl",
-                processing_status AS "processingStatus"
+                processing_status AS "processingStatus",
+                mime_type AS "mimeType"
             FROM media WHERE id = ${mediaRowId}
             ${options.lock === false ? sql`` : sql`FOR UPDATE`}`,
     );

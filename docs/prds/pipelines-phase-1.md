@@ -309,16 +309,16 @@ The request handlers in `media/handlers.ts` and `media-settings/handlers.ts` als
 
 Phase 0 flows (step 0):
 
-| Event                      | When                                                | Properties                                                                                                                                     |
-| -------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `media.uploaded`           | an upload finishes                                  | `media_id`, `transport` (`form` \| `tus` \| `mcp`), `media_kind`, `size_bytes`, `thumbnail` (`made` \| `skipped` \| `failed`)                  |
-| `media.sealed`             | seal commits                                        | `media_id`, `media_kind`, `access`, `webp` (`converted` \| `skipped` \| `failed` \| `none`), `reason`, `duration_ms`, `wait_ms`, `jobs_queued` |
-| `media.processing.settled` | a media item's processing status settles            | `media_id`, `media_kind`, `status`, `derivatives` (names), `failed_derivatives` (names), `duration_ms` (seal to settle)                        |
-| `media.deleted`            | a delete succeeds                                   | `media_id`, `media_kind`, `temp`                                                                                                               |
-| `webhook.delivered`        | a delivery gets a 2xx                               | `job_id`, `endpoint_id`, `event_type`, `attempts_made`, `response_code`, `duration_ms`                                                         |
-| `webhook.delivery_failed`  | a delivery fails for good                           | `job_id`, `endpoint_id`, `event_type`, `attempts_made`, `response_code` or `error_class`                                                       |
-| `webhook.endpoint_changed` | an endpoint is created, updated, rotated or deleted | `endpoint_id`, `action`                                                                                                                        |
-| `media_settings.updated`   | media settings are saved                            | `changed` (setting names), and the new values of `use_webp`, `video_streaming`, `hls_renditions`                                               |
+| Event                      | When                                                | Properties                                                                                                                                                   |
+| -------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `media.uploaded`           | an upload finishes                                  | `media_id`, `transport` (`form` \| `tus` \| `mcp`), `media_kind`, `size_bytes`, `thumbnail` (`made` \| `skipped` \| `failed` \| `none`)                      |
+| `media.sealed`             | seal commits                                        | `media_id`, `media_kind`, `access`, `webp` (`converted` \| `skipped` \| `failed` \| `none`), `reason`, `duration_ms`, `wait_ms`, `jobs_queued` (from step 3) |
+| `media.processing.settled` | a media item's processing status settles            | `media_id`, `media_kind`, `status`, `derivatives` (names), `failed_derivatives` (names)                                                                      |
+| `media.deleted`            | a delete succeeds                                   | `media_id`, `media_kind`, `temp`                                                                                                                             |
+| `webhook.delivered`        | a delivery gets a 2xx                               | `job_id`, `endpoint_id`, `event_type`, `attempts_made`, `response_code`, `duration_ms`                                                                       |
+| `webhook.delivery_failed`  | a delivery fails for good                           | `job_id`, `endpoint_id`, `event_type`, `attempts_made`, `response_code` or `error_class`                                                                     |
+| `webhook.endpoint_changed` | an endpoint is created, updated, rotated or deleted | `endpoint_id`, `action`                                                                                                                                      |
+| `media_settings.updated`   | media settings are saved                            | `changed` (setting names), and the new values of `use_webp`, `video_streaming`, `hls_renditions`                                                             |
 
 Phase 1:
 
@@ -330,23 +330,30 @@ Phase 1:
 
 Posters get a log line, not an event (7.4).
 
+Notes from step 0:
+
+- `media_kind` uses the dashboard's kinds: `image`, `video`, `pdf` or `other`.
+- `jobs_queued` joins `media.sealed` in step 3, when seal starts queuing derivative jobs. In phase 0 seal queues none.
+- The time from seal to settle isn't sent: media has no seal time to measure from. The settled event's timestamp minus the sealed event's gives it in PostHog.
+- The `app` group needs `@codelitdev/observability` 0.15.0, so the `@codelitdev/*` packages move from 0.14.1 to 0.15.0 together.
+
 `processing_minutes.exhausted` is the upgrade signal. Playback isn't an event: public HLS is served by the CDN and never reaches the API, so counting only private playlist requests would mislead. Playlist requests are logged instead (7.4).
 
 ### 7.4 Logs
 
 Phase 0 flows (step 0). Every line carries `media_id` and `app_id` where they apply:
 
-| Message                   | Level | Extra fields                                                                       |
-| ------------------------- | ----- | ---------------------------------------------------------------------------------- |
-| `upload finished`         | info  | `transport`, `media_kind`, `size_bytes`, `duration_ms`                             |
-| `seal committed`          | info  | `webp`, `reason`, `duration_ms`, `wait_ms`, `jobs_queued`                          |
-| `seal failed`             | warn  | `reason` (`claim_lost`, `media_gone`, `storage`, `timeout`)                        |
-| `derivative recorded`     | info  | `derivative`, `status`, `size_bytes`, `error`                                      |
-| `derivatives published`   | info  | `count`, `duration_ms`                                                             |
-| `processing settled`      | info  | `status`, `failed_derivatives`                                                     |
-| `webhook delivered`       | info  | `endpoint_id`, `response_code`, `duration_ms`, `attempts_made`                     |
-| `webhook delivery failed` | warn  | `endpoint_id`, `response_code` or `error_class`, `attempts_made`, `next_run_in_ms` |
-| `media settings updated`  | info  | `changed`                                                                          |
+| Message                   | Level | Extra fields                                                                      |
+| ------------------------- | ----- | --------------------------------------------------------------------------------- |
+| `upload finished`         | info  | `transport`, `media_kind`, `size_bytes`, `duration_ms`                            |
+| `seal committed`          | info  | `webp`, `reason`, `duration_ms`, `wait_ms`, `jobs_queued`                         |
+| `seal failed`             | warn  | `reason` (`claim_lost`, `media_gone`, `not_enough_storage`, `storage`, `timeout`) |
+| `derivative recorded`     | info  | `derivative`, `status`, `size_bytes`, `error`                                     |
+| `derivatives published`   | info  | `count`, `duration_ms`                                                            |
+| `processing settled`      | info  | `status`, `failed_derivatives`                                                    |
+| `webhook delivered`       | info  | `endpoint_id`, `response_code`, `duration_ms`, `attempts_made`                    |
+| `webhook delivery failed` | warn  | `endpoint_id`, `response_code` or `error_class`, `attempts_made`                  |
+| `media settings updated`  | info  | `changed`                                                                         |
 
 Phase 1:
 
@@ -362,6 +369,8 @@ Phase 1:
 | `processing minutes exhausted` | info  | `minutes_needed`, `minutes_used`, `minutes_allowed`                                                                               |
 | `hls playlist served`          | debug | `rendition`, `segments`, `duration_ms`                                                                                            |
 | `hls playlist refused`         | info  | `reason` (`expired`, `bad_token`, `not_found`, `rate_limited`)                                                                    |
+
+When a delivery will be retried, the runner's `job will retry` line already carries `next_run_in_ms`.
 
 ffmpeg's stderr is never logged in full. On failure, the last 2 KB go into the job's `last_error`, with URLs and the work directory's path stripped (phase 0: errors are shortened, with no URLs).
 

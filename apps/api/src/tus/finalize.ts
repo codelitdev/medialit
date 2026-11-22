@@ -31,6 +31,7 @@ export default async function finalizeUpload(
     try {
         await finalizeStoredUpload({
             ...target,
+            transport: "tus",
             userId,
             appId,
             originalFileName: metadata.fileName,

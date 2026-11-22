@@ -30,6 +30,8 @@ import {
 } from "./queries";
 import { sendWebhook, type DeliveryResult } from "./send";
 import { signedHeaders } from "./signing";
+import logger from "../services/log";
+import { trackEvent } from "../services/events";
 
 export const WEBHOOK_DELIVER_ATTEMPTS = 8;
 
@@ -193,7 +195,42 @@ export function webhookDeliverJob(
                 ca: options.ca,
             });
             const stored = storedResult(result);
-            if (result.ok) return stored;
+            const fields = {
+                job_id: context.job.id,
+                app_id: target.appId,
+                endpoint_id: payload.endpointId,
+                event_type: payload.event,
+                attempts_made: context.job.attempts,
+                duration_ms: result.durationMs,
+                ...(result.status !== undefined
+                    ? { response_code: result.status }
+                    : {}),
+                ...(result.ok ? {} : { error_class: result.error }),
+            };
+            if (result.ok) {
+                logger.info(fields, "webhook delivered");
+                trackEvent({
+                    event: "webhook.delivered",
+                    source: "webhooks.deliver",
+                    appId: target.appId,
+                    properties: fields,
+                });
+                return stored;
+            }
+            logger.warn(fields, "webhook delivery failed");
+            // A refused address isn't retried; anything else fails for good
+            // on the last attempt.
+            if (
+                result.error === "blocked_address" ||
+                context.job.attempts >= context.job.maxAttempts
+            ) {
+                trackEvent({
+                    event: "webhook.delivery_failed",
+                    source: "webhooks.deliver",
+                    appId: target.appId,
+                    properties: fields,
+                });
+            }
             const message =
                 result.error === "http_status"
                     ? `endpoint answered ${result.status}`

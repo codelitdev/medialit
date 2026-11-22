@@ -23,6 +23,8 @@ import {
 } from "./queries";
 import { sendTestEvent, type TestResult } from "./delivery";
 import { generateSecret } from "./signing";
+import logger from "../services/log";
+import { trackEvent } from "../services/events";
 
 export { WebhookLimitError, WEBHOOK_EVENTS } from "./queries";
 
@@ -171,6 +173,23 @@ async function checkedUrl(value: unknown, guard: GuardOptions) {
 
 export type ServiceOptions = { guard?: GuardOptions; ca?: string | Buffer };
 
+type EndpointAction = "created" | "updated" | "rotated" | "deleted";
+
+function reportEndpointChanged(
+    appId: string,
+    endpointId: string,
+    action: EndpointAction,
+): void {
+    const fields = { app_id: appId, endpoint_id: endpointId, action };
+    logger.info(fields, "webhook endpoint changed");
+    trackEvent({
+        event: "webhook.endpoint_changed",
+        source: "webhooks.endpoints",
+        appId,
+        properties: { endpoint_id: endpointId, action },
+    });
+}
+
 export async function createWebhook(
     appId: string,
     input: { url?: unknown; events?: unknown; enabled?: unknown },
@@ -187,6 +206,7 @@ export async function createWebhook(
         enabled,
         events,
     });
+    reportEndpointChanged(appId, row.id, "created");
     return publicEndpoint(row, { withSecret: true });
 }
 
@@ -252,6 +272,11 @@ export async function updateWebhook(
     }
     const row = await updateEndpoint(appId, id, patch);
     if (!row) throw new WebhookNotFoundError();
+    reportEndpointChanged(
+        appId,
+        row.id,
+        patch.secret !== undefined ? "rotated" : "updated",
+    );
     // A new secret is returned once, to the caller who rotated it.
     return publicEndpoint(row, { withSecret: patch.secret !== undefined });
 }
@@ -261,6 +286,7 @@ export async function deleteWebhook(appId: string, id: unknown): Promise<void> {
         throw new WebhookInputError("id is required");
     }
     if (!(await deleteEndpoint(appId, id))) throw new WebhookNotFoundError();
+    reportEndpointChanged(appId, id, "deleted");
 }
 
 export async function testWebhook(
