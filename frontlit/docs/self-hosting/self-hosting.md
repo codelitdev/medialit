@@ -531,14 +531,15 @@ aws s3api put-bucket-cors --bucket <bucket> --cors-configuration '{
 
 The worker processes sealed videos: posters, and the MP4 or HLS versions the [`videoStreaming`](/docs/concepts#video-streaming) setting asks for. One encode runs at a time (`WORKER_CONCURRENCY_VIDEO`) and uses every core it gets.
 
-For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 5 GB of temporary disk: the worker downloads the source and writes the output before uploading it. On 2 CPUs, an hour of 1080p video takes roughly one to two hours to encode.
+For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 12 GB of temporary disk: the worker downloads the source and writes the output before uploading it. At the bitrate caps, an HLS ladder of 1080p, 720p and 480p takes about 4.3 GB per hour of video. An encode whose source and output wouldn't fit in `VIDEO_MAX_WORK_BYTES` is refused before it starts; the video keeps its original and poster. On 2 CPUs, an hour of 1080p video takes roughly one to two hours to encode.
 
-| Variable                     | Default             | What it does                                                                                                                                                |
-| ---------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VIDEO_MAX_SOURCE_BYTES`     | `1073741824` (1 GB) | Larger videos keep their original and poster, and aren't encoded                                                                                            |
-| `VIDEO_MAX_DURATION_SECONDS` | `7200` (2 hours)    | Longer videos keep their original and poster, and aren't encoded                                                                                            |
-| `VIDEO_MAX_MEMORY_MB`        | `3072`              | Address space ffmpeg may reserve for one encode, a guard against a file that makes it run away. It uses far less: about 0.5 GB for a 4K source at 2 threads |
-| `VIDEO_ENCODE_THREADS`       | `2`                 | Threads per encode. Match the worker's CPUs; more threads only reserve more memory                                                                          |
+| Variable                     | Default               | What it does                                                                                                                                                |
+| ---------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VIDEO_MAX_SOURCE_BYTES`     | `1073741824` (1 GB)   | Larger videos keep their original and poster, and aren't encoded                                                                                            |
+| `VIDEO_MAX_DURATION_SECONDS` | `7200` (2 hours)      | Longer videos keep their original and poster, and aren't encoded                                                                                            |
+| `VIDEO_MAX_MEMORY_MB`        | `3072`                | Address space ffmpeg may reserve for one encode, a guard against a file that makes it run away. It uses far less: about 0.5 GB for a 4K source at 2 threads |
+| `VIDEO_MAX_WORK_BYTES`       | `10737418240` (10 GB) | Temporary disk one encode may use, source and output together. Keep the worker's disk larger                                                                |
+| `VIDEO_ENCODE_THREADS`       | `2`                   | Threads per encode. Match the worker's CPUs; more threads only reserve more memory                                                                          |
 
 Self-hosted servers have no limit on processing minutes.
 

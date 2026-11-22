@@ -64,6 +64,12 @@ export function videoLimits() {
         /** Encoder and decoder threads. Match the worker's CPUs: more only
          * reserve more memory. */
         threads: Math.floor(positiveFromEnv("VIDEO_ENCODE_THREADS", 2)),
+        /** Temp disk one encode may use: the source plus the output. The
+         * worker's ephemeral storage must be larger. */
+        maxWorkBytes: positiveFromEnv(
+            "VIDEO_MAX_WORK_BYTES",
+            10 * 1024 * 1024 * 1024,
+        ),
         /** Sources up to 2160p on the short side, 4096 px on the long. */
         maxShortSide: 2160,
         maxLongSide: 4096,
@@ -95,8 +101,31 @@ export type EncodeInput = {
     /** Call before an encode that costs minutes. Throws when the account
      * is out of them. Returns the minutes charged. */
     reserve: () => Promise<number>;
+    /**
+     * The longest output, in seconds, that fits the disk budget next to the
+     * source at `outputKbps` (the encode's maximum rate, audio included).
+     * Throws `source_too_long` when the video is longer. Pass the result to
+     * ffmpeg's `-t`, so a file whose header understates its length still
+     * can't fill the disk.
+     */
+    maxOutputSeconds: (outputKbps: number) => number;
     context: ProduceContext;
 };
+
+/** The longest output that fits `budgetBytes` next to `sourceBytes`. */
+export function diskBoundSeconds(input: {
+    budgetBytes: number;
+    sourceBytes: number;
+    outputKbps: number;
+    maxDurationSeconds: number;
+}): number {
+    const bytesPerSecond = (input.outputKbps * 1000) / 8;
+    const room = Math.max(0, input.budgetBytes - input.sourceBytes);
+    return Math.min(
+        input.maxDurationSeconds,
+        Math.floor(room / bytesPerSecond),
+    );
+}
 
 export type EncodeResult = {
     output: DerivativeOutput;
@@ -236,6 +265,21 @@ export function videoJob(definition: {
                         }
                         reserved = reservation.charged > 0;
                         return reservation.charged;
+                    },
+                    maxOutputSeconds: (outputKbps) => {
+                        const seconds = diskBoundSeconds({
+                            budgetBytes: limits.maxWorkBytes,
+                            sourceBytes: bytes,
+                            outputKbps,
+                            maxDurationSeconds: limits.maxDurationSeconds,
+                        });
+                        if (duration > seconds) {
+                            throw refuse(
+                                "source_too_long",
+                                `the video is ${Math.round(duration)} s long; ${seconds} s fit the ${limits.maxWorkBytes} byte disk budget at ${outputKbps} kbps`,
+                            );
+                        }
+                        return seconds;
                     },
                     context,
                 });

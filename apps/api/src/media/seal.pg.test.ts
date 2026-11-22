@@ -1012,6 +1012,36 @@ describe("seal", { skip }, () => {
         assert.deepEqual(done?.processing, { status: "ready" });
     });
 
+    test("hls: a video whose worst-case output doesn't fit VIDEO_MAX_WORK_BYTES is refused before it is charged", async () => {
+        await settings({ videoStreaming: "hls" });
+        const video = await upload(await h264(), {
+            mimeType: "video/mp4",
+            fileName: "no-disk.mp4",
+            access: "private",
+        });
+        await sealIt(video.mediaId);
+        const used = await minutesUsed();
+        // Room for well under the video's 2 s at a 360p rendition's rate.
+        const source = (await bytes(video.mediaId, "private", "main.mp4"))
+            .length;
+        process.env.VIDEO_MAX_WORK_BYTES = String(source + 50_000);
+        const { error } = await runJob(video.mediaId, "media.hls");
+        delete process.env.VIDEO_MAX_WORK_BYTES;
+        const { JobError } = await import("../jobs/errors.js");
+        assert.ok(error instanceof JobError);
+        assert.equal(error.reason, "source_too_long");
+        assert.equal(error.retryable, false);
+        assert.equal(await minutesUsed(), used, "refused before charging");
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.match(String(done?.derivatives.hls.error), /^source_too_long/);
+        assert.equal(done?.processing.status, "ready");
+    });
+
     test("sealing a public image publishes only main.webp", async () => {
         const original = png();
         const media = await upload(original, { access: "public" });

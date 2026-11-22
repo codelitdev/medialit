@@ -109,7 +109,10 @@ Every video job:
 - **Permanent:** ffmpeg exits with an error code (the file is bad or unsupported), the timeout, any limit from step 1 or 3, and running out of minutes.
 - **Retried:** storage and database errors, and ffmpeg killed by a signal other than the job's own abort (for example the out-of-memory killer), which can be the worker rather than the file.
 
-**Sizing for a 1 GB source:** the work directory holds the source (up to 1 GB) and the output. An HLS ladder of 1080p, 720p and 480p for an hour of video is about 2.5 GB at the capped bitrates (D5), and less for most sources. The worker gets 2 CPU, a 2 GiB memory limit and an `ephemeral-storage` limit of 5 GiB (section 8). Kubernetes evicts the worker if it exceeds that, instead of filling the node's disk.
+**Sizing for a 1 GB source:** the work directory holds the source (up to 1 GB) and the output. At the bitrate caps (D5), a 1080p, 720p and 480p ladder is 9.2 Mbps of video plus 3 × 128 kbps of audio, about 4.3 GB per hour, so a 2-hour source can need 8.6 GB of output. (The first version of this section said 2.5 GB per hour, which holds only for typical sources; corrected in review.) Most sources come in well under the caps.
+
+- **`VIDEO_MAX_WORK_BYTES`** (default 10 GiB) is the temp disk one encode may use. Before encoding, the job works out the longest output that fits next to the source at the encode's maximum rate. A longer video fails with `source_too_long` (a limit, so the media settles `ready`, D12), before any minutes are charged. That length is also ffmpeg's `-t`, so a file whose header understates its length can't fill the disk either.
+- The worker gets 2 CPU, a 2 GiB memory limit and an `ephemeral-storage` limit of 12 GiB (section 8): the 10 GiB budget plus room for the logs and the process. Kubernetes evicts the worker if it exceeds that, instead of filling the node's disk.
 
 **Expected speed:** on 2 CPU, a three-rendition 1080p ladder runs at roughly 0.5× to 1× real time, so an hour of video takes one to two hours. Steps 4 and 5 measure this on the QA worker, and the timeout factor and `video_queue_lag` (7.6) are set from the result.
 
@@ -403,12 +406,12 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
 
 - **Images:** no change. `ffmpeg` and `ffprobe` are already in the API image.
 - **Infra** (QA and prod, one worker replica each):
-    - Worker resources from 1 CPU and 512 MiB to `limits: { cpu: "2", memory: 2Gi, ephemeral-storage: 5Gi }` (D4). Check that the nodes have room for it next to the API and the web app.
+    - Worker resources from 1 CPU and 512 MiB to `limits: { cpu: "2", memory: 2Gi, ephemeral-storage: 12Gi }` (D4). Check that the nodes have room for it next to the API and the web app.
     - `WORKER_CONCURRENCY_VIDEO=1`, `VIDEO_ENCODE_THREADS=2` and `VIDEO_MAX_MEMORY_MB=3072` (address space; real use is about 0.5 GB per encode).
     - CORS on both buckets and the CloudFront distribution (D6), done by hand and written down in the infra README.
     - The shutdown grace stays at 20 s. A deploy during an encode restarts it from the start without using an attempt (section 2). That is acceptable at our volume, and releases can avoid times when a long encode is running.
 - **`.env.example`:** `WORKER_CONCURRENCY_VIDEO`, `VIDEO_MAX_SOURCE_BYTES`, `VIDEO_MAX_DURATION_SECONDS`, `VIDEO_MAX_MEMORY_MB`, `PROCESSING_MINUTES_FREE`, `PROCESSING_MINUTES_PAID`.
-- **Self-hosting docs:** worker sizing for 1 GB sources (2 CPU, 2 GiB, 5 GiB of temp disk) and the bucket CORS settings for MinIO and S3.
+- **Self-hosting docs:** worker sizing for 1 GB sources (2 CPU, 2 GiB, 12 GiB of temp disk) and the bucket CORS settings for MinIO and S3.
 - **Docs:** media settings (with the plan defaults), playing HLS and MP4, the player component, processing minutes, worker sizing for self-hosting, and the changelog: sealed videos now go through `processing` and fire webhooks, and their thumbnail can change after seal.
 - **Tests:**
     - Unit tests for the rendition ladder (no upscaling, portrait, sources smaller than every rendition), the remux check, the frame pick, playlist rewriting and tokens, and minute reservation (two jobs racing for the last minutes, retries not charged twice, release on failure).
@@ -471,4 +474,4 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 3. **Paid plan allowance:** `PROCESSING_MINUTES_PAID` defaults to 300 a month, revised after the encoding benchmark in steps 4 and 5. Changing it is a config change.
 4. **Audio extraction moves to phase 2** (D10).
 5. **Failures that leave the media usable settle it `ready`** (D12): a failed poster, and HLS or MP4 refused by our limits (`out_of_processing_minutes`, `source_too_large`, `source_too_long`). #247 was updated to match.
-6. **Video processing is sized for sources up to about 1 GB** (D4), on a 2 CPU, 2 GiB worker with 5 GiB of temp disk.
+6. **Video processing is sized for sources up to about 1 GB** (D4), on a 2 CPU, 2 GiB worker with 12 GiB of temp disk (`VIDEO_MAX_WORK_BYTES`, 10 GiB, per encode).

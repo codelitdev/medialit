@@ -12,6 +12,8 @@ const expectedPaths = [
     "/media/get/{mediaId}",
     "/media/seal/{mediaId}",
     "/media/signature/create",
+    "/media/{mediaId}/hls/{token}/master.m3u8",
+    "/media/{mediaId}/hls/{token}/{rendition}/index.m3u8",
     "/settings/media/create",
     "/settings/media/get",
     "/settings/webhooks/create",

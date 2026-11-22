@@ -163,6 +163,14 @@ async function servePlaylist(
 
 router.get(
     "/:mediaId/hls/:token/master.m3u8",
+    /*
+        #swagger.tags = ['Media']
+        #swagger.summary = 'HLS master playlist of private media'
+        #swagger.description = 'The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the video\'s length plus an hour. Players fetch it themselves; you don\'t build this URL.'
+        #swagger.responses[200] = { description: 'The master playlist (application/vnd.apple.mpegurl)' }
+        #swagger.responses[403] = { description: 'Wrong or expired token' }
+        #swagger.responses[404] = { description: 'No ready HLS for this media' }
+    */
     playlistLimiter,
     async (req, res, next) => {
         servePlaylist(req, res, null).catch(next);
@@ -171,6 +179,14 @@ router.get(
 
 router.get(
     "/:mediaId/hls/:token/:rendition/index.m3u8",
+    /*
+        #swagger.tags = ['Media']
+        #swagger.summary = 'HLS rendition playlist of private media'
+        #swagger.description = 'A rendition playlist the master playlist points to, with every segment as a signed storage URL that lasts as long as the token.'
+        #swagger.responses[200] = { description: 'The rendition playlist (application/vnd.apple.mpegurl)' }
+        #swagger.responses[403] = { description: 'Wrong or expired token' }
+        #swagger.responses[404] = { description: 'No such rendition, or no ready HLS' }
+    */
     playlistLimiter,
     async (req, res, next) => {
         const rendition = String(req.params.rendition);

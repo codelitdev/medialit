@@ -209,6 +209,10 @@ async function encodeHls(input: EncodeInput) {
         width: input.probe.metadata.width ?? 0,
         height: input.probe.metadata.height ?? 0,
     });
+    // Every rendition at its cap, plus stereo AAC in each.
+    const maxSeconds = input.maxOutputSeconds(
+        renditions.reduce((sum, r) => sum + r.maxrateKbps + 128, 0),
+    );
     const minutesCharged = await input.reserve();
     const outDir = path.join(input.workDir, "hls");
     await runLimited(
@@ -218,7 +222,7 @@ async function encodeHls(input: EncodeInput) {
             outDir,
             renditions,
             hasAudio: input.probe.details.hasAudio,
-            maxDurationSeconds: input.limits.maxDurationSeconds,
+            maxDurationSeconds: maxSeconds,
             threads: input.limits.threads,
         }),
         {

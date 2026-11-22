@@ -866,7 +866,11 @@
     },
     "/media/{mediaId}/hls/{token}/master.m3u8": {
       "get": {
-        "description": "",
+        "tags": [
+          "Media"
+        ],
+        "summary": "HLS master playlist of private media",
+        "description": "The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the video\\'s length plus an hour. Players fetch it themselves; you don\\'t build this URL.",
         "parameters": [
           {
             "name": "mediaId",
@@ -880,11 +884,14 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "The master playlist (application/vnd.apple.mpegurl)"
+          },
           "403": {
-            "description": "Forbidden"
+            "description": "Wrong or expired token"
           },
           "404": {
-            "description": "Not Found",
+            "description": "No ready HLS for this media",
             "content": {
               "application/json": {
                 "schema": {
@@ -904,7 +911,11 @@
     },
     "/media/{mediaId}/hls/{token}/{rendition}/index.m3u8": {
       "get": {
-        "description": "",
+        "tags": [
+          "Media"
+        ],
+        "summary": "HLS rendition playlist of private media",
+        "description": "A rendition playlist the master playlist points to, with every segment as a signed storage URL that lasts as long as the token.",
         "parameters": [
           {
             "name": "mediaId",
@@ -923,11 +934,14 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "The rendition playlist (application/vnd.apple.mpegurl)"
+          },
           "403": {
-            "description": "Forbidden"
+            "description": "Wrong or expired token"
           },
           "404": {
-            "description": "Not Found",
+            "description": "No such rendition, or no ready HLS",
             "content": {
               "application/json": {
                 "schema": {

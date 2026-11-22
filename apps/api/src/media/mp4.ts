@@ -146,8 +146,16 @@ export function mp4Args(input: {
     ];
 }
 
+/** A re-encode's maximum rate: the 1080p video cap plus stereo AAC. */
+export const MP4_MAX_KBPS = H264_1080P.maxrateKbps + 128;
+
 async function encodeMp4(input: EncodeInput) {
     const remux = canRemux(input.probe);
+    // A remux copies the streams: its output is about the source's size.
+    // A re-encode is bounded by its rate and the disk budget.
+    const maxSeconds = remux
+        ? input.limits.maxDurationSeconds
+        : input.maxOutputSeconds(MP4_MAX_KBPS);
     // A remux costs seconds and no minutes (D8).
     const minutesCharged = remux ? 0 : await input.reserve();
     const output = path.join(input.workDir, MP4_KEY);
@@ -157,7 +165,7 @@ async function encodeMp4(input: EncodeInput) {
             source: input.source,
             output,
             remux,
-            maxDurationSeconds: input.limits.maxDurationSeconds,
+            maxDurationSeconds: maxSeconds,
             threads: input.limits.threads,
         }),
         {
