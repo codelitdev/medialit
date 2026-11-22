@@ -57,7 +57,7 @@ export default function WebhooksSection({
                     This app has no webhook endpoints yet.
                 </p>
             ) : (
-                <ul className="grid gap-3" aria-label="Webhook endpoints">
+                <ul className="mb-2 grid gap-3" aria-label="Webhook endpoints">
                     {endpoints.map((endpoint) => (
                         <EndpointRow
                             key={endpoint.id}
@@ -253,8 +253,14 @@ function EndpointRow({
 }
 
 /** The signing secret, hidden until asked for, with a copy button. */
-function SecretField({ secret }: { secret: string }) {
-    const [shown, setShown] = useState(false);
+function SecretField({
+    secret,
+    initiallyShown = false,
+}: {
+    secret: string;
+    initiallyShown?: boolean;
+}) {
+    const [shown, setShown] = useState(initiallyShown);
     const [copied, setCopied] = useState(false);
 
     async function copy() {
@@ -381,7 +387,7 @@ function EndpointDialog({
                 </DialogHeader>
                 {created ? (
                     <>
-                        <SecretField secret={created.secret} />
+                        <SecretField secret={created.secret} initiallyShown />
                         <DialogFooter>
                             <button
                                 type="button"

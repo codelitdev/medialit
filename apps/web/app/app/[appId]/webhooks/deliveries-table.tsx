@@ -87,10 +87,12 @@ export default function DeliveriesTable({
                                     </span>
                                 ) : null}
                             </td>
-                            <td className="py-2 pr-4">
+                            <td className="py-2 pr-4 whitespace-nowrap">
                                 {delivery.attempts} of {delivery.maxAttempts}
                             </td>
-                            <td className="py-2">{lastResult(delivery)}</td>
+                            <td className="py-2 whitespace-nowrap">
+                                {lastResult(delivery)}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
