@@ -58,7 +58,10 @@ export default function WebhooksSection({
                     This app has no webhook endpoints yet.
                 </p>
             ) : (
-                <ul className="mb-2 grid gap-3" aria-label="Webhook endpoints">
+                <ul
+                    className="mb-4 mt-4 grid gap-3"
+                    aria-label="Webhook endpoints"
+                >
                     {endpoints.map((endpoint) => (
                         <EndpointRow
                             key={endpoint.id}
