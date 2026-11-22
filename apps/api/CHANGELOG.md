@@ -1,5 +1,31 @@
 # @medialit/api
 
+## 0.7.0
+
+### Minor Changes
+
+- fe2b21f: Media responses gain `processing` (`pending` until seal, then `processing`, `ready` or `failed`) and `derivatives` (outputs made from the original, by name, each with a status and, once ready, a URL). Uploads record their thumbnail as the `thumbnail` derivative. Deleting media now removes everything under its folder in both buckets. The worker gains `media.publish`, which copies ready derivatives to the public bucket, and a periodic check that settles media whose processing stopped. No existing field changes.
+- 24deeff: Webhooks for media processing. Apps can have up to 10 endpoints, managed with `POST /settings/webhooks/create`, `/get`, `/update` (URL, events, enabled, or rotate the secret), `/secret` (reveal the signing secret, which needs write access), `/delete` and `/test`, the matching MCP tools (`list_webhooks`, `create_webhook`, `update_webhook`, `delete_webhook`, `test_webhook`), `medialit webhooks …` in the CLI, the SDK's `listWebhooks`, `createWebhook`, `updateWebhook`, `revealWebhookSecret`, `deleteWebhook` and `testWebhook`, and a dashboard page that also lists recent deliveries. Listing endpoints returns only a `secretHint`; the full secret comes back from create, rotate and the reveal action.
+
+    When a job finishing moves sealed media to `ready` or `failed`, the worker sends `media.processing.ready` or `media.processing.failed`, signed per Standard Webhooks, and retries for about 24 hours with the same `webhook-id`. Webhook URLs are checked when saved and before every delivery: production accepts `https` only, and private, internal and cloud-metadata addresses are refused (set `WEBHOOK_ALLOW_PRIVATE_NETWORKS=true` on self-hosted installs whose receivers are on their own network). Deleting an app now also deletes its webhook endpoints and cancels its queued and running jobs. No existing field changes.
+
+    The REST rate limit (120 requests a minute per client by default) can now be set with `API_RATE_LIMIT_PER_MINUTE`. The integration tests wait out a rate limit instead of failing.
+
+- 12f9910: WebP conversion moves from upload to seal. For apps with WebP on, the upload response now reports the original file, its MIME type and its uploaded size; the seal response reports the WebP. Temporary uploads that are never sealed are not converted, and a failed or skipped conversion keeps the original instead of failing the request (`processing.status` is `failed` for a failed conversion, and `processing.error` gives the reason in both cases). Concurrent seals of the same media convert it once; a second seal waits up to `SEAL_WAIT_MS` and then answers 503 with `Retry-After`.
+
+    Conversion is bounded by `WEBP_MAX_INPUT_BYTES`, `WEBP_MAX_PIXELS` (read from the header without decoding), `WEBP_MAX_MEMORY_MB` (`prlimit --as`), `WEBP_TIMEOUT_MS` (kills the whole process group) and `WEBP_CONCURRENCY`/`WEBP_QUEUE_WAIT_MS`. These limits live in `@medialit/images`, which replaces `convertToWebp(path, quality)` with a limited `convertToWebp(input, output, options)` and adds `readImageInfo`, `checkImageFile`, `runLimited` and `Slots`.
+
+    Image and video thumbnails follow the app's `thumbnailWidth` × `thumbnailHeight` (resized and cropped) when the app has set them; apps that never set them keep today's thumbnails (images cropped to 16:9, at most 480 px tall; videos 720 px tall), and 1-pixel-tall images now get a thumbnail too. `@medialit/thumbnail`'s `forImage` and `forVideo` take an optional size as a third argument, and the `generate-thumbnail` script is removed.
+
+### Patch Changes
+
+- Updated dependencies [fe2b21f]
+- Updated dependencies [24deeff]
+- Updated dependencies [12f9910]
+    - @medialit/models@0.2.0
+    - @medialit/images@0.1.0
+    - @medialit/thumbnail@0.1.0
+
 ## 0.6.0
 
 ### Minor Changes
