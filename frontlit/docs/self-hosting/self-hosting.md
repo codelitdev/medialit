@@ -506,6 +506,20 @@ SEAL_WAIT_MS=15000             # a second seal of the same file waits this long,
 
 The memory limit uses `prlimit`, from util-linux, which the MediaLit image includes. On a machine without it, conversions run without a memory limit and the API logs a warning. The image limit also applies to thumbnails: images over `WEBP_MAX_PIXELS` get no thumbnail.
 
+## Size the worker for video
+
+The worker processes sealed videos: posters, and the MP4 or HLS versions the [`videoStreaming`](/docs/concepts#video-streaming) setting asks for. One encode runs at a time (`WORKER_CONCURRENCY_VIDEO`) and uses every core it gets.
+
+For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 5 GB of temporary disk: the worker downloads the source and writes the output before uploading it. On 2 CPUs, an hour of 1080p video takes roughly one to two hours to encode.
+
+| Variable                     | Default             | What it does                                                                                     |
+| ---------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
+| `VIDEO_MAX_SOURCE_BYTES`     | `1073741824` (1 GB) | Larger videos keep their original and poster, and aren't encoded                                 |
+| `VIDEO_MAX_DURATION_SECONDS` | `7200` (2 hours)    | Longer videos keep their original and poster, and aren't encoded                                 |
+| `VIDEO_MAX_MEMORY_MB`        | `1536`              | Memory ffmpeg may use for one encode. Keep it below the worker's own limit, so only ffmpeg stops |
+
+Self-hosted servers have no limit on processing minutes.
+
 ## Create a key at startup
 
 When another service in the same Docker Compose file uses MediaLit, for example a bundled SendLit, FrontLit or CourseLit, it needs a working key before anyone can open the dashboard. Set `MEDIALIT_BOOTSTRAP_API_KEY` and MediaLit creates that key for the `EMAIL` user's default app every time it starts, before it reports healthy:

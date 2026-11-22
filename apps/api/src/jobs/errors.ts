@@ -9,7 +9,13 @@ export type FailedReason =
     | "connection_failed"
     | "blocked_address"
     | "cancelled"
-    | "internal";
+    | "internal"
+    // Video jobs refused by MediaLit's limits or the tenant's file
+    // (pipelines-phase-1.md, 7.7).
+    | "out_of_processing_minutes"
+    | "source_too_long"
+    | "source_too_large"
+    | "no_video_stream";
 
 /**
  * Thrown by a handler to say how its job failed. Any other error counts as

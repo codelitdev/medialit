@@ -23,6 +23,20 @@ export const SYSTEM_SUBJECT = "system";
  * dashboard, so it raises no exception. */
 const NOT_REPORTED = new Set(["webhook.deliver"]);
 
+/** Jobs that read a tenant's video. ffmpeg refusing the file is the file's
+ * problem there, so `bad_input` raises no exception for them. */
+const VIDEO_JOB_TYPES = new Set(["media.poster", "media.mp4", "media.hls"]);
+
+/** Failures caused by the tenant's input or MediaLit's limits. They are
+ * logged and shown on the media, and raise no exception. */
+const TENANT_REASONS = new Set<FailedReason>([
+    "bad_input",
+    "out_of_processing_minutes",
+    "source_too_long",
+    "source_too_large",
+    "no_video_stream",
+]);
+
 /** Failures that point at MediaLit itself rather than at one job's input. */
 const CRITICAL_REASONS = new Set<FailedReason>(["db", "storage", "internal"]);
 
@@ -36,6 +50,13 @@ export function jobTelemetryHooks(
     return {
         onJobFailed({ job, reason, error }) {
             if (NOT_REPORTED.has(job.type)) return;
+            // The tenant's file or our limits, not ours to fix (phase 1, 7.5).
+            if (
+                TENANT_REASONS.has(reason) &&
+                (reason !== "bad_input" || VIDEO_JOB_TYPES.has(job.type))
+            ) {
+                return;
+            }
             capture({
                 error: new Error(error),
                 source: `worker.${job.type}.failed`,

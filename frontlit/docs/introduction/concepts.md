@@ -83,9 +83,18 @@ If a conversion fails, the seal still succeeds and keeps the original. `processi
 
 Change these settings in the dashboard under **Settings** > **Media processing**, or with the [Node.js SDK](/docs/node-sdk#getsettings-and-updatesettings), the [CLI](/docs/cli#change-media-settings), the [REST API](/docs/api/upload-media) or the [MCP server](/docs/mcp-server).
 
+### Video streaming
+
+The `videoStreaming` setting decides what is made from sealed videos:
+
+- **`mp4`** makes an MP4 optimized for the web, the `mp4` derivative: H.264 video and AAC audio with the index at the front, so playback starts before the whole file loads. A video that is already H.264/AAC in MP4 or MOV, at most 1080p and 8 Mbps, is only rewritten (seconds, no quality lost, no processing minutes). Anything else is re-encoded, at most 1080p and never larger than the original.
+- **`off`** makes only the poster.
+
+The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
+
 ### Processing minutes
 
-Video processing is measured in minutes of video. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.
+Video processing is measured in minutes of video, rounded up per video. Re-encoding counts; rewriting an MP4 that is already web-ready and making posters don't. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.
 
 ### Processing status and derivatives
 

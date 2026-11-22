@@ -14,6 +14,7 @@ import {
 } from "../media/derivatives";
 import { prune } from "./queue";
 import { posterJob } from "../media/poster";
+import { mp4Job } from "../media/mp4";
 import { registerWebhookHooks, webhookDeliverJob } from "../webhooks/delivery";
 import type { JobDefinition, PeriodicJob } from "./runner";
 
@@ -62,6 +63,7 @@ export const jobDefinitions: JobDefinition[] = [
     },
     ...derivativeJobDefinitions,
     posterJob,
+    mp4Job,
     webhookDeliverJob(),
 ];
 

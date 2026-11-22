@@ -9,6 +9,9 @@ import type { VideoSettings } from "../media-settings/video";
 
 export const POSTER_JOB = "media.poster";
 export const POSTER_ATTEMPTS = 3;
+/** Kept here, not in mp4.ts, so seal doesn't load the encoders. */
+export const MP4_JOB_TYPE = "media.mp4";
+export const VIDEO_ENCODE_ATTEMPTS = 3;
 
 /** Paid and self-hosted encodes run before free ones (D11, Priority). The
  * queue runs the lowest number first. */
@@ -66,5 +69,14 @@ export function planProcessing(input: PlanInput): PlannedJob[] {
             maxAttempts: POSTER_ATTEMPTS,
         },
     ];
+    if (input.video.videoStreaming === "mp4") {
+        jobs.push({
+            type: MP4_JOB_TYPE,
+            derivative: "mp4",
+            params: { videoStreaming: "mp4" },
+            priority,
+            maxAttempts: VIDEO_ENCODE_ATTEMPTS,
+        });
+    }
     return jobs;
 }

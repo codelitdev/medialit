@@ -457,6 +457,8 @@ export type DerivativeJobPayload = {
 
 export type ProduceContext = {
     media: LockedMedia;
+    /** The job being run: its ID keys processing minutes. */
+    job: JobContext["job"];
     params: Record<string, unknown>;
     signal: AbortSignal;
     /** Where to write outputs: the media's private folder, ending in `/`. */
@@ -493,6 +495,7 @@ export function derivativeJob(definition: {
             try {
                 output = await definition.produce({
                     media,
+                    job: context.job,
                     params: payload.params ?? {},
                     signal: context.signal,
                     privateFolder: mediaFolder(

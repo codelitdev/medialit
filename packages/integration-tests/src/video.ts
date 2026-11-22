@@ -219,6 +219,52 @@ export async function runVideoIntegrationTests(
             );
             assert.equal(posterBytes.toString("ascii", 8, 12), "WEBP");
             log("PASS the worker made a poster and processing settled");
+
+            // MP4 for the web (D7): an H.264/AAC upload is remuxed for
+            // free; VP9 is re-encoded and counts processing minutes.
+            await api("settings/media/create", { videoStreaming: "mp4" });
+            const minutesBefore = Number(
+                object((await api("media/get/size")).processingMinutes).used,
+            );
+            const remuxSource = await upload(video, "remux.mp4", "video/mp4");
+            await seal(remuxSource.mediaId);
+            const remuxed = await waitForProcessing(remuxSource.mediaId);
+            const mp4 = object(object(remuxed.derivatives).mp4);
+            assert.equal(mp4.status, "ready", JSON.stringify(mp4));
+            const web = Buffer.from(
+                await (await fetch(String(mp4.url))).arrayBuffer(),
+            );
+            assert.ok(web.indexOf("moov") < web.indexOf("mdat"), "faststart");
+            assert.equal(
+                Number(
+                    object((await api("media/get/size")).processingMinutes)
+                        .used,
+                ),
+                minutesBefore,
+                "a remux is free",
+            );
+            log("PASS mp4: H.264/AAC remuxed with faststart, no minutes");
+
+            const vp9 = generateVideo({
+                width: 320,
+                height: 180,
+                seconds: 2,
+                codec: "vp9",
+            });
+            if (vp9) {
+                const vp9Source = await upload(vp9, "clip.webm", "video/webm");
+                await seal(vp9Source.mediaId);
+                const encoded = await waitForProcessing(vp9Source.mediaId);
+                const encodedMp4 = object(object(encoded.derivatives).mp4);
+                assert.equal(encodedMp4.status, "ready");
+                const minutes = object(
+                    (await api("media/get/size")).processingMinutes,
+                );
+                if (minutes.allowed !== null) {
+                    assert.equal(Number(minutes.used), minutesBefore + 1);
+                }
+                log("PASS mp4: VP9 re-encoded to H.264, one minute charged");
+            }
         }
         const image = await upload(
             generatePng(64, 36),

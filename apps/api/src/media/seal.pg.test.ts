@@ -124,6 +124,7 @@ exec "${realCwebp}" "$@"
         `#!/bin/sh
 echo "$*" >> "${work}/ffmpeg.log"
 if [ -f "${control("ffmpeg-fail")}" ]; then echo "ffmpeg broke" >&2; exit 1; fi
+if [ -f "${control("ffmpeg-kill")}" ]; then kill -9 $$; fi
 exec "${realFfmpeg}" "$@"
 `,
     );
@@ -199,6 +200,7 @@ async function settings(overrides: {
     useWebP?: boolean;
     thumbnailWidth?: number;
     thumbnailHeight?: number;
+    videoStreaming?: "off" | "hls" | "mp4";
 }) {
     await db.upsertMediaSettings({
         userId,
@@ -207,6 +209,7 @@ async function settings(overrides: {
         webpOutputQuality: 80,
         thumbnailWidth: overrides.thumbnailWidth ?? 100,
         thumbnailHeight: overrides.thumbnailHeight ?? 50,
+        videoStreaming: overrides.videoStreaming ?? "off",
     });
 }
 
@@ -706,6 +709,249 @@ describe("seal", { skip }, () => {
         });
         assert.match(String(after?.thumbnail), /\/thumb\.webp/);
         assert.ok((await luma(video.mediaId, "public")) > 32);
+    });
+
+    /** Runs one job seal queued, as the worker would. Returns the error it
+     * threw, if any. */
+    async function runJob(
+        mediaId: string,
+        type: string,
+        attempts = 1,
+    ): Promise<{ id: string; error?: unknown }> {
+        const definitions = (await import("../jobs/definitions.js"))
+            .jobDefinitions;
+        const definition = definitions.find((d) => d.type === type);
+        assert.ok(definition, `no job type ${type}`);
+        const record = await row(mediaId);
+        assert.ok(record);
+        const [job] = (
+            await pgTest.db.execute(
+                sql`SELECT id, payload, max_attempts FROM jobs
+                    WHERE media_id = ${record.id} AND type = ${type}`,
+            )
+        ).rows as Array<{ id: string; payload: unknown; max_attempts: number }>;
+        assert.ok(job, `seal queued ${type}`);
+        try {
+            await definition.handler(job.payload as never, {
+                job: {
+                    id: job.id,
+                    mediaId: record.id,
+                    attempts,
+                    maxAttempts: job.max_attempts,
+                } as never,
+                signal: new AbortController().signal,
+                workerId: "test",
+            });
+            return { id: job.id };
+        } catch (error) {
+            return { id: job.id, error };
+        }
+    }
+
+    function makeVideo(
+        name: string,
+        size: string,
+        codec: string[],
+        audio: string[] = [],
+    ): Promise<Buffer> {
+        const file = path.join(work, name);
+        execFileSync(realFfmpeg!, [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            `testsrc=size=${size}:rate=25:duration=2`,
+            ...(audio.length
+                ? ["-f", "lavfi", "-i", "sine=frequency=440:duration=2"]
+                : []),
+            ...codec,
+            ...audio,
+            "-shortest",
+            file,
+        ]);
+        return readFile(file);
+    }
+
+    const h264 = () =>
+        makeVideo(
+            "h264.mp4",
+            "640x360",
+            ["-c:v", "libx264", "-pix_fmt", "yuv420p"],
+            ["-c:a", "aac"],
+        );
+    const vp9 = () =>
+        makeVideo("vp9.webm", "640x360", [
+            "-c:v",
+            "libvpx-vp9",
+            "-deadline",
+            "realtime",
+        ]);
+
+    async function minutesUsed(): Promise<number> {
+        const { minutesUsed } = await import(
+            "../billing/processing-minutes.js"
+        );
+        return await minutesUsed(userId);
+    }
+
+    test("mp4: an H.264/AAC upload is remuxed for free, a VP9 one is re-encoded and charged", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const used = await minutesUsed();
+
+        const remuxed = await upload(await h264(), {
+            mimeType: "video/mp4",
+            fileName: "h264.mp4",
+            access: "public",
+        });
+        const sealed = await sealIt(remuxed.mediaId);
+        assert.equal(sealed.derivatives.mp4.status, "queued");
+        assert.equal(
+            (await runJob(remuxed.mediaId, "media.mp4")).error,
+            undefined,
+        );
+        await runJob(remuxed.mediaId, "media.poster");
+        const derivatives = await import("./derivatives.js");
+        await derivatives.publishDerivatives((await row(remuxed.mediaId))!.id);
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: remuxed.mediaId,
+        });
+        assert.equal(done?.derivatives.mp4.status, "ready");
+        assert.equal(done?.derivatives.mp4.mimeType, "video/mp4");
+        assert.deepEqual(done?.processing, { status: "ready" });
+        // Public media: the MP4 is published next to the original.
+        assert.deepEqual(await files(remuxed.mediaId, "public"), [
+            "main.mp4",
+            "thumb.webp",
+            "web.mp4",
+        ]);
+        const web = await bytes(remuxed.mediaId, "public", "web.mp4");
+        assert.ok(web.indexOf("moov") < web.indexOf("mdat"));
+        assert.equal(await minutesUsed(), used, "a remux is free");
+
+        const encoded = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "vp9.webm",
+            access: "private",
+        });
+        await sealIt(encoded.mediaId);
+        assert.equal(
+            (await runJob(encoded.mediaId, "media.mp4")).error,
+            undefined,
+        );
+        assert.equal(await minutesUsed(), used + 1, "a 2 s encode is 1 minute");
+        assert.deepEqual(await files(encoded.mediaId, "private"), [
+            "main.webm",
+            "web.mp4",
+        ]);
+    });
+
+    test("mp4: a source over VIDEO_MAX_SOURCE_BYTES fails for good, unread, and the media settles ready", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const video = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "big.webm",
+        });
+        await sealIt(video.mediaId);
+        process.env.VIDEO_MAX_SOURCE_BYTES = "1000";
+        const { error } = await runJob(video.mediaId, "media.mp4");
+        delete process.env.VIDEO_MAX_SOURCE_BYTES;
+        const { JobError } = await import("../jobs/errors.js");
+        assert.ok(error instanceof JobError);
+        assert.equal(error.retryable, false);
+        assert.equal(error.reason, "source_too_large");
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.equal(done?.derivatives.mp4.status, "failed");
+        assert.match(String(done?.derivatives.mp4.error), /^source_too_large/);
+        // D12: our limit, not the file's fault.
+        assert.equal(done?.processing.status, "ready");
+    });
+
+    test("mp4: out of processing minutes fails for good, charges nothing, and the media settles ready", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const video = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "no-minutes.webm",
+        });
+        await sealIt(video.mediaId);
+        const used = await minutesUsed();
+        const saved = process.env.PROCESSING_MINUTES_FREE;
+        const savedPaid = process.env.PROCESSING_MINUTES_PAID;
+        process.env.PROCESSING_MINUTES_FREE = String(used);
+        process.env.PROCESSING_MINUTES_PAID = String(used);
+        const { error } = await runJob(video.mediaId, "media.mp4");
+        if (saved === undefined) delete process.env.PROCESSING_MINUTES_FREE;
+        else process.env.PROCESSING_MINUTES_FREE = saved;
+        if (savedPaid === undefined) delete process.env.PROCESSING_MINUTES_PAID;
+        else process.env.PROCESSING_MINUTES_PAID = savedPaid;
+        const { resolveAccountPlan } = await import(
+            "../billing/entitlements.js"
+        );
+        if ((await resolveAccountPlan({ id: userId })) === "oss") {
+            // Self-hosted has no limit; nothing to check here.
+            assert.equal(error, undefined);
+            return;
+        }
+        const { JobError } = await import("../jobs/errors.js");
+        assert.ok(error instanceof JobError);
+        assert.equal(error.reason, "out_of_processing_minutes");
+        assert.equal(await minutesUsed(), used);
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.match(
+            String(done?.derivatives.mp4.error),
+            /^out_of_processing_minutes/,
+        );
+        assert.equal(done?.processing.status, "ready");
+    });
+
+    test("mp4: ffmpeg exiting with an error fails for good and gives the minutes back; killed by a signal, it is retried", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const { JobError } = await import("../jobs/errors.js");
+        const video = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "breaks.webm",
+        });
+        await sealIt(video.mediaId);
+        const used = await minutesUsed();
+
+        await writeFile(control("ffmpeg-kill"), "1");
+        const killed = await runJob(video.mediaId, "media.mp4");
+        await rm(control("ffmpeg-kill"), { force: true });
+        assert.ok(killed.error instanceof JobError);
+        assert.equal(killed.error.retryable, true);
+        assert.equal(killed.error.reason, "internal");
+        // Kept for the retry, which reuses the reservation.
+        assert.equal(await minutesUsed(), used + 1);
+
+        await setControl("ffmpeg-fail", "1");
+        const failed = await runJob(video.mediaId, "media.mp4", 2);
+        await setControl("ffmpeg-fail", null);
+        assert.ok(failed.error instanceof JobError);
+        assert.equal(failed.error.retryable, false);
+        assert.equal(failed.error.reason, "bad_input");
+        assert.equal(await minutesUsed(), used, "a failed encode is free");
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        // The file's fault: the media settles failed, the original stays.
+        assert.equal(done?.processing.status, "failed");
+        assert.equal(done?.derivatives.mp4.status, "failed");
     });
 
     test("sealing a public image publishes only main.webp", async () => {
