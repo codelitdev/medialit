@@ -1,6 +1,11 @@
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { cimd } from "@better-auth/cimd";
-import { createOAuthProviderOptions } from "@codelitdev/oauth-server-kit/better-auth";
+import {
+    createOAuthProviderOptions,
+    secureCookieOptions,
+    secureEmailAndPasswordOptions,
+    secureSessionOptions,
+} from "@codelitdev/oauth-server-kit/better-auth";
 import type { BetterAuthOptions } from "better-auth";
 import { captcha } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
@@ -17,6 +22,9 @@ import {
 
 export const AUTH_BASE_PATH = "/api/auth";
 export const AUTH_COOKIE_PREFIX = "medialit";
+/** Internal header that carries the client address to Better Auth. The
+ * client-IP middleware overwrites whatever a client sends in it. */
+export const CLIENT_IP_HEADER = "x-medialit-client-ip";
 export const DATA_READ_SCOPE = "data:read";
 export const DATA_WRITE_SCOPE = "data:write";
 // Advertised to MCP clients, which request exactly these scopes.
@@ -96,7 +104,11 @@ export function medialitAuthOptions(input: {
         basePath: AUTH_BASE_PATH,
         secret: input.secret,
         trustedOrigins: [urls.webOrigin, urls.publicApiUrl, ...extraOrigins],
-        advanced: {
+        // With AUTH_COOKIE_DOMAIN set (QA and prod), the session cookie stays
+        // `__Secure-medialit.session_token`, shared with the dashboard. On a
+        // single https host it becomes `__Host-medialit.session_token`.
+        advanced: secureCookieOptions({
+            baseURL: urls.publicApiUrl,
             cookiePrefix: AUTH_COOKIE_PREFIX,
             ...(cookieDomain
                 ? {
@@ -106,8 +118,11 @@ export function medialitAuthOptions(input: {
                       },
                   }
                 : {}),
-        },
-        emailAndPassword: { enabled: false },
+            clientIpHeader: CLIENT_IP_HEADER,
+        }),
+        // No cookie cache: a revoked session stops working immediately.
+        session: secureSessionOptions(),
+        emailAndPassword: secureEmailAndPasswordOptions(),
         ...(input.database ? { database: input.database } : {}),
         databaseHooks: {
             user: {

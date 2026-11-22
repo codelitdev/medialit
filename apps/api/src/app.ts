@@ -15,7 +15,11 @@ import {
     createMcpOAuthDiscoveryRoutes,
     type BetterAuthMetadataApi,
 } from "@codelitdev/oauth-server-kit/mcp";
-import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit/express";
+import {
+    createClientIpMiddleware,
+    createOAuthPagesRouter,
+} from "@codelitdev/oauth-server-kit/express";
+import { trustProxySetting } from "./auth/trust-proxy";
 import { toNodeHandler } from "better-auth/node";
 import type { apiReadiness } from "./lifecycle";
 import { cleanupTUSUploads } from "./tus/cleanup";
@@ -26,6 +30,7 @@ import {
 import type { MedialitAuth } from "./auth/better-auth";
 import {
     AUTH_BASE_PATH,
+    CLIENT_IP_HEADER,
     MCP_SCOPES_SUPPORTED,
     loginCaptchaConfig,
 } from "./auth/options";
@@ -62,10 +67,10 @@ export function createApp(input: {
     };
     const app = express();
 
-    app.set(
-        "trust proxy",
-        process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false,
-    );
+    app.set("trust proxy", trustProxySetting(process.env));
+    // Better Auth's rate limits and session IPs read the client address
+    // from this header only, never from X-Forwarded-For.
+    app.use(createClientIpMiddleware({ header: CLIENT_IP_HEADER }));
 
     setBearerAuth(auth);
     app.use(
