@@ -83,13 +83,16 @@ Every seal follows the steps below, so there is one path. The WebP parts of step
 2. Read `main.{ext}`, convert it within the limits below, and write the result to a key of this attempt's own in the private bucket, `seal/<token>/main.webp`. No other attempt uses that key.
 3. Check storage against the WebP size.
 4. **Publish to the final keys, fenced.** Right before each write to a key another attempt could also write (`main.webp` in the private bucket for private media, and the main file and thumbnail in the public bucket for public media), renew the claim as above. If the renewal fails, stop without writing. The write is a server-side copy from `seal/<token>/main.webp`, or from the original files for media that isn't converted, as seal copies today.
-5. **Commit** in a second short transaction: lock the row (`SELECT … FOR UPDATE`) and check that `seal_claim` is still this seal's token. Otherwise set `fileName = main.webp`, `mimeType = image/webp`, `size` = the WebP size (#250, decision 3), `temp = false`, and clear `seal_claim` and `sealing_until`. Commit.
+5. **Commit** in a second short transaction: lock the row (`SELECT … FOR UPDATE`) and check that `seal_claim` is still this seal's token. If it is, set `temp = false` and clear `seal_claim` and `sealing_until`. Only if this seal produced a WebP, also set `fileName = main.webp`, `mimeType = image/webp` and `size` = the WebP size (#250, decision 3). When there is no WebP (media that isn't an image, an image that is WebP already, `useWebP` off, or a conversion that was skipped or failed), `fileName`, `mimeType` and `size` keep the original's values, which match the file published in step 4. Commit.
     - **If the row is gone (deleted meanwhile) or the claim was lost,** delete only this attempt's own keys (`seal/<token>/…`) and fail. Never delete a final key here. If the claim was lost, another seal now owns the final keys and may already have committed them. If the media was deleted, the delete removes the final keys with the rest of the prefix.
-6. Delete what the private bucket no longer needs: `seal/<token>/…`, `main.{ext}` always, and, for public media, also the private `main.webp` if an older version left one there. Only the seal that committed runs this step. This matches seal today, which deletes the private main file of public media after copying it. Private media keeps only `main.webp` in the private bucket.
+6. Delete what the private bucket no longer needs. Only the seal that committed runs this step.
+    - Always `seal/<token>/…`.
+    - If this seal produced a WebP: `main.{ext}`, and for public media also the private `main.webp` if an older version left one there. Private media keeps only `main.webp` in the private bucket.
+    - If it didn't: nothing more for private media, which keeps `main.{ext}`. For public media, the private `main.{ext}`, as seal does today after copying it to the public bucket.
 
 Consequences:
 
-- **The seal response, and the public bucket, only ever have `main.webp`.** No URL to the original outlives seal, except signed URLs, which expire.
+- **When seal converts, the seal response and the public bucket only have `main.webp`.** No URL to the original outlives seal, except signed URLs, which expire. When it doesn't convert, the response describes the original, and its URL points to the original, which step 4 published.
 - **If conversion fails,** seal keeps the original and still succeeds, because a failed seal would get the media deleted (section 2, point 3). The error is logged and returned in `processing.error`. Today, a conversion failure fails the upload.
 - **If seal crashes partway,** the original is still there. Once its claim expires, a retried seal converts again under its own token and publishes over the final keys. The crashed attempt's `seal/<token>/` files stay until the media is deleted (deletes remove the whole prefix). So do private files left by a crash after the commit but before step 6.
 - **A seal that stalls and loses its claim never deletes the winner's files,** because it deletes only its own `seal/<token>/` keys. It could replace a final key only by stalling for longer than `SEAL_CLAIM_MS` between its claim check and the write that follows it. Even then, it writes a conversion of the same original. The bytes differ only if the app's media settings changed in that window. This is accepted.
@@ -304,7 +307,8 @@ These changes only add fields. No existing field is renamed or removed.
         - a temp image is never converted;
         - sealing a public image returns `main.webp`, the public bucket has only `main.webp`, and the private bucket has no main file;
         - sealing a private image leaves only `main.webp` in the private bucket;
-        - a conversion failure at seal keeps the original and still seals;
+        - a conversion failure at seal keeps the original and still seals, and the response and media row report the original's file name, MIME type and size, with a URL that serves the original;
+        - sealing a video, a WebP image, and an image with `useWebP` off does the same;
         - two concurrent seals of the same media convert it once;
         - a seal whose claim expired (the first seal died) is taken over by the next seal;
         - a seal that runs longer than `SEAL_CLAIM_MS` (a slow copy) keeps its claim by renewing it;
