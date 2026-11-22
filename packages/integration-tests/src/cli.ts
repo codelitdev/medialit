@@ -26,6 +26,7 @@ import {
     checkProcessing,
     checkWebhooks,
     generatePng,
+    retryRateLimited,
     WebhookRefused,
     type WebhookClient,
 } from "./utils";
@@ -140,10 +141,18 @@ export async function runCliIntegrationTests(
         return value.split(apiKey!).join("[redacted]");
     }
 
-    /** Runs the CLI as a user would, in its own config folder. */
+    /** Runs the CLI as a user would, in its own config folder, waiting out
+     * the API's rate limit. */
     function medialit(
         args: string[],
         env: { apiKey?: string | null } = {},
+    ): Promise<RunResult> {
+        return retryRateLimited(() => spawnCli(args, env), log);
+    }
+
+    function spawnCli(
+        args: string[],
+        env: { apiKey?: string | null },
     ): Promise<RunResult> {
         const [command, commandArgs] = cli
             ? [cli, args]

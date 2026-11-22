@@ -245,3 +245,60 @@ export async function checkWebhooks(
     }
     if (failure) throw failure;
 }
+
+/** Longest wait for a rate limit window: the API's window is a minute. */
+const MAX_RATE_LIMIT_WAIT_MS = 65_000;
+const RATE_LIMIT_RETRIES = 2;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * fetch that waits out a 429 and tries again, so a run against a server
+ * with the default rate limit, and its cleanup, isn't cut short. The
+ * limiter answers before the request is handled, so retrying is safe.
+ * `init` is called per attempt, for a fresh timeout signal.
+ */
+export async function fetchWithRateLimit(
+    target: URL | string,
+    init: () => RequestInit,
+    log: (message: string) => void = console.log,
+): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+        const response = await fetch(target, init());
+        if (response.status !== 429 || attempt >= RATE_LIMIT_RETRIES) {
+            return response;
+        }
+        await response.body?.cancel();
+        const seconds = Number(
+            response.headers.get("retry-after") ??
+                response.headers.get("ratelimit-reset"),
+        );
+        const waitMs =
+            Number.isFinite(seconds) && seconds > 0
+                ? Math.min(seconds * 1000 + 250, MAX_RATE_LIMIT_WAIT_MS)
+                : MAX_RATE_LIMIT_WAIT_MS;
+        log(`WAIT rate limited; retrying in ${Math.ceil(waitMs / 1000)}s`);
+        await sleep(waitMs);
+    }
+}
+
+/** Runs a command until it isn't rate limited, waiting a window between
+ * tries. */
+export async function retryRateLimited<T extends { stderr: string }>(
+    run: () => Promise<T>,
+    log: (message: string) => void = console.log,
+): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+        const result = await run();
+        if (
+            !/too_many_requests/.test(result.stderr) ||
+            attempt >= RATE_LIMIT_RETRIES
+        ) {
+            return result;
+        }
+        log("WAIT rate limited; retrying in 65s");
+        await sleep(MAX_RATE_LIMIT_WAIT_MS);
+    }
+}

@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import {
     checkProcessing,
     checkWebhooks,
+    fetchWithRateLimit,
     generatePng,
     WebhookRefused,
     type WebhookClient,
@@ -97,11 +98,15 @@ export async function runIntegrationTests(
         init: RequestInit,
         status = 200,
     ): Promise<Response> {
-        const response = await fetch(target, {
-            ...init,
-            redirect: "error",
-            signal: AbortSignal.timeout(30_000),
-        });
+        const response = await fetchWithRateLimit(
+            target,
+            () => ({
+                ...init,
+                redirect: "error",
+                signal: AbortSignal.timeout(30_000),
+            }),
+            log,
+        );
         if (response.status !== status) {
             const detail = (await response.text())
                 .split(apiKey!)
@@ -364,16 +369,20 @@ export async function runIntegrationTests(
     /** The /settings/webhooks routes. A 400 means the URL was refused. */
     function webhookClient(): WebhookClient {
         async function call(action: string, body: JsonObject) {
-            const response = await fetch(url(`settings/webhooks/${action}`), {
-                method: "POST",
-                headers: {
-                    "x-medialit-apikey": apiKey!,
-                    "content-type": "application/json",
-                },
-                body: JSON.stringify(body),
-                redirect: "error",
-                signal: AbortSignal.timeout(30_000),
-            });
+            const response = await fetchWithRateLimit(
+                url(`settings/webhooks/${action}`),
+                () => ({
+                    method: "POST",
+                    headers: {
+                        "x-medialit-apikey": apiKey!,
+                        "content-type": "application/json",
+                    },
+                    body: JSON.stringify(body),
+                    redirect: "error",
+                    signal: AbortSignal.timeout(30_000),
+                }),
+                log,
+            );
             const result = await response.json();
             if (response.status === 400) {
                 throw new WebhookRefused(String(result.error));
