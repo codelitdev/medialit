@@ -117,6 +117,71 @@ export async function runVideoIntegrationTests(
         }
     }
 
+    /** Fetches a master playlist, its renditions, their init files and
+     * first segments, the way a player in a browser on another site would. */
+    async function checkHls(masterUrl: string, access: "private" | "public") {
+        const origin = { Origin: "https://player.example" };
+        const masterResponse = await fetch(masterUrl, { headers: origin });
+        assert.equal(masterResponse.status, 200, `GET ${masterUrl}`);
+        if (access === "private") {
+            assert.match(
+                masterUrl,
+                /\/media\/[^/]+\/hls\/[^/]+\/master\.m3u8$/,
+            );
+            assert.equal(
+                masterResponse.headers.get("content-type"),
+                "application/vnd.apple.mpegurl",
+            );
+            assert.equal(
+                masterResponse.headers.get("access-control-allow-origin"),
+                "*",
+            );
+        }
+        const master = await masterResponse.text();
+        const resolutions = [...master.matchAll(/RESOLUTION=(\d+x\d+)/g)].map(
+            (m) => m[1],
+        );
+        // A 720p source: 1080p is skipped.
+        assert.deepEqual(resolutions, ["1280x720", "854x480", "640x360"]);
+        const variants = master
+            .split("\n")
+            .filter((line) => line && !line.startsWith("#"));
+        for (const variant of variants) {
+            const variantUrl = new URL(variant, masterUrl).toString();
+            const playlist = await (
+                await fetch(variantUrl, { headers: origin })
+            ).text();
+            const init = /#EXT-X-MAP:URI="([^"]+)"/.exec(playlist)?.[1];
+            assert(init, `no init file in ${variant}`);
+            const segment = playlist
+                .split("\n")
+                .find((line) => line && !line.startsWith("#"));
+            assert(segment, `no segment in ${variant}`);
+            for (const file of [init, segment]) {
+                const fileUrl = new URL(file, variantUrl).toString();
+                if (access === "private") {
+                    assert.match(
+                        file,
+                        /^https?:\/\//,
+                        "segments are signed URLs",
+                    );
+                }
+                const response = await fetch(fileUrl);
+                assert.equal(response.status, 200, `GET ${file}`);
+                assert.ok((await response.arrayBuffer()).byteLength > 0);
+            }
+        }
+        if (access === "private") {
+            const tampered = masterUrl.replace(
+                /\/hls\/(\d+)\./,
+                (_m, expiry) => `/hls/${Number(expiry) + 60}.`,
+            );
+            assert.equal((await fetch(tampered)).status, 403);
+            const unknown = masterUrl.replace("master.m3u8", "v99/index.m3u8");
+            assert.equal((await fetch(unknown)).status, 404);
+        }
+    }
+
     const settings = async () =>
         (await api("settings/media/get")) as unknown as VideoSettings &
             JsonObject;
@@ -264,6 +329,34 @@ export async function runVideoIntegrationTests(
                     assert.equal(Number(minutes.used), minutesBefore + 1);
                 }
                 log("PASS mp4: VP9 re-encoded to H.264, one minute charged");
+            }
+
+            // HLS (D5, D6): renditions capped at the source; private media
+            // plays through the API's signed playlists, public from storage.
+            await api("settings/media/create", {
+                videoStreaming: "hls",
+                hlsRenditions: ["1080p", "720p", "480p", "360p"],
+            });
+            const hd = generateVideo({ width: 1280, height: 720, seconds: 8 });
+            assert(hd, "ffmpeg made the 720p video");
+            for (const access of ["private", "public"] as const) {
+                const hlsSource = await upload(
+                    hd,
+                    `hls-${access}.mp4`,
+                    "video/mp4",
+                    access,
+                );
+                await seal(hlsSource.mediaId);
+                const streamed = await waitForProcessing(
+                    hlsSource.mediaId,
+                    240_000,
+                );
+                const hls = object(object(streamed.derivatives).hls);
+                assert.equal(hls.status, "ready", JSON.stringify(hls));
+                await checkHls(String(hls.url), access);
+                log(
+                    `PASS hls: ${access} media plays through its master playlist`,
+                );
             }
         }
         const image = await upload(

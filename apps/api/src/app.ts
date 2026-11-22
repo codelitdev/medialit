@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import mediaRoutes from "./media/routes";
+import playbackRoutes from "./media/playback-routes";
 import signatureRoutes from "./signature/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
 import webhookRoutes from "./webhooks/routes";
@@ -147,9 +148,13 @@ export function createApp(input: {
         ["/health", "/media", "/settings/media", "/settings/webhooks"],
         cors<express.Request>((req, callback) =>
             callback(null, {
-                origin: /^\/media\/create(\/|\?|$)/.test(req.originalUrl)
-                    ? "*"
-                    : DOCS_ORIGIN,
+                // HLS playlists of private media carry their own token, and
+                // players on any site fetch them.
+                origin:
+                    /^\/media\/create(\/|\?|$)/.test(req.originalUrl) ||
+                    /^\/media\/[^/]+\/hls\//.test(req.originalUrl)
+                        ? "*"
+                        : DOCS_ORIGIN,
             }),
         ),
     );
@@ -224,6 +229,8 @@ export function createApp(input: {
     app.use("/settings/webhooks", webhookRoutes);
     app.use("/media/signature", signatureRoutes);
     app.use("/media", tusRoutes);
+    // Before mediaRoutes: these take a playlist token, not an API key.
+    app.use("/media", playbackRoutes);
     app.use("/media", mediaRoutes);
 
     app.get(

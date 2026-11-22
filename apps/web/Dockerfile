@@ -9,6 +9,7 @@ COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/models/package.json ./packages/models/package.json
 COPY packages/uploader/package.json ./packages/uploader/package.json
+COPY packages/react/package.json ./packages/react/package.json
 
 RUN bun install --frozen-lockfile --filter @medialit/web
 
@@ -18,11 +19,14 @@ COPY tsconfig.json ./
 COPY apps/web ./apps/web
 COPY packages/models ./packages/models
 COPY packages/uploader ./packages/uploader
+COPY packages/react ./packages/react
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# The uploader resolves to its built dist, which is not checked in.
+# The uploader and the React components resolve to their built dist, which
+# is not checked in. The components need the uploader built first.
 RUN bun --filter @medialit/uploader build
+RUN bun --filter @medialit/react build
 RUN bun --filter @medialit/web build
 
 # sharp (Next.js image optimization) is the one native module traced into the

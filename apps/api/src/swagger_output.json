@@ -864,6 +864,87 @@
         "operationId": "createUploadSignature"
       }
     },
+    "/media/{mediaId}/hls/{token}/master.m3u8": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          }
+        }
+      }
+    },
+    "/media/{mediaId}/hls/{token}/{rendition}/index.m3u8": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "rendition",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          }
+        }
+      }
+    },
     "/media/create": {
       "post": {
         "tags": [

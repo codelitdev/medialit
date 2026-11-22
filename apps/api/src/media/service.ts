@@ -232,7 +232,9 @@ async function getMediaResponse(
                 ? { error: record.processingError }
                 : {}),
         },
-        derivatives: await derivativesResponse(media.mediaId, derivativeRows),
+        derivatives: await derivativesResponse(media.mediaId, derivativeRows, {
+            durationSeconds: record.metadata?.durationSeconds,
+        }),
         // Read at seal (phase 1, D2); null before, or when unreadable.
         metadata: record.metadata ?? null,
     };

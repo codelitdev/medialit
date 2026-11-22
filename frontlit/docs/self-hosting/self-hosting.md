@@ -506,17 +506,39 @@ SEAL_WAIT_MS=15000             # a second seal of the same file waits this long,
 
 The memory limit uses `prlimit`, from util-linux, which the MediaLit image includes. On a machine without it, conversions run without a memory limit and the API logs a warning. The image limit also applies to thumbnails: images over `WEBP_MAX_PIXELS` get no thumbnail.
 
+## Allow players to read video segments
+
+Browsers other than Safari play HLS with hls.js, which reads playlists and segments with `fetch`. That needs CORS on your storage: allow `GET` and `HEAD` from any origin on both buckets. Segment URLs of private videos are signed, so this doesn't open anything up.
+
+- **MinIO** allows any origin by default.
+- **S3** and **R2**: set a CORS rule on both buckets, for example with the AWS CLI:
+
+```bash
+aws s3api put-bucket-cors --bucket <bucket> --cors-configuration '{
+  "CORSRules": [{
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["Content-Length", "Content-Range", "ETag"],
+    "MaxAgeSeconds": 3600
+  }]
+}'
+```
+
+- **Behind CloudFront**, also attach the managed response headers policy `Managed-SimpleCORS` to the distribution's behaviors. Otherwise CloudFront can cache a response without the CORS header and serve it to browsers.
+
 ## Size the worker for video
 
 The worker processes sealed videos: posters, and the MP4 or HLS versions the [`videoStreaming`](/docs/concepts#video-streaming) setting asks for. One encode runs at a time (`WORKER_CONCURRENCY_VIDEO`) and uses every core it gets.
 
 For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 5 GB of temporary disk: the worker downloads the source and writes the output before uploading it. On 2 CPUs, an hour of 1080p video takes roughly one to two hours to encode.
 
-| Variable                     | Default             | What it does                                                                                     |
-| ---------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
-| `VIDEO_MAX_SOURCE_BYTES`     | `1073741824` (1 GB) | Larger videos keep their original and poster, and aren't encoded                                 |
-| `VIDEO_MAX_DURATION_SECONDS` | `7200` (2 hours)    | Longer videos keep their original and poster, and aren't encoded                                 |
-| `VIDEO_MAX_MEMORY_MB`        | `1536`              | Memory ffmpeg may use for one encode. Keep it below the worker's own limit, so only ffmpeg stops |
+| Variable                     | Default             | What it does                                                                                                                                                |
+| ---------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VIDEO_MAX_SOURCE_BYTES`     | `1073741824` (1 GB) | Larger videos keep their original and poster, and aren't encoded                                                                                            |
+| `VIDEO_MAX_DURATION_SECONDS` | `7200` (2 hours)    | Longer videos keep their original and poster, and aren't encoded                                                                                            |
+| `VIDEO_MAX_MEMORY_MB`        | `3072`              | Address space ffmpeg may reserve for one encode, a guard against a file that makes it run away. It uses far less: about 0.5 GB for a 4K source at 2 threads |
+| `VIDEO_ENCODE_THREADS`       | `2`                 | Threads per encode. Match the worker's CPUs; more threads only reserve more memory                                                                          |
 
 Self-hosted servers have no limit on processing minutes.
 

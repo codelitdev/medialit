@@ -11,6 +11,7 @@ export const POSTER_JOB = "media.poster";
 export const POSTER_ATTEMPTS = 3;
 /** Kept here, not in mp4.ts, so seal doesn't load the encoders. */
 export const MP4_JOB_TYPE = "media.mp4";
+export const HLS_JOB_TYPE = "media.hls";
 export const VIDEO_ENCODE_ATTEMPTS = 3;
 
 /** Paid and self-hosted encodes run before free ones (D11, Priority). The
@@ -69,6 +70,18 @@ export function planProcessing(input: PlanInput): PlannedJob[] {
             maxAttempts: POSTER_ATTEMPTS,
         },
     ];
+    if (input.video.videoStreaming === "hls") {
+        jobs.push({
+            type: HLS_JOB_TYPE,
+            derivative: "hls",
+            params: {
+                videoStreaming: "hls",
+                hlsRenditions: input.video.hlsRenditions,
+            },
+            priority,
+            maxAttempts: VIDEO_ENCODE_ATTEMPTS,
+        });
+    }
     if (input.video.videoStreaming === "mp4") {
         jobs.push({
             type: MP4_JOB_TYPE,

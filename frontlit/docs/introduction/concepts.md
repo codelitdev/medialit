@@ -87,6 +87,7 @@ Change these settings in the dashboard under **Settings** > **Media processing**
 
 The `videoStreaming` setting decides what is made from sealed videos:
 
+- **`hls`** makes HLS streams with adaptive bitrate, the `hls` derivative: renditions from the app's `hlsRenditions` (`1080p`, `720p`, `480p` and `360p`; `1080p`, `720p` and `480p` by default), skipping any larger than the video, in 6-second segments. Players switch between them as the connection changes. `derivatives.hls.url` is the master playlist. For public videos it is a storage URL; for private videos it is a link to the MediaLit API that lasts for the video's length plus an hour and signs each segment for as long, so playback works however long the video is. Play it with [`MediaLitVideo`](/docs/react#medialitvideo), hls.js, Video.js or Safari's built-in player.
 - **`mp4`** makes an MP4 optimized for the web, the `mp4` derivative: H.264 video and AAC audio with the index at the front, so playback starts before the whole file loads. A video that is already H.264/AAC in MP4 or MOV, at most 1080p and 8 Mbps, is only rewritten (seconds, no quality lost, no processing minutes). Anything else is re-encoded, at most 1080p and never larger than the original.
 - **`off`** makes only the poster.
 

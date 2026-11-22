@@ -52,6 +52,7 @@ import logger from "../services/log";
 import { trackEvent } from "../services/events";
 import { releaseOrphanedMinutes } from "../billing/processing-minutes";
 import type { PlannedJob } from "./processing-plan";
+import { playlistUrl } from "./playback";
 import { mediaKind } from "./kind";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
@@ -137,6 +138,7 @@ export type DerivativeResponse = {
 export async function derivativesResponse(
     mediaId: string,
     rows: DerivativeRecord[],
+    options: { durationSeconds?: number } = {},
 ): Promise<Record<string, DerivativeResponse>> {
     const response: Record<string, DerivativeResponse> = {};
     for (const row of rows) {
@@ -144,6 +146,14 @@ export async function derivativesResponse(
         if (row.status === "ready") {
             if (row.key && !row.key.endsWith("/")) {
                 item.url = await derivativeUrl(mediaId, row.bucket, row.key);
+            } else if (row.name === "hls" && row.key) {
+                // HLS (phase 1, D6): public media plays its master playlist
+                // straight from the CDN; private media through the API's
+                // signed playlist routes.
+                item.url =
+                    row.bucket === "public"
+                        ? `${CDN_ENDPOINT || CLOUD_ENDPOINT_PUBLIC}/${derivativeObjectKey(mediaId, "public", `${row.key}master.m3u8`)}`
+                        : playlistUrl(mediaId, options.durationSeconds);
             }
             if (row.mimeType) item.mimeType = row.mimeType;
             item.size = row.size;

@@ -284,14 +284,55 @@ export const getObjectTagging = async (params: {
 export const generateSignedUrl = async (
     key: string,
     bucket?: string,
+    /** Seconds the URL stays valid; the SDK's default (15 minutes) if
+     * unset. At most 7 days. */
+    expiresIn?: number,
 ): Promise<string> => {
     const targetBucket = bucket || cloudBucket;
     const command = new GetObjectCommand({
         Bucket: targetBucket,
         Key: key,
     });
-    const url = await getS3SignedUrl(getS3Client(targetBucket), command);
+    const url = await getS3SignedUrl(
+        getS3Client(targetBucket),
+        command,
+        expiresIn ? { expiresIn: Math.floor(expiresIn) } : undefined,
+    );
     return url;
+};
+
+/**
+ * A CloudFront signed query string for every object under `prefix` (a
+ * custom policy with a wildcard), valid until `expiresAt`. One signature
+ * for a whole HLS rendition instead of one per segment.
+ */
+export const cloudfrontPrefixQuery = (
+    prefix: string,
+    expiresAt: Date,
+): string => {
+    if (!CDN_ENDPOINT || !CLOUDFRONT_KEY_PAIR_ID || !CLOUDFRONT_PRIVATE_KEY) {
+        throw new Error("CDN configuration is missing");
+    }
+    const resource = `${CDN_ENDPOINT}/${prefix}*`;
+    const policy = JSON.stringify({
+        Statement: [
+            {
+                Resource: resource,
+                Condition: {
+                    DateLessThan: {
+                        "AWS:EpochTime": Math.floor(expiresAt.getTime() / 1000),
+                    },
+                },
+            },
+        ],
+    });
+    const signed = getCfSignedUrl({
+        url: resource,
+        keyPairId: CLOUDFRONT_KEY_PAIR_ID,
+        privateKey: CLOUDFRONT_PRIVATE_KEY,
+        policy,
+    });
+    return new URL(signed).search.slice(1);
 };
 
 export const generateCloudfrontSignedUrl = (key: string): string => {

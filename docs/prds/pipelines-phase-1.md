@@ -94,7 +94,7 @@ Every video job:
     - A presigned URL expires after 15 minutes. ffmpeg makes new range requests when it seeks, when an MP4 has its index at the end, or when it reconnects, and after the URL expires those get a 403 halfway through the encode.
     - With a local file, ffmpeg runs with `-protocol_whitelist file`, so a crafted input can't make it open any network address.
 3. **Probes it** (D2) and refuses, as a permanent failure with a clear `error`, sources that are over `VIDEO_MAX_DURATION_SECONDS` (default 2 hours), larger than 2160p on the short side or 4096 px on the long side, or have no video stream.
-4. **Runs ffmpeg** with the same container allowlist as the thumbnail, without a shell, in its own process group, under `prlimit --as` set by `VIDEO_MAX_MEMORY_MB` (default 1536, below the worker's memory limit, so `prlimit` kills ffmpeg before Kubernetes kills the worker). The handler's `AbortSignal` (media deleted, job cancelled, lease lost) kills the group. Every encode:
+4. **Runs ffmpeg** with the same container allowlist as the thumbnail, without a shell, in its own process group, under `prlimit --as` set by `VIDEO_MAX_MEMORY_MB` (default 3072), with `VIDEO_ENCODE_THREADS` threads (default 2, the worker's CPUs). `--as` caps reserved address space, not memory in use: x264 reserves far more than it uses, so the guard is against a decoder that runs away, and the worker's memory limit covers what ffmpeg actually uses. Measured in step 5: a 4K source at 2 threads reserves under 3 GB and uses about 0.5 GB; at the first default of 1536 MB, a three-rendition ladder failed to allocate. An allocation failure under the guard is `internal` and permanent. The handler's `AbortSignal` (media deleted, job cancelled, lease lost) kills the group. Every encode:
     - maps streams explicitly (`-map 0:v:0 -map 0:a:0?`) and drops subtitle, data and attachment streams;
     - scales with `-2` for the computed side, so widths and heights stay even, as H.264 requires;
     - downmixes audio to stereo (`-ac 2`);
@@ -130,7 +130,7 @@ Every video job:
 
 - **Segments:** 6 s, fMP4 (CMAF), with keyframes forced every 2 s and scene-cut keyframes off, so segment boundaries line up across renditions. fMP4 plays in hls.js and in Safari since iOS 10, and phase 3 DRM (Widevine, FairPlay) needs it. With TS segments, phase 3 would mean encoding everything again.
 - **Audio** is muxed into every rendition. A video with no audio stream gets video-only renditions.
-- **Layout**, under the media's folder: `hls/master.m3u8`, `hls/v{n}/index.m3u8`, `hls/v{n}/init.mp4` and `hls/v{n}/seg{nnnnn}.m4s`. The master playlist sets `BANDWIDTH`, `RESOLUTION`, `FRAME-RATE` and `CODECS` for every rendition, and all URIs in it are relative.
+- **Layout**, under the media's folder: `hls/master.m3u8`, `hls/v{n}/index.m3u8`, `hls/v{n}/init_{n}.mp4` (`init.mp4` when there is one rendition; ffmpeg names them) and `hls/v{n}/seg{nnnnn}.m4s`. The master playlist sets `BANDWIDTH`, `RESOLUTION` and `CODECS` for every rendition (ffmpeg doesn't write `FRAME-RATE`), and all URIs in it are relative.
 - The derivative is `hls`, with key `hls/` and the sum of its file sizes. `params` holds the renditions made and the settings used.
 
 ### D6. Playing HLS: public and private media
@@ -404,7 +404,7 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
 - **Images:** no change. `ffmpeg` and `ffprobe` are already in the API image.
 - **Infra** (QA and prod, one worker replica each):
     - Worker resources from 1 CPU and 512 MiB to `limits: { cpu: "2", memory: 2Gi, ephemeral-storage: 5Gi }` (D4). Check that the nodes have room for it next to the API and the web app.
-    - `WORKER_CONCURRENCY_VIDEO=1` and `VIDEO_MAX_MEMORY_MB=1536`, below the 2 GiB limit.
+    - `WORKER_CONCURRENCY_VIDEO=1`, `VIDEO_ENCODE_THREADS=2` and `VIDEO_MAX_MEMORY_MB=3072` (address space; real use is about 0.5 GB per encode).
     - CORS on both buckets and the CloudFront distribution (D6), done by hand and written down in the infra README.
     - The shutdown grace stays at 20 s. A deploy during an encode restarts it from the start without using an attempt (section 2). That is acceptable at our volume, and releases can avoid times when a long encode is running.
 - **`.env.example`:** `WORKER_CONCURRENCY_VIDEO`, `VIDEO_MAX_SOURCE_BYTES`, `VIDEO_MAX_DURATION_SECONDS`, `VIDEO_MAX_MEMORY_MB`, `PROCESSING_MINUTES_FREE`, `PROCESSING_MINUTES_PAID`.

@@ -58,10 +58,11 @@ export function capShortSide(maxShortSide: number): string {
 
 /** Input options for a local file: no network, and only real containers,
  * so a playlist posing as a video can't make ffmpeg open other files. */
-export function localInput(source: string): string[] {
+export function localInput(source: string, threads?: number): string[] {
     return [
         "-nostdin",
         "-y",
+        ...(threads ? ["-threads", String(threads)] : []),
         "-format_whitelist",
         PROBE_INPUT_FORMATS,
         "-protocol_whitelist",
@@ -102,9 +103,11 @@ export function mp4Args(input: {
     output: string;
     remux: boolean;
     maxDurationSeconds: number;
+    threads?: number;
 }): string[] {
     const common = [
-        ...localInput(input.source),
+        ...localInput(input.source, input.threads),
+        ...(input.threads ? ["-threads", String(input.threads)] : []),
         ...STREAMS,
         "-t",
         String(input.maxDurationSeconds),
@@ -155,6 +158,7 @@ async function encodeMp4(input: EncodeInput) {
             output,
             remux,
             maxDurationSeconds: input.limits.maxDurationSeconds,
+            threads: input.limits.threads,
         }),
         {
             timeoutMs: input.timeoutMs,

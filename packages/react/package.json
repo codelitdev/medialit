@@ -38,7 +38,8 @@
     "url": "https://github.com/codelitdev/medialit"
   },
   "dependencies": {
-    "@medialit/uploader": "workspace:^"
+    "@medialit/uploader": "workspace:^",
+    "hls.js": "1.6.19"
   },
   "peerDependencies": {
     "react": ">=18"

@@ -56,7 +56,14 @@ export function videoLimits() {
             1024 * 1024 * 1024,
         ),
         maxDurationSeconds: positiveFromEnv("VIDEO_MAX_DURATION_SECONDS", 7200),
-        maxMemoryMb: positiveFromEnv("VIDEO_MAX_MEMORY_MB", 1536),
+        /** Address space ffmpeg may reserve (`prlimit --as`): a guard
+         * against a decoder that runs away, not a cap on memory in use.
+         * x264 reserves far more than it uses; at 2 threads, a 4K source
+         * reserves under 3 GB and uses about 0.5 GB. */
+        maxMemoryMb: positiveFromEnv("VIDEO_MAX_MEMORY_MB", 3072),
+        /** Encoder and decoder threads. Match the worker's CPUs: more only
+         * reserve more memory. */
+        threads: Math.floor(positiveFromEnv("VIDEO_ENCODE_THREADS", 2)),
         /** Sources up to 2160p on the short side, 4096 px on the long. */
         maxShortSide: 2160,
         maxLongSide: 4096,
@@ -302,6 +309,11 @@ function classify(err: unknown, signal: AbortSignal): JobError {
                 reason: "internal",
                 retryable: true,
             });
+        }
+        // Out of address space under VIDEO_MAX_MEMORY_MB: our limit, so an
+        // exception for us, and the same limit would fail a retry.
+        if (/Cannot allocate memory/i.test(err.message)) {
+            return permanentError(describeError(err), "internal");
         }
         return permanentError(describeError(err), "bad_input");
     }

@@ -201,6 +201,7 @@ async function settings(overrides: {
     thumbnailWidth?: number;
     thumbnailHeight?: number;
     videoStreaming?: "off" | "hls" | "mp4";
+    hlsRenditions?: string[];
 }) {
     await db.upsertMediaSettings({
         userId,
@@ -210,6 +211,7 @@ async function settings(overrides: {
         thumbnailWidth: overrides.thumbnailWidth ?? 100,
         thumbnailHeight: overrides.thumbnailHeight ?? 50,
         videoStreaming: overrides.videoStreaming ?? "off",
+        hlsRenditions: overrides.hlsRenditions ?? null,
     });
 }
 
@@ -952,6 +954,62 @@ describe("seal", { skip }, () => {
         // The file's fault: the media settles failed, the original stays.
         assert.equal(done?.processing.status, "failed");
         assert.equal(done?.derivatives.mp4.status, "failed");
+    });
+
+    test("hls: a 360p video gets the renditions that fit, as fMP4, and a signed playlist URL", async () => {
+        await settings({
+            videoStreaming: "hls",
+            hlsRenditions: ["720p", "480p", "360p"],
+        });
+        const used = await minutesUsed();
+        const video = await upload(await h264(), {
+            mimeType: "video/mp4",
+            fileName: "hls.mp4",
+            access: "private",
+        });
+        const sealed = await sealIt(video.mediaId);
+        assert.equal(sealed.derivatives.hls.status, "queued");
+        assert.equal(
+            (await runJob(video.mediaId, "media.hls")).error,
+            undefined,
+        );
+        await runJob(video.mediaId, "media.poster");
+
+        const stored = await files(video.mediaId, "private");
+        // 640x360: 720p and 480p are larger than the source.
+        const playlists = stored.filter(
+            (f) => f.startsWith("hls/") && !f.includes("seg"),
+        );
+        assert.deepEqual(playlists.slice(0, 2), [
+            "hls/master.m3u8",
+            "hls/v0/index.m3u8",
+        ]);
+        // ffmpeg names a lone rendition's init file init.mp4, others
+        // init_{n}.mp4.
+        assert.match(playlists[2], /^hls\/v0\/init(_0)?\.mp4$/);
+        assert.equal(playlists.length, 3, "one rendition only");
+        assert.ok(stored.includes("hls/v0/seg00000.m4s"));
+        const master = (
+            await bytes(video.mediaId, "private", "hls/master.m3u8")
+        ).toString("utf8");
+        assert.match(master, /RESOLUTION=640x360/);
+        assert.equal(await minutesUsed(), used + 1);
+
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        const hls = done?.derivatives.hls;
+        assert.equal(hls?.status, "ready");
+        assert.ok((hls?.size ?? 0) > 0);
+        assert.match(
+            String(hls?.url),
+            new RegExp(
+                `/media/${video.mediaId}/hls/\\d+\\.[A-Za-z0-9_-]{43}/master\\.m3u8$`,
+            ),
+        );
+        assert.deepEqual(done?.processing, { status: "ready" });
     });
 
     test("sealing a public image publishes only main.webp", async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { MediaLitVideo, type PlayableMedia } from "@medialit/react";
 import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import { Checkbox } from "@codelitdev/design-system";
@@ -58,10 +59,12 @@ function FilePreviewMedia({
     media,
     fileUrl,
     loadError,
+    playable,
 }: {
     media: MediaListItem;
     fileUrl: string;
     loadError: boolean;
+    playable?: PlayableMedia;
 }) {
     if (!fileUrl && !loadError) {
         return (
@@ -85,12 +88,11 @@ function FilePreviewMedia({
             );
         }
         if (media.mimeType.startsWith("video/")) {
+            // HLS or the web MP4 when the app makes them, else the original.
             return (
-                <video
+                <MediaLitVideo
                     className="file-dialog-media"
-                    src={fileUrl}
-                    controls
-                    preload="metadata"
+                    media={playable ?? { file: fileUrl }}
                 />
             );
         }
@@ -146,7 +148,7 @@ function FileDetailsContent({
     expanded: boolean;
     onExpandedChange: (expanded: boolean) => void;
 }) {
-    const { url, error } = useFileUrl(appId, media.mediaId);
+    const { url, error, playable } = useFileUrl(appId, media.mediaId);
     const kind = kindLabels[media.kind];
     const fileLabel =
         media.originalFileName.split(".").at(-1)?.toUpperCase() || kind;
@@ -179,6 +181,7 @@ function FileDetailsContent({
                             media={media}
                             fileUrl={url}
                             loadError={error}
+                            playable={playable}
                         />
                         <span className="file-preview-caption">
                             {fileLabel}
