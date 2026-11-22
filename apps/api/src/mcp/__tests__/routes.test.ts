@@ -215,7 +215,7 @@ test("2025-era clients initialize without a session", async () => {
         "mcp-protocol-version": "2025-11-25",
     });
     assert.equal(tools.status, 200);
-    assert.equal((await tools.json()).result.tools.length, 11);
+    assert.equal((await tools.json()).result.tools.length, 16);
 });
 
 test("a request without credentials gets the OAuth challenge", async () => {
