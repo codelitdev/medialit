@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { generatePng } from "./utils";
+import { checkProcessing, generatePng } from "./utils";
 
 type JsonObject = Record<string, unknown>;
 type MediaSettings = JsonObject & {
@@ -254,7 +254,7 @@ export async function runMcpIntegrationTests(
     const endpoint = new URL("mcp", base);
     const log = options.log ?? console.log;
     const group = `__mcp_integration_${randomUUID()}`;
-    const png = generatePng();
+    const png = generatePng(64, 36);
     const pending = new Set<string>();
     let baseline: Stats | undefined;
     let baselineCount: number | undefined;
@@ -533,6 +533,7 @@ export async function runMcpIntegrationTests(
         assert.equal(retrieved.originalFileName, filename);
         assert.equal(retrieved.size, png.length);
         assert.equal(retrieved.group, group);
+        await checkProcessing(retrieved, "sealed");
         assert.deepEqual(
             (await list(group)).map((item) => item.mediaId),
             [mediaId],

@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { generatePng } from "./utils";
+import { checkProcessing, generatePng } from "./utils";
 export { generatePng } from "./utils";
 
 type JsonObject = Record<string, unknown>;
@@ -73,7 +73,7 @@ export async function runIntegrationTests(
     base.pathname = `${base.pathname.replace(/\/+$/, "")}/`;
     const log = options.log ?? console.log;
     const group = `__integration_${randomUUID()}`;
-    const png = generatePng();
+    const png = generatePng(64, 36);
     const pending = new Set<string>();
     const uploads: UploadedMedia[] = [];
     let baseline: Stats | undefined;
@@ -343,10 +343,12 @@ export async function runIntegrationTests(
         };
         uploads.push(expected);
         checkMedia(media, expected);
+        await checkProcessing(media, "temp");
         const retrieved = object(
             await api(`media/get/${encodeURIComponent(expected.mediaId)}`),
         );
         checkMedia(retrieved, expected);
+        await checkProcessing(retrieved, "temp");
         await download(retrieved);
         // Drafts take up storage but are not counted as media.
         await checkTotals(png.length * uploads.length, 0);
@@ -383,14 +385,11 @@ export async function runIntegrationTests(
 
         for (let index = 0; index < uploads.length; index++) {
             const expected = uploads[index];
-            checkMedia(
-                object(
-                    await api(
-                        `media/seal/${encodeURIComponent(expected.mediaId)}`,
-                    ),
-                ),
-                expected,
+            const sealed = object(
+                await api(`media/seal/${encodeURIComponent(expected.mediaId)}`),
             );
+            checkMedia(sealed, expected);
+            await checkProcessing(sealed, "sealed");
             await checkTotals(png.length * uploads.length, index + 1);
             log(`PASS seal ${expected.filename} and storage decrement`);
         }
@@ -427,6 +426,7 @@ export async function runIntegrationTests(
                 await api(`media/get/${encodeURIComponent(expected.mediaId)}`),
             );
             checkMedia(media, expected);
+            await checkProcessing(media, "sealed");
             await download(media);
         }
         log(

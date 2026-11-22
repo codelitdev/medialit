@@ -982,15 +982,22 @@ export async function totalMediaSize(input: {
         .select({ total: sql<number>`coalesce(sum(${media.size}), 0)::float8` })
         .from(media)
         .where(and(...filters));
-    // Ready derivatives (thumbnails now; posters, HLS and captions later)
-    // take space too.
+    // Ready derivatives (posters, HLS and captions) take space too.
+    // Thumbnails never counted, and still don't: storage stays the bytes
+    // clients uploaded plus what processing made from them.
     const [derived] = await db
         .select({
             total: sql<number>`coalesce(sum(${derivatives.size}), 0)::float8`,
         })
         .from(derivatives)
         .innerJoin(media, eq(media.id, derivatives.mediaId))
-        .where(and(eq(derivatives.status, "ready"), ...filters));
+        .where(
+            and(
+                eq(derivatives.status, "ready"),
+                ne(derivatives.name, "thumbnail"),
+                ...filters,
+            ),
+        );
     return Number(row?.total ?? 0) + Number(derived?.total ?? 0);
 }
 

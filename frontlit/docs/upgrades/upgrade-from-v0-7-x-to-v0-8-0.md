@@ -12,7 +12,8 @@ MediaLit v0.8.0 runs its background jobs in a separate worker process instead of
 - **A new worker service runs the cleanup** of expired temporary uploads and unfinished uploads. The API no longer does. Without a worker, unsealed uploads stay in your bucket and keep counting toward storage.
 - **The cleanup runs once per installation**, however many API instances you run.
 - **The job queue can alert you.** Set `OPERATOR_ALERT_EMAIL` to get an email when no worker is running or jobs pile up or fail. See [Operate the job queue](/docs/self-hosting#operate-the-job-queue).
-- **The database gets three new tables,** `jobs`, `workers` and `operator_alerts`.
+- **The database gets four new tables,** `jobs`, `workers`, `operator_alerts` and `derivatives`, and the `media` table gets columns for processing status. Existing media is marked `ready`.
+- **Media responses gain `processing` and `derivatives`.** No existing field changes. See [Processing status and derivatives](/docs/concepts#processing-status-and-derivatives).
 
 ## 1. Back up the database
 

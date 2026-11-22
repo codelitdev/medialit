@@ -315,6 +315,10 @@
         "description": "Upload a new media file. Use OAuth Bearer auth, API key auth from Authorize (`x-medialit-apikey`), or pass `x-medialit-signature` for this endpoint only.",
         "parameters": [
           {
+            "name": "content-length",
+            "in": "header"
+          },
+          {
             "name": "x-medialit-signature",
             "in": "header",
             "description": "Upload Signature for secure client-side uploads",
@@ -386,6 +390,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Too many uploads in progress; retry after the Retry-After header"
           }
         },
         "security": [
@@ -1003,6 +1010,62 @@
           },
           "group": {
             "type": "string"
+          },
+          "processing": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "processing",
+                  "ready",
+                  "failed"
+                ]
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          "derivatives": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "queued",
+                    "processing",
+                    "ready",
+                    "failed"
+                  ]
+                },
+                "url": {
+                  "type": "string"
+                },
+                "mimeType": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "number",
+                  "format": "float"
+                },
+                "error": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -1011,7 +1074,9 @@
           "mimeType",
           "size",
           "access",
-          "file"
+          "file",
+          "processing",
+          "derivatives"
         ],
         "additionalProperties": false
       },

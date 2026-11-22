@@ -12,9 +12,32 @@ export const mediaSchema = z.object({
     thumbnail: z.string().optional(),
     caption: z.string().optional(),
     group: z.string().optional(),
+    processing: z
+        .object({
+            status: z.enum(["pending", "processing", "ready", "failed"]),
+            error: z.string().optional(),
+        })
+        .optional()
+        .describe("Background processing of the media after seal"),
+    derivatives: z
+        .record(
+            z.object({
+                status: z.enum(["queued", "processing", "ready", "failed"]),
+                url: z.string().optional(),
+                mimeType: z.string().optional(),
+                size: z.number().optional(),
+                error: z.string().optional(),
+            }),
+        )
+        .optional()
+        .describe("Outputs made from the original, by name"),
 });
 
-export const mediaListItemSchema = mediaSchema.omit({ file: true });
+export const mediaListItemSchema = mediaSchema.omit({
+    file: true,
+    processing: true,
+    derivatives: true,
+});
 
 export const mediaListSchema = z.object({
     mediaItems: z.array(mediaListItemSchema),
