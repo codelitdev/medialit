@@ -2,7 +2,7 @@
 title: "Upgrade from v0.5.x to v0.6.0"
 description: "Move a self-hosted MediaLit installation to hashed, revocable API keys"
 slug: upgrade-from-v0-5-x-to-v0-6-0
-nav_order: 20
+nav_order: 40
 ---
 
 MediaLit v0.6.0 stores [API keys](/docs/api-keys) as hashes instead of plaintext, and lets an app have several keys that you can create and revoke separately. Upgrading needs a database migration. It keeps your files, apps and existing keys working, but it can't be undone.

@@ -2,7 +2,7 @@
 title: "Upgrade from v0.7.x to v0.8.0"
 description: "Add the worker service that runs MediaLit's background jobs"
 slug: upgrade-from-v0-7-x-to-v0-8-0
-nav_order: 40
+nav_order: 20
 ---
 
 MediaLit v0.8.0 runs its background jobs in a separate worker process instead of the API. The worker uses the same image as the API. Add it before you upgrade.

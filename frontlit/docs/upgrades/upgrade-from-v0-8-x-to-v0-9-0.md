@@ -2,7 +2,7 @@
 title: "Upgrade from v0.8.x to v0.9.0"
 description: "Process videos on the worker: posters, MP4 for the web and HLS streaming"
 slug: upgrade-from-v0-8-x-to-v0-9-0
-nav_order: 50
+nav_order: 10
 ---
 
 MediaLit v0.9.0 processes sealed videos on the worker: it picks a better poster, and it can make an MP4 optimized for the web or HLS streams with adaptive bitrate. The worker needs more CPU, memory and disk for that, and HLS in browsers other than Safari needs CORS on your storage. Read this before you upgrade.
