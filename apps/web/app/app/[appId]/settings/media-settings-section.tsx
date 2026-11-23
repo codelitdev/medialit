@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Film, ImageIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { SettingsCard } from "@/components/settings-card";
 import {
     updateMediaSettings,
     type HlsRendition,
@@ -52,31 +53,6 @@ function useSave(appId: string) {
     }
 
     return { pending, error, saved, save, edited: () => setSaved(false) };
-}
-
-function SettingsCard({
-    icon,
-    title,
-    description,
-    children,
-}: {
-    icon: ReactNode;
-    title: string;
-    description: string;
-    children: ReactNode;
-}) {
-    return (
-        <section className="settings-card">
-            <div className="settings-card-title">
-                <span className="settings-card-icon">{icon}</span>
-                <div>
-                    <h2>{title}</h2>
-                    <p className="settings-subtle">{description}</p>
-                </div>
-            </div>
-            {children}
-        </section>
-    );
 }
 
 function SaveRow({

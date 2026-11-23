@@ -2102,22 +2102,6 @@ a {
     font-weight: 650;
 }
 
-.settings-card-title {
-    display: flex;
-    align-items: flex-start;
-    gap: 11px;
-}
-
-/* The heading's line is as tall as the icon, so the two line up. */
-.settings-card-title h2 {
-    margin: 0;
-    line-height: 33px;
-}
-
-.settings-card-title .settings-subtle {
-    margin: 0;
-}
-
 .settings-card-icon {
     display: grid;
     flex: none;
@@ -2132,11 +2116,6 @@ a {
 .settings-card-icon svg {
     width: 16px;
     height: 16px;
-}
-
-.settings-card-icon.danger {
-    background: var(--destructive-soft);
-    color: var(--destructive);
 }
 
 .settings-mono-input {

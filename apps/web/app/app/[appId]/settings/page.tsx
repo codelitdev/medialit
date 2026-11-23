@@ -29,6 +29,7 @@ import DefaultAppControl from "./default-app-control";
 import WebhooksSection from "./webhooks-section";
 import DeliveriesTable from "./deliveries-table";
 import SettingsTabs from "./settings-tabs";
+import { SettingsCard } from "@/components/settings-card";
 
 export default async function Settings(props: {
     params: Promise<{ appId: string }>;
@@ -75,19 +76,11 @@ export default async function Settings(props: {
                         icon: <Settings2 aria-hidden="true" />,
                         content: (
                             <>
-                                <section className="settings-card">
-                                    <div className="settings-card-title">
-                                        <span className="settings-card-icon">
-                                            <Settings2 aria-hidden="true" />
-                                        </span>
-                                        <div>
-                                            <h2>General</h2>
-                                            <p className="settings-subtle">
-                                                Choose a name that helps you
-                                                identify this media library.
-                                            </p>
-                                        </div>
-                                    </div>
+                                <SettingsCard
+                                    icon={<Settings2 aria-hidden="true" />}
+                                    title="General"
+                                    description="Choose a name that helps you identify this media library."
+                                >
                                     <UpdateSettingsForm
                                         appId={app.appId}
                                         name={app.name || ""}
@@ -106,19 +99,12 @@ export default async function Settings(props: {
                                             isDefault={app.default}
                                         />
                                     </div>
-                                </section>
-                                <section className="settings-card">
-                                    <div className="settings-card-title">
-                                        <span className="settings-card-icon">
-                                            <Database aria-hidden="true" />
-                                        </span>
-                                        <div>
-                                            <h2>Storage</h2>
-                                            <p className="settings-subtle">
-                                                File storage used by this app.
-                                            </p>
-                                        </div>
-                                    </div>
+                                </SettingsCard>
+                                <SettingsCard
+                                    icon={<Database aria-hidden="true" />}
+                                    title="Storage"
+                                    description="File storage used by this app."
+                                >
                                     <div className="storage-value-row">
                                         <strong>
                                             {formatAppStorage(
@@ -154,24 +140,22 @@ export default async function Settings(props: {
                                             </div>
                                         ))}
                                     </div>
-                                </section>
-                                <section className="settings-card settings-card-danger">
-                                    <div className="settings-card-title">
-                                        <span className="settings-card-icon danger">
-                                            <AlertTriangle aria-hidden="true" />
-                                        </span>
-                                        <div>
-                                            <h2>Danger zone</h2>
-                                            <p className="settings-subtle">
-                                                Deleting this app removes its{" "}
-                                                {appSummary.count}{" "}
-                                                {appSummary.count === 1
-                                                    ? "file"
-                                                    : "files"}{" "}
-                                                and revokes its API keys.
-                                            </p>
-                                        </div>
-                                    </div>
+                                </SettingsCard>
+                                <SettingsCard
+                                    icon={<AlertTriangle aria-hidden="true" />}
+                                    title="Danger zone"
+                                    description={
+                                        <>
+                                            Deleting this app removes its{" "}
+                                            {appSummary.count}{" "}
+                                            {appSummary.count === 1
+                                                ? "file"
+                                                : "files"}{" "}
+                                            and revokes its API keys.
+                                        </>
+                                    }
+                                    tone="danger"
+                                >
                                     <div className="settings-danger-action">
                                         <p>This action cannot be undone.</p>
                                         <DeleteAppButton
@@ -179,7 +163,7 @@ export default async function Settings(props: {
                                             appId={app.appId}
                                         />
                                     </div>
-                                </section>
+                                </SettingsCard>
                             </>
                         ),
                     },
@@ -189,27 +173,17 @@ export default async function Settings(props: {
                         icon: <KeyRound aria-hidden="true" />,
                         content: (
                             <>
-                                <section className="settings-card">
-                                    <div className="settings-card-title">
-                                        <span className="settings-card-icon">
-                                            <KeyRound aria-hidden="true" />
-                                        </span>
-                                        <div>
-                                            <h2>API keys</h2>
-                                            <p className="settings-subtle">
-                                                Use a key with the MediaLit SDK
-                                                or REST API. Keep keys out of
-                                                client-side code; browsers
-                                                upload with signatures instead.
-                                            </p>
-                                        </div>
-                                    </div>
+                                <SettingsCard
+                                    icon={<KeyRound aria-hidden="true" />}
+                                    title="API keys"
+                                    description="Use a key with the MediaLit SDK or REST API. Keep keys out of client-side code; browsers upload with signatures instead."
+                                >
                                     <ApiKeysSection
                                         appId={app.appId}
                                         keys={apiKeys.items}
                                         limit={apiKeys.limit}
                                     />
-                                </section>
+                                </SettingsCard>
                             </>
                         ),
                     },
@@ -241,24 +215,11 @@ export default async function Settings(props: {
                         icon: <Webhook aria-hidden="true" />,
                         content: (
                             <>
-                                <section className="settings-card">
-                                    <div className="settings-card-title">
-                                        <span className="settings-card-icon">
-                                            <Webhook aria-hidden="true" />
-                                        </span>
-                                        <div>
-                                            <h2>Webhooks</h2>
-                                            <p className="settings-subtle">
-                                                Tell your server when processing
-                                                of a sealed file finishes or
-                                                fails. Each request is signed
-                                                with the endpoint’s secret,
-                                                following Standard Webhooks.
-                                                Verify the signature before
-                                                trusting a request.
-                                            </p>
-                                        </div>
-                                    </div>
+                                <SettingsCard
+                                    icon={<Webhook aria-hidden="true" />}
+                                    title="Webhooks"
+                                    description="Tell your server when processing of a sealed file finishes or fails. Each request is signed with the endpoint’s secret, following Standard Webhooks. Verify the signature before trusting a request."
+                                >
                                     {webhooks ? (
                                         <WebhooksSection
                                             appId={app.appId}
@@ -273,29 +234,18 @@ export default async function Settings(props: {
                                             Could not load this app’s webhooks.
                                         </div>
                                     )}
-                                </section>
+                                </SettingsCard>
                                 {webhooks ? (
-                                    <section className="settings-card">
-                                        <div className="settings-card-title">
-                                            <span className="settings-card-icon">
-                                                <History aria-hidden="true" />
-                                            </span>
-                                            <div>
-                                                <h2>
-                                                    Recent webhook deliveries
-                                                </h2>
-                                                <p className="settings-subtle">
-                                                    Failed deliveries are
-                                                    retried for about a day.
-                                                    Test events aren’t listed.
-                                                </p>
-                                            </div>
-                                        </div>
+                                    <SettingsCard
+                                        icon={<History aria-hidden="true" />}
+                                        title="Recent webhook deliveries"
+                                        description="Failed deliveries are retried for about a day. Test events aren’t listed."
+                                    >
                                         <DeliveriesTable
                                             deliveries={webhooks.deliveries}
                                             endpoints={webhooks.endpoints}
                                         />
-                                    </section>
+                                    </SettingsCard>
                                 ) : null}
                             </>
                         ),
