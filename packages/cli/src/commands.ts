@@ -35,7 +35,6 @@ export interface Flags {
     hlsRenditions?: string;
     webp?: string;
     webpQuality?: string;
-    thumbnail?: string;
 }
 
 export async function login(flags: Flags): Promise<void> {
@@ -251,7 +250,7 @@ export async function settings(args: string[], flags: Flags): Promise<void> {
     const update = settingsUpdate(flags);
     if (Object.keys(update).length === 0) {
         throw new Error(
-            "Pass --video-streaming, --hls-renditions, --webp, --webp-quality or --thumbnail.",
+            "Pass --video-streaming, --hls-renditions, --webp or --webp-quality.",
         );
     }
     await client.updateSettings(update);
@@ -296,20 +295,12 @@ export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
     }
     if (flags.webpQuality !== undefined) {
         const quality = Number(flags.webpQuality);
-        if (!Number.isInteger(quality) || quality < 0 || quality > 100) {
+        if (!Number.isInteger(quality) || quality < 1 || quality > 100) {
             throw new Error(
-                "--webp-quality takes a whole number from 0 to 100.",
+                "--webp-quality takes a whole number from 1 to 100.",
             );
         }
         update.webpOutputQuality = quality;
-    }
-    if (flags.thumbnail !== undefined) {
-        const match = flags.thumbnail.trim().match(/^(\d+)x(\d+)$/i);
-        if (!match || Number(match[1]) < 1 || Number(match[2]) < 1) {
-            throw new Error("--thumbnail takes a size such as 640x360.");
-        }
-        update.thumbnailWidth = Number(match[1]);
-        update.thumbnailHeight = Number(match[2]);
     }
     return update;
 }
@@ -317,7 +308,6 @@ export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
 function describeSettings(settings: MediaSettings): string {
     const lines = [
         `WebP:            ${settings.useWebP ? `on (quality ${settings.webpOutputQuality})` : "off"}`,
-        `Thumbnail:       ${settings.thumbnailWidth}x${settings.thumbnailHeight}`,
     ];
     if (settings.videoStreaming) {
         lines.push(

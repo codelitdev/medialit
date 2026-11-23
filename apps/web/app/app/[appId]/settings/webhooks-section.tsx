@@ -23,6 +23,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const EVENT_LABELS: Record<WebhookEvent, string> = {
     "media.processing.ready": "Processing finished",
@@ -489,22 +490,25 @@ function EndpointDialog({
                                 Events
                             </legend>
                             {events.map((item) => (
-                                <label
+                                <div
                                     key={item}
-                                    className="flex items-center gap-2 text-sm font-normal"
+                                    className="flex items-center gap-2"
                                 >
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
+                                        id={`event-${item}`}
                                         checked={selected.includes(item)}
-                                        onChange={() => toggle(item)}
+                                        onCheckedChange={() => toggle(item)}
                                     />
-                                    <span>
+                                    <label
+                                        htmlFor={`event-${item}`}
+                                        className="text-sm font-normal"
+                                    >
                                         {EVENT_LABELS[item] ?? item}{" "}
                                         <code className="settings-subtle">
                                             {item}
                                         </code>
-                                    </span>
-                                </label>
+                                    </label>
+                                </div>
                             ))}
                         </fieldset>
                         {error ? (

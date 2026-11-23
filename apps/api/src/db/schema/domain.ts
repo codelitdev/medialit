@@ -166,6 +166,9 @@ export const mediaSettings = pgTable("media_settings", {
         .references(() => apps.id, { onDelete: "cascade" }),
     useWebP: boolean("use_web_p"),
     webpOutputQuality: bigint("webp_output_quality", { mode: "number" }),
+    /** No longer read or written: thumbnails have one size for every app.
+     * Kept so the previous release still works after a rollback; drop them
+     * in a later migration. */
     thumbnailWidth: bigint("thumbnail_width", { mode: "number" }),
     thumbnailHeight: bigint("thumbnail_height", { mode: "number" }),
     /** `off`, `hls` or `mp4`; null means the account plan's default

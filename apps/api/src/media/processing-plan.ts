@@ -34,8 +34,6 @@ export type PlanInput = {
     /** Null when seal couldn't read it. */
     metadata: MediaMetadata | null;
     video: VideoSettings;
-    /** The thumbnail size the app stored, if it stored one. */
-    thumbnail?: { width: number; height: number };
     plan: AccountPlan;
 };
 
@@ -56,12 +54,6 @@ export function planProcessing(input: PlanInput): PlannedJob[] {
             derivative: "thumbnail",
             params: {
                 publicKey: "thumb.webp",
-                ...(input.thumbnail
-                    ? {
-                          thumbnailWidth: input.thumbnail.width,
-                          thumbnailHeight: input.thumbnail.height,
-                      }
-                    : {}),
                 ...(input.metadata?.durationSeconds
                     ? { durationSeconds: input.metadata.durationSeconds }
                     : {}),

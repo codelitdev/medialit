@@ -21,8 +21,6 @@ type JsonObject = Record<string, unknown>;
 type MediaSettings = JsonObject & {
     useWebP: boolean;
     webpOutputQuality: number;
-    thumbnailWidth: number;
-    thumbnailHeight: number;
 };
 
 interface Stats {
@@ -82,8 +80,6 @@ function mediaSettings(value: unknown): MediaSettings {
             settings.webpOutputQuality,
             "webpOutputQuality",
         ),
-        thumbnailWidth: integer(settings.thumbnailWidth, "thumbnailWidth"),
-        thumbnailHeight: integer(settings.thumbnailHeight, "thumbnailHeight"),
     };
 }
 

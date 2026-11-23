@@ -46,12 +46,6 @@ export function originalLocation(
     };
 }
 
-function size(params: Record<string, unknown>) {
-    const width = Number(params.thumbnailWidth);
-    const height = Number(params.thumbnailHeight);
-    return width > 0 && height > 0 ? { width, height } : undefined;
-}
-
 export const posterJob = derivativeJob({
     type: POSTER_JOB,
     name: "thumbnail",
@@ -81,7 +75,6 @@ export const posterJob = derivativeJob({
             try {
                 result = await thumbnail.forVideoPoster(source, output, {
                     seekSeconds,
-                    size: size(params),
                     signal,
                 });
             } catch (err) {

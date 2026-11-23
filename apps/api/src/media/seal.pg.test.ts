@@ -114,6 +114,7 @@ before(async () => {
         path.join(bin, "cwebp"),
         `#!/bin/sh
 echo "$$" >> "${work}/cwebp.log"
+echo "$*" >> "${work}/cwebp-args.log"
 if [ -f "${control("sleep")}" ]; then sleep "$(cat "${control("sleep")}")"; fi
 if [ -f "${control("fail")}" ]; then echo "conversion broke" >&2; exit 1; fi
 exec "${realCwebp}" "$@"
@@ -178,6 +179,7 @@ beforeEach(async () => {
         await setControl(name, null);
     }
     await rm(path.join(work, "cwebp.log"), { force: true });
+    await rm(path.join(work, "cwebp-args.log"), { force: true });
     await rm(path.join(work, "ffmpeg.log"), { force: true });
     await settings({ useWebP: true });
     checks.resetWebpBusyForTests();
@@ -198,8 +200,6 @@ afterEach(() => {
 
 async function settings(overrides: {
     useWebP?: boolean;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
     videoStreaming?: "off" | "hls" | "mp4";
     hlsRenditions?: string[];
 }) {
@@ -208,8 +208,6 @@ async function settings(overrides: {
         appId,
         useWebP: overrides.useWebP ?? true,
         webpOutputQuality: 80,
-        thumbnailWidth: overrides.thumbnailWidth ?? 100,
-        thumbnailHeight: overrides.thumbnailHeight ?? 50,
         videoStreaming: overrides.videoStreaming ?? "off",
         hlsRenditions: overrides.hlsRenditions ?? null,
     });
@@ -304,9 +302,9 @@ function isWebp(data: Buffer): boolean {
 }
 
 describe("seal", { skip }, () => {
-    test("an app that never stored a thumbnail size keeps the old thumbnail sizes", async () => {
+    test("thumbnails have one size for every app, whatever size an older release stored", async () => {
         await pgTest.db.execute(
-            sql`update media_settings set thumbnail_width = null, thumbnail_height = null where user_id = ${userId} and app_id = ${appId}`,
+            sql`update media_settings set thumbnail_width = 100, thumbnail_height = 50 where user_id = ${userId} and app_id = ${appId}`,
         );
         const thumbSize = async (mediaId: string) => {
             const info = await readImageInfoFromBuffer(
@@ -342,7 +340,7 @@ describe("seal", { skip }, () => {
         assert.equal(await thumbSize(video.mediaId), "1280x720");
     });
 
-    test("upload keeps the original, makes a sized thumbnail and never converts", async () => {
+    test("upload keeps the original, makes a thumbnail and never converts", async () => {
         const original = png();
         const media = await upload(original, { access: "public" });
         assert.equal(media.mimeType, "image/png");
@@ -360,7 +358,11 @@ describe("seal", { skip }, () => {
         const thumb = await readImageInfoFromBuffer(
             await bytes(media.mediaId, "private", "thumb.webp"),
         );
-        assert.deepEqual([thumb?.width, thumb?.height], [100, 50]);
+        // MediaLit's one thumbnail size: 16:9 from the center, at most 480
+        // px tall. png() makes each image a little wider than the last.
+        const ratio = (thumb?.width ?? 0) / (thumb?.height ?? 1);
+        assert.ok(Math.abs(ratio - 16 / 9) < 0.02, `ratio ${ratio}`);
+        assert.ok((thumb?.height ?? 0) <= 480);
         assert.deepEqual(
             await logLines("cwebp.log"),
             [],
@@ -618,7 +620,7 @@ describe("seal", { skip }, () => {
         const job = await runPosterAndPublish(video.mediaId);
         assert.equal(job.payload.derivative, "thumbnail");
         assert.equal(job.payload.params.publicKey, "thumb.webp");
-        assert.equal(job.payload.params.thumbnailWidth, 100);
+        assert.equal(job.payload.params.thumbnailWidth, undefined);
         assert.equal(job.payload.params.durationSeconds, 10);
         // Free-plan jobs run after paid and self-hosted ones.
         const { resolveAccountPlan } = await import(
@@ -1089,6 +1091,16 @@ describe("seal", { skip }, () => {
         assert.equal((await logLines("cwebp.log")).length, 1);
     });
 
+    test("an app that never set a WebP quality converts at 80, not 0", async () => {
+        await pgTest.db.execute(
+            sql`update media_settings set webp_output_quality = null where user_id = ${userId} and app_id = ${appId}`,
+        );
+        const media = await upload(png(), { access: "private" });
+        await sealIt(media.mediaId);
+        const [args] = await logLines("cwebp-args.log");
+        assert.match(args ?? "", /(^| )-q 80( |$)/);
+    });
+
     test("sealing a private image leaves only main.webp in the private bucket", async () => {
         const media = await upload(png(), { access: "private" });
         const sealed = await sealIt(media.mediaId);
@@ -1217,7 +1229,7 @@ describe("seal", { skip }, () => {
         const videoThumb = await readImageInfoFromBuffer(
             await bytes(videoMedia.mediaId, "private", "thumb.webp"),
         );
-        assert.deepEqual([videoThumb?.width, videoThumb?.height], [100, 50]);
+        assert.deepEqual([videoThumb?.width, videoThumb?.height], [1280, 720]);
         const doc = Buffer.from("just some text");
         const docMedia = await upload(doc, {
             mimeType: "text/plain",

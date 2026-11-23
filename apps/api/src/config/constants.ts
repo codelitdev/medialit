@@ -25,8 +25,8 @@ export const MEDIA_ID_LENGTH = 40;
 export const imagePattern = /^image\/(jpe?g|png)$/;
 export const imagePatternForThumbnailGeneration = /^image\/(jpe?g|png|webp)$/;
 export const videoPattern = /video/;
-export const thumbnailWidth = 120;
-export const thumbnailHeight = 69;
+/** WebP quality when the app hasn't set one. ImageKit defaults to 80 too. */
+export const DEFAULT_WEBP_QUALITY = 80;
 export const numberOfRecordsPerPage = 10;
 
 // Mail config

@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { Film, ImageIcon } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
     updateMediaSettings,
     type HlsRendition,
@@ -22,74 +25,17 @@ const STREAMING_LABELS: Record<VideoStreaming, string> = {
 /** "default" keeps following the plan; the others are a stored choice. */
 type StreamingChoice = VideoStreaming | "default";
 
-export default function MediaSettingsSection({
-    appId,
-    settings,
-    minutes,
-}: {
-    appId: string;
-    settings: MediaSettings;
-    minutes: ProcessingMinutes | null;
-}) {
+/** Saves one card's changes. Each card sends only its own fields, and only
+ * those the user changed. */
+function useSave(appId: string) {
     const router = useRouter();
-    const [useWebP, setUseWebP] = useState(settings.useWebP);
-    const [quality, setQuality] = useState(String(settings.webpOutputQuality));
-    const [width, setWidth] = useState(String(settings.thumbnailWidth));
-    const [height, setHeight] = useState(String(settings.thumbnailHeight));
-    const [streaming, setStreaming] = useState<StreamingChoice>(
-        settings.videoStreamingDefault ? "default" : settings.videoStreaming,
-    );
-    const [renditions, setRenditions] = useState<HlsRendition[]>(
-        settings.hlsRenditions,
-    );
     const [pending, setPending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
 
-    const planDefault = settings.videoStreamingDefault
-        ? settings.videoStreaming
-        : null;
-    const effective =
-        streaming === "default" ? (planDefault ?? "off") : streaming;
-
-    function toggleRendition(rendition: HlsRendition) {
-        setSaved(false);
-        setRenditions((current) =>
-            current.includes(rendition)
-                ? current.filter((item) => item !== rendition)
-                : RENDITIONS.filter(
-                      (item) => item === rendition || current.includes(item),
-                  ),
-        );
-    }
-
-    async function submit(event: FormEvent) {
-        event.preventDefault();
+    async function save(update: MediaSettingsUpdate) {
         setError(null);
         setSaved(false);
-        // Only what the user changed. The form shows the display defaults
-        // for sizes the app never set; saving those would change thumbnails.
-        const update: MediaSettingsUpdate = {};
-        if (useWebP !== settings.useWebP) update.useWebP = useWebP;
-        if (Number(quality) !== settings.webpOutputQuality) {
-            update.webpOutputQuality = Number(quality);
-        }
-        if (
-            Number(width) !== settings.thumbnailWidth ||
-            Number(height) !== settings.thumbnailHeight
-        ) {
-            update.thumbnailWidth = Number(width);
-            update.thumbnailHeight = Number(height);
-        }
-        const initialStreaming: StreamingChoice = settings.videoStreamingDefault
-            ? "default"
-            : settings.videoStreaming;
-        if (streaming !== initialStreaming) {
-            update.videoStreaming = streaming === "default" ? null : streaming;
-        }
-        if (renditions.join(",") !== settings.hlsRenditions.join(",")) {
-            update.hlsRenditions = renditions;
-        }
         if (Object.keys(update).length === 0) {
             setSaved(true);
             return;
@@ -105,86 +51,209 @@ export default function MediaSettingsSection({
         router.refresh();
     }
 
+    return { pending, error, saved, save, edited: () => setSaved(false) };
+}
+
+function SettingsCard({
+    icon,
+    title,
+    description,
+    children,
+}: {
+    icon: ReactNode;
+    title: string;
+    description: string;
+    children: ReactNode;
+}) {
     return (
-        <form onSubmit={submit} className="grid gap-5">
-            <fieldset className="settings-field">
-                <legend className="text-sm font-medium">Images</legend>
-                <label className="flex items-center gap-2 text-sm font-normal">
-                    <input
-                        type="checkbox"
+        <section className="settings-card">
+            <div className="settings-card-title">
+                <span className="settings-card-icon">{icon}</span>
+                <div>
+                    <h2>{title}</h2>
+                    <p className="settings-subtle">{description}</p>
+                </div>
+            </div>
+            {children}
+        </section>
+    );
+}
+
+function SaveRow({
+    pending,
+    error,
+    saved,
+    disabled = false,
+    message,
+}: {
+    pending: boolean;
+    error: string | null;
+    saved: boolean;
+    disabled?: boolean;
+    message: string;
+}) {
+    return (
+        <>
+            {error ? (
+                <p className="inline-error" role="alert">
+                    {error}
+                </p>
+            ) : null}
+            {saved ? (
+                <p className="inline-feedback" role="status">
+                    {message}
+                </p>
+            ) : null}
+            <div>
+                <button
+                    type="submit"
+                    className="workspace-button"
+                    disabled={pending || disabled}
+                >
+                    {pending ? "Saving…" : "Save"}
+                </button>
+            </div>
+        </>
+    );
+}
+
+export function ImageOptimizationCard({
+    appId,
+    settings,
+}: {
+    appId: string;
+    settings: MediaSettings;
+}) {
+    const [useWebP, setUseWebP] = useState(settings.useWebP);
+    const [quality, setQuality] = useState(String(settings.webpOutputQuality));
+    const { pending, error, saved, save, edited } = useSave(appId);
+
+    function submit(event: FormEvent) {
+        event.preventDefault();
+        const update: MediaSettingsUpdate = {};
+        if (useWebP !== settings.useWebP) update.useWebP = useWebP;
+        if (Number(quality) !== settings.webpOutputQuality) {
+            update.webpOutputQuality = Number(quality);
+        }
+        void save(update);
+    }
+
+    return (
+        <SettingsCard
+            icon={<ImageIcon aria-hidden="true" />}
+            title="Image optimization"
+            description="What happens to images when they are sealed. Changes apply to images sealed afterwards."
+        >
+            <form onSubmit={submit} className="mt-4 grid gap-5">
+                <div className="flex items-center gap-3">
+                    <Switch
+                        id="use-webp"
                         checked={useWebP}
-                        onChange={(event) => {
-                            setSaved(false);
-                            setUseWebP(event.target.checked);
+                        onCheckedChange={(checked) => {
+                            edited();
+                            setUseWebP(checked);
                         }}
                     />
-                    Convert images to WebP when they are sealed
-                </label>
-                <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="settings-field">
-                        <label htmlFor="webp-quality">WebP quality</label>
-                        <input
-                            id="webp-quality"
-                            className="settings-input"
-                            type="number"
-                            min={0}
-                            max={100}
-                            required
-                            value={quality}
-                            disabled={!useWebP}
-                            onChange={(event) => {
-                                setSaved(false);
-                                setQuality(event.target.value);
-                            }}
-                        />
-                    </div>
-                    <div className="settings-field">
-                        <label htmlFor="thumbnail-width">
-                            Thumbnail width (px)
-                        </label>
-                        <input
-                            id="thumbnail-width"
-                            className="settings-input"
-                            type="number"
-                            min={1}
-                            required
-                            value={width}
-                            onChange={(event) => {
-                                setSaved(false);
-                                setWidth(event.target.value);
-                            }}
-                        />
-                    </div>
-                    <div className="settings-field">
-                        <label htmlFor="thumbnail-height">
-                            Thumbnail height (px)
-                        </label>
-                        <input
-                            id="thumbnail-height"
-                            className="settings-input"
-                            type="number"
-                            min={1}
-                            required
-                            value={height}
-                            onChange={(event) => {
-                                setSaved(false);
-                                setHeight(event.target.value);
-                            }}
-                        />
-                    </div>
+                    <label htmlFor="use-webp" className="text-sm font-normal">
+                        Convert images to WebP when they are sealed
+                    </label>
                 </div>
-            </fieldset>
+                <div className="settings-field sm:max-w-xs">
+                    <label htmlFor="webp-quality">WebP quality</label>
+                    <input
+                        id="webp-quality"
+                        className="settings-input"
+                        type="number"
+                        min={1}
+                        max={100}
+                        required
+                        value={quality}
+                        disabled={!useWebP}
+                        aria-describedby="webp-quality-help"
+                        onChange={(event) => {
+                            edited();
+                            setQuality(event.target.value);
+                        }}
+                    />
+                    <p id="webp-quality-help" className="settings-subtle">
+                        1 to 100. 80 suits most images; higher is sharper and
+                        larger.
+                    </p>
+                </div>
+                <SaveRow
+                    pending={pending}
+                    error={error}
+                    saved={saved}
+                    message="Image settings saved."
+                />
+            </form>
+        </SettingsCard>
+    );
+}
 
-            <fieldset className="settings-field">
-                <legend className="text-sm font-medium">Videos</legend>
+export function VideoStreamingCard({
+    appId,
+    settings,
+    minutes,
+}: {
+    appId: string;
+    settings: MediaSettings;
+    minutes: ProcessingMinutes | null;
+}) {
+    const initialStreaming: StreamingChoice = settings.videoStreamingDefault
+        ? "default"
+        : settings.videoStreaming;
+    const [streaming, setStreaming] =
+        useState<StreamingChoice>(initialStreaming);
+    const [renditions, setRenditions] = useState<HlsRendition[]>(
+        settings.hlsRenditions,
+    );
+    const { pending, error, saved, save, edited } = useSave(appId);
+
+    const planDefault = settings.videoStreamingDefault
+        ? settings.videoStreaming
+        : null;
+    const effective =
+        streaming === "default" ? (planDefault ?? "off") : streaming;
+
+    function toggleRendition(rendition: HlsRendition) {
+        edited();
+        setRenditions((current) =>
+            current.includes(rendition)
+                ? current.filter((item) => item !== rendition)
+                : RENDITIONS.filter(
+                      (item) => item === rendition || current.includes(item),
+                  ),
+        );
+    }
+
+    function submit(event: FormEvent) {
+        event.preventDefault();
+        const update: MediaSettingsUpdate = {};
+        if (streaming !== initialStreaming) {
+            update.videoStreaming = streaming === "default" ? null : streaming;
+        }
+        if (renditions.join(",") !== settings.hlsRenditions.join(",")) {
+            update.hlsRenditions = renditions;
+        }
+        void save(update);
+    }
+
+    return (
+        <SettingsCard
+            icon={<Film aria-hidden="true" />}
+            title="Video streaming"
+            description="How videos are prepared for playback when they are sealed. The original file is always kept."
+        >
+            <form onSubmit={submit} className="mt-4 grid gap-5">
                 <div className="settings-field">
-                    <label htmlFor="video-streaming">Video streaming</label>
+                    <label htmlFor="video-streaming">Format</label>
                     <select
                         id="video-streaming"
                         className="settings-input"
                         value={streaming}
                         onChange={(event) => {
-                            setSaved(false);
+                            edited();
                             setStreaming(event.target.value as StreamingChoice);
                         }}
                     >
@@ -203,8 +272,7 @@ export default function MediaSettingsSection({
                         )}
                     </select>
                     <p className="settings-subtle text-sm">
-                        Applies to videos sealed after you save. The original
-                        file is always kept.
+                        Applies to videos sealed after you save.
                     </p>
                 </div>
                 {effective === "hls" ? (
@@ -212,19 +280,24 @@ export default function MediaSettingsSection({
                         <legend className="text-sm">HLS renditions</legend>
                         <div className="flex flex-wrap gap-x-5 gap-y-2">
                             {RENDITIONS.map((rendition) => (
-                                <label
+                                <div
                                     key={rendition}
-                                    className="flex items-center gap-2 text-sm font-normal"
+                                    className="flex items-center gap-2"
                                 >
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
+                                        id={`rendition-${rendition}`}
                                         checked={renditions.includes(rendition)}
-                                        onChange={() =>
+                                        onCheckedChange={() =>
                                             toggleRendition(rendition)
                                         }
                                     />
-                                    {rendition}
-                                </label>
+                                    <label
+                                        htmlFor={`rendition-${rendition}`}
+                                        className="text-sm font-normal"
+                                    >
+                                        {rendition}
+                                    </label>
+                                </div>
                             ))}
                         </div>
                         <p className="settings-subtle text-sm">
@@ -240,30 +313,14 @@ export default function MediaSettingsSection({
                             : `of ${minutes.allowed} minutes`}
                     </p>
                 ) : null}
-            </fieldset>
-
-            {error ? (
-                <p className="inline-error" role="alert">
-                    {error}
-                </p>
-            ) : null}
-            {saved ? (
-                <p className="inline-feedback" role="status">
-                    Media settings saved.
-                </p>
-            ) : null}
-            <div>
-                <button
-                    type="submit"
-                    className="workspace-button"
-                    disabled={
-                        pending ||
-                        (effective === "hls" && renditions.length === 0)
-                    }
-                >
-                    {pending ? "Saving…" : "Save"}
-                </button>
-            </div>
-        </form>
+                <SaveRow
+                    pending={pending}
+                    error={error}
+                    saved={saved}
+                    disabled={effective === "hls" && renditions.length === 0}
+                    message="Video settings saved."
+                />
+            </form>
+        </SettingsCard>
     );
 }

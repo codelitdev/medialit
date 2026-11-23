@@ -37,22 +37,10 @@ export const settingsTools = (): MedialitMcpTool[] => [
             webpOutputQuality: z
                 .number()
                 .int()
-                .min(0)
+                .min(1)
                 .max(100)
                 .optional()
-                .describe("WebP output quality 0–100"),
-            thumbnailWidth: z
-                .number()
-                .int()
-                .positive()
-                .optional()
-                .describe("Generated thumbnail width in pixels"),
-            thumbnailHeight: z
-                .number()
-                .int()
-                .positive()
-                .optional()
-                .describe("Generated thumbnail height in pixels"),
+                .describe("WebP output quality 1–100. Defaults to 80"),
             videoStreaming: z
                 .enum(["off", "hls", "mp4"])
                 .nullable()
@@ -79,8 +67,6 @@ export const settingsTools = (): MedialitMcpTool[] => [
                     appId: context.appId,
                     useWebP: args.useWebP,
                     webpOutputQuality: args.webpOutputQuality,
-                    thumbnailWidth: args.thumbnailWidth,
-                    thumbnailHeight: args.thumbnailHeight,
                     videoStreaming: args.videoStreaming,
                     hlsRenditions: args.hlsRenditions,
                 });

@@ -1,9 +1,6 @@
 import * as queries from "./queries";
 import { MediaSettingsResponse } from "./schemas";
-import {
-    thumbnailHeight as defaultThumbnailHeight,
-    thumbnailWidth as defaultThumbnailWidth,
-} from "../config/constants";
+import { DEFAULT_WEBP_QUALITY } from "../config/constants";
 import { resolveAccountPlan } from "../billing/entitlements";
 import {
     effectiveVideoSettings,
@@ -24,19 +21,15 @@ export async function getMediaSettings(
     if (!mediaSettings) {
         return {
             useWebP: false,
-            webpOutputQuality: 0,
-            thumbnailHeight: defaultThumbnailHeight,
-            thumbnailWidth: defaultThumbnailWidth,
+            webpOutputQuality: DEFAULT_WEBP_QUALITY,
             ...video,
         };
     }
 
     return {
         useWebP: mediaSettings.useWebP || false,
-        webpOutputQuality: mediaSettings.webpOutputQuality || 0,
-        thumbnailHeight:
-            mediaSettings.thumbnailHeight || defaultThumbnailHeight,
-        thumbnailWidth: mediaSettings.thumbnailWidth || defaultThumbnailWidth,
+        webpOutputQuality:
+            mediaSettings.webpOutputQuality || DEFAULT_WEBP_QUALITY,
         ...video,
     };
 }
@@ -61,8 +54,6 @@ export interface UpdateMediaSettingsProps {
     appId: string;
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
     videoStreaming?: VideoStreaming | null;
     hlsRenditions?: string[] | null;
 }

@@ -2108,12 +2108,14 @@ a {
     gap: 11px;
 }
 
+/* The heading's line is as tall as the icon, so the two line up. */
 .settings-card-title h2 {
-    margin: 1px 0 0;
+    margin: 0;
+    line-height: 33px;
 }
 
 .settings-card-title .settings-subtle {
-    margin: 4px 0 0;
+    margin: 0;
 }
 
 .settings-card-icon {

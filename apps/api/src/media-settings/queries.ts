@@ -24,8 +24,6 @@ export async function updateMediaSettings({
     appId,
     useWebP,
     webpOutputQuality,
-    thumbnailWidth,
-    thumbnailHeight,
     videoStreaming,
     hlsRenditions,
 }: UpdateMediaSettingsProps): Promise<void> {
@@ -38,16 +36,12 @@ export async function updateMediaSettings({
         appId,
         useWebP,
         webpOutputQuality,
-        thumbnailWidth,
-        thumbnailHeight,
         videoStreaming,
         hlsRenditions: renditions,
     });
     const given = {
         useWebP,
         webpOutputQuality,
-        thumbnailWidth,
-        thumbnailHeight,
         videoStreaming,
         hlsRenditions,
     };

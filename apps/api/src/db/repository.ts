@@ -143,8 +143,6 @@ export type MediaSettingsRecord = {
     appId: string;
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
     /** Undefined leaves it unchanged; null goes back to the default. */
     videoStreaming?: VideoStreaming | null;
     hlsRenditions?: string[] | null;
@@ -1489,8 +1487,6 @@ export async function getMediaSettingsRecord(
         appId: row.appId,
         useWebP: row.useWebP ?? undefined,
         webpOutputQuality: row.webpOutputQuality ?? undefined,
-        thumbnailWidth: row.thumbnailWidth ?? undefined,
-        thumbnailHeight: row.thumbnailHeight ?? undefined,
         videoStreaming: row.videoStreaming ?? null,
         hlsRenditions: row.hlsRenditions ?? null,
     };
@@ -1508,8 +1504,6 @@ export async function upsertMediaSettings(
             appId: input.appId,
             useWebP: input.useWebP,
             webpOutputQuality: input.webpOutputQuality,
-            thumbnailWidth: input.thumbnailWidth,
-            thumbnailHeight: input.thumbnailHeight,
             videoStreaming: input.videoStreaming,
             hlsRenditions: input.hlsRenditions,
         })
@@ -1518,8 +1512,6 @@ export async function upsertMediaSettings(
             set: {
                 useWebP: input.useWebP,
                 webpOutputQuality: input.webpOutputQuality,
-                thumbnailWidth: input.thumbnailWidth,
-                thumbnailHeight: input.thumbnailHeight,
                 videoStreaming: input.videoStreaming,
                 hlsRenditions: input.hlsRenditions,
             },

@@ -47,8 +47,7 @@ Options:
                         settings set: comma-separated HLS sizes from 1080p,
                         720p, 480p and 360p, or default
   --webp <on|off>       settings set: convert images to WebP at seal
-  --webp-quality <n>    settings set: WebP quality, 0 to 100
-  --thumbnail <WxH>     settings set: thumbnail size, such as 640x360
+  --webp-quality <n>    settings set: WebP quality, 1 to 100 (default 80)
   -h, --help            Show this help
   -v, --version         Show the version
 
@@ -80,7 +79,6 @@ async function main(argv: string[]): Promise<void> {
             "hls-renditions": { type: "string" },
             webp: { type: "string" },
             "webp-quality": { type: "string" },
-            thumbnail: { type: "string" },
             help: { type: "boolean", short: "h" },
             version: { type: "boolean", short: "v" },
         },

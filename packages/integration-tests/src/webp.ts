@@ -15,11 +15,10 @@ type JsonObject = Record<string, unknown>;
 interface MediaSettings {
     useWebP: boolean;
     webpOutputQuality: number;
-    thumbnailWidth: number;
-    thumbnailHeight: number;
 }
 
-const THUMBNAIL = { width: 160, height: 90 };
+/** MediaLit's one thumbnail size for the 64x36 PNG: 16:9, never enlarged. */
+const THUMBNAIL = { width: 64, height: 36 };
 
 function object(value: unknown): JsonObject {
     assert(
@@ -196,7 +195,7 @@ export async function runWebpIntegrationTests(
         return media;
     }
 
-    /** The upload response describes the original, with a sized thumbnail. */
+    /** The upload response describes the original, with its thumbnail. */
     async function checkUploaded(media: JsonObject) {
         assert.equal(media.mimeType, "image/png");
         assert.equal(media.size, png.length);
@@ -229,8 +228,10 @@ export async function runWebpIntegrationTests(
         await api("settings/media/create", {
             useWebP: true,
             webpOutputQuality: 80,
-            thumbnailWidth: THUMBNAIL.width,
-            thumbnailHeight: THUMBNAIL.height,
+            // Thumbnail sizes were a setting once. Older clients may still
+            // send them: they are accepted and ignored.
+            thumbnailWidth: 160,
+            thumbnailHeight: 90,
         });
         const baseline = await storage();
 
@@ -240,7 +241,7 @@ export async function runWebpIntegrationTests(
         ];
         for (const media of uploads) await checkUploaded(media);
         assert.equal(await storage(), baseline + png.length * 2);
-        log("PASS uploads keep the original PNG, with a 160x90 thumbnail");
+        log("PASS uploads keep the original PNG, with a 64x36 thumbnail");
 
         let sealedBytes = 0;
         for (const media of uploads) {
@@ -297,8 +298,6 @@ export async function runWebpIntegrationTests(
                 await api("settings/media/create", {
                     useWebP: original.useWebP,
                     webpOutputQuality: original.webpOutputQuality,
-                    thumbnailWidth: original.thumbnailWidth,
-                    thumbnailHeight: original.thumbnailHeight,
                 });
             } catch (error) {
                 log(
@@ -309,5 +308,5 @@ export async function runWebpIntegrationTests(
         }
     }
     if (failure) throw failure;
-    log("PASS WebP at seal and thumbnail sizes");
+    log("PASS WebP at seal and thumbnails");
 }

@@ -5,8 +5,6 @@ export interface MediaSettings {
     appId: string;
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
     videoStreaming?: VideoStreaming | null;
     hlsRenditions?: string[] | null;
 }

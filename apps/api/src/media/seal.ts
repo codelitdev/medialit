@@ -16,6 +16,7 @@ import {
     cloudPublicBucket,
     imagePattern,
     tempFileDirForUploads,
+    DEFAULT_WEBP_QUALITY,
 } from "../config/constants";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import {
@@ -288,7 +289,7 @@ async function runSeal(
                 sourceKey: privateMain,
                 destinationKey: privateKey(`seal/${token}/main.webp`),
                 workDir,
-                quality: settings.webpOutputQuality || 0,
+                quality: settings.webpOutputQuality || DEFAULT_WEBP_QUALITY,
                 tags,
                 signal,
                 onStored: (Key) => ownKeys.push({ Key, Bucket: cloudBucket }),
@@ -366,13 +367,6 @@ async function runSeal(
             mimeType: media.mimeType,
             metadata,
             video: effectiveVideoSettings(settings, plan),
-            thumbnail:
-                settings?.thumbnailWidth && settings?.thumbnailHeight
-                    ? {
-                          width: settings.thumbnailWidth,
-                          height: settings.thumbnailHeight,
-                      }
-                    : undefined,
             plan,
         });
 

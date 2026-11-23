@@ -254,14 +254,6 @@ async function importMediaSettings(
                 setting.webpOutputQuality == null
                     ? undefined
                     : Number(setting.webpOutputQuality),
-            thumbnailWidth:
-                setting.thumbnailWidth == null
-                    ? undefined
-                    : Number(setting.thumbnailWidth),
-            thumbnailHeight:
-                setting.thumbnailHeight == null
-                    ? undefined
-                    : Number(setting.thumbnailHeight),
         });
     }
 }

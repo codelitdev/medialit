@@ -194,9 +194,7 @@ Updates the media settings.
 
 - `settings`: A MediaSettings object:
     - `useWebP`: Whether to convert images to WebP format
-    - `webpOutputQuality`: Quality of WebP conversion (0-100)
-    - `thumbnailWidth`: Width of generated thumbnails
-    - `thumbnailHeight`: Height of generated thumbnails
+    - `webpOutputQuality`: Quality of WebP conversion (1-100, 80 when not set)
 
 ### Webhooks
 
@@ -271,8 +269,6 @@ interface MediaStats {
 interface MediaSettings {
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
 }
 ```
 

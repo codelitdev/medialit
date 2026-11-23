@@ -190,7 +190,7 @@ Phase 0 (D4) left this here: the upload thumbnail is the first frame, often blac
 
 - Job `media.poster`, class `cpu`, for every sealed video with a video stream. No setting.
 - **Picking the frame:** seek to 10% of the duration (at most 10 s in, 0 for videos under 1 s), then let ffmpeg's `thumbnail` filter pick the most representative frame from the next 50 frames. Black and near-black frames lose that choice. If every frame is black, the frame at the seek point is used.
-- Sized like today's thumbnail: `thumbnailWidth` × `thumbnailHeight` when the app set them, otherwise 720 px tall (#256).
+- Sized like the upload thumbnail: 720 px tall. Apps can no longer choose a thumbnail size (section 12).
 - **It replaces `thumb.webp`, from a key of its own.** The job writes the private `poster.webp` and records it as the `thumbnail` derivative, and `media.publish` copies it over the public `thumb.webp`. It must not write the private `thumb.webp`: seal queues the job in its commit transaction and deletes the private `thumb.webp` after the commit (phase 0, D5 step 6), so a poster written there in between would be deleted, and publishing would then fail on a missing source. `media.publish` therefore gains a destination key per derivative (`params.publicKey`). Today it copies to the same relative path. When it flips the row to the public bucket, it also sets `key` to `thumb.webp`, so `derivatives.thumbnail.url` points at the file that exists, and it deletes the private `poster.webp`. `ALWAYS_PUBLIC_DERIVATIVES` loses its unused `poster` entry: the poster is the `thumbnail` derivative. Clients that saved the thumbnail URL from the upload or seal response get the better frame with no change, which is how CourseLit, SendLit and FrontLit can benefit. A CDN may serve the old frame until its cache expires (`CDN_MAX_AGE`).
 - If the upload thumbnail failed, the poster makes the first thumbnail, and `thumbnailGenerated` is set.
 - If the poster fails, the upload thumbnail stays. The derivative is marked failed, and the media still settles `ready` (D12).
@@ -282,8 +282,8 @@ These changes only add fields and routes.
     - `derivatives.hls.url`: the master playlist (D6). `derivatives.mp4.url`: the MP4.
     - `derivatives.thumbnail` is `queued` while the poster is made.
 - **New routes:** `GET /media/{mediaId}/hls/{token}/master.m3u8` and `GET /media/{mediaId}/hls/{token}/v{n}/index.m3u8` (D6). Unauthenticated, checked by the token.
-- **CLI:** `medialit settings` with `get` and `set --video-streaming <off|hls|mp4|default> --hls-renditions 1080p,720p --webp <on|off> --webp-quality <n> --thumbnail <w>x<h>`. Media settings had no CLI command until now.
-- **Dashboard:** a Media section in App settings, next to Webhooks: WebP, thumbnail size, video streaming and renditions. Processing minutes in the usage card.
+- **CLI:** `medialit settings` with `get` and `set --video-streaming <off|hls|mp4|default> --hls-renditions 1080p,720p --webp <on|off> --webp-quality <n>`. Media settings had no CLI command until now.
+- **Dashboard:** a Media tab in App settings, next to Webhooks: image optimization (WebP and its quality), video streaming and renditions. Processing minutes in the usage card.
 - The OpenAPI spec is regenerated.
 
 ## 7. Observability and operations
@@ -475,3 +475,5 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 4. **Audio extraction moves to phase 2** (D10).
 5. **Failures that leave the media usable settle it `ready`** (D12): a failed poster, and HLS or MP4 refused by our limits (`out_of_processing_minutes`, `source_too_large`, `source_too_long`). #247 was updated to match.
 6. **Video processing is sized for sources up to about 1 GB** (D4), on a 2 CPU, 2 GiB worker with 12 GiB of temp disk (`VIDEO_MAX_WORK_BYTES`, 10 GiB, per encode).
+7. **Thumbnail sizes are no longer a setting.** `thumbnailWidth` and `thumbnailHeight` (#256) forced one size on every place an app shows a thumbnail, and no service compared (Cloudinary, ImageKit, Bunny, Uploadcare, Mux) has an account-wide thumbnail size: they take the size from the URL (#196). Every app now gets the standard thumbnails: 16:9 and at most 480 px tall for images, 720 px tall for videos. The API ignores the two fields if a client still sends them. The columns stay until a later release, so a rollback works.
+8. **WebP quality defaults to 80**, as ImageKit's does. An app that turned WebP on without a quality converted at `cwebp -q 0`. A quality must now be 1 to 100, and a missing or 0 one means 80.

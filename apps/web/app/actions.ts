@@ -352,8 +352,6 @@ export type HlsRendition = "1080p" | "720p" | "480p" | "360p";
 export type MediaSettings = {
     useWebP: boolean;
     webpOutputQuality: number;
-    thumbnailWidth: number;
-    thumbnailHeight: number;
     videoStreaming: VideoStreaming;
     /** True when the app hasn't chosen and the account's plan decides. */
     videoStreamingDefault: boolean;

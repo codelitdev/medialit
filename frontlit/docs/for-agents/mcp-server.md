@@ -205,7 +205,7 @@ Creates a short-lived [upload signature](/docs/concepts#upload-signatures) that 
 
 Retrieves the app's media processing settings.
 
-- **Output:** `useWebP`, `webpOutputQuality`, `thumbnailWidth`, `thumbnailHeight`, `videoStreaming` (`off`, `hls` or `mp4`), `videoStreamingDefault` (true when the account's plan decides) and `hlsRenditions`.
+- **Output:** `useWebP`, `webpOutputQuality`, `videoStreaming` (`off`, `hls` or `mp4`), `videoStreamingDefault` (true when the account's plan decides) and `hlsRenditions`.
 
 #### `update_media_settings`
 
@@ -213,9 +213,7 @@ Changes the app's media processing settings. Supply only the properties you wish
 
 - **Inputs:**
     - `useWebP` _(boolean, optional)_: Auto-convert uploaded images to WebP.
-    - `webpOutputQuality` _(number, optional)_: Output quality between `0` and `100`.
-    - `thumbnailWidth` _(number, optional)_: Default width of generated thumbnails.
-    - `thumbnailHeight` _(number, optional)_: Default height of generated thumbnails.
+    - `webpOutputQuality` _(number, optional)_: Output quality between `1` and `100`. It is `80` when not set.
     - `videoStreaming` _(`off` | `hls` | `mp4` | null, optional)_: How sealed videos are prepared for playback. `null` follows the plan's default.
     - `hlsRenditions` _(array, optional)_: HLS sizes from `1080p`, `720p`, `480p` and `360p`. `null` restores the default.
 - **Output:** `{ message: "success" }`

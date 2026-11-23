@@ -128,8 +128,7 @@ const settings = await medialit.getSettings();
 
 Media processing settings for the app. `updateSettings` changes only the fields you pass, and changes apply to files sealed afterwards.
 
-- `useWebP` converts JPEG and PNG images to WebP when they are sealed, at a `webpOutputQuality` from 0 to 100.
-- `thumbnailWidth` and `thumbnailHeight`, when you set both, make thumbnails exactly that size (resized and cropped); without them, thumbnails keep their default sizes.
+- `useWebP` converts JPEG and PNG images to WebP when they are sealed, at a `webpOutputQuality` from 1 to 100. It is 80 when you haven't set it, which suits most images.
 - `videoStreaming` is how sealed videos are prepared for playback: `"hls"` (adaptive streaming), `"mp4"` (one file optimized for the web) or `"off"`. Pass `null` to follow your plan's default: `"hls"` on self-hosted servers and the paid plan, `"off"` on the free plan. `getSettings` returns the value in effect, and `videoStreamingDefault: true` when the plan decides.
 - `hlsRenditions` lists the HLS sizes to make, from `"1080p"`, `"720p"`, `"480p"` and `"360p"`. Sizes larger than the video are skipped. Pass `null` for the default, `["1080p", "720p", "480p"]`.
 

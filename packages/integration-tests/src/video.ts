@@ -209,7 +209,7 @@ export async function runVideoIntegrationTests(
         assert.equal(current.videoStreamingDefault, false);
         assert.deepEqual(current.hlsRenditions, ["1080p", "480p"]);
         assert.equal(current.useWebP, before.useWebP);
-        assert.equal(current.thumbnailWidth, before.thumbnailWidth);
+        assert.equal(current.webpOutputQuality, before.webpOutputQuality);
         log("PASS video settings: set, deduplicated and sorted");
 
         for (const bad of [

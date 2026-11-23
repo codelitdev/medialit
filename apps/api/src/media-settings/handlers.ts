@@ -11,8 +11,6 @@ import { mediaSettingsSchema } from "./schemas";
 const FIELDS = [
     "useWebP",
     "webpOutputQuality",
-    "thumbnailWidth",
-    "thumbnailHeight",
     "videoStreaming",
     "hlsRenditions",
 ] as const;

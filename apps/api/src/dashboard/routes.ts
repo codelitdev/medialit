@@ -43,8 +43,6 @@ import { VideoSettingsError } from "../media-settings/video";
 const MEDIA_SETTINGS_FIELDS = [
     "useWebP",
     "webpOutputQuality",
-    "thumbnailWidth",
-    "thumbnailHeight",
     "videoStreaming",
     "hlsRenditions",
 ] as const;

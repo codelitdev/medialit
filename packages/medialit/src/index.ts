@@ -42,8 +42,6 @@ export type HlsRendition = "1080p" | "720p" | "480p" | "360p";
 export interface MediaSettings {
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
     /** How sealed videos are prepared for playback. */
     videoStreaming?: VideoStreaming;
     /** True when the app hasn't chosen, and the account's plan decides. */
@@ -57,8 +55,6 @@ export interface MediaSettings {
 export interface MediaSettingsUpdate {
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
     videoStreaming?: VideoStreaming | null;
     hlsRenditions?: HlsRendition[] | null;
 }

@@ -111,7 +111,7 @@ medialit webhooks rm <id>
 medialit settings                                    # show the app's settings
 medialit settings set --video-streaming hls --hls-renditions 1080p,720p,480p
 medialit settings set --video-streaming default      # follow your plan again
-medialit settings set --webp on --webp-quality 80 --thumbnail 640x360
+medialit settings set --webp on --webp-quality 85
 ```
 
 `settings set` changes only the options you pass, and changes apply to files sealed afterwards. `--video-streaming` takes `off`, `hls`, `mp4` or `default`. `medialit whoami` also shows the video processing minutes used this month.

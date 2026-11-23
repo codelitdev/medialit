@@ -26,7 +26,6 @@ import logger from "../services/log";
 import { trackEvent } from "../services/events";
 import { mediaKind } from "./kind";
 import { describeError } from "../jobs/errors";
-import { getMediaSettings } from "../media-settings/queries";
 import * as presignedUrlService from "../signature/service";
 import generateFileName from "./utils/generate-file-name";
 import generateKey from "./utils/generate-key";
@@ -153,8 +152,8 @@ export interface StoredUpload extends UploadTarget {
  *
  * 1. Checks storage again with the size actually stored. The original is
  *    kept as uploaded: WebP conversion happens at seal (`sealMedia`).
- * 2. Makes a thumbnail, of the app's `thumbnailWidth` × `thumbnailHeight`
- *    when it stored them.
+ * 2. Makes a thumbnail: 16:9 and up to 480 px for images, 720 px tall for
+ *    videos.
  *    Videos are read through a presigned URL, so only the bytes ffmpeg needs
  *    are fetched.
  * 3. Marks the media record `startUpload` wrote as uploaded.
@@ -179,17 +178,6 @@ export async function finalizeStoredUpload(
         const tempRoot = tempFileDirForUploads || os.tmpdir();
         await mkdir(tempRoot, { recursive: true });
         workDir = await mkdtemp(path.join(tempRoot, "medialit-finalize-"));
-        const settings = await getMediaSettings(userId, appId);
-        // Only a size the app stored: apps that never set one keep the
-        // thumbnails MediaLit always made (16:9, up to 480 px for images,
-        // 720 px tall for videos), not the defaults shown for display.
-        const thumbnailDimensions =
-            settings?.thumbnailWidth && settings?.thumbnailHeight
-                ? {
-                      width: settings.thumbnailWidth,
-                      height: settings.thumbnailHeight,
-                  }
-                : undefined;
         const isImage = imagePatternForThumbnailGeneration.test(
             upload.mimeType,
         );
@@ -235,19 +223,11 @@ export async function finalizeStoredUpload(
                         maxPixels: webpLimits().maxPixels,
                     });
                     if (!check.ok) throw new ThumbnailSkipped(check.reason);
-                    await thumbnail.forImage(
-                        localPath,
-                        thumbPath,
-                        thumbnailDimensions,
-                    );
+                    await thumbnail.forImage(localPath, thumbPath);
                 } else {
                     // A URL MediaLit made, never one from the client.
                     const source = await generateSignedUrl(key, cloudBucket);
-                    await thumbnail.forVideo(
-                        source,
-                        thumbPath,
-                        thumbnailDimensions,
-                    );
+                    await thumbnail.forVideo(source, thumbPath);
                 }
                 await putObject({
                     Key: thumbKey,

@@ -75,7 +75,7 @@ The REST endpoint `POST /media/create` uploads a file in a single request instea
 
 MediaLit processes files with the app's settings:
 
-- **Thumbnails** are made for images and videos when they are uploaded, and returned as `thumbnail`. When the app sets `thumbnailWidth` and `thumbnailHeight`, each thumbnail is exactly that size: the image or the video's first frame is scaled to cover it and cropped from the center. Otherwise image thumbnails are cropped to 16:9 and at most 480 pixels tall, and video thumbnails are 720 pixels tall.
+- **Thumbnails** are made for images and videos when they are uploaded, and returned as `thumbnail`. Image thumbnails are cropped to 16:9 from the center and are at most 480 pixels tall. Video thumbnails are 720 pixels tall.
 - **Video posters** replace a video's thumbnail after it is sealed. The upload thumbnail is the first frame, which is often black; the poster is picked from about 10% into the video (at most 10 seconds in), skipping dark frames. It is published at the same URL, so a saved `thumbnail` URL shows the poster once it is ready. A CDN may keep serving the first frame until its cache expires. If the poster fails, the upload thumbnail stays.
 - **WebP conversion**, when turned on, converts JPEG and PNG images to WebP when they are [sealed](#temporary-uploads-and-sealing). The upload response describes the original file; the seal response describes the WebP, with its own `file`, `mimeType` and `size`, and the original is not kept. Save the URL from the seal response. Temporary uploads that are never sealed are never converted.
 

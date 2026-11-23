@@ -10,15 +10,12 @@ describe("medialit settings set", () => {
                 hlsRenditions: "1080p, 480p",
                 webp: "on",
                 webpQuality: "80",
-                thumbnail: "640x360",
             }),
             {
                 videoStreaming: "hls",
                 hlsRenditions: ["1080p", "480p"],
                 useWebP: true,
                 webpOutputQuality: 80,
-                thumbnailWidth: 640,
-                thumbnailHeight: 360,
             },
         );
         assert.deepEqual(settingsUpdate({ webp: "off" }), { useWebP: false });
@@ -41,10 +38,7 @@ describe("medialit settings set", () => {
             /off, hls, mp4 or default/,
         );
         assert.throws(() => settingsUpdate({ webp: "yes" }), /on or off/);
-        assert.throws(() => settingsUpdate({ webpQuality: "101" }), /0 to 100/);
-        assert.throws(
-            () => settingsUpdate({ thumbnail: "640" }),
-            /such as 640x360/,
-        );
+        assert.throws(() => settingsUpdate({ webpQuality: "101" }), /1 to 100/);
+        assert.throws(() => settingsUpdate({ webpQuality: "0" }), /1 to 100/);
     });
 });
