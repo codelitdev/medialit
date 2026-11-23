@@ -77,11 +77,11 @@ MediaLit processes files with the app's settings:
 
 - **Thumbnails** are made for images and videos when they are uploaded, and returned as `thumbnail`. Image thumbnails are cropped to 16:9 from the center and are at most 480 pixels tall. Video thumbnails are 720 pixels tall.
 - **Video posters** replace a video's thumbnail after it is sealed. The upload thumbnail is the first frame, which is often black; the poster is picked from about 10% into the video (at most 10 seconds in), skipping dark frames. It is published at the same URL, so a saved `thumbnail` URL shows the poster once it is ready. A CDN may keep serving the first frame until its cache expires. If the poster fails, the upload thumbnail stays.
-- **WebP conversion**, when turned on, converts JPEG and PNG images to WebP when they are [sealed](#temporary-uploads-and-sealing). The upload response describes the original file; the seal response describes the WebP, with its own `file`, `mimeType` and `size`, and the original is not kept. Save the URL from the seal response. Temporary uploads that are never sealed are never converted.
+- **WebP conversion**, when turned on, converts JPEG and PNG images to WebP when they are [sealed](#temporary-uploads-and-sealing), at the app's `webpOutputQuality` (1 to 100, 80 by default). The upload response describes the original file; the seal response describes the WebP, with its own `file`, `mimeType` and `size`, and the original is not kept. Save the URL from the seal response. Temporary uploads that are never sealed are never converted.
 
 If a conversion fails, the seal still succeeds and keeps the original. `processing.status` is then `failed` and `processing.error` says why. Very large images (over 25 MB or 50 megapixels by default) and images sealed while the server is busy converting others also keep the original; their status is `ready` and `processing.error` gives the reason.
 
-Change these settings in the dashboard under **Settings** > **Media processing**, or with the [Node.js SDK](/docs/node-sdk#getsettings-and-updatesettings), the [CLI](/docs/cli#change-media-settings), the [REST API](/docs/api/upload-media) or the [MCP server](/docs/mcp-server).
+Change these settings in the dashboard under **App settings** > **Media**, or with the [Node.js SDK](/docs/node-sdk#getsettings-and-updatesettings), the [CLI](/docs/cli#change-media-settings), the [REST API](/docs/api/upload-media) or the [MCP server](/docs/mcp-server).
 
 ### Video streaming
 
@@ -91,7 +91,7 @@ The `videoStreaming` setting decides what is made from sealed videos:
 - **`mp4`** makes an MP4 optimized for the web, the `mp4` derivative: H.264 video and AAC audio with the index at the front, so playback starts before the whole file loads. A video that is already H.264/AAC in MP4 or MOV, at most 1080p and 8 Mbps, is only rewritten (seconds, no quality lost, no processing minutes). Anything else is re-encoded, at most 1080p and never larger than the original.
 - **`off`** makes only the poster.
 
-The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
+The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` or `hls` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
 
 ### Processing minutes
 
@@ -103,9 +103,9 @@ Every media response has two more fields:
 
 - **`processing`** says where background processing of the file stands: `{ "status": "pending" }` until the file is sealed, then `processing` while work runs, and `ready` or `failed` when it ends. A failed step never makes the original unavailable, and `processing.error` says what went wrong.
 - **`metadata`** describes the file: `kind` (`video`, `audio` or `image`), and where they apply `durationSeconds`, `width` and `height` (as displayed, after rotation), `rotation`, `frameRate`, `videoCodec`, `audioCodec`, `bitrate`, `sampleRate`, `channels` and `format`. It is read when the file is sealed, so it is `null` for temporary uploads, and stays `null` if the file can't be read; the seal still succeeds.
-- **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. Today the only derivative is `thumbnail`, the same image as the `thumbnail` field; for videos it is `queued` while the poster is made.
+- **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. `thumbnail` is the same image as the `thumbnail` field. Sealed videos also get `mp4` or `hls`, as the app's [`videoStreaming`](#video-streaming) asks. A derivative is `queued` until it is made.
 
-A sealed video is `processing` until its poster is ready, then `ready`. A failed poster, or video processing refused by a limit (out of processing minutes, too large or too long), leaves the file usable: the derivative is `failed` with its reason, `processing.error` says why, and the file's status is still `ready`.
+A sealed video is `processing` until its poster and its MP4 or HLS are done, then `ready`. A failed poster, or video processing refused by a limit (out of processing minutes, too large or too long), leaves the file usable: the derivative is `failed` with its reason, `processing.error` says why, and the file's status is still `ready`.
 
 ```json
 {

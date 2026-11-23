@@ -510,6 +510,8 @@ The memory limit uses `prlimit`, from util-linux, which the MediaLit image inclu
 
 Browsers other than Safari play HLS with hls.js, which reads playlists and segments with `fetch`. That needs CORS on your storage: allow `GET` and `HEAD` from any origin on both buckets. Segment URLs of private videos are signed, so this doesn't open anything up.
 
+Playlists of private videos are served by the API at `PUBLIC_API_URL`, with CORS for any origin, so viewers' browsers must be able to reach that address.
+
 - **MinIO** allows any origin by default.
 - **S3** and **R2**: set a CORS rule on both buckets, for example with the AWS CLI:
 
@@ -591,6 +593,10 @@ If your server reaches MediaLit on a different URL than browsers do, for example
 <Callout type="warning">
   Back up the database before upgrading. Migrations can't be rolled back, and the hashed API keys migration removes plaintext keys for good.
 </Callout>
+
+### Upgrading from v0.8.x to v0.9.0
+
+v0.9.0 processes sealed videos on the worker. Follow the [upgrade guide](/docs/upgrade-from-v0-8-x-to-v0-9-0) before you upgrade: the worker needs more CPU, memory and disk, and HLS needs CORS on your storage.
 
 ### Upgrading from v0.7.x to v0.8.0
 

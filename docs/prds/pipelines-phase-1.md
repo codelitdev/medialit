@@ -444,7 +444,7 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
 
 - The migration sets every existing app to `"off"`, so nothing changes for them until they opt in.
 - **Deploy order:** worker first, then the API. An old worker that sees a new job type it doesn't know leaves it queued (it only claims registered types), so the order matters less than in phase 0.
-- **Rollback:** the old API ignores the new columns and table. An old worker leaves the new job types queued, and a queued job counts as live, so the reconciler never fails their derivatives, and the media would stay `processing` for good. After rolling back the worker, cancel them with `jobs cancel --type <type> --status queued --yes` for each new type (`media.poster`, `media.mp4`, `media.hls`). The reconciler then fails their derivatives and settles the media within 15 minutes.
+- **Rollback:** the old API ignores the new columns and table. An old worker leaves the new job types queued, and a queued job counts as live, so the reconciler never fails their derivatives, and the media would stay `processing` for good. After rolling back the worker, cancel them with `jobs cancel --type <type> --yes` for each new type (`media.poster`, `media.mp4`, `media.hls`). The reconciler then fails their derivatives and settles the media within 15 minutes.
 
 ## 10. Order of work
 

@@ -9,15 +9,16 @@ The [MediaLit dashboard](https://app.medialit.cloud) is where you manage apps an
 
 ## Apps
 
-Create an app for each project or environment. In an app's settings you can:
+Create an app for each project or environment. An app's **App settings** has four tabs:
 
-- create and revoke the app's [API keys](/docs/api-keys)
-- rename the app
-- delete the app
+- **General**: rename the app, make it your default app, see how much storage it uses, and delete it.
+- **API keys**: create and revoke the app's [API keys](/docs/api-keys).
+- **Media**: **Image optimization** turns WebP conversion on and sets its quality (80 by default). **Video streaming** chooses what is made from sealed videos, [HLS or an MP4 for the web](/docs/concepts#video-streaming), and which HLS sizes, and shows the video processing minutes used this month. Each card saves on its own, and changes apply to files sealed afterwards.
+- **Webhooks**: add the endpoints MediaLit calls when processing of a sealed file finishes or fails, send a test event, and see recent deliveries. See [Webhooks](/docs/webhooks).
 
 ## Files
 
-Open an app to browse its files, whether your app, an agent or a script uploaded them. Click a file to preview it and copy its link.
+Open an app to browse its files, whether your app, an agent or a script uploaded them. Click a file to preview it and copy its link. Videos play in the preview with the best version MediaLit made: HLS once it is ready, then the web MP4, then the original.
 
 Only sealed files are listed. Files that are still [temporary](/docs/concepts#temporary-uploads-and-sealing) appear once they are sealed.
 
