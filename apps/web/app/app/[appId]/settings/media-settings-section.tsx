@@ -120,7 +120,7 @@ export function ImageOptimizationCard({
             title="Image optimization"
             description="What happens to images when they are sealed. Changes apply to images sealed afterwards."
         >
-            <form onSubmit={submit} className="mt-4 grid gap-5">
+            <form onSubmit={submit} className="grid gap-5">
                 <div className="flex items-center gap-3">
                     <Switch
                         id="use-webp"
@@ -221,7 +221,7 @@ export function VideoStreamingCard({
             title="Video streaming"
             description="How videos are prepared for playback when they are sealed. The original file is always kept."
         >
-            <form onSubmit={submit} className="mt-4 grid gap-5">
+            <form onSubmit={submit} className="grid gap-5">
                 <div className="settings-field">
                     <label htmlFor="video-streaming">Format</label>
                     <select

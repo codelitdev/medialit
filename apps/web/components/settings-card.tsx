@@ -51,7 +51,9 @@ export function SettingsCard({
                     ) : null}
                 </div>
             </div>
-            {children}
+            {/* The card owns the gap under its header, so content doesn't
+                have to bring its own top margin. */}
+            <div className="mt-4 [&>*:first-child]:mt-0">{children}</div>
         </section>
     );
 }
