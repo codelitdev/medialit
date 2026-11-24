@@ -16,7 +16,7 @@ Once connected, you can ask things like:
 - "Delete the drafts you made earlier."
 - "How much storage am I using?"
 
-Uploads from agents are [temporary until sealed](#two-step-upload-flow-drafts-sealing), so an agent's scratch files are cleaned up unless it, or you, decides to keep them. The [CLI](/docs/cli) is different: it seals uploads right away unless the agent passes `--temp`.
+Uploads from agents are [temporary until sealed](#temporary-uploads-and-sealing), so an agent's scratch files are cleaned up unless it, or you, decides to keep them. The [CLI](/docs/cli) is different: it seals uploads right away unless the agent passes `--temp`.
 
 The server is at `https://api.medialit.cloud/mcp` and uses the Streamable HTTP transport, so there is nothing to install or run locally.
 
