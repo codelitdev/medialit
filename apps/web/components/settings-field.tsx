@@ -10,17 +10,11 @@ import { cn } from "@/lib/utils";
  */
 
 /** Stacks a card's fields and its actions, 20px apart. */
-export function SettingsStack({
-    className,
-    children,
-}: {
-    className?: string;
-    children: ReactNode;
-}) {
-    return <div className={cn("grid gap-5", className)}>{children}</div>;
+export function SettingsStack({ children }: { children: ReactNode }) {
+    return <div className="grid gap-5">{children}</div>;
 }
 
-export const settingsLabelClass =
+const settingsLabelClass =
     "m-0 p-0 text-xs font-semibold leading-4 text-foreground";
 
 /** Text next to a switch or checkbox. */
@@ -29,20 +23,15 @@ export const settingsOptionClass =
 
 export function SettingsHint({
     id,
-    className,
     children,
 }: {
     id?: string;
-    className?: string;
     children: ReactNode;
 }) {
     return (
         <p
             id={id}
-            className={cn(
-                "m-0 text-[11px] leading-normal text-muted-foreground",
-                className,
-            )}
+            className="m-0 text-[11px] leading-normal text-muted-foreground"
         >
             {children}
         </p>
@@ -84,16 +73,14 @@ export function SettingsField({
 export function SettingsFieldset({
     legend,
     hint,
-    className,
     children,
 }: {
     legend: ReactNode;
     hint?: ReactNode;
-    className?: string;
     children: ReactNode;
 }) {
     return (
-        <fieldset className={cn("m-0 grid gap-2 border-0 p-0", className)}>
+        <fieldset className="m-0 grid gap-2 border-0 p-0">
             <legend className={cn(settingsLabelClass, "mb-2")}>{legend}</legend>
             {children}
             {hint ? <SettingsHint>{hint}</SettingsHint> : null}
@@ -127,18 +114,33 @@ export function SettingsRow({
     );
 }
 
-/** The save button with its result beside it. */
-export function SettingsActions({
-    status,
-    children,
+/** A save or action result: an error, a success message, or nothing. */
+export function SettingsStatus({
+    error,
+    success,
 }: {
-    status?: ReactNode;
-    children: ReactNode;
+    error?: string | null;
+    success?: ReactNode;
 }) {
-    return (
-        <div className="flex flex-wrap items-center gap-3">
-            {children}
-            {status}
-        </div>
-    );
+    if (error) {
+        return (
+            <p
+                className="m-0 text-xs text-[color:var(--destructive)]"
+                role="alert"
+            >
+                {error}
+            </p>
+        );
+    }
+    if (success) {
+        return (
+            <p
+                className="m-0 text-xs text-[color:var(--success)]"
+                role="status"
+            >
+                {success}
+            </p>
+        );
+    }
+    return null;
 }

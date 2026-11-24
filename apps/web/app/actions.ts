@@ -5,6 +5,8 @@ import { serverApi } from "@/lib/server-api";
 import type {
     ApiKey,
     App,
+    MediaSettings,
+    ProcessingMinutes,
     User,
     WebhookDelivery,
     WebhookEndpoint,
@@ -346,24 +348,6 @@ export async function revealWebhookSecret(
     }
 }
 
-export type VideoStreaming = "off" | "hls" | "mp4";
-export type HlsRendition = "1080p" | "720p" | "480p" | "360p";
-
-export type MediaSettings = {
-    useWebP: boolean;
-    webpOutputQuality: number;
-    /** Apps start `off`. */
-    videoStreaming: VideoStreaming;
-    hlsRenditions: HlsRendition[];
-};
-
-export type MediaSettingsUpdate = Partial<
-    Omit<MediaSettings, "hlsRenditions">
-> & {
-    /** null goes back to the default sizes. */
-    hlsRenditions?: HlsRendition[] | null;
-};
-
 function mediaSettingsPath(appId: string) {
     return `/api/apps/${encodeURIComponent(appId)}/media-settings`;
 }
@@ -378,7 +362,7 @@ export async function getMediaSettings(appId: string): Promise<MediaSettings> {
 
 export async function updateMediaSettings(
     appId: string,
-    input: MediaSettingsUpdate,
+    input: Partial<MediaSettings>,
 ): Promise<
     | { success: true; settings: MediaSettings }
     | { success: false; error: string }
@@ -397,8 +381,6 @@ export async function updateMediaSettings(
         return { success: false, error: err.message };
     }
 }
-
-export type ProcessingMinutes = { used: number; allowed: number | null };
 
 /** This month's video processing minutes for the account. */
 export async function getProcessingMinutes(

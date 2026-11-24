@@ -14,7 +14,7 @@ export interface SettingsTab {
    such as `settings#webhooks` open their tab, and a reload keeps it.
    Every panel stays mounted, so unsaved edits survive a tab switch. */
 export default function SettingsTabs({ tabs }: { tabs: SettingsTab[] }) {
-    const [value, setValue] = useState(tabs[0]?.value ?? "");
+    const [value, setValue] = useState(tabs[0].value);
 
     useEffect(() => {
         const fromHash = () => {

@@ -46,13 +46,65 @@ export function generatePng(width = 1, height = 1): Buffer {
     );
 }
 
-type JsonRecord = Record<string, unknown>;
+export type JsonObject = Record<string, unknown>;
 
-function record(value: unknown, label: string): JsonRecord {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-        throw new Error(`${label} must be an object`);
-    }
-    return value as JsonRecord;
+export function object(value: unknown, label = "value"): JsonObject {
+    assert(
+        value && typeof value === "object" && !Array.isArray(value),
+        `Expected ${label} to be a JSON object`,
+    );
+    return value as JsonObject;
+}
+
+export function text(value: unknown, label: string): string {
+    assert(
+        typeof value === "string" && value.length > 0,
+        `${label} must be a nonempty string`,
+    );
+    return value;
+}
+
+export function integer(value: unknown, label: string): number {
+    assert(
+        typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
+        `${label} must be a nonnegative integer`,
+    );
+    return value;
+}
+
+export function isWebp(bytes: Buffer): boolean {
+    return (
+        bytes.toString("ascii", 0, 4) === "RIFF" &&
+        bytes.toString("ascii", 8, 12) === "WEBP"
+    );
+}
+
+/** The API key and the server's base URL (ending in a slash) from the
+ * options or MEDIALIT_APIKEY and MEDIALIT_SERVER. */
+export function serverOptions(options: { apiKey?: string; server?: string }): {
+    apiKey: string;
+    base: URL;
+} {
+    const apiKey = options.apiKey ?? process.env.MEDIALIT_APIKEY;
+    assert(
+        typeof apiKey === "string" && apiKey.trim(),
+        "MEDIALIT_APIKEY is required",
+    );
+    const server =
+        options.server ?? process.env.MEDIALIT_SERVER ?? "localhost:8000";
+    const base = new URL(
+        /^https?:\/\//i.test(server) ? server : `http://${server}`,
+    );
+    assert(
+        ["http:", "https:"].includes(base.protocol),
+        "MEDIALIT_SERVER must use HTTP or HTTPS",
+    );
+    assert(
+        !base.username && !base.password && !base.search && !base.hash,
+        "MEDIALIT_SERVER must be a base URL without credentials, query, or fragment",
+    );
+    base.pathname = `${base.pathname.replace(/\/+$/, "")}/`;
+    return { apiKey, base };
 }
 
 async function fetchWebp(url: unknown, label: string): Promise<void> {
@@ -63,11 +115,7 @@ async function fetchWebp(url: unknown, label: string): Promise<void> {
     if (!response.ok) {
         throw new Error(`Downloading ${label} returned ${response.status}`);
     }
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (
-        bytes.subarray(0, 4).toString("latin1") !== "RIFF" ||
-        bytes.subarray(8, 12).toString("latin1") !== "WEBP"
-    ) {
+    if (!isWebp(Buffer.from(await response.arrayBuffer()))) {
         throw new Error(`${label} is not a WebP image`);
     }
 }
@@ -79,18 +127,18 @@ async function fetchWebp(url: unknown, label: string): Promise<void> {
  * with no derivative jobs is `ready`.
  */
 export async function checkProcessing(
-    media: JsonRecord,
+    media: JsonObject,
     stage: "temp" | "sealed",
 ): Promise<void> {
-    const processing = record(media.processing, "processing");
+    const processing = object(media.processing, "processing");
     const expected = stage === "temp" ? "pending" : "ready";
     if (processing.status !== expected) {
         throw new Error(
             `processing.status is ${String(processing.status)}, expected ${expected}`,
         );
     }
-    const derivatives = record(media.derivatives, "derivatives");
-    const thumbnail = record(derivatives.thumbnail, "derivatives.thumbnail");
+    const derivatives = object(media.derivatives, "derivatives");
+    const thumbnail = object(derivatives.thumbnail, "derivatives.thumbnail");
     if (thumbnail.status !== "ready") {
         throw new Error("The thumbnail derivative is not ready");
     }
@@ -351,11 +399,10 @@ export function generateVideo(
         width?: number;
         height?: number;
         seconds?: number;
-        audio?: boolean;
         codec?: "h264" | "vp9";
     } = {},
 ): Buffer | null {
-    const { width = 640, height = 360, seconds = 2, audio = true } = options;
+    const { width = 640, height = 360, seconds = 2 } = options;
     const codec = options.codec ?? "h264";
     const dir = mkdtempSync(join(tmpdir(), "medialit-video-"));
     const file = join(dir, codec === "vp9" ? "clip.webm" : "clip.mp4");
@@ -370,18 +417,15 @@ export function generateVideo(
                 "lavfi",
                 "-i",
                 `testsrc=size=${width}x${height}:rate=25:duration=${seconds}`,
-                ...(audio
-                    ? [
-                          "-f",
-                          "lavfi",
-                          "-i",
-                          `sine=frequency=440:duration=${seconds}`,
-                      ]
-                    : []),
+                "-f",
+                "lavfi",
+                "-i",
+                `sine=frequency=440:duration=${seconds}`,
                 ...(codec === "vp9"
                     ? ["-c:v", "libvpx-vp9", "-deadline", "realtime"]
                     : ["-c:v", "libx264", "-pix_fmt", "yuv420p"]),
-                ...(audio ? ["-c:a", codec === "vp9" ? "libopus" : "aac"] : []),
+                "-c:a",
+                codec === "vp9" ? "libopus" : "aac",
                 "-shortest",
                 file,
             ],

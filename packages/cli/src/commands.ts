@@ -258,18 +258,14 @@ export async function settings(args: string[], flags: Flags): Promise<void> {
     output(flags, current, () => describeSettings(current));
 }
 
-const VIDEO_STREAMING: VideoStreaming[] = ["off", "hls", "mp4"];
-
 /** The settings flags as an update. `default` sets the HLS renditions back
- * to the default sizes. */
+ * to the default sizes. The server checks the values. */
 export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
     const update: MediaSettingsUpdate = {};
     if (flags.videoStreaming !== undefined) {
-        const value = flags.videoStreaming.trim().toLowerCase();
-        if (!VIDEO_STREAMING.includes(value as VideoStreaming)) {
-            throw new Error("--video-streaming takes off, hls or mp4.");
-        }
-        update.videoStreaming = value as VideoStreaming;
+        update.videoStreaming = flags.videoStreaming
+            .trim()
+            .toLowerCase() as VideoStreaming;
     }
     if (flags.hlsRenditions !== undefined) {
         const value = flags.hlsRenditions.trim();
@@ -289,13 +285,7 @@ export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
         update.useWebP = value === "on";
     }
     if (flags.webpQuality !== undefined) {
-        const quality = Number(flags.webpQuality);
-        if (!Number.isInteger(quality) || quality < 1 || quality > 100) {
-            throw new Error(
-                "--webp-quality takes a whole number from 1 to 100.",
-            );
-        }
-        update.webpOutputQuality = quality;
+        update.webpOutputQuality = Number(flags.webpQuality);
     }
     return update;
 }

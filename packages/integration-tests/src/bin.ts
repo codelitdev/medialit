@@ -1,12 +1,10 @@
 import { runSyntheticCheck } from "./synthetic";
 import { runCliIntegrationTests } from "./cli";
-import {
-    runAllIntegrationTests,
-    runIntegrationTests,
-    runMcpIntegrationTests,
-    runWebpIntegrationTests,
-    runVideoIntegrationTests,
-} from "./index";
+import { runAllIntegrationTests } from "./index";
+import { runMcpIntegrationTests } from "./mcp";
+import { runIntegrationTests } from "./rest";
+import { runWebpIntegrationTests } from "./webp";
+import { runVideoIntegrationTests } from "./video";
 
 const HELP = `Usage: medialit-integration-tests <command>
 
@@ -16,7 +14,7 @@ Commands:
              minutes.
   all        Run the REST, WebP, video, MCP and CLI suites
   rest       Run the REST API suite
-  webp       Run the WebP-at-seal and thumbnail size suite
+  webp       Run the WebP-at-seal and thumbnail suite
   video      Run the video settings and processing suite
   mcp        Run the MCP server suite
   cli        Run the CLI suite (set MEDIALIT_CLI to the medialit command)

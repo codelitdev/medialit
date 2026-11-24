@@ -7,27 +7,22 @@ export interface PlayableMedia {
     derivatives?: Record<string, { status: string; url?: string } | undefined>;
 }
 
-export type VideoSource =
-    | { kind: "hls"; url: string }
-    | { kind: "mp4"; url: string }
-    | { kind: "file"; url: string };
+function ready(derivative?: { status: string; url?: string }) {
+    return derivative?.status === "ready" ? derivative.url : undefined;
+}
 
 /**
- * What to play, best first: HLS when it is ready, then the MP4 optimized
- * for the web, then the original file.
+ * What to play: HLS when it is ready, and a fallback for browsers that
+ * can't play it — the MP4 optimized for the web, else the original file.
  */
-export function videoSources(media: PlayableMedia): VideoSource[] {
-    const sources: VideoSource[] = [];
-    const hls = media.derivatives?.hls;
-    if (hls?.status === "ready" && hls.url) {
-        sources.push({ kind: "hls", url: hls.url });
-    }
-    const mp4 = media.derivatives?.mp4;
-    if (mp4?.status === "ready" && mp4.url) {
-        sources.push({ kind: "mp4", url: mp4.url });
-    }
-    if (media.file) sources.push({ kind: "file", url: media.file });
-    return sources;
+export function videoSources(media: PlayableMedia): {
+    hls?: string;
+    fallback?: string;
+} {
+    return {
+        hls: ready(media.derivatives?.hls),
+        fallback: ready(media.derivatives?.mp4) ?? media.file,
+    };
 }
 
 export interface MediaLitVideoProps
@@ -53,29 +48,25 @@ export function MediaLitVideo({
 }: MediaLitVideoProps) {
     const ref = useRef<HTMLVideoElement>(null);
     const [src, setSrc] = useState<string | undefined>(undefined);
-    const sources = videoSources(media);
-    const key = sources.map((s) => s.url).join(" ");
+    const { hls: hlsUrl, fallback } = videoSources(media);
 
     useEffect(() => {
         const video = ref.current;
         if (!video) return;
         let hls: HlsInstance | undefined;
         let cancelled = false;
-        const fallback = sources.find((s) => s.kind !== "hls");
-        const hlsSource = sources.find((s) => s.kind === "hls");
-
         if (
-            hlsSource &&
+            hlsUrl &&
             video.canPlayType("application/vnd.apple.mpegurl") !== ""
         ) {
-            setSrc(hlsSource.url);
-        } else if (hlsSource) {
+            setSrc(hlsUrl);
+        } else if (hlsUrl) {
             setSrc(undefined);
             import("hls.js")
                 .then(({ default: Hls }) => {
                     if (cancelled) return;
                     if (!Hls.isSupported()) {
-                        setSrc(fallback?.url);
+                        setSrc(fallback);
                         return;
                     }
                     const instance = new Hls();
@@ -85,25 +76,24 @@ export function MediaLitVideo({
                         if (data.fatal && fallback) {
                             instance.destroy();
                             hls = undefined;
-                            setSrc(fallback.url);
+                            setSrc(fallback);
                         }
                     });
-                    instance.loadSource(hlsSource.url);
+                    instance.loadSource(hlsUrl);
                     instance.attachMedia(video);
                 })
                 .catch(() => {
-                    if (!cancelled) setSrc(fallback?.url);
+                    if (!cancelled) setSrc(fallback);
                 });
         } else {
-            setSrc(fallback?.url);
+            setSrc(fallback);
         }
 
         return () => {
             cancelled = true;
             hls?.destroy();
         };
-        // `key` changes exactly when the sources do.
-    }, [key]);
+    }, [hlsUrl, fallback]);
 
     return (
         <video

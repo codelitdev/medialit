@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import { videoSources } from "../src/medialit-video";
 
 describe("videoSources", () => {
-    test("plays HLS when ready, then the web MP4, then the original", () => {
+    test("plays HLS when ready, with the web MP4 as the fallback", () => {
         assert.deepEqual(
             videoSources({
                 file: "https://cdn.example/main.mov",
@@ -19,11 +19,10 @@ describe("videoSources", () => {
                     },
                 },
             }),
-            [
-                { kind: "hls", url: "https://api.example/m.m3u8" },
-                { kind: "mp4", url: "https://cdn.example/web.mp4" },
-                { kind: "file", url: "https://cdn.example/main.mov" },
-            ],
+            {
+                hls: "https://api.example/m.m3u8",
+                fallback: "https://cdn.example/web.mp4",
+            },
         );
     });
 
@@ -33,11 +32,15 @@ describe("videoSources", () => {
                 file: "https://cdn.example/main.mp4",
                 derivatives: { hls: { status: "processing" } },
             }),
-            [{ kind: "file", url: "https://cdn.example/main.mp4" }],
+            { hls: undefined, fallback: "https://cdn.example/main.mp4" },
         );
-        assert.deepEqual(videoSources({ file: "https://cdn.example/a.mp4" }), [
-            { kind: "file", url: "https://cdn.example/a.mp4" },
-        ]);
-        assert.deepEqual(videoSources({}), []);
+        assert.deepEqual(videoSources({ file: "https://cdn.example/a.mp4" }), {
+            hls: undefined,
+            fallback: "https://cdn.example/a.mp4",
+        });
+        assert.deepEqual(videoSources({}), {
+            hls: undefined,
+            fallback: undefined,
+        });
     });
 });

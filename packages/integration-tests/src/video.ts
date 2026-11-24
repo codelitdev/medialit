@@ -7,21 +7,18 @@
  * no concurrent media writes.
  */
 import assert from "node:assert/strict";
-import { generatePng, generateVideo } from "./utils";
-
-type JsonObject = Record<string, unknown>;
+import {
+    generatePng,
+    generateVideo,
+    isWebp,
+    type JsonObject,
+    object,
+    serverOptions,
+} from "./utils";
 
 interface VideoSettings {
     videoStreaming: string;
     hlsRenditions: string[];
-}
-
-function object(value: unknown): JsonObject {
-    assert(
-        value && typeof value === "object" && !Array.isArray(value),
-        "Expected a JSON object",
-    );
-    return value as JsonObject;
 }
 
 export async function runVideoIntegrationTests(
@@ -31,16 +28,9 @@ export async function runVideoIntegrationTests(
         log?: (message: string) => void;
     } = {},
 ): Promise<void> {
-    const apiKey = options.apiKey ?? process.env.MEDIALIT_APIKEY;
-    assert(apiKey?.trim(), "MEDIALIT_APIKEY is required");
-    const server =
-        options.server ?? process.env.MEDIALIT_SERVER ?? "localhost:8000";
-    const base = new URL(
-        /^https?:\/\//i.test(server) ? server : `http://${server}`,
-    );
-    base.pathname = `${base.pathname.replace(/\/+$/, "")}/`;
+    const { apiKey, base } = serverOptions(options);
     const log = options.log ?? console.log;
-    let original: VideoSettings | undefined;
+    let original: (VideoSettings & JsonObject) | undefined;
     const created: string[] = [];
 
     async function call(path: string, body?: JsonObject, method = "POST") {
@@ -197,7 +187,6 @@ export async function runVideoIntegrationTests(
 
         // Only the fields given change; renditions are deduplicated and
         // sorted largest first.
-        const before = await settings();
         await api("settings/media/create", {
             videoStreaming: "mp4",
             hlsRenditions: ["480p", "1080p", "480p"],
@@ -205,8 +194,8 @@ export async function runVideoIntegrationTests(
         let current = await settings();
         assert.equal(current.videoStreaming, "mp4");
         assert.deepEqual(current.hlsRenditions, ["1080p", "480p"]);
-        assert.equal(current.useWebP, before.useWebP);
-        assert.equal(current.webpOutputQuality, before.webpOutputQuality);
+        assert.equal(current.useWebP, original.useWebP);
+        assert.equal(current.webpOutputQuality, original.webpOutputQuality);
         log("PASS video settings: set, deduplicated and sorted");
 
         for (const bad of [
@@ -276,7 +265,7 @@ export async function runVideoIntegrationTests(
             const posterBytes = Buffer.from(
                 await (await fetch(String(poster.url))).arrayBuffer(),
             );
-            assert.equal(posterBytes.toString("ascii", 8, 12), "WEBP");
+            assert(isWebp(posterBytes), "The poster is not WebP");
             log("PASS the worker made a poster and processing settled");
 
             // MP4 for the web (D7): an H.264/AAC upload is remuxed for
@@ -310,20 +299,19 @@ export async function runVideoIntegrationTests(
                 seconds: 2,
                 codec: "vp9",
             });
-            if (vp9) {
-                const vp9Source = await upload(vp9, "clip.webm", "video/webm");
-                await seal(vp9Source.mediaId);
-                const encoded = await waitForProcessing(vp9Source.mediaId);
-                const encodedMp4 = object(object(encoded.derivatives).mp4);
-                assert.equal(encodedMp4.status, "ready");
-                const minutes = object(
-                    (await api("media/get/size")).processingMinutes,
-                );
-                if (minutes.allowed !== null) {
-                    assert.equal(Number(minutes.used), minutesBefore + 1);
-                }
-                log("PASS mp4: VP9 re-encoded to H.264, one minute charged");
+            assert(vp9, "ffmpeg made the VP9 video");
+            const vp9Source = await upload(vp9, "clip.webm", "video/webm");
+            await seal(vp9Source.mediaId);
+            const encoded = await waitForProcessing(vp9Source.mediaId);
+            const encodedMp4 = object(object(encoded.derivatives).mp4);
+            assert.equal(encodedMp4.status, "ready");
+            const minutes = object(
+                (await api("media/get/size")).processingMinutes,
+            );
+            if (minutes.allowed !== null) {
+                assert.equal(Number(minutes.used), minutesBefore + 1);
             }
+            log("PASS mp4: VP9 re-encoded to H.264, one minute charged");
 
             // HLS (D5, D6): renditions capped at the source; private media
             // plays through the API's signed playlists, public from storage.

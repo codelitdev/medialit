@@ -112,14 +112,12 @@ function PricingPane({
     plan,
     interval,
     currency,
-    checkoutAvailable,
     user,
     billing,
 }: {
     plan: Plan;
     interval: Interval;
     currency: string;
-    checkoutAvailable: boolean;
     user: Subscriber;
     billing: BillingPlans;
 }) {
@@ -175,7 +173,7 @@ function PricingPane({
                 )}
                 {name === "Pro" &&
                     user.plan === "basic" &&
-                    checkoutAvailable && (
+                    billing.checkoutAvailable && (
                         <BillingButton
                             mode="checkout"
                             interval={interval}
@@ -258,7 +256,6 @@ export default function PricingPlans({
                         plan={plan}
                         interval={interval}
                         currency={currency}
-                        checkoutAvailable={billing.checkoutAvailable}
                         user={user}
                         billing={billing}
                     />

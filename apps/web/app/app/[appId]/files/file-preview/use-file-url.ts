@@ -5,21 +5,20 @@ import { useEffect, useState } from "react";
 import type { PlayableMedia } from "@medialit/react";
 
 type FileState = {
-    url: string;
+    /** The file, its thumbnail and derivatives (HLS and the web MP4 when the
+     * app makes them). `file` is a signed URL for private media. */
+    media?: PlayableMedia;
     error: boolean;
-    /** What the video player needs: the file, thumbnail and derivatives
-     * (HLS and the web MP4 when the app makes them). */
-    playable?: PlayableMedia;
 };
 
 /* Fetches the playable/downloadable URL for a media item. Private files get a
    signed URL from the API, so this runs when the details dialog opens. */
 export function useFileUrl(appId: string, mediaId: string) {
-    const [state, setState] = useState<FileState>({ url: "", error: false });
+    const [state, setState] = useState<FileState>({ error: false });
 
     useEffect(() => {
         let active = true;
-        setState({ url: "", error: false });
+        setState({ error: false });
         fetch(
             `/api/apps/${encodeURIComponent(appId)}/media/${encodeURIComponent(mediaId)}`,
         )
@@ -29,9 +28,8 @@ export function useFileUrl(appId: string, mediaId: string) {
                 if (!media?.file) throw new Error("No file URL");
                 if (active) {
                     setState({
-                        url: media.file,
                         error: false,
-                        playable: {
+                        media: {
                             file: media.file,
                             thumbnail: media.thumbnail || undefined,
                             derivatives: media.derivatives,
@@ -40,7 +38,7 @@ export function useFileUrl(appId: string, mediaId: string) {
                 }
             })
             .catch(() => {
-                if (active) setState({ url: "", error: true });
+                if (active) setState({ error: true });
             });
         return () => {
             active = false;

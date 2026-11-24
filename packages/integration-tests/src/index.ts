@@ -13,15 +13,6 @@ import { runIntegrationTests } from "./rest";
 import { runWebpIntegrationTests } from "./webp";
 import { runVideoIntegrationTests } from "./video";
 
-export { runSyntheticCheck } from "./synthetic";
-export {
-    runCliIntegrationTests,
-    runIntegrationTests,
-    runMcpIntegrationTests,
-    runWebpIntegrationTests,
-    runVideoIntegrationTests,
-};
-
 export async function runAllIntegrationTests(): Promise<boolean> {
     const suites = [
         ["REST", runIntegrationTests],

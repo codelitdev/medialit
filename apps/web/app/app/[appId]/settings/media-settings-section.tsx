@@ -15,22 +15,21 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { SettingsCard } from "@/components/settings-card";
 import {
-    SettingsActions,
     SettingsField,
     SettingsFieldset,
     SettingsStack,
+    SettingsStatus,
     settingsOptionClass,
 } from "@/components/settings-field";
+import { updateMediaSettings } from "@/app/actions";
 import {
-    updateMediaSettings,
+    HLS_RENDITIONS,
+    VIDEO_STREAMING_VALUES,
     type HlsRendition,
     type MediaSettings,
-    type MediaSettingsUpdate,
     type ProcessingMinutes,
     type VideoStreaming,
-} from "@/app/actions";
-
-const RENDITIONS: HlsRendition[] = ["1080p", "720p", "480p", "360p"];
+} from "@medialit/models";
 
 const STREAMING_LABELS: Record<VideoStreaming, string> = {
     hls: "HLS (adaptive streaming)",
@@ -38,21 +37,16 @@ const STREAMING_LABELS: Record<VideoStreaming, string> = {
     off: "Off",
 };
 
-/** Saves one card's changes. Each card sends only its own fields, and only
- * those the user changed. */
+/** Saves one card's fields. */
 function useSave(appId: string) {
     const router = useRouter();
     const [pending, setPending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
 
-    async function save(update: MediaSettingsUpdate) {
+    async function save(update: Partial<MediaSettings>) {
         setError(null);
         setSaved(false);
-        if (Object.keys(update).length === 0) {
-            setSaved(true);
-            return;
-        }
         setPending(true);
         const result = await updateMediaSettings(appId, update);
         setPending(false);
@@ -81,25 +75,7 @@ function SaveRow({
     message: string;
 }) {
     return (
-        <SettingsActions
-            status={
-                error ? (
-                    <span
-                        className="text-xs text-[color:var(--destructive)]"
-                        role="alert"
-                    >
-                        {error}
-                    </span>
-                ) : saved ? (
-                    <span
-                        className="text-xs text-[color:var(--success)]"
-                        role="status"
-                    >
-                        {message}
-                    </span>
-                ) : null
-            }
-        >
+        <div className="flex flex-wrap items-center gap-3">
             <button
                 type="submit"
                 className="workspace-button"
@@ -107,7 +83,8 @@ function SaveRow({
             >
                 {pending ? "Saving…" : "Save"}
             </button>
-        </SettingsActions>
+            <SettingsStatus error={error} success={saved && message} />
+        </div>
     );
 }
 
@@ -124,12 +101,7 @@ export function ImageOptimizationCard({
 
     function submit(event: FormEvent) {
         event.preventDefault();
-        const update: MediaSettingsUpdate = {};
-        if (useWebP !== settings.useWebP) update.useWebP = useWebP;
-        if (Number(quality) !== settings.webpOutputQuality) {
-            update.webpOutputQuality = Number(quality);
-        }
-        void save(update);
+        void save({ useWebP, webpOutputQuality: Number(quality) });
     }
 
     return (
@@ -213,22 +185,18 @@ export function VideoStreamingCard({
         setRenditions((current) =>
             current.includes(rendition)
                 ? current.filter((item) => item !== rendition)
-                : RENDITIONS.filter(
-                      (item) => item === rendition || current.includes(item),
-                  ),
+                : [...current, rendition],
         );
     }
 
     function submit(event: FormEvent) {
         event.preventDefault();
-        const update: MediaSettingsUpdate = {};
-        if (streaming !== settings.videoStreaming) {
-            update.videoStreaming = streaming;
-        }
-        if (renditions.join(",") !== settings.hlsRenditions.join(",")) {
-            update.hlsRenditions = renditions;
-        }
-        void save(update);
+        // Renditions are only sent with HLS, where at least one is required.
+        void save(
+            streaming === "hls"
+                ? { videoStreaming: streaming, hlsRenditions: renditions }
+                : { videoStreaming: streaming },
+        );
     }
 
     return (
@@ -268,9 +236,7 @@ export function VideoStreamingCard({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {(
-                                    ["off", "hls", "mp4"] as VideoStreaming[]
-                                ).map((value) => (
+                                {VIDEO_STREAMING_VALUES.map((value) => (
                                     <SelectItem key={value} value={value}>
                                         {STREAMING_LABELS[value]}
                                     </SelectItem>
@@ -284,7 +250,7 @@ export function VideoStreamingCard({
                             hint="Sizes larger than the video are skipped."
                         >
                             <div className="flex flex-wrap gap-x-5 gap-y-2">
-                                {RENDITIONS.map((rendition) => (
+                                {HLS_RENDITIONS.map((rendition) => (
                                     <div
                                         key={rendition}
                                         className="flex items-center gap-2"

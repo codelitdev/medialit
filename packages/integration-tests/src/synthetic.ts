@@ -17,9 +17,7 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { generatePng } from "./utils";
-
-type JsonObject = Record<string, unknown>;
+import { generatePng, type JsonObject, serverOptions } from "./utils";
 
 const GROUP_PREFIX = "__synthetic_";
 // Sealed synthetic-check files older than this are leftovers from runs that died.
@@ -38,25 +36,7 @@ export async function runSyntheticCheck(
         log?: (message: string) => void;
     } = {},
 ): Promise<SyntheticCheckResult> {
-    const apiKey = options.apiKey ?? process.env.MEDIALIT_APIKEY;
-    assert(
-        typeof apiKey === "string" && apiKey.trim(),
-        "MEDIALIT_APIKEY is required",
-    );
-    const server =
-        options.server ?? process.env.MEDIALIT_SERVER ?? "localhost:8000";
-    const base = new URL(
-        /^https?:\/\//i.test(server) ? server : `http://${server}`,
-    );
-    assert(
-        ["http:", "https:"].includes(base.protocol),
-        "MEDIALIT_SERVER must use HTTP or HTTPS",
-    );
-    assert(
-        !base.username && !base.password && !base.search && !base.hash,
-        "MEDIALIT_SERVER must be a base URL without credentials, query, or fragment",
-    );
-    base.pathname = `${base.pathname.replace(/\/+$/, "")}/`;
+    const { apiKey, base } = serverOptions(options);
     const heartbeatUrl =
         options.heartbeatUrl ?? process.env.MEDIALIT_SYNTHETIC_HEARTBEAT_URL;
     const log = options.log ?? console.log;

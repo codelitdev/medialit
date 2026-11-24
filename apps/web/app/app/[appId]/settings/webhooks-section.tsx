@@ -24,7 +24,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SettingsField, SettingsHint } from "@/components/settings-field";
+import {
+    SettingsField,
+    SettingsFieldset,
+    SettingsHint,
+    SettingsStatus,
+} from "@/components/settings-field";
 
 const EVENT_LABELS: Record<WebhookEvent, string> = {
     "media.processing.ready": "Processing finished",
@@ -259,22 +264,7 @@ function EndpointRow({
                     </button>
                 </SecretField>
             </SettingsField>
-            {feedback ? (
-                <p
-                    className="m-0 text-xs text-[color:var(--success)]"
-                    role="status"
-                >
-                    {feedback}
-                </p>
-            ) : null}
-            {error ? (
-                <p
-                    className="m-0 text-xs text-[color:var(--destructive)]"
-                    role="alert"
-                >
-                    {error}
-                </p>
-            ) : null}
+            <SettingsStatus error={error} success={feedback} />
         </li>
     );
 }
@@ -382,14 +372,7 @@ function SecretField({
                 </button>
                 {children}
             </div>
-            {error ? (
-                <p
-                    className="m-0 text-xs text-[color:var(--destructive)]"
-                    role="alert"
-                >
-                    {error}
-                </p>
-            ) : null}
+            <SettingsStatus error={error} />
         </div>
     );
 }
@@ -489,8 +472,7 @@ function EndpointDialog({
                     </>
                 ) : (
                     <form onSubmit={submit} className="grid gap-4">
-                        <div className="settings-field">
-                            <label htmlFor="webhook-url">URL</label>
+                        <SettingsField label="URL" htmlFor="webhook-url">
                             <input
                                 id="webhook-url"
                                 className="settings-input"
@@ -501,11 +483,8 @@ function EndpointDialog({
                                 placeholder="https://example.com/hooks/medialit"
                                 onChange={(event) => setUrl(event.target.value)}
                             />
-                        </div>
-                        <fieldset className="settings-field">
-                            <legend className="text-sm font-medium">
-                                Events
-                            </legend>
+                        </SettingsField>
+                        <SettingsFieldset legend="Events">
                             {events.map((item) => (
                                 <div
                                     key={item}
@@ -527,7 +506,7 @@ function EndpointDialog({
                                     </label>
                                 </div>
                             ))}
-                        </fieldset>
+                        </SettingsFieldset>
                         {error ? (
                             <p className="inline-error" role="alert">
                                 {error}

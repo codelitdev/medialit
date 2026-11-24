@@ -178,10 +178,8 @@ a {
 .workspace-rail-link:hover {
     background: var(--muted);
 }
-
 .workspace-app-avatar,
-.workspace-user-avatar,
-.app-card-mark {
+.workspace-user-avatar {
     display: grid;
     flex: none;
     place-items: center;
@@ -584,26 +582,6 @@ a {
     padding: 4px 9px;
 }
 
-.workspace-section-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin: 30px 0 13px;
-}
-
-.workspace-section-title h2 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 650;
-}
-
-.workspace-section-title p {
-    margin: 4px 0 0;
-    color: var(--muted-foreground);
-    font-size: 12px;
-}
-
 .workspace-mobile-sidebar-overlay {
     position: fixed;
     inset: 0;
@@ -806,63 +784,6 @@ a {
     color: var(--muted-foreground);
     font-size: 14px;
     line-height: 1.6;
-}
-
-.app-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.app-card {
-    display: flex;
-    align-items: center;
-    min-height: 116px;
-    gap: 13px;
-    padding: 17px;
-    border: 1px solid var(--border);
-    border-radius: 13px;
-    background: var(--card);
-    box-shadow: var(--shadow-card);
-    transition:
-        border-color 150ms ease,
-        transform 150ms ease;
-}
-
-.app-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--primary);
-}
-
-.app-card-mark {
-    width: 42px;
-    height: 42px;
-    border-radius: 11px;
-}
-
-.app-card-copy {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-width: 0;
-    gap: 7px;
-}
-
-.app-card-copy strong {
-    overflow: hidden;
-    font-size: 14px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.app-card-copy span {
-    color: var(--muted-foreground);
-    font-size: 12px;
-}
-
-.app-card-badges {
-    display: flex;
-    gap: 6px;
 }
 
 .apps-dashboard-heading {
@@ -1122,36 +1043,6 @@ a {
     padding: 18px 2px;
     color: var(--muted-foreground);
     font-size: 13px;
-}
-
-.empty-state {
-    display: grid;
-    min-height: 300px;
-    place-items: center;
-    padding: 36px;
-    border: 1px dashed var(--border);
-    border-radius: 14px;
-    background: color-mix(in oklch, var(--card), transparent 35%);
-    text-align: center;
-}
-
-.empty-state-icon {
-    width: 38px;
-    height: 38px;
-    margin: 0 auto 12px;
-    color: var(--primary);
-}
-
-.empty-state h2 {
-    margin: 0 0 6px;
-    font-size: 16px;
-}
-
-.empty-state p {
-    max-width: 360px;
-    margin: 0 auto 16px;
-    color: var(--muted-foreground);
-    line-height: 1.5;
 }
 
 .file-toolbar {
@@ -1780,22 +1671,12 @@ a {
     gap: 8px;
 }
 
-.file-empty-actions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
 .upload-control {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
 }
-
-.upload-control .inline-feedback,
 .upload-control .inline-error {
     margin: 0;
 }
@@ -2123,11 +2004,6 @@ a {
     font-size: 12px;
 }
 
-.settings-icon-control {
-    border: 1px solid var(--border);
-    background: var(--card);
-}
-
 .billing-oss-card {
     display: flex;
     align-items: flex-start;
@@ -2216,9 +2092,7 @@ a {
     font-size: 18px;
     font-weight: 650;
 }
-
-.storage-value-row span,
-.storage-hint {
+.storage-value-row span {
     color: var(--muted-foreground);
     font-size: 12px;
 }
@@ -2566,12 +2440,6 @@ a {
     color: var(--destructive-foreground);
 }
 
-.inline-feedback {
-    margin-top: 10px;
-    color: var(--success);
-    font-size: 12px;
-}
-
 .loading-state {
     display: flex;
     align-items: center;
@@ -2607,10 +2475,6 @@ a {
 @media (max-width: 1000px) {
     .file-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .app-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .apps-stats-grid {
@@ -2746,10 +2610,6 @@ a {
     .public-links a[href="/terms"],
     .public-links a[href="/privacy"] {
         display: none;
-    }
-
-    .app-grid {
-        grid-template-columns: 1fr;
     }
 
     .workspace-page-heading h1 {

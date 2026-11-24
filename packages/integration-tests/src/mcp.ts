@@ -13,11 +13,15 @@ import {
     checkProcessing,
     checkWebhooks,
     generatePng,
-    WebhookRefused,
+    integer,
+    type JsonObject,
+    object,
+    serverOptions,
+    text,
     type WebhookClient,
+    WebhookRefused,
 } from "./utils";
 
-type JsonObject = Record<string, unknown>;
 type MediaSettings = JsonObject & {
     useWebP: boolean;
     webpOutputQuality: number;
@@ -46,30 +50,6 @@ const EXPECTED_MCP_TOOLS = [
     "upload_media",
     "whoami",
 ].sort();
-
-function object(value: unknown, label = "value"): JsonObject {
-    assert(
-        value && typeof value === "object" && !Array.isArray(value),
-        `Expected ${label} to be a JSON object`,
-    );
-    return value as JsonObject;
-}
-
-function nonemptyText(value: unknown, label: string): string {
-    assert(
-        typeof value === "string" && value.length > 0,
-        `${label} must be a nonempty string`,
-    );
-    return value;
-}
-
-function integer(value: unknown, label: string): number {
-    assert(
-        typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
-        `${label} must be a nonnegative integer`,
-    );
-    return value;
-}
 
 function mediaSettings(value: unknown): MediaSettings {
     const settings = object(value, "media settings");
@@ -165,7 +145,7 @@ class McpClient {
             "MCP initialize returned an error",
         );
         const result = object(response.result, "initialize result");
-        this.protocolVersion = nonemptyText(
+        this.protocolVersion = text(
             result.protocolVersion,
             "MCP protocol version",
         );
@@ -228,7 +208,7 @@ export async function runMcpIntegrationTests(
         log?: (message: string) => void;
     } = {},
 ): Promise<void> {
-    const apiKey = options.apiKey ?? process.env.MEDIALIT_APIKEY;
+    const { apiKey, base } = serverOptions(options);
     const expectedMaxStorage =
         options.expectedMaxStorage ??
         (process.env.MEDIALIT_EXPECTED_MAX_STORAGE
@@ -240,24 +220,6 @@ export async function runMcpIntegrationTests(
                 expectedMaxStorage > 0),
         "MEDIALIT_EXPECTED_MAX_STORAGE must be a positive integer",
     );
-    assert(
-        typeof apiKey === "string" && apiKey.trim(),
-        "MEDIALIT_APIKEY is required",
-    );
-    const server =
-        options.server ?? process.env.MEDIALIT_SERVER ?? "localhost:8000";
-    const base = new URL(
-        /^https?:\/\//i.test(server) ? server : `http://${server}`,
-    );
-    assert(
-        ["http:", "https:"].includes(base.protocol),
-        "MEDIALIT_SERVER must use HTTP or HTTPS",
-    );
-    assert(
-        !base.username && !base.password && !base.search && !base.hash,
-        "MEDIALIT_SERVER must be a base URL without credentials, query, or fragment",
-    );
-    base.pathname = `${base.pathname.replace(/\/+$/, "")}/`;
     const endpoint = new URL("mcp", base);
     const log = options.log ?? console.log;
     const group = `__mcp_integration_${randomUUID()}`;
@@ -355,10 +317,10 @@ export async function runMcpIntegrationTests(
     async function checkWhoami(expected: Stats & { files: number }) {
         const result = await client.callTool("whoami");
         assert.equal(result.auth, "apikey");
-        nonemptyText(result.email, "whoami email");
+        text(result.email, "whoami email");
         const app = object(result.app, "whoami app");
-        nonemptyText(app.id, "whoami app id");
-        nonemptyText(app.name, "whoami app name");
+        text(app.id, "whoami app id");
+        text(app.name, "whoami app name");
         assert.equal(typeof app.default, "boolean");
         assert.equal(
             JSON.stringify(result).includes(apiKey!),
@@ -436,7 +398,7 @@ export async function runMcpIntegrationTests(
         );
         const toolNames = new Set(
             listedTools.tools.map((tool) =>
-                nonemptyText(object(tool).name, "tool name"),
+                text(object(tool).name, "tool name"),
             ),
         );
         assert.deepEqual(
@@ -476,8 +438,7 @@ export async function runMcpIntegrationTests(
         await restoreMediaSettings();
         log("PASS get_media_settings and update_media_settings round trip");
 
-        // Video settings: chosen values, refused values, and null setting
-        // the renditions back to the default sizes.
+        // Video settings round trip; the REST suite covers the checks.
         const videoBefore = await client.callTool("get_media_settings");
         try {
             await client.callTool("update_media_settings", {
@@ -487,22 +448,6 @@ export async function runMcpIntegrationTests(
             const video = await client.callTool("get_media_settings");
             assert.equal(video.videoStreaming, "hls");
             assert.deepEqual(video.hlsRenditions, ["720p", "480p"]);
-            const refused = await client.callToolResult(
-                "update_media_settings",
-                { hlsRenditions: ["4k"] },
-            );
-            assert.equal(refused.isError, true, "4k was accepted");
-            const noDefault = await client.callToolResult(
-                "update_media_settings",
-                { videoStreaming: null },
-            );
-            assert.equal(noDefault.isError, true, "null was accepted");
-            await client.callTool("update_media_settings", {
-                hlsRenditions: null,
-            });
-            const reset = await client.callTool("get_media_settings");
-            assert.equal(reset.videoStreaming, "hls");
-            assert.deepEqual(reset.hlsRenditions, ["1080p", "720p", "480p"]);
         } finally {
             await client.callTool("update_media_settings", {
                 videoStreaming: videoBefore.videoStreaming,
@@ -538,7 +483,7 @@ export async function runMcpIntegrationTests(
         const signed = await client.callTool("create_upload_signature", {
             group,
         });
-        const signature = nonemptyText(signed.signature, "signature");
+        const signature = text(signed.signature, "signature");
         uploadAttempted = true;
         const signedFilename = `${group}-signed.png`;
         const signedCaption = `${group}: signed upload`;
@@ -547,7 +492,7 @@ export async function runMcpIntegrationTests(
             signedFilename,
             signedCaption,
         );
-        const signedMediaId = nonemptyText(
+        const signedMediaId = text(
             signedUpload.mediaId,
             "signed upload mediaId",
         );
@@ -592,7 +537,7 @@ export async function runMcpIntegrationTests(
             access: "private",
             group,
         });
-        const mediaId = nonemptyText(uploaded.mediaId, "mediaId");
+        const mediaId = text(uploaded.mediaId, "mediaId");
         pending.add(mediaId);
         assert.equal(uploaded.originalFileName, filename);
         assert.equal(uploaded.size, png.length);

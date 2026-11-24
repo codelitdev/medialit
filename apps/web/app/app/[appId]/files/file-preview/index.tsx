@@ -57,16 +57,15 @@ export function FileTypeIcon({ mimeType }: { mimeType: string }) {
    cannot render inline, it falls back to the thumbnail or a type icon. */
 function FilePreviewMedia({
     media,
-    fileUrl,
     loadError,
     playable,
 }: {
     media: MediaListItem;
-    fileUrl: string;
     loadError: boolean;
     playable?: PlayableMedia;
 }) {
-    if (!fileUrl && !loadError) {
+    const fileUrl = playable?.file;
+    if (!playable && !loadError) {
         return (
             <span className="file-dialog-loading" role="status">
                 <Loader product="medialit" size={96} />
@@ -75,7 +74,7 @@ function FilePreviewMedia({
         );
     }
 
-    if (fileUrl) {
+    if (playable && fileUrl) {
         if (media.mimeType.startsWith("image/")) {
             return (
                 <Image
@@ -90,10 +89,7 @@ function FilePreviewMedia({
         if (media.mimeType.startsWith("video/")) {
             // HLS or the web MP4 when the app makes them, else the original.
             return (
-                <MediaLitVideo
-                    className="file-dialog-media"
-                    media={playable ?? { file: fileUrl }}
-                />
+                <MediaLitVideo className="file-dialog-media" media={playable} />
             );
         }
         if (media.mimeType.startsWith("audio/")) {
@@ -148,7 +144,8 @@ function FileDetailsContent({
     expanded: boolean;
     onExpandedChange: (expanded: boolean) => void;
 }) {
-    const { url, error, playable } = useFileUrl(appId, media.mediaId);
+    const { media: playable, error } = useFileUrl(appId, media.mediaId);
+    const url = playable?.file ?? "";
     const kind = kindLabels[media.kind];
     const fileLabel =
         media.originalFileName.split(".").at(-1)?.toUpperCase() || kind;
@@ -179,7 +176,6 @@ function FileDetailsContent({
                     <>
                         <FilePreviewMedia
                             media={media}
-                            fileUrl={url}
                             loadError={error}
                             playable={playable}
                         />

@@ -4,12 +4,8 @@ export type {
     MediaLitUploaderProps,
 } from "./medialit-uploader";
 export { useMediaLitUpload } from "./use-medialit-upload";
-export { MediaLitVideo, videoSources } from "./medialit-video";
-export type {
-    MediaLitVideoProps,
-    PlayableMedia,
-    VideoSource,
-} from "./medialit-video";
+export { MediaLitVideo } from "./medialit-video";
+export type { MediaLitVideoProps, PlayableMedia } from "./medialit-video";
 export type {
     UploadState,
     UploadStatus,

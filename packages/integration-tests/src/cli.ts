@@ -26,12 +26,15 @@ import {
     checkProcessing,
     checkWebhooks,
     generatePng,
+    integer,
+    type JsonObject,
+    object,
     retryRateLimited,
-    WebhookRefused,
+    serverOptions,
+    text,
     type WebhookClient,
+    WebhookRefused,
 } from "./utils";
-
-type JsonObject = Record<string, unknown>;
 
 interface Stats {
     files: number;
@@ -67,30 +70,6 @@ const EXPECTED_CLI_COMMANDS = [
 
 const CLI_PACKAGE = fileURLToPath(new URL("../../cli/", import.meta.url));
 
-function object(value: unknown, label = "value"): JsonObject {
-    assert(
-        value && typeof value === "object" && !Array.isArray(value),
-        `Expected ${label} to be a JSON object`,
-    );
-    return value as JsonObject;
-}
-
-function nonemptyText(value: unknown, label: string): string {
-    assert(
-        typeof value === "string" && value.length > 0,
-        `${label} must be a nonempty string`,
-    );
-    return value;
-}
-
-function integer(value: unknown, label: string): number {
-    assert(
-        typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
-        `${label} must be a nonnegative integer`,
-    );
-    return value;
-}
-
 export async function runCliIntegrationTests(
     options: {
         apiKey?: string;
@@ -100,24 +79,7 @@ export async function runCliIntegrationTests(
         log?: (message: string) => void;
     } = {},
 ): Promise<void> {
-    const apiKey = options.apiKey ?? process.env.MEDIALIT_APIKEY;
-    assert(
-        typeof apiKey === "string" && apiKey.trim(),
-        "MEDIALIT_APIKEY is required",
-    );
-    const server =
-        options.server ?? process.env.MEDIALIT_SERVER ?? "localhost:8000";
-    const base = new URL(
-        /^https?:\/\//i.test(server) ? server : `http://${server}`,
-    );
-    assert(
-        ["http:", "https:"].includes(base.protocol),
-        "MEDIALIT_SERVER must use HTTP or HTTPS",
-    );
-    assert(
-        !base.username && !base.password && !base.search && !base.hash,
-        "MEDIALIT_SERVER must be a base URL without credentials, query, or fragment",
-    );
+    const { apiKey, base } = serverOptions(options);
     const endpoint = `${base.origin}${base.pathname.replace(/\/+$/, "")}`;
     const cli = options.cli ?? process.env.MEDIALIT_CLI;
     const builtCli = join(CLI_PACKAGE, "dist", "index.mjs");
@@ -291,14 +253,14 @@ export async function runCliIntegrationTests(
         media: JsonObject,
         expected: { name: string; access: string; caption?: string },
     ): string {
-        const mediaId = nonemptyText(media.mediaId, "mediaId");
+        const mediaId = text(media.mediaId, "mediaId");
         assert.equal(media.originalFileName, expected.name);
         assert.equal(media.mimeType, "image/png");
         assert.equal(media.size, png.length);
         assert.equal(media.access, expected.access);
         assert.equal(media.group, group);
         if (expected.caption) assert.equal(media.caption, expected.caption);
-        nonemptyText(media.file, "file URL");
+        text(media.file, "file URL");
         return mediaId;
     }
 
@@ -474,7 +436,7 @@ export async function runCliIntegrationTests(
             const line = human.stderr
                 .split("\n")
                 .find((entry) => entry.startsWith(`${name}  `));
-            return nonemptyText(line?.split(/\s+/)[1], `${name} mediaId`);
+            return text(line?.split(/\s+/)[1], `${name} mediaId`);
         });
         publicIds.forEach((id) => pending.add(id));
         for (const url of urls) assert.deepEqual(await download(url), png);
@@ -570,13 +532,10 @@ export async function runCliIntegrationTests(
                 /Video streaming: mp4\nHLS renditions: {2}1080p, 480p/,
             );
             await fails(["settings", "set"], /Pass --video-streaming/);
+            // The server checks the values; its error reaches the user.
             await fails(
                 ["settings", "set", "--video-streaming", "dash"],
-                /off, hls or mp4/,
-            );
-            await fails(
-                ["settings", "set", "--hls-renditions", "4k"],
-                /Unknown rendition|must be one of|hlsRenditions/,
+                /videoStreaming|must be one of/,
             );
             const reset = object(
                 await json(["settings", "set", "--hls-renditions", "default"]),
@@ -703,7 +662,7 @@ export async function runCliIntegrationTests(
                 url.searchParams.get("redirect_uri") ?? "",
                 /^http:\/\/127\.0\.0\.1:\d+\/callback$/,
             );
-            nonemptyText(url.searchParams.get("client_id"), "client_id");
+            text(url.searchParams.get("client_id"), "client_id");
 
             const response = await fetch(url, {
                 redirect: "manual",
@@ -714,7 +673,7 @@ export async function runCliIntegrationTests(
                 `The authorize URL must redirect to sign-in, got ${response.status}`,
             );
             const location = new URL(
-                nonemptyText(response.headers.get("location"), "Location"),
+                text(response.headers.get("location"), "Location"),
                 url,
             );
             assert.doesNotMatch(

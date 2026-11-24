@@ -1,6 +1,6 @@
 "use client";
 
-import { SettingsField } from "@/components/settings-field";
+import { SettingsField, SettingsStatus } from "@/components/settings-field";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -43,22 +43,10 @@ export default function UpdateSettingsForm({
                 <input name="appId" value={appId} type="hidden" readOnly />
                 <SubmitButton />
             </form>
-            {state.error ? (
-                <p
-                    className="m-0 text-xs text-[color:var(--destructive)]"
-                    role="alert"
-                >
-                    {String(state.error)}
-                </p>
-            ) : null}
-            {state.success ? (
-                <p
-                    className="m-0 text-xs text-[color:var(--success)]"
-                    role="status"
-                >
-                    App name saved.
-                </p>
-            ) : null}
+            <SettingsStatus
+                error={state.error}
+                success={state.success && "App name saved."}
+            />
         </SettingsField>
     );
 }

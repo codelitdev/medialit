@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,23 +11,20 @@ export function SettingsCard({
     title,
     description,
     tone = "default",
-    className,
     children,
-    ...props
-}: Omit<ComponentPropsWithoutRef<"section">, "title"> & {
+}: {
     icon: ReactNode;
     title: ReactNode;
     description?: ReactNode;
     tone?: "default" | "danger";
+    children: ReactNode;
 }) {
     return (
         <section
             className={cn(
                 "settings-card",
                 tone === "danger" && "settings-card-danger",
-                className,
             )}
-            {...props}
         >
             <div className="flex items-center gap-3">
                 <span

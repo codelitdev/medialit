@@ -28,17 +28,7 @@ describe("medialit settings set", () => {
         });
     });
 
-    test("refuses values the server would refuse", () => {
-        assert.throws(
-            () => settingsUpdate({ videoStreaming: "dash" }),
-            /off, hls or mp4/,
-        );
-        assert.throws(
-            () => settingsUpdate({ videoStreaming: "default" }),
-            /off, hls or mp4/,
-        );
+    test("--webp takes on or off", () => {
         assert.throws(() => settingsUpdate({ webp: "yes" }), /on or off/);
-        assert.throws(() => settingsUpdate({ webpQuality: "101" }), /1 to 100/);
-        assert.throws(() => settingsUpdate({ webpQuality: "0" }), /1 to 100/);
     });
 });
