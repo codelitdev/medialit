@@ -276,7 +276,15 @@ export function VideoStreamingCard({
                                 ? "Follows this server’s default. "
                                 : "Follows your plan, so it changes if your plan does. "
                             : ""}
-                        Applies to videos sealed after you save.
+                        Applies to videos sealed after you save.{" "}
+                        <a
+                            href="https://medialit.cloud/docs/concepts#video-streaming"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary underline-offset-2 hover:underline"
+                        >
+                            About the formats and the default
+                        </a>
                     </p>
                 </div>
                 {effective === "hls" ? (
