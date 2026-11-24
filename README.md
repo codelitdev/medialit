@@ -79,6 +79,82 @@ Connect an AI agent: add `https://api.medialit.cloud/mcp` as a remote MCP server
 
 See the [docs](https://medialit.cloud/docs) for the full guides, the [REST API](https://medialit.cloud/docs/api/upload-media) and [self-hosting](https://medialit.cloud/docs/self-hosting).
 
+## How it works
+
+### The pieces
+
+The API owns all product behavior. Every client, including the dashboard, goes through it. The worker runs the slow work in the background: it picks up jobs the API queues in PostgreSQL, so uploads and seals return quickly.
+
+```mermaid
+flowchart TB
+    subgraph clients["Clients"]
+        direction LR
+        browser["Your web app<br/>@medialit/react"]
+        server["Your server<br/>medialit SDK"]
+        agent["AI agents<br/>MCP"]
+        cli["medialit CLI"]
+        web["Dashboard<br/>apps/web"]
+    end
+
+    api["API<br/>apps/api"]
+    db[("PostgreSQL<br/>media, settings, job queue")]
+    worker["Worker<br/>apps/api"]
+
+    subgraph storage["S3-compatible storage"]
+        direction LR
+        private[("Private bucket")]
+        public[("Public bucket / CDN")]
+    end
+
+    hook["Your webhook endpoint"]
+
+    clients -- "REST, MCP, signed uploads" --> api
+    api -- "media records, queued jobs" --> db
+    api -- "uploads, thumbnails, WebP" --> storage
+    db -- "new jobs" --> worker
+    worker -- "posters, MP4, HLS, publishing" --> storage
+    worker -- "signed webhooks" --> hook
+```
+
+Browsers and players load public files straight from the public bucket or your CDN, and private files through short-lived signed links.
+
+### Uploading a file
+
+Your server never handles the bytes, and your API key never reaches the browser. An upload is temporary until your server seals it; unsealed uploads are deleted.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser<br/>(MediaLitUploader)
+    participant S as Your server<br/>(medialit SDK)
+    participant A as MediaLit API
+    participant Q as PostgreSQL<br/>(job queue)
+    participant W as Worker
+    participant St as Storage
+
+    B->>S: Ask for an upload signature
+    S->>A: Create a signature (API key)
+    A-->>S: Short-lived signature
+    S-->>B: Signature
+    B->>A: Upload the file with the signature<br/>(form data, or resumable chunks)
+    A->>St: Stream the file to the private bucket
+    A->>St: Save a thumbnail
+    A-->>B: mediaId, temporary
+    B->>S: Here is the mediaId
+    S->>A: Seal mediaId (API key)
+    A->>A: Read metadata, convert to WebP if the app asks
+    A->>Q: Queue jobs: publish, video poster, MP4 or HLS
+    A-->>S: Media, processing
+    Q-->>W: New jobs
+    W->>St: Make posters and video, publish public files
+    W->>Q: Mark the media ready
+    W->>S: Webhook: media.processing.ready
+    S->>A: Get media
+    A-->>S: Media with URLs for each derivative
+    S-->>B: Media
+    Note over B: Show it with MediaLitVideo<br/>or an img tag
+```
+
 ## Packages
 
 | Package                                                     | Description                                                 | Version                                                                                                                       |
