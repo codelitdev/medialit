@@ -38,33 +38,27 @@ import { makeWorkDir, removeWorkDir } from "./work-files";
 import { originalLocation } from "./poster";
 import { probeMedia, type ProbeResult } from "./probe";
 import { VIDEO_ENCODE_ATTEMPTS } from "./processing-plan";
-
-function positiveFromEnv(name: string, fallback: number): number {
-    const value = Number(process.env[name]);
-    return process.env[name] && Number.isFinite(value) && value > 0
-        ? value
-        : fallback;
-}
+import { numberFromEnv } from "../config/env";
 
 /** Limits, read on each job so tests can change them. */
 export function videoLimits() {
     return {
-        maxSourceBytes: positiveFromEnv(
+        maxSourceBytes: numberFromEnv(
             "VIDEO_MAX_SOURCE_BYTES",
             1024 * 1024 * 1024,
         ),
-        maxDurationSeconds: positiveFromEnv("VIDEO_MAX_DURATION_SECONDS", 7200),
+        maxDurationSeconds: numberFromEnv("VIDEO_MAX_DURATION_SECONDS", 7200),
         /** Address space ffmpeg may reserve (`prlimit --as`): a guard
          * against a decoder that runs away, not a cap on memory in use.
          * x264 reserves far more than it uses; at 2 threads, a 4K source
          * reserves under 3 GB and uses about 0.5 GB. */
-        maxMemoryMb: positiveFromEnv("VIDEO_MAX_MEMORY_MB", 3072),
+        maxMemoryMb: numberFromEnv("VIDEO_MAX_MEMORY_MB", 3072),
         /** Encoder and decoder threads. Match the worker's CPUs: more only
          * reserve more memory. */
-        threads: Math.floor(positiveFromEnv("VIDEO_ENCODE_THREADS", 2)),
+        threads: Math.floor(numberFromEnv("VIDEO_ENCODE_THREADS", 2)),
         /** Temp disk one encode may use: the source plus the output. The
          * worker's ephemeral storage must be larger. */
-        maxWorkBytes: positiveFromEnv(
+        maxWorkBytes: numberFromEnv(
             "VIDEO_MAX_WORK_BYTES",
             10 * 1024 * 1024 * 1024,
         ),

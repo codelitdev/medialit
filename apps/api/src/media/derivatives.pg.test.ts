@@ -13,7 +13,11 @@ import {
     totalMediaSize,
     upsertDerivative,
 } from "@/db";
-import { sealForTests } from "../db/seal-for-tests.js";
+import {
+    createOwner as owner,
+    createProcessingMedia as processingMedia,
+    sealForTests,
+} from "../db/test-records.js";
 import type { AppDb } from "../db/client.js";
 import type { JobRow } from "../jobs/queue.js";
 import { permanentError, retryableError } from "../jobs/errors.js";
@@ -60,38 +64,6 @@ before(async () => {
 after(async () => {
     await pgTest?.drop();
 });
-
-async function owner() {
-    const user = await createAccount({
-        email: `derivatives-${Date.now()}-${Math.random()}@example.com`,
-    });
-    const app = await createApp({
-        userId: user.id,
-        name: `App ${Math.random()}`,
-    });
-    return { user, app };
-}
-
-/** Sealed media whose processing is under way. */
-async function processingMedia(
-    options: { access?: "public" | "private"; size?: number } = {},
-) {
-    const { user, app } = await owner();
-    const record = await createMediaRecord({
-        fileName: "main.mp4",
-        mediaId: `media-${Math.random().toString(36).slice(2)}`,
-        userId: user.id,
-        appId: app.id,
-        originalFileName: "a.mp4",
-        mimeType: "video/mp4",
-        size: options.size ?? 10,
-        thumbnailGenerated: false,
-        accessControl: options.access ?? "private",
-        temp: false,
-        processingStatus: "processing",
-    });
-    return { user, app, media: record };
-}
 
 async function mediaStatus(id: string) {
     const result = await db.execute(

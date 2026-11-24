@@ -37,6 +37,7 @@ import {
 import * as schema from "../db/schema/index.js";
 import type { AppDb } from "../db/client.js";
 import { makeTestVideo } from "./test-video.js";
+import { waitFor } from "../db/test-records.js";
 
 const realCwebp = findExecutable("cwebp");
 const realFfmpeg = findExecutable("ffmpeg");
@@ -94,14 +95,6 @@ function alive(pid: number): boolean {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function waitFor(check: () => Promise<boolean>, ms = 10_000) {
-    const deadline = Date.now() + ms;
-    while (!(await check())) {
-        if (Date.now() > deadline) throw new Error("Timed out waiting");
-        await sleep(25);
-    }
-}
 
 before(async () => {
     if (skip) return;

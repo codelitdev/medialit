@@ -4,20 +4,15 @@
  * Each app chooses for itself: there is no account-wide default, and an app
  * that never chose is `off`.
  */
-import type { VideoStreaming } from "../db/schema";
+import {
+    HLS_RENDITIONS,
+    VIDEO_STREAMING_VALUES,
+    type HlsRendition,
+    type VideoStreaming,
+} from "@medialit/models";
 
-export type { VideoStreaming };
-
-export const VIDEO_STREAMING_VALUES = [
-    "off",
-    "hls",
-    "mp4",
-] as const satisfies readonly VideoStreaming[];
-
-/** The renditions users can choose, largest first. 1440p and 2160p wait for
- * bigger workers. */
-export const HLS_RENDITIONS = ["1080p", "720p", "480p", "360p"] as const;
-export type HlsRendition = (typeof HLS_RENDITIONS)[number];
+export { HLS_RENDITIONS, VIDEO_STREAMING_VALUES };
+export type { HlsRendition, VideoStreaming };
 
 export const DEFAULT_HLS_RENDITIONS: readonly HlsRendition[] = [
     "1080p",

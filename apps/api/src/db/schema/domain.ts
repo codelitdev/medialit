@@ -11,7 +11,11 @@ import {
     uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import type { MediaMetadata, ProcessingStatus } from "@medialit/models";
+import type {
+    MediaMetadata,
+    ProcessingStatus,
+    VideoStreaming,
+} from "@medialit/models";
 import { session, user } from "./auth.generated";
 
 export type { MediaMetadata, ProcessingStatus };
@@ -180,7 +184,7 @@ export const mediaSettings = pgTable("media_settings", {
     hlsRenditions: text("hls_renditions").array(),
 });
 
-export type VideoStreaming = "off" | "hls" | "mp4";
+export type { VideoStreaming };
 
 /**
  * Processing minutes an account used (pipelines-phase-1.md, D8). One row per

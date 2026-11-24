@@ -39,13 +39,19 @@ import {
 } from "../billing/entitlements";
 import { effectiveVideoSettings } from "../media-settings/video";
 import { planProcessing } from "./processing-plan";
-import { getMediaSettings } from "../media-settings/queries";
 import { recordWebpBusy } from "../operations/checks";
-import { claimSeal, commitSeal, releaseSealClaim, renewSealClaim } from "@/db";
+import {
+    claimSeal,
+    commitSeal,
+    getMediaSettingsRecord,
+    releaseSealClaim,
+    renewSealClaim,
+} from "@/db";
 import { afterSealCommit } from "./derivatives";
 import { getMedia, getTotalSpace } from "./queries";
 import generateKey from "./utils/generate-key";
 import { webpLimits, webpSlots } from "./webp-limits";
+import { numberFromEnv } from "../config/env";
 
 /** Thrown when another request holds the seal and didn't finish within
  * `SEAL_WAIT_MS`. The first seal still completes; retrying returns it. */
@@ -61,16 +67,11 @@ export interface SealConfig {
     pollMs: number;
 }
 
-function positive(value: string | undefined, fallback: number): number {
-    const parsed = Number(value);
-    return value && Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
 /** `SEAL_CLAIM_MS` (120 s) and `SEAL_WAIT_MS` (15 s), read on each seal. */
 export function sealConfig(): SealConfig {
     return {
-        claimMs: positive(process.env.SEAL_CLAIM_MS, 120_000),
-        waitMs: positive(process.env.SEAL_WAIT_MS, 15_000),
+        claimMs: numberFromEnv("SEAL_CLAIM_MS", 120_000),
+        waitMs: numberFromEnv("SEAL_WAIT_MS", 15_000),
         pollMs: 250,
     };
 }
@@ -273,7 +274,7 @@ async function runSeal(
 
     try {
         await sealHooks.afterClaim?.(token);
-        const settings = await getMediaSettings(userId, appId);
+        const settings = await getMediaSettingsRecord(userId, appId);
         const tags = await sourceTags(privateMain);
 
         // Step 2: convert to this attempt's own key.

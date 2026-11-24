@@ -39,6 +39,7 @@ import {
     testPostgresUrl,
     type TestPostgres,
 } from "./test-postgres.js";
+import { waitFor } from "../db/test-records.js";
 
 const skip = testPostgresUrl
     ? false
@@ -113,19 +114,6 @@ function quietLogger() {
         error: log("error"),
     };
     return { logger, lines };
-}
-
-async function waitFor<T>(
-    check: () => Promise<T | undefined | null | false>,
-    timeoutMs = 10_000,
-): Promise<T> {
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-        const value = await check();
-        if (value) return value;
-        if (Date.now() > deadline) throw new Error("timed out waiting");
-        await new Promise((resolve) => setTimeout(resolve, 50));
-    }
 }
 
 describe("job queue (Postgres)", { skip }, () => {

@@ -15,24 +15,24 @@ import { getDb, type Executor } from "@/db";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
 import type { AccountPlan } from "./entitlements";
+import { numberFromEnv } from "../config/env";
 
 export const DEFAULT_FREE_MINUTES = 5;
 export const DEFAULT_PAID_MINUTES = 300;
-
-function minutesFromEnv(name: string, fallback: number): number {
-    const value = Number(process.env[name]);
-    return process.env[name] && Number.isFinite(value) && value >= 0
-        ? Math.floor(value)
-        : fallback;
-}
 
 /** The monthly allowance, or null for no limit (self-hosted). Read on each
  * call, so a changed setting applies without a restart in tests. */
 export function minutesAllowedFor(plan: AccountPlan): number | null {
     if (plan === "oss") return null;
-    return plan === "pro"
-        ? minutesFromEnv("PROCESSING_MINUTES_PAID", DEFAULT_PAID_MINUTES)
-        : minutesFromEnv("PROCESSING_MINUTES_FREE", DEFAULT_FREE_MINUTES);
+    const allowed =
+        plan === "pro"
+            ? numberFromEnv("PROCESSING_MINUTES_PAID", DEFAULT_PAID_MINUTES, {
+                  allowZero: true,
+              })
+            : numberFromEnv("PROCESSING_MINUTES_FREE", DEFAULT_FREE_MINUTES, {
+                  allowZero: true,
+              });
+    return Math.floor(allowed);
 }
 
 /** Whole minutes for a source of this length; at least one. */

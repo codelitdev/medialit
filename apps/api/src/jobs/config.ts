@@ -1,6 +1,7 @@
 import { availableParallelism, hostname } from "node:os";
 import { randomBytes } from "node:crypto";
 import { JOB_CLASSES, type JobClass } from "./runner";
+import { wholeNumberSetting } from "../config/env";
 
 export type WorkerConfig = {
     port: number;
@@ -8,32 +9,6 @@ export type WorkerConfig = {
     concurrency: Record<JobClass, number>;
     shutdownGraceMs: number;
 };
-
-function positiveInt(
-    name: string,
-    value: string | undefined,
-    fallback: number,
-) {
-    if (value === undefined || value.trim() === "") return fallback;
-    const parsed = Number(value);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-        throw new Error(`${name} must be a positive whole number`);
-    }
-    return parsed;
-}
-
-function nonNegativeInt(
-    name: string,
-    value: string | undefined,
-    fallback: number,
-) {
-    if (value === undefined || value.trim() === "") return fallback;
-    const parsed = Number(value);
-    if (!Number.isInteger(parsed) || parsed < 0) {
-        throw new Error(`${name} must be a whole number of at least 0`);
-    }
-    return parsed;
-}
 
 export function workerConfig(
     env: NodeJS.ProcessEnv = process.env,
@@ -54,30 +29,23 @@ export function workerConfig(
         classes = [...new Set(listed)] as JobClass[];
     }
     return {
-        port: positiveInt("WORKER_PORT", env.WORKER_PORT, 8001),
+        port: wholeNumberSetting(env, "WORKER_PORT", 8001),
         classes,
         concurrency: {
-            cpu: positiveInt(
+            cpu: wholeNumberSetting(
+                env,
                 "WORKER_CONCURRENCY_CPU",
-                env.WORKER_CONCURRENCY_CPU,
                 availableParallelism(),
             ),
-            io: positiveInt(
-                "WORKER_CONCURRENCY_IO",
-                env.WORKER_CONCURRENCY_IO,
-                16,
-            ),
+            io: wholeNumberSetting(env, "WORKER_CONCURRENCY_IO", 16),
             // One encode at a time by default: ffmpeg uses every core.
-            video: positiveInt(
-                "WORKER_CONCURRENCY_VIDEO",
-                env.WORKER_CONCURRENCY_VIDEO,
-                1,
-            ),
+            video: wholeNumberSetting(env, "WORKER_CONCURRENCY_VIDEO", 1),
         },
-        shutdownGraceMs: nonNegativeInt(
+        shutdownGraceMs: wholeNumberSetting(
+            env,
             "WORKER_SHUTDOWN_GRACE_MS",
-            env.WORKER_SHUTDOWN_GRACE_MS,
             8_000,
+            0,
         ),
     };
 }

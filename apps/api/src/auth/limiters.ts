@@ -1,23 +1,8 @@
 import rateLimit from "express-rate-limit";
+import { wholeNumberSetting } from "../config/env";
 
 const DEFAULT_REQUESTS_PER_MINUTE = 120;
 const DEFAULT_MCP_REQUESTS_PER_MINUTE = 60;
-
-function requestsPerMinute(
-    env: NodeJS.ProcessEnv,
-    name: string,
-    fallback: number,
-): number {
-    const value = env[name];
-    if (value === undefined || value.trim() === "") {
-        return fallback;
-    }
-    const parsed = Number(value);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-        throw new Error(`${name} must be a positive whole number`);
-    }
-    return parsed;
-}
 
 /** Requests per minute per client for API-key and OAuth REST calls. The
  * integration stack raises it, because its suites make hundreds of calls
@@ -25,7 +10,7 @@ function requestsPerMinute(
 export function apiRequestsPerMinute(
     env: NodeJS.ProcessEnv = process.env,
 ): number {
-    return requestsPerMinute(
+    return wholeNumberSetting(
         env,
         "API_RATE_LIMIT_PER_MINUTE",
         DEFAULT_REQUESTS_PER_MINUTE,
@@ -37,7 +22,7 @@ export function apiRequestsPerMinute(
 export function mcpRequestsPerMinute(
     env: NodeJS.ProcessEnv = process.env,
 ): number {
-    return requestsPerMinute(
+    return wholeNumberSetting(
         env,
         "MCP_RATE_LIMIT_PER_MINUTE",
         DEFAULT_MCP_REQUESTS_PER_MINUTE,

@@ -15,13 +15,6 @@ export interface UpdateMediaSettingsProps {
     hlsRenditions?: string[] | null;
 }
 
-export async function getMediaSettings(
-    userId: string,
-    appId: string,
-): Promise<MediaSettings | null> {
-    return getMediaSettingsRecord(userId, appId);
-}
-
 /**
  * The one write path for media settings (REST, MCP, CLI and the dashboard),
  * which validate the fields first. Renditions are deduplicated and sorted

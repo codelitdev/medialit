@@ -40,7 +40,7 @@ import {
     syncBootstrapApiKey,
     touchApiKeyLastUsed,
 } from "./repository.js";
-import { sealForTests } from "./seal-for-tests.js";
+import { sealForTests } from "./test-records.js";
 import { createApiKey, getApiKeyBySecret } from "../apikey/queries.js";
 import { hashApiKeySecret } from "../apikey/secret.js";
 
