@@ -15,13 +15,10 @@
  * signal other than the job's own abort, are retried. Minutes are released
  * when the job fails for good.
  */
-import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { ProcessLimitError } from "@medialit/images";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { tempFileDirForUploads } from "../config/constants";
 import { downloadObject, headObject } from "../services/s3";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
@@ -32,14 +29,15 @@ import {
     reserveMinutes,
 } from "../billing/processing-minutes";
 import { JobError, describeError, permanentError } from "../jobs/errors";
-import type { JobClass } from "../jobs/runner";
 import {
     derivativeJob,
     type DerivativeOutput,
     type ProduceContext,
 } from "./derivatives";
+import { makeWorkDir, removeWorkDir } from "./work-files";
 import { originalLocation } from "./poster";
 import { probeMedia, type ProbeResult } from "./probe";
+import { VIDEO_ENCODE_ATTEMPTS } from "./processing-plan";
 
 function positiveFromEnv(name: string, fallback: number): number {
     const value = Number(process.env[name]);
@@ -93,9 +91,6 @@ export type EncodeInput = {
     /** A directory for the output, removed afterwards. */
     workDir: string;
     probe: ProbeResult;
-    durationSeconds: number;
-    params: Record<string, unknown>;
-    signal: AbortSignal;
     limits: ReturnType<typeof videoLimits>;
     timeoutMs: number;
     /** Call before an encode that costs minutes. Throws when the account
@@ -109,6 +104,7 @@ export type EncodeInput = {
      * can't fill the disk.
      */
     maxOutputSeconds: (outputKbps: number) => number;
+    /** The job's params, signal and output folder. */
     context: ProduceContext;
 };
 
@@ -150,15 +146,13 @@ function refuse(
 export function videoJob(definition: {
     type: string;
     name: "hls" | "mp4";
-    maxAttempts: number;
     encode: (input: EncodeInput) => Promise<EncodeResult>;
 }) {
-    const jobClass: JobClass = "video";
     return derivativeJob({
         type: definition.type,
         name: definition.name,
-        class: jobClass,
-        maxAttempts: definition.maxAttempts,
+        class: "video",
+        maxAttempts: VIDEO_ENCODE_ATTEMPTS,
         timeoutMs: videoJobTimeoutMs(),
         produce: async (context) => {
             const startedAt = Date.now();
@@ -172,11 +166,7 @@ export function videoJob(definition: {
             const limits = videoLimits();
             let probe: ProbeResult | null = null;
             let reserved = false;
-            const tempRoot = tempFileDirForUploads || os.tmpdir();
-            await mkdir(tempRoot, { recursive: true });
-            const workDir = await mkdtemp(
-                path.join(tempRoot, `medialit-${definition.name}-`),
-            );
+            const workDir = await makeWorkDir(definition.name);
             try {
                 const original = originalLocation(media);
                 const head = await headObject({
@@ -236,9 +226,6 @@ export function videoJob(definition: {
                     source,
                     workDir,
                     probe,
-                    durationSeconds: duration,
-                    params: context.params,
-                    signal: context.signal,
                     limits,
                     // A header that understates the length makes this
                     // shorter, never longer.
@@ -325,9 +312,7 @@ export function videoJob(definition: {
                 }
                 throw failure;
             } finally {
-                await rm(workDir, { recursive: true, force: true }).catch(
-                    () => {},
-                );
+                await removeWorkDir(workDir);
             }
         },
     });

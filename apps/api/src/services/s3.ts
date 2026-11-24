@@ -397,27 +397,10 @@ export const deleteFolder = async (
     bucket?: string,
 ): Promise<void> => {
     const targetBucket = bucket || cloudBucket;
-    const client = getS3Client(targetBucket);
-    let continuationToken: string | undefined;
-
-    do {
-        const command = new ListObjectsV2Command({
-            Bucket: targetBucket,
-            Prefix: prefix,
-            ContinuationToken: continuationToken,
-        });
-
-        const response = await client.send(command);
-
-        if (response.Contents && response.Contents.length > 0) {
-            const deletePromises = response.Contents.map((object: any) =>
-                deleteObject({ Key: object.Key!, Bucket: targetBucket }),
-            );
-            await Promise.all(deletePromises);
-        }
-
-        continuationToken = response.NextContinuationToken;
-    } while (continuationToken);
+    const keys = await listKeys(prefix, targetBucket);
+    await Promise.all(
+        keys.map((Key) => deleteObject({ Key, Bucket: targetBucket })),
+    );
 };
 
 /**

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7,12 +6,13 @@ import { describe, test } from "node:test";
 import { findExecutable, runLimited } from "@medialit/images";
 import { hlsArgs, planRenditions } from "./hls.js";
 import { videoLimits } from "./video-job.js";
+import { makeTestVideo } from "./test-video.js";
 
 const ffmpeg = findExecutable("ffmpeg");
 const dir = mkdtempSync(path.join(tmpdir(), "hls-test-"));
 
 describe("planRenditions", () => {
-    const defaults = ["1080p", "720p", "480p"];
+    const defaults = ["1080p", "720p", "480p"] as const;
 
     test("skips renditions larger than the source", () => {
         assert.deepEqual(
@@ -57,29 +57,13 @@ describe(
         skip: ffmpeg ? false : "ffmpeg is not installed",
     },
     () => {
-        function source(name: string, size: string, audio: boolean): string {
-            const file = path.join(dir, name);
-            execFileSync(ffmpeg!, [
-                "-v",
-                "error",
-                "-y",
-                "-f",
-                "lavfi",
-                "-i",
-                `testsrc=size=${size}:rate=25:duration=8`,
-                ...(audio
-                    ? ["-f", "lavfi", "-i", "sine=frequency=440:duration=8"]
-                    : []),
-                "-c:v",
-                "libx264",
-                "-pix_fmt",
-                "yuv420p",
-                ...(audio ? ["-c:a", "aac"] : []),
-                "-shortest",
-                file,
-            ]);
-            return file;
-        }
+        const source = (name: string, size: string, audio: boolean) =>
+            makeTestVideo(path.join(dir, name), {
+                size,
+                seconds: 8,
+                audio,
+                ffmpeg: ffmpeg!,
+            });
 
         /** Encodes as the worker does: under the address-space guard and
          * with the thread count of the defaults (VIDEO_MAX_MEMORY_MB,

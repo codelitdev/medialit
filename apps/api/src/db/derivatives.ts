@@ -42,22 +42,14 @@ export type LockedMedia = {
     fileName: string;
 };
 
-/** Derivatives that are public for every media item, as thumbnails are
- * today. Others are public only for public media. */
-export const ALWAYS_PUBLIC_DERIVATIVES: readonly string[] = [
-    "thumbnail",
-    "poster",
-];
-
+/** Thumbnails are public for every media item; other derivatives only for
+ * public media. */
 export function needsPublicCopy(
     media: Pick<LockedMedia, "temp" | "accessControl">,
     name: string,
 ): boolean {
     if (media.temp) return false;
-    return (
-        media.accessControl === "public" ||
-        ALWAYS_PUBLIC_DERIVATIVES.includes(name)
-    );
+    return media.accessControl === "public" || name === "thumbnail";
 }
 
 const DERIVATIVE_COLUMNS = sql.raw(
@@ -84,29 +76,18 @@ function toDerivative(row: DerivativeRecord): DerivativeRecord {
     return { ...row, size: Number(row.size ?? 0) };
 }
 
-/** Every derivative of the given media items, by public media ID. */
-export async function listDerivativesByMediaIds(
+/** Every derivative of a media item, by its public media ID. */
+export async function listDerivativesByMediaId(
     db: Executor,
-    mediaIds: string[],
-): Promise<Map<string, DerivativeRecord[]>> {
-    const byMedia = new Map<string, DerivativeRecord[]>();
-    if (mediaIds.length === 0) return byMedia;
-    const found = await rows<DerivativeRecord & { publicMediaId: string }>(
+    mediaId: string,
+): Promise<DerivativeRecord[]> {
+    const found = await rows<DerivativeRecord>(
         db,
-        sql`SELECT ${DERIVATIVE_COLUMNS}, m.media_id AS "publicMediaId"
+        sql`SELECT ${DERIVATIVE_COLUMNS}
             FROM derivatives d JOIN media m ON m.id = d.media_id
-            WHERE m.media_id IN (${sql.join(
-                mediaIds.map((id) => sql`${id}`),
-                sql`, `,
-            )})
-            ORDER BY d.name`,
+            WHERE m.media_id = ${mediaId} ORDER BY d.name`,
     );
-    for (const { publicMediaId, ...row } of found) {
-        const list = byMedia.get(publicMediaId) ?? [];
-        list.push(toDerivative(row));
-        byMedia.set(publicMediaId, list);
-    }
-    return byMedia;
+    return found.map(toDerivative);
 }
 
 export async function listDerivatives(

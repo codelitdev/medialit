@@ -26,7 +26,6 @@ import {
     listApps,
     listMedia,
     revokeApiKey,
-    sealMediaRecord,
     softDeleteApp,
     completeUploadingMediaRecord,
     createUploadingMediaRecord,
@@ -41,6 +40,7 @@ import {
     syncBootstrapApiKey,
     touchApiKeyLastUsed,
 } from "./repository.js";
+import { sealForTests } from "./seal-for-tests.js";
 import { createApiKey, getApiKeyBySecret } from "../apikey/queries.js";
 import { hashApiKeySecret } from "../apikey/secret.js";
 
@@ -104,7 +104,7 @@ describe("repository", () => {
             null,
         );
 
-        await sealMediaRecord({
+        await sealForTests({
             userId: user.id,
             appId: app.id,
             mediaId: "media-sealed",
@@ -390,7 +390,7 @@ describe("uploads in progress", () => {
         assert.equal(await getUploadingMediaSize(ids.mediaId), 5000);
 
         // Sealing an unfinished upload does nothing.
-        await sealMediaRecord(ids);
+        await sealForTests(ids);
         assert.equal(await getMediaRecord(ids), null);
     });
 

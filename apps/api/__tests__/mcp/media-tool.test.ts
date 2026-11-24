@@ -31,10 +31,7 @@ describe("MCP get_total_storage", () => {
 
     test("uses the authenticated user id and returns the account storage limit", async () => {
         mockPaidPlan();
-        const user = {
-            id: "string-user-id",
-            _id: "object-user-id",
-        };
+        const user = { id: "user-id", _id: "user-id" };
 
         let queriedUserId: unknown;
         mock.method(mediaQueries, "getTotalSpace").mock.mockImplementation(
@@ -52,7 +49,7 @@ describe("MCP get_total_storage", () => {
         );
         const response = await callTool("get_total_storage", { user });
 
-        assert.equal(queriedUserId, user._id);
+        assert.equal(queriedUserId, user.id);
         assert.equal(minutesUserId, user.id);
         assert.deepEqual(response, {
             storage: 2103931,

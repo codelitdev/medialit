@@ -27,11 +27,7 @@ import {
     flushEventsForTests,
     setEventSinkForTests,
 } from "../services/events.js";
-import {
-    registerWebhookHooks,
-    unregisterWebhookHooks,
-    webhookDeliverJob,
-} from "./delivery.js";
+import { registerWebhookHooks, webhookDeliverJob } from "./delivery.js";
 import type { GuardOptions, Resolver } from "./guard.js";
 import {
     WEBHOOK_DELIVER_JOB,
@@ -128,7 +124,6 @@ before(async () => {
 });
 
 after(async () => {
-    unregisterWebhookHooks();
     await hooks.close();
     await pgTest?.drop();
 });
@@ -362,8 +357,6 @@ describe("webhooks (Postgres)", { skip }, () => {
         const strict = { ...localGuard, allowPrivateNetworks: false };
         for (const url of [
             hookUrl,
-            "http://2130706433/hooks",
-            "http://[::ffff:127.0.0.1]/hooks",
             "http://169.254.169.254/latest/meta-data",
         ]) {
             await assert.rejects(

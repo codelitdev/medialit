@@ -19,37 +19,11 @@ export const IMAGE_INPUT_FORMATS = "png_pipe,jpeg_pipe,webp_pipe,gif";
 /** Kills ffmpeg's process group after this long. */
 export const THUMBNAIL_TIMEOUT_MS = 60_000;
 
-/** The largest thumbnail side, whatever the settings say. */
-export const MAX_THUMBNAIL_SIDE = 4096;
-
 /** ffmpeg's own limit on a single network read or write, in microseconds. */
 const NETWORK_TIMEOUT_US = "30000000";
 
-export interface ThumbnailSize {
-    width: number;
-    height: number;
-}
-
-function side(value: number, label: string): number {
-    if (!Number.isFinite(value) || value < 1) {
-        throw new Error(`Thumbnail ${label} must be a positive number`);
-    }
-    return Math.min(MAX_THUMBNAIL_SIDE, Math.round(value));
-}
-
 /**
- * The ffmpeg filter that scales a frame to cover `width` × `height`, keeping
- * its aspect ratio, then crops the overflow from the center. The result is
- * exactly `width` × `height`.
- */
-export function coverFilter(size: ThumbnailSize): string {
-    const width = side(size.width, "width");
-    const height = side(size.height, "height");
-    return `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
-}
-
-/**
- * Image thumbnails without a size, as MediaLit always made them: cropped to
+ * Image thumbnails, as MediaLit always made them: cropped to
  * 16:9 from the center, then scaled down to at most 480 pixels tall. Each
  * side is at least 1 pixel, so tiny images work too.
  */
@@ -58,7 +32,7 @@ export const DEFAULT_IMAGE_FILTER =
     ":h='max(1,if(gt(trunc(iw*9/16),ih),ih,trunc(iw*9/16)))'," +
     "scale=w='if(gt(ih,480),853,iw)':h='min(ih,480)'";
 
-/** Video thumbnails without a size: the first frame, 720 pixels tall. */
+/** Video thumbnails: the first frame, 720 pixels tall. */
 export const DEFAULT_VIDEO_FILTER = "scale=-2:720";
 
 function checkPaths(source: string, destination: string): void {
@@ -75,15 +49,8 @@ function runFfmpeg(args: string[]): Promise<void> {
     );
 }
 
-/**
- * Makes a thumbnail of a local image file: exactly `size` (resized and
- * cropped) when given, otherwise `DEFAULT_IMAGE_FILTER`.
- */
-async function forImage(
-    source: string,
-    destination: string,
-    size?: ThumbnailSize,
-): Promise<void> {
+/** Makes a thumbnail of a local image file with `DEFAULT_IMAGE_FILTER`. */
+async function forImage(source: string, destination: string): Promise<void> {
     checkPaths(source, destination);
     await runFfmpeg([
         "-nostdin",
@@ -97,21 +64,16 @@ async function forImage(
         "-frames:v",
         "1",
         "-filter:v",
-        size ? coverFilter(size) : DEFAULT_IMAGE_FILTER,
+        DEFAULT_IMAGE_FILTER,
         destination,
     ]);
 }
 
 /**
- * Makes a thumbnail of a video's first frame: exactly `size` (resized and
- * cropped) when given, otherwise `DEFAULT_VIDEO_FILTER`. `source` is a URL
- * MediaLit made; ffmpeg reads only the bytes it needs.
+ * Makes a thumbnail of a video's first frame with `DEFAULT_VIDEO_FILTER`.
+ * `source` is a URL MediaLit made; ffmpeg reads only the bytes it needs.
  */
-async function forVideo(
-    source: string,
-    destination: string,
-    size?: ThumbnailSize,
-): Promise<void> {
+async function forVideo(source: string, destination: string): Promise<void> {
     checkPaths(source, destination);
     await runFfmpeg([
         "-nostdin",
@@ -127,7 +89,7 @@ async function forVideo(
         "-frames:v",
         "1",
         "-filter:v",
-        size ? coverFilter(size) : DEFAULT_VIDEO_FILTER,
+        DEFAULT_VIDEO_FILTER,
         destination,
     ]);
 }
@@ -168,14 +130,11 @@ async function forVideoPoster(
     destination: string,
     options: {
         seekSeconds: number;
-        size?: ThumbnailSize;
         signal?: AbortSignal;
     },
 ): Promise<PosterResult> {
     checkPaths(source, destination);
-    const scale = options.size
-        ? coverFilter(options.size)
-        : DEFAULT_VIDEO_FILTER;
+    const scale = DEFAULT_VIDEO_FILTER;
     const input = [
         "-nostdin",
         "-y",

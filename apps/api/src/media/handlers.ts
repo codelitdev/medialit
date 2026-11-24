@@ -3,13 +3,9 @@ import { NOT_ENOUGH_STORAGE, NOT_FOUND, SUCCESS } from "../config/strings";
 import logger from "../services/log";
 import { Request } from "express";
 import mediaService from "./service";
-import { getMediaCount as getCount, getTotalSpace } from "./queries";
-import {
-    maxUploadFor,
-    resolveAccountPlan,
-    storageLimitFor,
-} from "../billing/entitlements";
-import { minutesSummary } from "../billing/processing-minutes";
+import { getMediaCount as getCount } from "./queries";
+import { maxUploadFor } from "../billing/entitlements";
+import { storageStats } from "../billing/usage";
 import {
     maxFileUploadSizeSubscribed,
     UPLOAD_HEARTBEAT_MS,
@@ -164,17 +160,8 @@ export async function getMediaCount(req: any, res: any) {
 }
 
 export async function getTotalSpaceOccupied(req: any, res: any) {
-    const userId = req.user._id;
-    const appId = req.appId;
-
     try {
-        const totalSpaceOccupied = await getTotalSpace({ userId, appId });
-        const plan = await resolveAccountPlan(req.user);
-        return res.status(200).json({
-            storage: totalSpaceOccupied,
-            maxStorage: storageLimitFor(plan),
-            processingMinutes: await minutesSummary(req.user.id, plan),
-        });
+        return res.status(200).json(await storageStats(req.user, req.appId));
     } catch (err: any) {
         return res.status(500).json({ error: err.message });
     }

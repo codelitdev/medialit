@@ -21,7 +21,7 @@ import {
     getMediaCount,
     getPaginatedMedia,
 } from "./queries";
-import { getDb, listDerivativesByMediaIds, listMediaRecordsByIds } from "@/db";
+import { getDb, listDerivativesByMediaId, listMediaRecordsByIds } from "@/db";
 import type { ProcessingStatus } from "../db/schema";
 import { deleteMediaFolders, derivativesResponse } from "./derivatives";
 import { sealStoredMedia } from "./seal";
@@ -208,10 +208,10 @@ async function getMediaResponse(
         processingStatus?: ProcessingStatus;
         processingError?: string;
     };
-    const derivativeRows =
-        (await listDerivativesByMediaIds(getDb(), [media.mediaId])).get(
-            media.mediaId,
-        ) ?? [];
+    const derivativeRows = await listDerivativesByMediaId(
+        getDb(),
+        media.mediaId,
+    );
 
     return {
         mediaId: media.mediaId,

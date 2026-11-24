@@ -1,6 +1,10 @@
 import Joi from "joi";
-import { AccessControl } from "@medialit/models";
-import type { MediaMetadata } from "../db/schema";
+import {
+    AccessControl,
+    type MediaDerivative,
+    type MediaMetadata,
+    type MediaProcessing,
+} from "@medialit/models";
 
 export const uploadMediaSchema = Joi.object({
     caption: Joi.string().optional().allow(""),
@@ -26,21 +30,9 @@ export interface MediaResponse {
     caption?: string;
     group?: string;
     /** Background processing of sealed media. */
-    processing: {
-        status: "pending" | "processing" | "ready" | "failed";
-        error?: string;
-    };
+    processing: MediaProcessing;
     /** Outputs made from the original, by name. `url` is set once ready. */
-    derivatives: Record<
-        string,
-        {
-            status: "queued" | "processing" | "ready" | "failed";
-            url?: string;
-            mimeType?: string;
-            size?: number;
-            error?: string;
-        }
-    >;
+    derivatives: Record<string, MediaDerivative>;
     /** Duration, size, codecs and format, read at seal. Null before seal,
      * or when the file couldn't be read. */
     metadata: MediaMetadata | null;

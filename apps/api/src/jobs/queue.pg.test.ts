@@ -33,7 +33,7 @@ import {
     type RunnerLogger,
 } from "./runner.js";
 import { pgListener } from "./listen.js";
-import { missingWorkerClasses } from "./liveness.js";
+import { missingWorkerClasses } from "./runner.js";
 import {
     createTestPostgres,
     testPostgresUrl,

@@ -8,21 +8,21 @@ import {
 } from "@/db";
 import { abortMultipartUploads, deleteFolder } from "../services/s3";
 import {
-    PATH_PREFIX,
     TEMP_MEDIA_EXPIRATION_HOURS,
     UPLOAD_STALE_MINUTES,
     cloudBucket,
 } from "../config/constants";
 import { Constants } from "@medialit/models";
-
-function privateFolder(mediaId: string): string {
-    return `${PATH_PREFIX ? `${PATH_PREFIX}/` : ""}${Constants.PathKey.PRIVATE}/${mediaId}/`;
-}
+import generateKey from "./utils/generate-key";
 
 /** Removes what an upload left in the private bucket: unfinished multipart
  * parts (only an abort removes those) and every object in its folder. */
 async function removeStoredUpload(media: MediaRecord): Promise<void> {
-    const folder = privateFolder(media.mediaId);
+    const folder = generateKey({
+        mediaId: media.mediaId,
+        path: Constants.PathKey.PRIVATE,
+        filename: "",
+    });
     if (!media.uploaded) {
         // Its key is the folder plus the file name recorded when it started.
         await abortMultipartUploads(`${folder}${media.fileName}`, cloudBucket);
@@ -100,5 +100,3 @@ export async function cleanupStaleUploads(): Promise<void> {
         logger.error({ err }, "Error in cleanupStaleUploads");
     }
 }
-
-export default cleanupExpiredTempUploads;

@@ -1,11 +1,12 @@
 /**
- * What the alert checks look for (pipelines-phase-0.md, section 9). The
+ * What the alert checks look for. The
  * worker that holds the alerts lock checks the queue. The API checks what
  * only it can see: that no worker is running, and WebP skipped at seal.
  */
 import { sql } from "drizzle-orm";
 import type { Executor } from "../jobs/queue";
-import { missingWorkerClasses, WORKER_SEEN_WITHIN_MS } from "../jobs/liveness";
+import { missingWorkerClasses, WORKER_SEEN_WITHIN_MS } from "../jobs/runner";
+import { WEBHOOK_DELIVER_JOB } from "../webhooks/queries";
 import type { Alert } from "./alerts";
 
 /** The advisory lock that picks the one worker running the queue checks. */
@@ -13,17 +14,16 @@ export const ALERTS_LOCK = "medialit.operations.alerts";
 
 export const QUEUE_LAG_MS = 10 * 60 * 1000;
 /** Video encodes take an hour or two each, one at a time, so a video job
- * waits far longer than others before something is wrong (phase 1, 7.6). */
+ * waits far longer than others before something is wrong. */
 export const VIDEO_QUEUE_LAG_MS = 6 * 60 * 60 * 1000;
 export const FAILURE_WINDOW_MS = 10 * 60 * 1000;
 /** More failures than this within the window page. */
 export const FAILURE_SPIKE = 10;
-export const NO_WORKER_PAGE_AFTER_MS = WORKER_SEEN_WITHIN_MS;
 export const WEBP_BUSY_WINDOW_MS = 10 * 60 * 1000;
 
 /** Failures that are a tenant's to fix (their webhook endpoint is down) and
  * don't count toward a spike. */
-const TENANT_JOB_TYPES = ["webhook.deliver"];
+const TENANT_JOB_TYPES = [WEBHOOK_DELIVER_JOB];
 
 export async function collectWorkerAlerts(
     db: Executor,
@@ -123,7 +123,6 @@ export function apiAlertCheck(input: {
     db: Executor;
     logger: WarnLogger;
     now?: () => number;
-    warnEveryMs?: number;
 }): () => Promise<Alert[]> {
     const now = input.now ?? Date.now;
     // A worker started with the API has five minutes to show up before a page.
@@ -136,7 +135,7 @@ export function apiAlertCheck(input: {
             const at = now();
             if (
                 lastWarnedAt === undefined ||
-                at - lastWarnedAt >= (input.warnEveryMs ?? 60 * 60 * 1000)
+                at - lastWarnedAt >= 60 * 60 * 1000
             ) {
                 lastWarnedAt = at;
                 input.logger.warn(
@@ -144,7 +143,7 @@ export function apiAlertCheck(input: {
                     NO_WORKER_WARNING,
                 );
             }
-            if (at - startedAt >= NO_WORKER_PAGE_AFTER_MS) {
+            if (at - startedAt >= WORKER_SEEN_WITHIN_MS) {
                 alerts.push({
                     code: "jobs_no_worker",
                     message: `No worker has run ${missing.join(" or ")} jobs for 5 minutes. ${noWorkerConsequence(missing)}`,

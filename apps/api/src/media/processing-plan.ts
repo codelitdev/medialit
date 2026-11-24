@@ -66,10 +66,7 @@ export function planProcessing(input: PlanInput): PlannedJob[] {
         jobs.push({
             type: HLS_JOB_TYPE,
             derivative: "hls",
-            params: {
-                videoStreaming: "hls",
-                hlsRenditions: input.video.hlsRenditions,
-            },
+            params: { hlsRenditions: input.video.hlsRenditions },
             priority,
             maxAttempts: VIDEO_ENCODE_ATTEMPTS,
         });
@@ -78,7 +75,7 @@ export function planProcessing(input: PlanInput): PlannedJob[] {
         jobs.push({
             type: MP4_JOB_TYPE,
             derivative: "mp4",
-            params: { videoStreaming: "mp4" },
+            params: {},
             priority,
             maxAttempts: VIDEO_ENCODE_ATTEMPTS,
         });

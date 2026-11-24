@@ -1,5 +1,5 @@
 /**
- * The video media settings (pipelines-phase-1.md, D1): `videoStreaming` and
+ * The video media settings, `videoStreaming` and
  * `hlsRenditions`, their defaults, and the checks every client goes through.
  * Each app chooses for itself: there is no account-wide default, and an app
  * that never chose is `off`.
@@ -8,14 +8,14 @@ import type { VideoStreaming } from "../db/schema";
 
 export type { VideoStreaming };
 
-export const VIDEO_STREAMING_VALUES: readonly VideoStreaming[] = [
+export const VIDEO_STREAMING_VALUES = [
     "off",
     "hls",
     "mp4",
-];
+] as const satisfies readonly VideoStreaming[];
 
 /** The renditions users can choose, largest first. 1440p and 2160p wait for
- * bigger workers (D1). */
+ * bigger workers. */
 export const HLS_RENDITIONS = ["1080p", "720p", "480p", "360p"] as const;
 export type HlsRendition = (typeof HLS_RENDITIONS)[number];
 
@@ -25,27 +25,13 @@ export const DEFAULT_HLS_RENDITIONS: readonly HlsRendition[] = [
     "480p",
 ];
 
-export class VideoSettingsError extends Error {}
-
 export function isVideoStreaming(value: unknown): value is VideoStreaming {
-    return VIDEO_STREAMING_VALUES.includes(value as VideoStreaming);
+    return (VIDEO_STREAMING_VALUES as readonly unknown[]).includes(value);
 }
 
-/** Checks renditions against the fixed list, drops duplicates and sorts
- * them largest first. Throws `VideoSettingsError` for anything else. */
-export function normalizeRenditions(value: unknown): HlsRendition[] {
-    if (!Array.isArray(value) || value.length === 0) {
-        throw new VideoSettingsError(
-            `hlsRenditions must be a non-empty list of ${HLS_RENDITIONS.join(", ")}`,
-        );
-    }
-    for (const item of value) {
-        if (!HLS_RENDITIONS.includes(item as HlsRendition)) {
-            throw new VideoSettingsError(
-                `Unknown rendition "${String(item)}". Use ${HLS_RENDITIONS.join(", ")}`,
-            );
-        }
-    }
+/** Drops duplicates and unknown sizes, and sorts the rest largest first.
+ * Clients validate the list before it is saved. */
+export function normalizeRenditions(value: readonly string[]): HlsRendition[] {
     return HLS_RENDITIONS.filter((rendition) => value.includes(rendition));
 }
 
@@ -67,7 +53,7 @@ export function effectiveVideoSettings(
         videoStreaming: isVideoStreaming(chosen) ? chosen : "off",
         hlsRenditions:
             renditions && renditions.length > 0
-                ? HLS_RENDITIONS.filter((r) => renditions.includes(r))
+                ? normalizeRenditions(renditions)
                 : [...DEFAULT_HLS_RENDITIONS],
     };
 }

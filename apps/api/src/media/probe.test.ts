@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
 import { findExecutable } from "@medialit/images";
 import { imageMetadata, parseProbe, probeMedia } from "./probe.js";
+import { makeTestVideo } from "./test-video.js";
 
 function probeJson(streams: unknown[], format: Record<string, unknown>) {
     return JSON.stringify({ streams, format });
@@ -19,7 +19,6 @@ describe("parseProbe", () => {
                     {
                         codec_type: "video",
                         codec_name: "h264",
-                        profile: "High",
                         width: 1920,
                         height: 1080,
                         pix_fmt: "yuv420p",
@@ -59,10 +58,7 @@ describe("parseProbe", () => {
         assert.deepEqual(result?.details, {
             hasVideo: true,
             hasAudio: true,
-            codedWidth: 1920,
-            codedHeight: 1080,
             pixelFormat: "yuv420p",
-            videoProfile: "High",
             formatNames: ["mov", "mp4", "m4a", "3gp", "3g2", "mj2"],
         });
     });
@@ -157,29 +153,11 @@ describe(
         const dir = mkdtempSync(path.join(tmpdir(), "probe-test-"));
 
         test("reads a real video file", async () => {
-            const file = path.join(dir, "clip.mp4");
-            execFileSync(ffmpeg!, [
-                "-loglevel",
-                "error",
-                "-f",
-                "lavfi",
-                "-i",
-                "testsrc=size=320x180:rate=25",
-                "-f",
-                "lavfi",
-                "-i",
-                "sine=frequency=440",
-                "-t",
-                "2",
-                "-c:v",
-                "libx264",
-                "-pix_fmt",
-                "yuv420p",
-                "-c:a",
-                "aac",
-                "-shortest",
-                file,
-            ]);
+            const file = makeTestVideo(path.join(dir, "clip.mp4"), {
+                size: "320x180",
+                audio: true,
+                ffmpeg: ffmpeg!,
+            });
             const result = await probeMedia(file, { timeoutMs: 10_000 });
             assert.equal(result?.metadata.kind, "video");
             assert.equal(result?.metadata.width, 320);

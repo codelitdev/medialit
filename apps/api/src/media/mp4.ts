@@ -12,21 +12,25 @@ import { stat } from "node:fs/promises";
 import { runLimited } from "@medialit/images";
 import { cloudBucket } from "../config/constants";
 import { streamToObject } from "../services/s3";
-import { PROBE_INPUT_FORMATS, type ProbeResult } from "./probe";
+import type { ProbeResult } from "./probe";
 import { videoJob, type EncodeInput } from "./video-job";
-import { MP4_JOB_TYPE, VIDEO_ENCODE_ATTEMPTS } from "./processing-plan";
+import { MP4_JOB_TYPE } from "./processing-plan";
+import {
+    AAC_KBPS,
+    AAC_STEREO,
+    H264,
+    LADDER,
+    NO_EXTRAS,
+    localInput,
+    rateCap,
+} from "./h264";
 
-export const MP4_JOB = MP4_JOB_TYPE;
-export const MP4_KEY = "web.mp4";
-export const MP4_ATTEMPTS = VIDEO_ENCODE_ATTEMPTS;
-
+const MP4_KEY = "web.mp4";
 /** The largest MP4 made, on the short side (D7: fixed for now). */
-export const MP4_MAX_SHORT_SIDE = 1080;
+const MP4_MAX_SHORT_SIDE = 1080;
+const MP4_MAXRATE_KBPS = LADDER["1080p"].maxrateKbps;
 /** A remux keeps the source's bitrate, so it must be no more than this. */
-export const MP4_REMUX_MAX_BITRATE = 8_000_000;
-
-/** The 1080p rendition's settings (D5), shared with HLS. */
-export const H264_1080P = { maxrateKbps: 5000, crf: 21 };
+const MP4_REMUX_MAX_BITRATE = 8_000_000;
 
 /** True when the source can be remuxed instead of re-encoded. */
 export function canRemux(probe: ProbeResult): boolean {
@@ -48,55 +52,13 @@ export function canRemux(probe: ProbeResult): boolean {
  * aspect ratio with even sides (H.264 needs them). ffmpeg has already
  * applied rotation, so `iw` and `ih` are as displayed.
  */
-export function capShortSide(maxShortSide: number): string {
+function capShortSide(maxShortSide: number): string {
     const even = (expr: string) => `trunc(${expr}/2)*2`;
     return (
         `scale=w='if(gte(iw,ih),-2,${even(`min(${maxShortSide},iw)`)})'` +
         `:h='if(gte(iw,ih),${even(`min(${maxShortSide},ih)`)},-2)'`
     );
 }
-
-/** Input options for a local file: no network, and only real containers,
- * so a playlist posing as a video can't make ffmpeg open other files. */
-export function localInput(source: string, threads?: number): string[] {
-    return [
-        "-nostdin",
-        "-y",
-        ...(threads ? ["-threads", String(threads)] : []),
-        "-format_whitelist",
-        PROBE_INPUT_FORMATS,
-        "-protocol_whitelist",
-        "file",
-        "-i",
-        source,
-    ];
-}
-
-/** The first video and audio stream only; no subtitles, data, attachments
- * or metadata such as a phone's location. */
-export const STREAMS = [
-    "-map",
-    "0:v:0",
-    "-map",
-    "0:a:0?",
-    "-sn",
-    "-dn",
-    "-map_metadata",
-    "-1",
-    "-map_chapters",
-    "-1",
-];
-
-export const AAC_STEREO = [
-    "-c:a",
-    "aac",
-    "-b:a",
-    "128k",
-    "-ac",
-    "2",
-    "-ar",
-    "48000",
-];
 
 export function mp4Args(input: {
     source: string;
@@ -108,7 +70,11 @@ export function mp4Args(input: {
     const common = [
         ...localInput(input.source, input.threads),
         ...(input.threads ? ["-threads", String(input.threads)] : []),
-        ...STREAMS,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0?",
+        ...NO_EXTRAS,
         "-t",
         String(input.maxDurationSeconds),
     ];
@@ -117,22 +83,8 @@ export function mp4Args(input: {
         : [
               "-vf",
               capShortSide(MP4_MAX_SHORT_SIDE),
-              "-fpsmax",
-              "60",
-              "-c:v",
-              "libx264",
-              "-preset",
-              "veryfast",
-              "-profile:v",
-              "high",
-              "-pix_fmt",
-              "yuv420p",
-              "-crf",
-              String(H264_1080P.crf),
-              "-maxrate",
-              `${H264_1080P.maxrateKbps}k`,
-              "-bufsize",
-              `${Math.round(H264_1080P.maxrateKbps * 1.5)}k`,
+              ...H264,
+              ...rateCap(MP4_MAXRATE_KBPS),
               ...AAC_STEREO,
           ];
     return [
@@ -146,16 +98,13 @@ export function mp4Args(input: {
     ];
 }
 
-/** A re-encode's maximum rate: the 1080p video cap plus stereo AAC. */
-export const MP4_MAX_KBPS = H264_1080P.maxrateKbps + 128;
-
 async function encodeMp4(input: EncodeInput) {
     const remux = canRemux(input.probe);
     // A remux copies the streams: its output is about the source's size.
     // A re-encode is bounded by its rate and the disk budget.
     const maxSeconds = remux
         ? input.limits.maxDurationSeconds
-        : input.maxOutputSeconds(MP4_MAX_KBPS);
+        : input.maxOutputSeconds(MP4_MAXRATE_KBPS + AAC_KBPS);
     // A remux costs seconds and no minutes (D8).
     const minutesCharged = remux ? 0 : await input.reserve();
     const output = path.join(input.workDir, MP4_KEY);
@@ -171,7 +120,7 @@ async function encodeMp4(input: EncodeInput) {
         {
             timeoutMs: input.timeoutMs,
             memoryMb: input.limits.maxMemoryMb,
-            signal: input.signal,
+            signal: input.context.signal,
         },
     );
     const size = (await stat(output)).size;
@@ -189,8 +138,7 @@ async function encodeMp4(input: EncodeInput) {
 }
 
 export const mp4Job = videoJob({
-    type: MP4_JOB,
+    type: MP4_JOB_TYPE,
     name: "mp4",
-    maxAttempts: MP4_ATTEMPTS,
     encode: encodeMp4,
 });

@@ -1,11 +1,7 @@
 import { z } from "zod";
 import mediaService from "../../media/service";
 import mediaQueries from "../../media/queries";
-import {
-    resolveAccountPlan,
-    storageLimitFor,
-} from "../../billing/entitlements";
-import { minutesSummary } from "../../billing/processing-minutes";
+import { storageStats } from "../../billing/usage";
 import { NOT_ENOUGH_STORAGE, SUCCESS } from "../../config/strings";
 import type { MedialitMcpTool } from "../context";
 import { medialitTool } from "../tool";
@@ -107,18 +103,7 @@ export const mediaTools = (): MedialitMcpTool[] => [
         inputSchema: z.object({}),
         outputSchema: storageSchema,
         annotations: { idempotentHint: true },
-        async handler({ context }) {
-            const storage = await mediaQueries.getTotalSpace({
-                userId: context.userId,
-                appId: context.appId,
-            });
-            const plan = await resolveAccountPlan(context.user);
-            return {
-                storage,
-                maxStorage: storageLimitFor(plan),
-                processingMinutes: await minutesSummary(context.user.id, plan),
-            };
-        },
+        handler: ({ context }) => storageStats(context.user, context.appId),
     }),
 
     medialitTool({

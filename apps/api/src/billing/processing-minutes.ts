@@ -1,5 +1,5 @@
 /**
- * Processing minutes (pipelines-phase-1.md, D8). Video encodes count the
+ * Processing minutes. Video encodes count the
  * source's duration, rounded up to whole minutes, once per HLS job and once
  * per MP4 re-encode. Each account has an allowance per calendar month (UTC):
  * `PROCESSING_MINUTES_FREE` on the free plan, `PROCESSING_MINUTES_PAID` on
@@ -175,33 +175,29 @@ export async function reserveMinutes(input: {
         },
     );
 
-    if (outcome.ok) {
+    const { firstRefusal, ...reservation } = outcome;
+    if (reservation.ok) {
         logger.info(
             {
                 ...fields,
-                minutes: outcome.charged,
-                minutes_used: outcome.used,
+                minutes: reservation.charged,
+                minutes_used: reservation.used,
                 minutes_allowed: allowed,
             },
             "processing minutes reserved",
         );
-        return {
-            ok: true,
-            charged: outcome.charged,
-            used: outcome.used,
-            allowed,
-        };
+        return reservation;
     }
     logger.info(
         {
             ...fields,
-            minutes_needed: outcome.needed,
-            minutes_used: outcome.used,
-            minutes_allowed: outcome.allowed,
+            minutes_needed: reservation.needed,
+            minutes_used: reservation.used,
+            minutes_allowed: reservation.allowed,
         },
         "processing minutes exhausted",
     );
-    if (outcome.firstRefusal) {
+    if (firstRefusal) {
         trackEvent({
             event: "processing_minutes.exhausted",
             source: "billing.processing_minutes",
@@ -209,18 +205,13 @@ export async function reserveMinutes(input: {
             userId: input.userId,
             properties: {
                 plan: input.plan,
-                minutes_needed: outcome.needed,
-                minutes_used: outcome.used,
-                minutes_allowed: outcome.allowed,
+                minutes_needed: reservation.needed,
+                minutes_used: reservation.used,
+                minutes_allowed: reservation.allowed,
             },
         });
     }
-    return {
-        ok: false,
-        needed: outcome.needed,
-        used: outcome.used,
-        allowed: outcome.allowed,
-    };
+    return reservation;
 }
 
 /** Gives back what a job reserved, when its encode failed for good. */

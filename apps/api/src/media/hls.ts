@@ -15,31 +15,24 @@ import { readdir, stat } from "node:fs/promises";
 import { runLimited } from "@medialit/images";
 import { cloudBucket } from "../config/constants";
 import { deleteFolder, streamToObject } from "../services/s3";
-import {
-    DEFAULT_HLS_RENDITIONS,
-    HLS_RENDITIONS,
-} from "../media-settings/video";
-import { AAC_STEREO, STREAMS, localInput } from "./mp4";
-import { HLS_JOB_TYPE, VIDEO_ENCODE_ATTEMPTS } from "./processing-plan";
+import { HLS_RENDITIONS, type HlsRendition } from "../media-settings/video";
+import { HLS_JOB_TYPE } from "./processing-plan";
 import { videoJob, type EncodeInput } from "./video-job";
+import {
+    AAC_KBPS,
+    AAC_STEREO,
+    H264,
+    LADDER,
+    NO_EXTRAS,
+    localInput,
+    rateCap,
+} from "./h264";
 
-export const HLS_JOB = HLS_JOB_TYPE;
-export const HLS_PREFIX = "hls/";
-export const HLS_SEGMENT_SECONDS = 6;
-export const HLS_KEYFRAME_SECONDS = 2;
+const HLS_PREFIX = "hls/";
+const HLS_SEGMENT_SECONDS = 6;
+const HLS_KEYFRAME_SECONDS = 2;
 
-/** The ladder (D5): short side and maximum video bitrate. */
-export const LADDER: Record<
-    string,
-    { shortSide: number; maxrateKbps: number }
-> = {
-    "1080p": { shortSide: 1080, maxrateKbps: 5000 },
-    "720p": { shortSide: 720, maxrateKbps: 2800 },
-    "480p": { shortSide: 480, maxrateKbps: 1400 },
-    "360p": { shortSide: 360, maxrateKbps: 800 },
-};
-
-export type Rendition = {
+type Rendition = {
     name: string;
     /** Width and height as displayed, both even. */
     width: number;
@@ -52,13 +45,13 @@ function even(value: number): number {
 }
 
 /**
- * The renditions to make: the chosen ones no larger than the source,
- * compared on the short side, so a portrait 1080x1920 video counts as
- * 1080p. If none fit, one at the source's size, with the bitrate of the
+ * The renditions to make: the chosen ones (largest first) no larger than
+ * the source, compared on the short side, so a portrait 1080x1920 video
+ * counts as 1080p. If none fit, one at the source's size, with the bitrate of the
  * smallest ladder step at or above it.
  */
 export function planRenditions(
-    chosen: readonly string[],
+    chosen: readonly HlsRendition[],
     source: { width: number; height: number },
 ): Rendition[] {
     const portrait = source.height > source.width;
@@ -71,8 +64,7 @@ export function planRenditions(
             ? { width: short, height: long }
             : { width: long, height: short };
     };
-    const names = HLS_RENDITIONS.filter((name) => chosen.includes(name));
-    const fit = names.filter((name) => LADDER[name].shortSide <= sourceShort);
+    const fit = chosen.filter((name) => LADDER[name].shortSide <= sourceShort);
     if (fit.length > 0) {
         return fit.map((name) => ({
             name,
@@ -118,19 +110,12 @@ export function hlsArgs(input: {
         `[v${i}]`,
         ...(input.hasAudio ? ["-map", "0:a:0"] : []),
     ]);
-    const rates = input.renditions.flatMap((r, i) => [
-        `-maxrate:v:${i}`,
-        `${r.maxrateKbps}k`,
-        `-bufsize:v:${i}`,
-        `${Math.round(r.maxrateKbps * 1.5)}k`,
-    ]);
+    const rates = input.renditions.flatMap((r, i) =>
+        rateCap(r.maxrateKbps, `:v:${i}`),
+    );
     const streamMap = input.renditions
         .map((_, i) => (input.hasAudio ? `v:${i},a:${i}` : `v:${i}`))
         .join(" ");
-    // STREAMS minus its maps: the filter graph picks the video here.
-    const noExtras = STREAMS.filter(
-        (arg, i, all) => arg !== "-map" && all[i - 1] !== "-map",
-    );
     const threads = input.threads ? String(input.threads) : undefined;
     return [
         ...localInput(input.source, input.threads),
@@ -138,27 +123,16 @@ export function hlsArgs(input: {
         "-filter_complex",
         split,
         ...maps,
-        ...noExtras,
+        ...NO_EXTRAS,
         "-t",
         String(input.maxDurationSeconds),
         ...(threads ? ["-threads", threads] : []),
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-profile:v",
-        "high",
-        "-pix_fmt",
-        "yuv420p",
-        "-crf",
-        "21",
+        ...H264,
         ...rates,
         "-force_key_frames",
         `expr:gte(t,n_forced*${HLS_KEYFRAME_SECONDS})`,
         "-sc_threshold",
         "0",
-        "-fpsmax",
-        "60",
         ...(input.hasAudio ? AAC_STEREO : []),
         "-f",
         "hls",
@@ -195,23 +169,23 @@ async function listFiles(dir: string, prefix = ""): Promise<string[]> {
     return files;
 }
 
-export function hlsContentType(file: string): string {
+function hlsContentType(file: string): string {
     if (file.endsWith(".m3u8")) return "application/vnd.apple.mpegurl";
     if (file.endsWith(".m4s")) return "video/iso.segment";
     return "video/mp4";
 }
 
 async function encodeHls(input: EncodeInput) {
-    const chosen = Array.isArray(input.params.hlsRenditions)
-        ? (input.params.hlsRenditions as string[])
-        : [...DEFAULT_HLS_RENDITIONS];
-    const renditions = planRenditions(chosen, {
-        width: input.probe.metadata.width ?? 0,
-        height: input.probe.metadata.height ?? 0,
-    });
+    const renditions = planRenditions(
+        input.context.params.hlsRenditions as HlsRendition[],
+        {
+            width: input.probe.metadata.width ?? 0,
+            height: input.probe.metadata.height ?? 0,
+        },
+    );
     // Every rendition at its cap, plus stereo AAC in each.
     const maxSeconds = input.maxOutputSeconds(
-        renditions.reduce((sum, r) => sum + r.maxrateKbps + 128, 0),
+        renditions.reduce((sum, r) => sum + r.maxrateKbps + AAC_KBPS, 0),
     );
     const minutesCharged = await input.reserve();
     const outDir = path.join(input.workDir, "hls");
@@ -228,7 +202,7 @@ async function encodeHls(input: EncodeInput) {
         {
             timeoutMs: input.timeoutMs,
             memoryMb: input.limits.maxMemoryMb,
-            signal: input.signal,
+            signal: input.context.signal,
         },
     );
 
@@ -258,8 +232,7 @@ async function encodeHls(input: EncodeInput) {
 }
 
 export const hlsJob = videoJob({
-    type: HLS_JOB,
+    type: HLS_JOB_TYPE,
     name: "hls",
-    maxAttempts: VIDEO_ENCODE_ATTEMPTS,
     encode: encodeHls,
 });

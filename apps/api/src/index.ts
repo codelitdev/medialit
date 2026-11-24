@@ -19,6 +19,7 @@ import { createMedialitAuth } from "./auth/better-auth";
 import { loginCaptchaConfig } from "./auth/options";
 import { createApp } from "./app";
 import { startBillingMaintenance } from "./billing/maintenance";
+import { checkStorageConfig } from "./config/check-env";
 
 let started = false;
 let shutdown: GracefulShutdown | undefined;
@@ -79,7 +80,7 @@ checkConfig()
         configureServerTimeouts(server);
 
         // Cleanup runs in the worker (src/worker.ts) as periodic jobs. The
-        // API pages when no worker is running (pipelines-phase-0.md, 9).
+        // API pages when no worker is running.
         const stopAlertChecks = startAlertChecks({
             check: apiAlertCheck({ db: getDb(), logger }),
             deps: pageDeps(getDb()),
@@ -118,22 +119,7 @@ checkConfig()
     });
 
 async function checkConfig() {
-    if (!process.env.DATABASE_URL) {
-        throw new Error("DATABASE_URL is not set");
-    }
-    if (!process.env.CLOUD_KEY || !process.env.CLOUD_SECRET) {
-        throw new Error(
-            "Cloud credentials (CLOUD_KEY and CLOUD_SECRET) are not set",
-        );
-    }
-    if (
-        !process.env.CLOUD_BUCKET_NAME ||
-        !process.env.CLOUD_PUBLIC_BUCKET_NAME
-    ) {
-        throw new Error(
-            "Cloud bucket name (CLOUD_BUCKET_NAME and CLOUD_PUBLIC_BUCKET_NAME) are not set",
-        );
-    }
+    checkStorageConfig();
     if (
         !process.env.CDN_ENDPOINT &&
         (!process.env.CLOUD_ENDPOINT || !process.env.CLOUD_ENDPOINT_PUBLIC)

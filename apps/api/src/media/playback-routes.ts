@@ -10,7 +10,6 @@ import express, { type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { sql } from "drizzle-orm";
 import { getDb, listDerivatives } from "@/db";
-import type { MediaMetadata } from "../db/schema";
 import { cloudBucket, cloudPublicBucket } from "../config/constants";
 import { getObjectBytes } from "../services/s3";
 import logger, { captureException } from "../services/log";
@@ -44,8 +43,6 @@ function refused(req: Request, reason: string) {
 }
 
 type Found = {
-    rowId: string;
-    metadata: MediaMetadata | null;
     bucket: "private" | "public";
     key: string;
 };
@@ -53,23 +50,16 @@ type Found = {
 async function findHls(mediaId: string): Promise<Found | null> {
     const db = getDb();
     const result = await db.execute(
-        sql`SELECT id, metadata FROM media
+        sql`SELECT id FROM media
             WHERE media_id = ${mediaId} AND NOT temp AND uploaded`,
     );
-    const row = result.rows[0] as
-        | { id: string; metadata: MediaMetadata | null }
-        | undefined;
+    const row = result.rows[0] as { id: string } | undefined;
     if (!row) return null;
     const hls = (await listDerivatives(db, row.id)).find(
         (d) => d.name === "hls" && d.status === "ready" && d.key,
     );
     if (!hls) return null;
-    return {
-        rowId: row.id,
-        metadata: row.metadata,
-        bucket: hls.bucket,
-        key: hls.key!,
-    };
+    return { bucket: hls.bucket, key: hls.key! };
 }
 
 async function readPlaylist(
@@ -89,7 +79,6 @@ async function readPlaylist(
 function send(res: Response, body: string) {
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
     res.setHeader("Cache-Control", "private, max-age=60");
-    res.setHeader("Access-Control-Allow-Origin", "*");
     // end, not send: send would append "; charset=utf-8" to the type.
     res.end(body);
 }
@@ -166,7 +155,7 @@ router.get(
     /*
         #swagger.tags = ['Media']
         #swagger.summary = 'HLS master playlist of private media'
-        #swagger.description = 'The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the video\'s length plus an hour. Players fetch it themselves; you don\'t build this URL.'
+        #swagger.description = 'The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the length of the video plus an hour. Players fetch it themselves; clients never build this URL.'
         #swagger.responses[200] = { description: 'The master playlist (application/vnd.apple.mpegurl)' }
         #swagger.responses[403] = { description: 'Wrong or expired token' }
         #swagger.responses[404] = { description: 'No ready HLS for this media' }

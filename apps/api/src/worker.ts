@@ -1,5 +1,5 @@
 /**
- * The worker process (pipelines-phase-0.md, D2). Same image and code as the
+ * The worker process. Same image and code as the
  * API, started with `bun apps/api/src/worker.ts`. It runs queued jobs and
  * the periodic cleanup jobs, and serves `/health` and `/ready` on
  * WORKER_PORT for container probes.
@@ -31,22 +31,10 @@ import { jobTelemetryHooks } from "./jobs/telemetry";
 import { startAlertChecks } from "./operations/alerts";
 import { ALERTS_LOCK, collectWorkerAlerts } from "./operations/checks";
 import { pageDeps } from "./operations/setup";
-
-function checkConfig() {
-    const missing = [
-        "DATABASE_URL",
-        "CLOUD_KEY",
-        "CLOUD_SECRET",
-        "CLOUD_BUCKET_NAME",
-        "CLOUD_PUBLIC_BUCKET_NAME",
-    ].filter((name) => !process.env[name]);
-    if (missing.length > 0) {
-        throw new Error(`Not set: ${missing.join(", ")}`);
-    }
-}
+import { checkStorageConfig } from "./config/check-env";
 
 async function main() {
-    checkConfig();
+    checkStorageConfig();
     const config = workerConfig();
     await checkDatabaseConnection();
 

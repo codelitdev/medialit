@@ -15,7 +15,7 @@ import {
     VIDEO_INPUT_PROTOCOLS,
 } from "@medialit/thumbnail";
 
-import type { MediaMetadata } from "../db/schema";
+import type { MediaMetadata } from "@medialit/models";
 
 export type { MediaMetadata };
 
@@ -23,11 +23,7 @@ export type { MediaMetadata };
 export type ProbeDetails = {
     hasVideo: boolean;
     hasAudio: boolean;
-    /** Coded size, before rotation. */
-    codedWidth?: number;
-    codedHeight?: number;
     pixelFormat?: string;
-    videoProfile?: string;
     /** Every name ffprobe gives the container, e.g. mov,mp4,m4a. */
     formatNames: string[];
 };
@@ -89,7 +85,6 @@ export async function probeMedia(
 type ProbeStream = {
     codec_type?: string;
     codec_name?: string;
-    profile?: string;
     width?: number;
     height?: number;
     pix_fmt?: string;
@@ -192,10 +187,7 @@ export function parseProbe(json: string): ProbeResult | null {
         details: {
             hasVideo: Boolean(video),
             hasAudio: Boolean(audio),
-            codedWidth: positive(video?.width),
-            codedHeight: positive(video?.height),
             pixelFormat: video?.pix_fmt,
-            videoProfile: video?.profile,
             formatNames,
         },
     };

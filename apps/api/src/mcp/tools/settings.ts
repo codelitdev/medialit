@@ -5,8 +5,10 @@ import { SUCCESS } from "../../config/strings";
 import type { MedialitMcpTool } from "../context";
 import { medialitTool } from "../tool";
 import { mediaSettingsSchema, successMessageSchema } from "./schemas";
-import { toolError } from "./errors";
-import { HLS_RENDITIONS, VideoSettingsError } from "../../media-settings/video";
+import {
+    HLS_RENDITIONS,
+    VIDEO_STREAMING_VALUES,
+} from "../../media-settings/video";
 
 export const settingsTools = (): MedialitMcpTool[] => [
     medialitTool({
@@ -60,24 +62,11 @@ export const settingsTools = (): MedialitMcpTool[] => [
         annotations: { idempotentHint: true },
         async handler({ context, args }) {
             // The upsert leaves a field it is given as undefined unchanged.
-            try {
-                await updateMediaSettings({
-                    userId: context.userId,
-                    appId: context.appId,
-                    useWebP: args.useWebP,
-                    webpOutputQuality: args.webpOutputQuality,
-                    videoStreaming: args.videoStreaming,
-                    hlsRenditions: args.hlsRenditions,
-                });
-            } catch (error) {
-                if (error instanceof VideoSettingsError) {
-                    return toolError("validation_failed", {
-                        reason: "invalid_media_settings",
-                        message: error.message,
-                    });
-                }
-                throw error;
-            }
+            await updateMediaSettings({
+                userId: context.userId,
+                appId: context.appId,
+                ...args,
+            });
             return { message: SUCCESS };
         },
     }),

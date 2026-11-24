@@ -1,4 +1,7 @@
-import { HLS_RENDITIONS } from "../../media-settings/video";
+import {
+    HLS_RENDITIONS,
+    VIDEO_STREAMING_VALUES,
+} from "../../media-settings/video";
 import { z } from "zod";
 
 const accessSchema = z.enum(["public", "private"]);
@@ -79,7 +82,7 @@ export const storageSchema = z.object({
 export const mediaSettingsSchema = z.object({
     useWebP: z.boolean(),
     webpOutputQuality: z.number().min(1).max(100),
-    videoStreaming: z.enum(["off", "hls", "mp4"]),
+    videoStreaming: z.enum(VIDEO_STREAMING_VALUES),
     hlsRenditions: z.array(z.enum(HLS_RENDITIONS)),
 });
 

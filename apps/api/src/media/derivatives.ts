@@ -8,8 +8,13 @@
  * `media.publish` copies ready derivatives that must be public to the public
  * bucket.
  */
-import { Constants, type PathKey } from "@medialit/models";
+import {
+    Constants,
+    type MediaDerivative,
+    type PathKey,
+} from "@medialit/models";
 import { sql } from "drizzle-orm";
+import type { AppDb } from "../db/client";
 import {
     getDb,
     listDerivatives,
@@ -32,7 +37,6 @@ import {
     ACCESS_PRIVATE_BUCKET_VIA_CLOUDFRONT,
     CDN_ENDPOINT,
     CLOUD_ENDPOINT_PUBLIC,
-    PATH_PREFIX,
     cloudBucket,
     cloudPublicBucket,
 } from "../config/constants";
@@ -54,18 +58,15 @@ import { releaseOrphanedMinutes } from "../billing/processing-minutes";
 import type { PlannedJob } from "./processing-plan";
 import { playlistUrl } from "./playback";
 import { mediaKind } from "./kind";
+import generateKey from "./utils/generate-key";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
 export const PROCESSING_RECONCILE_JOB = "media.processing_reconcile";
 const MEDIA_PUBLISH_ATTEMPTS = 5;
 
-function prefix(): string {
-    return PATH_PREFIX ? `${PATH_PREFIX}/` : "";
-}
-
 /** A media item's folder in one bucket, ending in `/`. */
 export function mediaFolder(mediaId: string, path: PathKey): string {
-    return `${prefix()}${path}/${mediaId}/`;
+    return generateKey({ mediaId, path, filename: "" });
 }
 
 function bucketFor(bucket: DerivativeRecord["bucket"]) {
@@ -124,14 +125,6 @@ export async function deleteMediaFolders(mediaId: string): Promise<void> {
 
 // --- The media response ---
 
-export type DerivativeResponse = {
-    status: DerivativeRecord["status"];
-    url?: string;
-    mimeType?: string;
-    size?: number;
-    error?: string;
-};
-
 /** The `derivatives` field of the media response. `url` is set only for
  * ready derivatives, signed for those in the private bucket. Outputs with
  * several files (a prefix) get no URL here; their manifests will. */
@@ -139,10 +132,10 @@ export async function derivativesResponse(
     mediaId: string,
     rows: DerivativeRecord[],
     options: { durationSeconds?: number } = {},
-): Promise<Record<string, DerivativeResponse>> {
-    const response: Record<string, DerivativeResponse> = {};
+): Promise<Record<string, MediaDerivative>> {
+    const response: Record<string, MediaDerivative> = {};
     for (const row of rows) {
-        const item: DerivativeResponse = { status: row.status };
+        const item: MediaDerivative = { status: row.status };
         if (row.status === "ready") {
             if (row.key && !row.key.endsWith("/")) {
                 item.url = await derivativeUrl(mediaId, row.bucket, row.key);
@@ -313,8 +306,6 @@ export async function afterSealCommit(
             mediaRowId,
             name: job.derivative,
             status: "queued",
-            size: 0,
-            error: null,
             params: job.params,
         });
         await enqueue(db, {
@@ -337,6 +328,22 @@ export type DerivativeOutput = {
 };
 
 export type FinishOutcome = "recorded" | "media_gone" | "not_enough_storage";
+
+/** True when storing `output` would take the account over `limit`. A
+ * ready derivative it replaces no longer counts. */
+async function overStorage(
+    tx: Executor & Pick<AppDb, "select">,
+    media: LockedMedia,
+    name: string,
+    output: DerivativeOutput,
+    limit: number,
+): Promise<boolean> {
+    const existing = (await listDerivatives(tx, media.id)).find(
+        (d) => d.name === name && d.status === "ready",
+    );
+    const total = await totalMediaSize({ userId: media.userId }, tx);
+    return total - (existing?.size ?? 0) + output.size > limit;
+}
 
 /**
  * Records a derivative job's result in one transaction: locks the media row,
@@ -366,47 +373,36 @@ export async function finishDerivative(input: {
         const media = await lockMedia(tx, input.mediaRowId);
         if (!media) return "media_gone";
 
-        if (result.status === "failed") {
+        const error =
+            result.status === "failed"
+                ? result.error
+                : (await overStorage(
+                        tx,
+                        media,
+                        input.name,
+                        result.output,
+                        storageLimit,
+                    ))
+                  ? "not_enough_storage"
+                  : null;
+        if (error !== null || result.status === "failed") {
             await upsertDerivative(tx, {
                 mediaRowId: media.id,
                 name: input.name,
                 status: "failed",
-                size: 0,
-                error: result.error,
+                error,
             });
             const settled = await settle(tx, media);
             report = () =>
                 reportFinished(
                     input.name,
-                    { status: "failed", error: result.error },
+                    { status: "failed", error: error! },
                     media,
                     settled,
                 );
-            return "recorded";
-        }
-
-        const existing = (await listDerivatives(tx, media.id)).find(
-            (d) => d.name === input.name && d.status === "ready",
-        );
-        const total = await totalMediaSize({ userId: media.userId }, tx);
-        const after = total - (existing?.size ?? 0) + result.output.size;
-        if (after > storageLimit) {
-            await upsertDerivative(tx, {
-                mediaRowId: media.id,
-                name: input.name,
-                status: "failed",
-                size: 0,
-                error: "not_enough_storage",
-            });
-            const settled = await settle(tx, media);
-            report = () =>
-                reportFinished(
-                    input.name,
-                    { status: "failed", error: "not_enough_storage" },
-                    media,
-                    settled,
-                );
-            return "not_enough_storage";
+            return result.status === "failed"
+                ? "recorded"
+                : "not_enough_storage";
         }
 
         await upsertDerivative(tx, {
@@ -416,7 +412,6 @@ export async function finishDerivative(input: {
             key: result.output.key,
             mimeType: result.output.mimeType ?? null,
             size: result.output.size,
-            error: null,
             bucket: "private",
         });
         if (needsPublicCopy(media, input.name)) {
@@ -450,8 +445,6 @@ async function startDerivative(
             mediaRowId,
             name,
             status: "processing",
-            size: 0,
-            error: null,
         });
         return media;
     });
@@ -636,16 +629,14 @@ export async function publishDerivatives(mediaRowId: string): Promise<{
 
 /** How long a derivative may sit `queued` or `processing` with no live job
  * before the reconciler fails it. */
-export const ORPHAN_AFTER_MS = 10 * 60 * 1000;
+const ORPHAN_AFTER_MS = 10 * 60 * 1000;
 
 /**
  * Fails derivatives whose job is gone without recording a result: a worker
  * died on the last attempt, or the job was cancelled. Settles their media.
  */
-export async function reconcileProcessing(
-    olderThanMs = ORPHAN_AFTER_MS,
-): Promise<{ failed: number }> {
-    const orphans = await orphanedDerivatives(getDb(), olderThanMs);
+export async function reconcileProcessing(): Promise<{ failed: number }> {
+    const orphans = await orphanedDerivatives(getDb(), ORPHAN_AFTER_MS);
     for (const row of orphans) {
         // An encode whose worker died on its last attempt still holds the
         // minutes it reserved; nothing was made, so give them back.

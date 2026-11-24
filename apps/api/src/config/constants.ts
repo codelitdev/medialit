@@ -29,13 +29,6 @@ export const videoPattern = /video/;
 export const DEFAULT_WEBP_QUALITY = 80;
 export const numberOfRecordsPerPage = 10;
 
-// Mail config
-export const mailHost = process.env.EMAIL_HOST;
-export const mailUser = process.env.EMAIL_USER;
-export const mailPass = process.env.EMAIL_PASS;
-export const mailFrom = process.env.EMAIL_FROM;
-export const mailPort = parseInt(process.env.EMAIL_PORT || "") || 587;
-
 // AWS S3 config
 export const CLOUD_ENDPOINT = process.env.CLOUD_ENDPOINT || "";
 export const CLOUD_ENDPOINT_PUBLIC = process.env.CLOUD_ENDPOINT_PUBLIC || "";

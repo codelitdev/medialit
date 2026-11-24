@@ -1,5 +1,5 @@
 /**
- * Product events (pipelines-phase-1.md, 7.2 and 7.3), sent through
+ * Product events, sent through
  * `@codelitdev/observability` like SendLit's `observability/index.ts`.
  *
  * - The subject is the account: the user ID the dashboard identifies with,
@@ -18,6 +18,9 @@
 import type { CaptureEventInput } from "@codelitdev/observability";
 import { getAppById } from "@/db";
 import logger, { captureEvent } from "./log";
+import { SYSTEM_SUBJECT } from "../jobs/telemetry";
+
+export { SYSTEM_SUBJECT };
 
 export type ProductEvent =
     | "media.uploaded"
@@ -31,9 +34,6 @@ export type ProductEvent =
     | "video.encoded"
     | "video.encode_failed"
     | "processing_minutes.exhausted";
-
-/** Work that belongs to no account reports as `system`, as exceptions do. */
-export const SYSTEM_SUBJECT = "system";
 
 type AppOwner = { userId: string; publicAppId: string };
 
@@ -106,9 +106,4 @@ export function setEventSinkForTests(next: Sink): () => void {
 /** For tests: waits for events still being sent. */
 export async function flushEventsForTests(): Promise<void> {
     while (pending.size > 0) await Promise.all([...pending]);
-}
-
-/** For tests. */
-export function clearAppCacheForTests(): void {
-    appCache.clear();
 }

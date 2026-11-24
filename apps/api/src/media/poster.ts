@@ -8,18 +8,13 @@
  * It never writes the private `thumb.webp`: seal deletes that after its
  * commit, and this job is queued in the commit, so it could run first.
  */
-import os from "node:os";
 import path from "node:path";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { Constants } from "@medialit/models";
 import thumbnail, { posterSeekSeconds } from "@medialit/thumbnail";
 import { ProcessLimitError } from "@medialit/images";
-import {
-    cloudBucket,
-    cloudPublicBucket,
-    tempFileDirForUploads,
-} from "../config/constants";
+import { cloudBucket, cloudPublicBucket } from "../config/constants";
 import { generateSignedUrl, putObject } from "../services/s3";
 import logger from "../services/log";
 import { permanentError } from "../jobs/errors";
@@ -27,6 +22,7 @@ import { derivativeJob, mediaFolder } from "./derivatives";
 import { POSTER_ATTEMPTS, POSTER_JOB } from "./processing-plan";
 import { probeMedia } from "./probe";
 import type { LockedMedia } from "@/db";
+import { makeWorkDir, removeWorkDir } from "./work-files";
 
 export const POSTER_KEY = "poster.webp";
 
@@ -65,9 +61,7 @@ export const posterJob = derivativeJob({
             duration = probed?.metadata.durationSeconds;
         }
 
-        const tempRoot = tempFileDirForUploads || os.tmpdir();
-        await mkdir(tempRoot, { recursive: true });
-        const workDir = await mkdtemp(path.join(tempRoot, "medialit-poster-"));
+        const workDir = await makeWorkDir("poster");
         try {
             const output = path.join(workDir, POSTER_KEY);
             const seekSeconds = posterSeekSeconds(duration);
@@ -109,7 +103,7 @@ export const posterJob = derivativeJob({
             );
             return { key: POSTER_KEY, mimeType: "image/webp", size: bytes };
         } finally {
-            await rm(workDir, { recursive: true, force: true }).catch(() => {});
+            await removeWorkDir(workDir);
         }
     },
 });

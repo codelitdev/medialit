@@ -4,9 +4,7 @@
  * transaction, row lock or pool connection while converting or copying.
  */
 import { randomBytes } from "node:crypto";
-import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { convertToWebp, ProcessLimitError } from "@medialit/images";
 import { Constants, type MediaWithUserId } from "@medialit/models";
@@ -15,13 +13,11 @@ import {
     cloudBucket,
     cloudPublicBucket,
     imagePattern,
-    tempFileDirForUploads,
     DEFAULT_WEBP_QUALITY,
 } from "../config/constants";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import {
     copyObject,
-    deleteObject,
     downloadObject,
     generateSignedUrl,
     getObjectHead,
@@ -35,6 +31,7 @@ import { imageMetadata, probeMedia, type MediaMetadata } from "./probe";
 import { describeError } from "../jobs/errors";
 import { trackEvent } from "../services/events";
 import { mediaKind } from "./kind";
+import { deleteQuietly, makeWorkDir, removeWorkDir } from "./work-files";
 import {
     resolveAccountPlan,
     storageLimitFor,
@@ -282,9 +279,7 @@ async function runSeal(
         // Step 2: convert to this attempt's own key.
         let webp: WebpOutcome = { kind: "none" };
         if (settings?.useWebP && imagePattern.test(media.mimeType)) {
-            const tempRoot = tempFileDirForUploads || os.tmpdir();
-            await mkdir(tempRoot, { recursive: true });
-            workDir = await mkdtemp(path.join(tempRoot, "medialit-seal-"));
+            workDir = await makeWorkDir("seal");
             webp = await convertMain({
                 sourceKey: privateMain,
                 destinationKey: privateKey(`seal/${token}/main.webp`),
@@ -412,10 +407,7 @@ async function runSeal(
         }
         // The thumbnail is in the public bucket now.
         if (media.thumbnailGenerated) unneeded.push(privateKey("thumb.webp"));
-        await deleteQuietly(
-            unneeded.map((Key) => ({ Key, Bucket: cloudBucket })),
-            mediaId,
-        );
+        await deleteQuietly(unneeded, mediaId);
         return {
             jobsQueued: planned.length,
             webp: webp.kind,
@@ -445,9 +437,7 @@ async function runSeal(
         throw err;
     } finally {
         clearInterval(renewal);
-        if (workDir) {
-            await rm(workDir, { recursive: true, force: true }).catch(() => {});
-        }
+        await removeWorkDir(workDir);
     }
 }
 
@@ -589,8 +579,6 @@ async function sourceTags(key: string): Promise<string | undefined> {
     return undefined;
 }
 
-let warnedNoPrlimit = false;
-
 /** Converts the private original to WebP at `destinationKey`, within the
  * image limits. Never throws for the image itself, only for storage errors
  * and a lost claim. */
@@ -631,8 +619,6 @@ async function convertMain(input: {
             slots: webpSlots(),
             signal: input.signal,
             onNoPrlimit: () => {
-                if (warnedNoPrlimit) return;
-                warnedNoPrlimit = true;
                 logger.warn(
                     "prlimit is not installed: WebP conversions run without a memory limit. Install util-linux.",
                 );
@@ -663,21 +649,4 @@ async function convertMain(input: {
         { abortSignal: input.signal },
     );
     return { kind: "converted", key: input.destinationKey, size: result.size };
-}
-
-async function deleteQuietly(
-    keys: Array<{ Key: string; Bucket: string }>,
-    mediaId: string,
-): Promise<void> {
-    const results = await Promise.allSettled(
-        keys.map((key) => deleteObject(key)),
-    );
-    for (const result of results) {
-        if (result.status === "rejected") {
-            logger.error(
-                { err: result.reason, media_id: mediaId },
-                "Failed to delete a file after seal",
-            );
-        }
-    }
 }

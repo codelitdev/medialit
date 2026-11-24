@@ -16,8 +16,8 @@ export interface Media {
     temp?: boolean;
     /** Background processing of sealed media: `pending` until seal. */
     processing?: MediaProcessing;
-    /** Outputs made from the original, by name (`thumbnail`; `poster`,
-     * `hls` and others later). `url` is set once a derivative is ready. */
+    /** Outputs made from the original, by name (`thumbnail`, `mp4`,
+     * `hls`). `url` is set once a derivative is ready. */
     derivatives?: Record<string, MediaDerivative>;
     /** Duration, size, codecs and format, read at seal. Null before seal,
      * or when the file couldn't be read. Missing on older servers. */

@@ -1,9 +1,19 @@
 import { MediaSettings } from "./model";
-import { UpdateMediaSettingsProps } from "./service";
 import { getMediaSettingsRecord, upsertMediaSettings } from "@/db";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
-import { normalizeRenditions } from "./video";
+import { normalizeRenditions, type VideoStreaming } from "./video";
+
+/** Fields left undefined keep their value. `null` sets the HLS renditions
+ * back to the default ladder. */
+export interface UpdateMediaSettingsProps {
+    userId: string;
+    appId: string;
+    useWebP?: boolean;
+    webpOutputQuality?: number;
+    videoStreaming?: VideoStreaming;
+    hlsRenditions?: string[] | null;
+}
 
 export async function getMediaSettings(
     userId: string,
@@ -13,11 +23,9 @@ export async function getMediaSettings(
 }
 
 /**
- * The one write path for media settings (REST, MCP, CLI and the dashboard).
- * Undefined fields are left unchanged; `null` sets the HLS renditions back
- * to the default ladder. Renditions are checked, deduplicated and sorted here, so
- * every client stores the same thing. Throws `VideoSettingsError` for
- * renditions outside the fixed list.
+ * The one write path for media settings (REST, MCP, CLI and the dashboard),
+ * which validate the fields first. Renditions are deduplicated and sorted
+ * here, so every client stores the same thing.
  */
 export async function updateMediaSettings({
     userId,

@@ -1,6 +1,5 @@
-import os from "os";
 import path from "path";
-import { mkdir, mkdtemp, rm, stat } from "fs/promises";
+import { stat } from "fs/promises";
 import { createReadStream } from "fs";
 import thumbnail from "@medialit/thumbnail";
 import { checkImageFile } from "@medialit/images";
@@ -9,12 +8,10 @@ import {
     cloudBucket,
     imagePatternForThumbnailGeneration,
     PATH_PREFIX,
-    tempFileDirForUploads,
     videoPattern,
 } from "../config/constants";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import {
-    deleteObject,
     downloadObject,
     generateSignedUrl,
     headObject,
@@ -37,6 +34,7 @@ import {
     getUploadingMediaSize,
 } from "@/db";
 import { hasEnoughStorage } from "./storage-middleware";
+import { deleteQuietly, makeWorkDir, removeWorkDir } from "./work-files";
 
 /** An image the thumbnail step refuses to decode (over the pixel limit). */
 class ThumbnailSkipped extends Error {
@@ -120,7 +118,7 @@ export async function abandonUpload(
     target: UploadTarget,
     extraKeys: string[] = [],
 ): Promise<void> {
-    await deleteStored([target.key, ...extraKeys]);
+    await deleteQuietly([target.key, ...extraKeys], target.mediaId);
     await deleteUploadingMediaRecord(target.mediaId).catch((err) => {
         logger.error(
             { err, mediaId: target.mediaId },
@@ -173,11 +171,7 @@ export async function finalizeStoredUpload(
     let workDir: string | undefined;
 
     try {
-        // mkdtemp makes only the last directory; the configured one may not
-        // exist yet, as in a fresh container.
-        const tempRoot = tempFileDirForUploads || os.tmpdir();
-        await mkdir(tempRoot, { recursive: true });
-        workDir = await mkdtemp(path.join(tempRoot, "medialit-finalize-"));
+        workDir = await makeWorkDir("finalize");
         const isImage = imagePatternForThumbnailGeneration.test(
             upload.mimeType,
         );
@@ -276,13 +270,11 @@ export async function finalizeStoredUpload(
             throw new Error("The upload expired before it finished");
         }
     } catch (err) {
-        await deleteStored([...stored]);
+        await deleteQuietly([...stored], mediaId);
         await deleteUploadingMediaRecord(mediaId).catch(() => {});
         throw err;
     } finally {
-        if (workDir) {
-            await rm(workDir, { recursive: true, force: true }).catch(() => {});
-        }
+        await removeWorkDir(workDir);
     }
 
     const finished = {
@@ -320,19 +312,4 @@ export async function finalizeStoredUpload(
     }
 
     return mediaId;
-}
-
-/** Deletes objects of an upload that won't be kept. Never throws. */
-export async function deleteStored(keys: string[]): Promise<void> {
-    const results = await Promise.allSettled(
-        keys.map((Key) => deleteObject({ Key, Bucket: cloudBucket })),
-    );
-    for (const result of results) {
-        if (result.status === "rejected") {
-            logger.error(
-                { err: result.reason },
-                "Failed to delete a rejected upload",
-            );
-        }
-    }
 }

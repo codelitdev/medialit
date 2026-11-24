@@ -11,7 +11,10 @@ import {
     uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { MediaMetadata, ProcessingStatus } from "@medialit/models";
 import { session, user } from "./auth.generated";
+
+export type { MediaMetadata, ProcessingStatus };
 
 export const profiles = pgTable("profiles", {
     userId: text("user_id")
@@ -94,7 +97,6 @@ export const apiKeys = pgTable(
     }),
 );
 
-export type ProcessingStatus = "pending" | "processing" | "ready" | "failed";
 export type DerivativeStatus = "queued" | "processing" | "ready" | "failed";
 
 export const media = pgTable(
@@ -179,23 +181,6 @@ export const mediaSettings = pgTable("media_settings", {
 });
 
 export type VideoStreaming = "off" | "hls" | "mp4";
-
-/** A media item's technical metadata. Fields that don't apply are left
- * out. Width and height are as displayed, after rotation. */
-export type MediaMetadata = {
-    kind: "video" | "audio" | "image";
-    durationSeconds?: number;
-    width?: number;
-    height?: number;
-    rotation?: 0 | 90 | 180 | 270;
-    frameRate?: number;
-    videoCodec?: string;
-    audioCodec?: string;
-    bitrate?: number;
-    sampleRate?: number;
-    channels?: number;
-    format?: string;
-};
 
 /**
  * Processing minutes an account used (pipelines-phase-1.md, D8). One row per

@@ -8,8 +8,6 @@ import os from "node:os";
 import path from "node:path";
 import thumbnail from "@medialit/thumbnail";
 
-const SIZE = { width: 120, height: 69 };
-
 // ffmpeg isn't installed everywhere `bun run test` runs.
 const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 
@@ -102,7 +100,6 @@ describe("thumbnail input formats", { skip: !hasFfmpeg }, () => {
             thumbnail.forVideo(
                 `${storageUrl}/main.m3u8?X-Amz-Signature=test`,
                 destination,
-                SIZE,
             ),
         );
         assert.deepStrictEqual(internalHits, []);
@@ -115,7 +112,6 @@ describe("thumbnail input formats", { skip: !hasFfmpeg }, () => {
             await thumbnail.forVideo(
                 `${storageUrl}/${file}?X-Amz-Signature=test`,
                 destination,
-                SIZE,
             );
             assert.ok((await stat(destination)).size > 0);
         });
@@ -123,7 +119,7 @@ describe("thumbnail input formats", { skip: !hasFfmpeg }, () => {
 
     test("an image still gets a thumbnail", async () => {
         const destination = `${dir}/thumb-image.webp`;
-        await thumbnail.forImage(`${dir}/source`, destination, SIZE);
+        await thumbnail.forImage(`${dir}/source`, destination);
         assert.ok((await stat(destination)).size > 0);
     });
 
@@ -131,11 +127,7 @@ describe("thumbnail input formats", { skip: !hasFfmpeg }, () => {
         const source = `${dir}/image-playlist`;
         await writeFile(source, await readFile(`${dir}/main.m3u8`));
         await assert.rejects(
-            thumbnail.forImage(
-                source,
-                `${dir}/thumb-image-playlist.webp`,
-                SIZE,
-            ),
+            thumbnail.forImage(source, `${dir}/thumb-image-playlist.webp`),
         );
         assert.deepStrictEqual(internalHits, []);
     });

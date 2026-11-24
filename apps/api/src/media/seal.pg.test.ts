@@ -36,6 +36,7 @@ import {
 } from "../jobs/test-postgres.js";
 import * as schema from "../db/schema/index.js";
 import type { AppDb } from "../db/client.js";
+import { makeTestVideo } from "./test-video.js";
 
 const realCwebp = findExecutable("cwebp");
 const realFfmpeg = findExecutable("ffmpeg");
@@ -321,18 +322,7 @@ describe("seal", { skip }, () => {
         assert.equal(await thumbSize(pixel.mediaId), "1x1");
 
         const videoPath = path.join(work, "default-size.mp4");
-        execFileSync("ffmpeg", [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=size=640x360:duration=1",
-            "-pix_fmt",
-            "yuv420p",
-            videoPath,
-        ]);
+        makeTestVideo(videoPath, { size: "640x360", seconds: 1 });
         const video = await upload(await readFile(videoPath), {
             mimeType: "video/mp4",
             fileName: "clip.mp4",
@@ -429,27 +419,7 @@ describe("seal", { skip }, () => {
 
     test("seal reads metadata: ffprobe for video, the header for images", async () => {
         const videoPath = path.join(work, "metadata.mp4");
-        execFileSync("ffmpeg", [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=size=320x180:rate=25:duration=2",
-            "-f",
-            "lavfi",
-            "-i",
-            "sine=frequency=440:duration=2",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-c:a",
-            "aac",
-            "-shortest",
-            videoPath,
-        ]);
+        makeTestVideo(videoPath, { size: "320x180", audio: true });
         const video = await upload(await readFile(videoPath), {
             mimeType: "video/mp4",
             fileName: "metadata.mp4",
@@ -457,7 +427,7 @@ describe("seal", { skip }, () => {
         });
         assert.equal(video.metadata, null, "temp media has no metadata");
         const sealedVideo = await sealIt(video.mediaId);
-        const meta = sealedVideo.metadata as Record<string, unknown>;
+        const meta = sealedVideo.metadata!;
         assert.equal(meta.kind, "video");
         assert.equal(meta.width, 320);
         assert.equal(meta.height, 180);
@@ -497,18 +467,7 @@ describe("seal", { skip }, () => {
         assert.equal((await row(broken.mediaId))?.temp, false);
 
         const videoPath = path.join(work, "slow-probe.mp4");
-        execFileSync("ffmpeg", [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=size=160x90:duration=1",
-            "-pix_fmt",
-            "yuv420p",
-            videoPath,
-        ]);
+        makeTestVideo(videoPath, { size: "160x90", seconds: 1 });
         const slow = await upload(await readFile(videoPath), {
             mimeType: "video/mp4",
             fileName: "slow.mp4",
@@ -811,24 +770,14 @@ describe("seal", { skip }, () => {
         codec: string[],
         audio: string[] = [],
     ): Promise<Buffer> {
-        const file = path.join(work, name);
-        execFileSync(realFfmpeg!, [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            `testsrc=size=${size}:rate=25:duration=2`,
-            ...(audio.length
-                ? ["-f", "lavfi", "-i", "sine=frequency=440:duration=2"]
-                : []),
-            ...codec,
-            ...audio,
-            "-shortest",
-            file,
-        ]);
-        return readFile(file);
+        return readFile(
+            makeTestVideo(path.join(work, name), {
+                size,
+                audio: audio.length > 0,
+                codec: [...codec, ...audio],
+                ffmpeg: realFfmpeg!,
+            }),
+        );
     }
 
     const h264 = () =>
@@ -1261,18 +1210,7 @@ describe("seal", { skip }, () => {
             fileName: "a.webp",
         });
         const videoPath = path.join(work, "clip.mp4");
-        execFileSync("ffmpeg", [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=size=640x360:duration=1",
-            "-pix_fmt",
-            "yuv420p",
-            videoPath,
-        ]);
+        makeTestVideo(videoPath, { size: "640x360", seconds: 1 });
         const video = await readFile(videoPath);
         const videoMedia = await upload(video, {
             mimeType: "video/mp4",

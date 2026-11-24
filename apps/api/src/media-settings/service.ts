@@ -1,59 +1,43 @@
-import * as queries from "./queries";
-import { MediaSettingsResponse } from "./schemas";
+import { getMediaSettingsRecord } from "@/db";
+import { MediaSettingsResponse, mediaSettingsSchema } from "./schemas";
 import { DEFAULT_WEBP_QUALITY } from "../config/constants";
-import {
-    effectiveVideoSettings,
-    type VideoSettings,
-    type VideoStreaming,
-} from "./video";
+import { effectiveVideoSettings } from "./video";
+import type { UpdateMediaSettingsProps } from "./queries";
 
 export async function getMediaSettings(
     userId: string,
     appId: string,
 ): Promise<MediaSettingsResponse> {
-    const mediaSettings = await queries.getMediaSettings(userId, appId);
-    const video = effectiveVideoSettings(mediaSettings);
-
-    if (!mediaSettings) {
-        return {
-            useWebP: false,
-            webpOutputQuality: DEFAULT_WEBP_QUALITY,
-            ...video,
-        };
-    }
-
+    const mediaSettings = await getMediaSettingsRecord(userId, appId);
     return {
-        useWebP: mediaSettings.useWebP || false,
+        useWebP: mediaSettings?.useWebP || false,
         webpOutputQuality:
-            mediaSettings.webpOutputQuality || DEFAULT_WEBP_QUALITY,
-        ...video,
+            mediaSettings?.webpOutputQuality || DEFAULT_WEBP_QUALITY,
+        ...effectiveVideoSettings(mediaSettings),
     };
 }
 
-/** The video settings in effect for an app now. Seal copies them into the
- * jobs it queues (phase 0, D9). */
-export async function getVideoSettings(
-    userId: string,
-    appId: string,
-): Promise<VideoSettings> {
-    return effectiveVideoSettings(
-        await queries.getMediaSettings(userId, appId),
+type SettingsFields = Omit<UpdateMediaSettingsProps, "userId" | "appId">;
+
+const FIELDS = [
+    "useWebP",
+    "webpOutputQuality",
+    "videoStreaming",
+    "hlsRenditions",
+] as const;
+
+/** Picks the settings fields from a request body and validates them. A field
+ * missing from the body stays undefined, so it is left unchanged; `null` is
+ * kept, so the renditions reset. */
+export function parseMediaSettingsUpdate(
+    body: Record<string, unknown> | undefined,
+): { update: SettingsFields } | { error: string } {
+    const input = Object.fromEntries(
+        FIELDS.filter((field) => body?.[field] !== undefined).map((field) => [
+            field,
+            body![field],
+        ]),
     );
-}
-
-/** Fields left undefined keep their value. `null` sets the HLS renditions
- * back to the default ladder. */
-export interface UpdateMediaSettingsProps {
-    userId: string;
-    appId: string;
-    useWebP?: boolean;
-    webpOutputQuality?: number;
-    videoStreaming?: VideoStreaming;
-    hlsRenditions?: string[] | null;
-}
-
-export async function updateMediaSettings(
-    props: UpdateMediaSettingsProps,
-): Promise<void> {
-    await queries.updateMediaSettings(props);
+    const { error } = mediaSettingsSchema.validate(input);
+    return error ? { error: error.message } : { update: input };
 }

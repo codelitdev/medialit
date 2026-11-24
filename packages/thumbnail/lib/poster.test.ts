@@ -119,10 +119,7 @@ describe(
             const result = await thumbnail.forVideoPoster(
                 `${base}/black-start.mp4`,
                 out,
-                {
-                    seekSeconds: posterSeekSeconds(10),
-                    size: { width: 160, height: 90 },
-                },
+                { seekSeconds: posterSeekSeconds(10) },
             );
             assert.equal(result.fallback, false);
             assert.ok(yavg(out) > 32, `poster luma ${yavg(out)}`);

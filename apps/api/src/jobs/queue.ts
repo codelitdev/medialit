@@ -58,7 +58,7 @@ const COLUMNS = sql.raw(
     ].join(", "),
 );
 
-async function rows<T>(db: Executor, query: SQL): Promise<T[]> {
+export async function rows<T>(db: Executor, query: SQL): Promise<T[]> {
     const result = await db.execute(query);
     return result.rows as T[];
 }
@@ -89,7 +89,8 @@ async function jobRows(db: Executor, query: SQL): Promise<JobRow[]> {
     });
 }
 
-function ms(value: number): SQL {
+/** A duration as a Postgres interval. */
+export function ms(value: number): SQL {
     return sql`(${Math.max(0, Math.round(value))} * interval '1 millisecond')`;
 }
 
@@ -325,14 +326,25 @@ export async function reap(db: Executor): Promise<ReapedJob[]> {
  */
 export async function cancel(
     db: Executor,
-    where: { appId?: string; mediaId?: string; id?: string },
+    where: {
+        appId?: string;
+        mediaId?: string;
+        id?: string;
+        type?: string;
+        /** Only jobs created within this many milliseconds. */
+        sinceMs?: number;
+    },
 ): Promise<number> {
     const conditions: SQL[] = [];
     if (where.appId) conditions.push(sql`app_id = ${where.appId}`);
     if (where.mediaId) conditions.push(sql`media_id = ${where.mediaId}`);
     if (where.id) conditions.push(sql`id = ${where.id}`);
+    if (where.type) conditions.push(sql`type = ${where.type}`);
+    if (where.sinceMs !== undefined) {
+        conditions.push(sql`created_at > now() - ${ms(where.sinceMs)}`);
+    }
     if (conditions.length === 0) {
-        throw new Error("cancel needs a job, media or app ID");
+        throw new Error("cancel needs a filter");
     }
     const updated = await rows<{ id: string }>(
         db,

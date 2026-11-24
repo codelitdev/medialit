@@ -870,7 +870,7 @@
           "Media"
         ],
         "summary": "HLS master playlist of private media",
-        "description": "The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the video\\'s length plus an hour. Players fetch it themselves; you don\\'t build this URL.",
+        "description": "The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the length of the video plus an hour. Players fetch it themselves; clients never build this URL.",
         "parameters": [
           {
             "name": "mediaId",

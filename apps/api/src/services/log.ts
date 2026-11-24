@@ -1,6 +1,5 @@
 /**
- * Telemetry for the API and the worker (pipelines-phase-0.md, section 9),
- * set up as in SendLit. Logs always go to stdout. With POSTHOG_API_KEY set,
+ * Telemetry for the API and the worker, set up as in SendLit. Logs always go to stdout. With POSTHOG_API_KEY set,
  * every log line is also sent to PostHog's logs endpoint, and errors and
  * events are captured. Without it, capture calls do nothing.
  */
@@ -35,7 +34,7 @@ const PROPERTY_ALLOWLIST = new Set([
     "age_ms",
     "count",
     "reason",
-    // Product events and lifecycle logs (pipelines-phase-1.md, 7.7).
+    // Product events and lifecycle logs.
     "transport",
     "media_kind",
     "access",
@@ -64,6 +63,13 @@ const PROPERTY_ALLOWLIST = new Set([
     "minutes_charged",
     "temp",
     "next_run_in_ms",
+    "output",
+    "remux",
+    "renditions",
+    "source_duration_s",
+    "source_height",
+    "video_codec",
+    "speed",
 ]);
 
 /** Allowlisted keys that hold record IDs. They skip the long-token mask,

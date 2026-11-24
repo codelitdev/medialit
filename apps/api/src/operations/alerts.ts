@@ -1,6 +1,5 @@
 /**
- * Paging operators (pipelines-phase-0.md, section 9), as SendLit's billing
- * alerts do. A page writes an error log line, sends an `operations.page`
+ * Paging operators, as SendLit's billing alerts do. A page writes an error log line, sends an `operations.page`
  * event, raises a critical exception and emails OPERATOR_ALERT_EMAIL.
  */
 import { sql } from "drizzle-orm";
@@ -38,7 +37,6 @@ export type PageDeps = {
     }) => void;
     email: (to: string[], subject: string, text: string) => Promise<void>;
     recipients: () => string[];
-    cooldownMs?: number;
 };
 
 /**
@@ -46,15 +44,11 @@ export type PageDeps = {
  * row is shared, so API replicas and workers never page the same code twice
  * in one cooldown.
  */
-export async function claimPage(
-    db: Executor,
-    code: string,
-    cooldownMs = PAGE_COOLDOWN_MS,
-): Promise<boolean> {
+export async function claimPage(db: Executor, code: string): Promise<boolean> {
     const result = await db.execute(
         sql`INSERT INTO operator_alerts (code, last_paged_at) VALUES (${code}, now())
             ON CONFLICT (code) DO UPDATE SET last_paged_at = now()
-            WHERE operator_alerts.last_paged_at <= now() - (${Math.round(cooldownMs)} * interval '1 millisecond')
+            WHERE operator_alerts.last_paged_at <= now() - (${PAGE_COOLDOWN_MS} * interval '1 millisecond')
             RETURNING code`,
     );
     return result.rows.length > 0;
@@ -65,7 +59,7 @@ export async function pageAlert(
     alert: Alert,
     deps: PageDeps,
 ): Promise<boolean> {
-    if (!(await claimPage(deps.db, alert.code, deps.cooldownMs))) return false;
+    if (!(await claimPage(deps.db, alert.code))) return false;
     const properties = { alert_code: alert.code, ...alert.details };
     deps.logger.error(properties, alert.message);
     deps.captureEvent({
@@ -100,14 +94,12 @@ export async function pageAlert(
 }
 
 /**
- * Runs `check` every `everyMs` and pages for what it finds. A failed check
- * is logged and tried again on the next tick.
+ * Runs `check` every minute and pages for what it finds. A failed check is
+ * logged and tried again on the next tick.
  */
 export function startAlertChecks(input: {
     check: () => Promise<Alert[]>;
     deps: PageDeps;
-    everyMs?: number;
-    firstCheckMs?: number;
 }): () => Promise<void> {
     let running: Promise<void> | undefined;
     const tick = () => {
@@ -131,15 +123,9 @@ export function startAlertChecks(input: {
             running = undefined;
         });
     };
-    const first = setTimeout(
-        tick,
-        input.firstCheckMs ?? input.everyMs ?? 60_000,
-    );
-    const every = setInterval(tick, input.everyMs ?? 60_000);
-    first.unref?.();
+    const every = setInterval(tick, 60_000);
     every.unref?.();
     return async () => {
-        clearTimeout(first);
         clearInterval(every);
         await running;
     };

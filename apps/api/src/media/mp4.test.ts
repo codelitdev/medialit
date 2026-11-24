@@ -7,6 +7,7 @@ import { describe, test } from "node:test";
 import { findExecutable } from "@medialit/images";
 import { canRemux, mp4Args } from "./mp4.js";
 import { probeMedia, type ProbeResult } from "./probe.js";
+import { makeTestVideo } from "./test-video.js";
 
 const ffmpeg = findExecutable("ffmpeg");
 const ffprobe = findExecutable("ffprobe");
@@ -24,18 +25,12 @@ function video(
     codec: string[],
     audio: string[] = [],
 ): string {
-    return make(name, [
-        "-f",
-        "lavfi",
-        "-i",
-        `testsrc=size=${size}:rate=25:duration=2`,
-        ...(audio.length
-            ? ["-f", "lavfi", "-i", "sine=frequency=440:duration=2"]
-            : []),
-        ...codec,
-        ...audio,
-        "-shortest",
-    ]);
+    return makeTestVideo(path.join(dir, name), {
+        size,
+        audio: audio.length > 0,
+        codec: [...codec, ...audio],
+        ffmpeg: ffmpeg!,
+    });
 }
 
 /** MD5 of a stream's packets, to compare a remux with its source. */

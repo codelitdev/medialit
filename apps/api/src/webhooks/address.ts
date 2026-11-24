@@ -1,6 +1,5 @@
 /**
- * Which IP addresses a webhook may be delivered to (pipelines-phase-0.md,
- * D8). The tenant picks the URL, so delivery must never reach loopback,
+ * Which IP addresses a webhook may be delivered to. The tenant picks the URL, so delivery must never reach loopback,
  * private, link-local (cloud metadata), CGNAT, multicast or reserved
  * addresses, nor IPv6 forms that embed one of those IPv4 addresses.
  */
@@ -41,40 +40,21 @@ function v6(cidr: string): Range {
 /** Only global unicast (2000::/3) is allowed, minus these. Everything
  * outside it (`::`, `::1`, fc00::/7, fe80::/10, ff00::/8, 100::/64 and
  * the rest) is refused. */
-const ALLOWED_V6 = (): Range => v6("2000::/3");
-const BLOCKED_GLOBAL_V6 = (): Range[] =>
-    [
-        "2001::/23", // IETF protocol assignments, Teredo
-        "2001:db8::/32", // documentation
-        "3fff::/20", // documentation
-    ].map(v6);
+const ALLOWED_V6 = v6("2000::/3");
+const BLOCKED_GLOBAL_V6: Range[] = [
+    "2001::/23", // IETF protocol assignments, Teredo
+    "2001:db8::/32", // documentation
+    "3fff::/20", // documentation
+].map(v6);
 
 /** IPv6 ranges that carry an IPv4 address in their last 32 bits. The
  * embedded address is checked as IPv4. */
-const EMBEDS_V4 = (): Range[] =>
-    [
-        "::ffff:0:0/96", // IPv4-mapped
-        "::/96", // IPv4-compatible (deprecated); also covers :: and ::1
-        "64:ff9b::/96", // NAT64
-        "64:ff9b:1::/48", // local NAT64
-    ].map(v6);
-
-let cached:
-    | {
-          allowed: Range;
-          blocked: Range[];
-          embeds: Range[];
-      }
-    | undefined;
-
-function v6Tables() {
-    cached ??= {
-        allowed: ALLOWED_V6(),
-        blocked: BLOCKED_GLOBAL_V6(),
-        embeds: EMBEDS_V4(),
-    };
-    return cached;
-}
+const EMBEDS_V4: Range[] = [
+    "::ffff:0:0/96", // IPv4-mapped
+    "::/96", // IPv4-compatible (deprecated); also covers :: and ::1
+    "64:ff9b::/96", // NAT64
+    "64:ff9b:1::/48", // local NAT64
+].map(v6);
 
 function inRange(bytes: number[], range: Range): boolean {
     let bits = range.bits;
@@ -129,14 +109,13 @@ export function isBlockedAddress(address: string): boolean {
     }
     const bytes = ipv6Bytes(plain);
     if (!bytes) return true;
-    const { allowed, blocked, embeds } = v6Tables();
-    if (embeds.some((range) => inRange(bytes, range))) {
+    if (EMBEDS_V4.some((range) => inRange(bytes, range))) {
         return blockedV4(bytes.slice(12));
     }
     // 6to4 (2002::/16) carries an IPv4 address in bytes 2–5.
     if (bytes[0] === 0x20 && bytes[1] === 0x02) {
         return blockedV4(bytes.slice(2, 6));
     }
-    if (!inRange(bytes, allowed)) return true;
-    return blocked.some((range) => inRange(bytes, range));
+    if (!inRange(bytes, ALLOWED_V6)) return true;
+    return BLOCKED_GLOBAL_V6.some((range) => inRange(bytes, range));
 }

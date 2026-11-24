@@ -29,29 +29,20 @@ import { configuredBootstrapKeyHash } from "../apikey/bootstrap-config";
 import type { MedialitAuth } from "../auth/better-auth";
 import {
     accountSubscription,
-    maxStorageFor,
     resolveAccountBilling,
-    resolveAccountPlan,
-    storageLimitFor,
 } from "../billing/entitlements";
-import { minutesSummary } from "../billing/processing-minutes";
-import { getMediaSettings } from "../media-settings/service";
+import { storageStats } from "../billing/usage";
+import {
+    getMediaSettings,
+    parseMediaSettingsUpdate,
+} from "../media-settings/service";
 import { updateMediaSettings } from "../media-settings/queries";
-import { mediaSettingsSchema } from "../media-settings/schemas";
-import { VideoSettingsError } from "../media-settings/video";
-
-const MEDIA_SETTINGS_FIELDS = [
-    "useWebP",
-    "webpOutputQuality",
-    "videoStreaming",
-    "hlsRenditions",
-] as const;
 import { deploymentMode } from "../billing/catalog";
 import mediaService from "../media/service";
 import { sealErrorStatus } from "../media/handlers";
 import { mediaKind, parseMediaKind } from "../media/kind";
 import { mediaPreview } from "../media/preview";
-import { getMediaCount, getTotalSpace } from "../media/queries";
+import { getMediaCount } from "../media/queries";
 import { validatePresigningOptions } from "../signature/handlers";
 import { generateSignature } from "../signature/service";
 import logger from "../services/log";
@@ -448,16 +439,7 @@ export function createDashboardRouter(auth: MedialitAuth) {
     router.get("/api/apps/:appId/stats", async (req, res) => {
         const owned = await ownedApp(req, res);
         if (!owned) return;
-        const storage = await getTotalSpace({
-            userId: owned.user.id,
-            appId: owned.app.id,
-        });
-        const plan = await resolveAccountPlan(owned.user);
-        res.json({
-            storage,
-            maxStorage: storageLimitFor(plan),
-            processingMinutes: await minutesSummary(owned.user.id, plan),
-        });
+        res.json(await storageStats(owned.user, owned.app.id));
     });
 
     /* A signature for one browser (or app) upload to this app. The client
@@ -707,30 +689,16 @@ export function createDashboardRouter(auth: MedialitAuth) {
     router.patch("/api/apps/:appId/media-settings", async (req, res) => {
         const owned = await ownedApp(req, res);
         if (!owned) return;
-        const body = req.body ?? {};
-        const input = Object.fromEntries(
-            MEDIA_SETTINGS_FIELDS.filter(
-                (field) => body[field] !== undefined,
-            ).map((field) => [field, body[field]]),
-        );
-        const { error } = mediaSettingsSchema.validate(input);
-        if (error) {
-            res.status(400).json({ error: error.message });
+        const parsed = parseMediaSettingsUpdate(req.body);
+        if ("error" in parsed) {
+            res.status(400).json({ error: parsed.error });
             return;
         }
-        try {
-            await updateMediaSettings({
-                userId: owned.user.id,
-                appId: owned.app.id,
-                ...input,
-            });
-        } catch (err) {
-            if (err instanceof VideoSettingsError) {
-                res.status(400).json({ error: err.message });
-                return;
-            }
-            throw err;
-        }
+        await updateMediaSettings({
+            userId: owned.user.id,
+            appId: owned.app.id,
+            ...parsed.update,
+        });
         res.json(await getMediaSettings(owned.user.id, owned.app.id));
     });
 

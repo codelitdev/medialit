@@ -1,5 +1,5 @@
 /**
- * Webhook events and their delivery (pipelines-phase-0.md, D7 and D8).
+ * Webhook events and their delivery.
  *
  * When a job finishing settles a sealed media item's processing status, the
  * settle transaction queues one `webhook.deliver` job per subscribed
@@ -125,18 +125,14 @@ export async function queueProcessingWebhooks(
     }
 }
 
-let unregister: (() => void) | undefined;
+let registered = false;
 
 /** Hooks webhooks into settling. Called by the API and the worker at
  * startup; settling may happen in either. Safe to call more than once. */
 export function registerWebhookHooks(): void {
-    unregister ??= onProcessingSettled(queueProcessingWebhooks);
-}
-
-/** For tests. */
-export function unregisterWebhookHooks(): void {
-    unregister?.();
-    unregister = undefined;
+    if (registered) return;
+    onProcessingSettled(queueProcessingWebhooks);
+    registered = true;
 }
 
 /** What a delivery stores in `jobs.result`: a status code, the duration
@@ -159,15 +155,8 @@ const FAILED_REASON: Record<string, FailedReason> = {
     connection_failed: "connection_failed",
 };
 
-export type DeliverJobOptions = {
-    guard?: () => GuardOptions;
-    timeoutMs?: number;
-    /** Extra TLS trust, for tests. */
-    ca?: string | Buffer;
-};
-
 export function webhookDeliverJob(
-    options: DeliverJobOptions = {},
+    options: { guard?: () => GuardOptions } = {},
 ): JobDefinition<DeliverPayload> {
     return {
         type: WEBHOOK_DELIVER_JOB,
@@ -191,8 +180,6 @@ export function webhookDeliverJob(
                 }),
                 guard: (options.guard ?? guardOptionsFromEnv)(),
                 signal: context.signal,
-                timeoutMs: options.timeoutMs,
-                ca: options.ca,
             });
             const stored = storedResult(result);
             const fields = {
@@ -218,8 +205,8 @@ export function webhookDeliverJob(
                 return stored;
             }
             logger.warn(fields, "webhook delivery failed");
-            // A refused address isn't retried; anything else fails for good
-            // on the last attempt.
+            // A URL that resolves to a refused address is not retried;
+            // anything else fails for good on the last attempt.
             if (
                 result.error === "blocked_address" ||
                 context.job.attempts >= context.job.maxAttempts
@@ -236,7 +223,6 @@ export function webhookDeliverJob(
                     ? `endpoint answered ${result.status}`
                     : `delivery failed (${result.error})`;
             const reason = FAILED_REASON[result.error] ?? "internal";
-            // A URL that resolves to a refused address is not retried.
             if (result.error === "blocked_address") {
                 throw permanentError(message, reason, stored);
             }
@@ -259,7 +245,6 @@ export async function sendTestEvent(input: {
     endpoint: { id: string; url: string; secret: string };
     publicAppId: string;
     guard?: GuardOptions;
-    ca?: string | Buffer;
 }): Promise<TestResult> {
     const body = eventBody("webhook.test", {
         appId: input.publicAppId,
@@ -274,7 +259,6 @@ export async function sendTestEvent(input: {
             body,
         }),
         guard: input.guard ?? guardOptionsFromEnv(),
-        ca: input.ca,
     });
     if (result.ok) return { result: "delivered", status: result.status };
     if (result.error === "http_status" && result.status !== undefined) {
