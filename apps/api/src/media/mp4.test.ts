@@ -13,12 +13,6 @@ const ffmpeg = findExecutable("ffmpeg");
 const ffprobe = findExecutable("ffprobe");
 const dir = mkdtempSync(path.join(tmpdir(), "mp4-test-"));
 
-function make(name: string, args: string[]): string {
-    const file = path.join(dir, name);
-    execFileSync(ffmpeg!, ["-v", "error", "-y", ...args, file]);
-    return file;
-}
-
 function video(
     name: string,
     size: string,

@@ -1,7 +1,6 @@
 import Joi from "joi";
 import { NOT_ENOUGH_STORAGE, NOT_FOUND, SUCCESS } from "../config/strings";
 import logger from "../services/log";
-import { Request } from "express";
 import mediaService from "./service";
 import { getMediaCount as getCount } from "./queries";
 import { maxUploadFor } from "../billing/entitlements";

@@ -3,9 +3,6 @@ import { after, before, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
 import {
     completeUploadingMediaRecord,
-    createAccount,
-    createApp,
-    createMediaRecord,
     createUploadingMediaRecord,
     getMediaRecord,
     listDerivatives,

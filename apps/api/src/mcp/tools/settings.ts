@@ -5,10 +5,7 @@ import { SUCCESS } from "../../config/strings";
 import type { MedialitMcpTool } from "../context";
 import { medialitTool } from "../tool";
 import { mediaSettingsSchema, successMessageSchema } from "./schemas";
-import {
-    HLS_RENDITIONS,
-    VIDEO_STREAMING_VALUES,
-} from "../../media-settings/video";
+import { HLS_RENDITIONS } from "../../media-settings/video";
 
 export const settingsTools = (): MedialitMcpTool[] => [
     medialitTool({

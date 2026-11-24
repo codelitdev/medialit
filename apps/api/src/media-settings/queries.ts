@@ -1,5 +1,4 @@
-import { MediaSettings } from "./model";
-import { getMediaSettingsRecord, upsertMediaSettings } from "@/db";
+import { upsertMediaSettings } from "@/db";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
 import { normalizeRenditions, type VideoStreaming } from "./video";
