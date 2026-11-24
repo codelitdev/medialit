@@ -14,6 +14,7 @@ import {
     getAppSummary,
     getMediaSettings,
     getProcessingMinutes,
+    getSubscriber,
     listApiKeys,
     listWebhooks,
 } from "@/app/actions";
@@ -37,15 +38,23 @@ export default async function Settings(props: {
     const [{ appId }, session] = await Promise.all([props.params, auth()]);
     if (!session) redirect("/login");
 
-    const [app, appSummary, apiKeys, webhooks, mediaSettings, minutes] =
-        await Promise.all([
-            getApp(appId),
-            getAppSummary(appId).catch(() => null),
-            listApiKeys(appId).catch(() => null),
-            listWebhooks(appId).catch(() => null),
-            getMediaSettings(appId).catch(() => null),
-            getProcessingMinutes(appId).catch(() => null),
-        ]);
+    const [
+        app,
+        appSummary,
+        apiKeys,
+        webhooks,
+        mediaSettings,
+        minutes,
+        subscriber,
+    ] = await Promise.all([
+        getApp(appId),
+        getAppSummary(appId).catch(() => null),
+        listApiKeys(appId).catch(() => null),
+        listWebhooks(appId).catch(() => null),
+        getMediaSettings(appId).catch(() => null),
+        getProcessingMinutes(appId).catch(() => null),
+        getSubscriber().catch(() => null),
+    ]);
     if (!app) redirect("/");
 
     if (!appSummary || !apiKeys) {
@@ -201,6 +210,9 @@ export default async function Settings(props: {
                                     appId={app.appId}
                                     settings={mediaSettings}
                                     minutes={minutes}
+                                    selfHosted={
+                                        subscriber?.deploymentMode === "oss"
+                                    }
                                 />
                             </>
                         ) : (

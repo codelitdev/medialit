@@ -4,6 +4,13 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Film, ImageIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { SettingsCard } from "@/components/settings-card";
 import {
@@ -21,6 +28,13 @@ const STREAMING_LABELS: Record<VideoStreaming, string> = {
     hls: "HLS (adaptive streaming)",
     mp4: "MP4 optimized for the web",
     off: "Off",
+};
+
+/** For the Default option, which already has its own brackets. */
+const STREAMING_SHORT_LABELS: Record<VideoStreaming, string> = {
+    hls: "HLS",
+    mp4: "MP4",
+    off: "off",
 };
 
 /** "default" keeps following the plan; the others are a stored choice. */
@@ -171,10 +185,13 @@ export function VideoStreamingCard({
     appId,
     settings,
     minutes,
+    selfHosted,
 }: {
     appId: string;
     settings: MediaSettings;
     minutes: ProcessingMinutes | null;
+    /** Self-hosted servers have no plans, so the default is the server's. */
+    selfHosted: boolean;
 }) {
     const initialStreaming: StreamingChoice = settings.videoStreamingDefault
         ? "default"
@@ -224,30 +241,41 @@ export function VideoStreamingCard({
             <form onSubmit={submit} className="grid gap-5">
                 <div className="settings-field">
                     <label htmlFor="video-streaming">Format</label>
-                    <select
-                        id="video-streaming"
-                        className="settings-input"
+                    <Select
                         value={streaming}
-                        onChange={(event) => {
+                        onValueChange={(value) => {
                             edited();
-                            setStreaming(event.target.value as StreamingChoice);
+                            setStreaming(value as StreamingChoice);
                         }}
                     >
-                        <option value="default">
-                            Your plan’s default
-                            {planDefault
-                                ? ` (${STREAMING_LABELS[planDefault]})`
-                                : ""}
-                        </option>
-                        {(["hls", "mp4", "off"] as VideoStreaming[]).map(
-                            (value) => (
-                                <option key={value} value={value}>
-                                    {STREAMING_LABELS[value]}
-                                </option>
-                            ),
-                        )}
-                    </select>
+                        <SelectTrigger
+                            id="video-streaming"
+                            className="sm:max-w-xs"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="default">
+                                Default
+                                {planDefault
+                                    ? ` (${STREAMING_SHORT_LABELS[planDefault]})`
+                                    : ""}
+                            </SelectItem>
+                            {(["hls", "mp4", "off"] as VideoStreaming[]).map(
+                                (value) => (
+                                    <SelectItem key={value} value={value}>
+                                        {STREAMING_LABELS[value]}
+                                    </SelectItem>
+                                ),
+                            )}
+                        </SelectContent>
+                    </Select>
                     <p className="settings-subtle text-sm">
+                        {streaming === "default"
+                            ? selfHosted
+                                ? "Follows this server’s default. "
+                                : "Follows your plan, so it changes if your plan does. "
+                            : ""}
                         Applies to videos sealed after you save.
                     </p>
                 </div>
