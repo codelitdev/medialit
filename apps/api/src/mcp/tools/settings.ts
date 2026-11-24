@@ -14,7 +14,7 @@ export const settingsTools = (): MedialitMcpTool[] => [
         title: "Get media settings",
         risk: "read",
         description:
-            "Returns the current media processing configuration for the connected app: WebP conversion, thumbnail dimensions, and video streaming (videoStreaming is off, hls or mp4; videoStreamingDefault is true when the account's plan decides; hlsRenditions lists the HLS sizes made).",
+            "Returns the current media processing configuration for the connected app: WebP conversion and quality, and video streaming (videoStreaming is off, hls or mp4; videoStreamingDefault is true when the account's plan decides; hlsRenditions lists the HLS sizes made).",
         inputSchema: z.object({}),
         outputSchema: mediaSettingsSchema,
         annotations: { idempotentHint: true },
