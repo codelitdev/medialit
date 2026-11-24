@@ -2128,22 +2128,6 @@ a {
     background: var(--card);
 }
 
-.settings-danger-action {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    margin-top: 16px;
-    padding-top: 15px;
-    border-top: 1px solid var(--border);
-}
-
-.settings-danger-action p {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 12px;
-}
-
 .billing-oss-card {
     display: flex;
     align-items: flex-start;
@@ -2258,26 +2242,6 @@ a {
 .storage-breakdown-row strong {
     color: var(--foreground);
     font-weight: 600;
-}
-
-.settings-default-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    margin-top: 18px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-}
-
-.settings-default-row > div:first-child > strong {
-    font-size: 12px;
-    font-weight: 650;
-}
-
-.settings-default-row .settings-subtle {
-    max-width: 460px;
-    margin-top: 4px;
 }
 
 .settings-default-control {
@@ -2835,8 +2799,6 @@ a {
     }
 
     .billing-oss-card,
-    .settings-danger-action,
-    .settings-default-row,
     .account-plan-row {
         align-items: flex-start;
         flex-direction: column;

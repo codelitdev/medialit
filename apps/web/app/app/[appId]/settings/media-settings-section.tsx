@@ -15,6 +15,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { SettingsCard } from "@/components/settings-card";
 import {
+    SettingsActions,
+    SettingsField,
+    SettingsFieldset,
+    SettingsStack,
+    settingsOptionClass,
+} from "@/components/settings-field";
+import {
     updateMediaSettings,
     type HlsRendition,
     type MediaSettings,
@@ -74,27 +81,33 @@ function SaveRow({
     message: string;
 }) {
     return (
-        <>
-            {error ? (
-                <p className="inline-error" role="alert">
-                    {error}
-                </p>
-            ) : null}
-            {saved ? (
-                <p className="inline-feedback" role="status">
-                    {message}
-                </p>
-            ) : null}
-            <div>
-                <button
-                    type="submit"
-                    className="workspace-button"
-                    disabled={pending || disabled}
-                >
-                    {pending ? "Saving…" : "Save"}
-                </button>
-            </div>
-        </>
+        <SettingsActions
+            status={
+                error ? (
+                    <span
+                        className="text-xs text-[color:var(--destructive)]"
+                        role="alert"
+                    >
+                        {error}
+                    </span>
+                ) : saved ? (
+                    <span
+                        className="text-xs text-[color:var(--success)]"
+                        role="status"
+                    >
+                        {message}
+                    </span>
+                ) : null
+            }
+        >
+            <button
+                type="submit"
+                className="workspace-button"
+                disabled={pending || disabled}
+            >
+                {pending ? "Saving…" : "Save"}
+            </button>
+        </SettingsActions>
     );
 }
 
@@ -125,48 +138,54 @@ export function ImageOptimizationCard({
             title="Image optimization"
             description="What happens to images when they are sealed. Changes apply to images sealed afterwards."
         >
-            <form onSubmit={submit} className="grid gap-5">
-                <div className="flex items-center gap-3">
-                    <Switch
-                        id="use-webp"
-                        checked={useWebP}
-                        onCheckedChange={(checked) => {
-                            edited();
-                            setUseWebP(checked);
-                        }}
+            <form onSubmit={submit}>
+                <SettingsStack>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            id="use-webp"
+                            checked={useWebP}
+                            onCheckedChange={(checked) => {
+                                edited();
+                                setUseWebP(checked);
+                            }}
+                        />
+                        <label
+                            htmlFor="use-webp"
+                            className={settingsOptionClass}
+                        >
+                            Convert images to WebP when they are sealed
+                        </label>
+                    </div>
+                    <SettingsField
+                        label="WebP quality"
+                        htmlFor="webp-quality"
+                        hint="1 to 100. 80 suits most images; higher is sharper and larger."
+                        hintId="webp-quality-help"
+                        className="sm:max-w-sm"
+                    >
+                        <input
+                            id="webp-quality"
+                            className="settings-input"
+                            type="number"
+                            min={1}
+                            max={100}
+                            required
+                            value={quality}
+                            disabled={!useWebP}
+                            aria-describedby="webp-quality-help"
+                            onChange={(event) => {
+                                edited();
+                                setQuality(event.target.value);
+                            }}
+                        />
+                    </SettingsField>
+                    <SaveRow
+                        pending={pending}
+                        error={error}
+                        saved={saved}
+                        message="Image settings saved."
                     />
-                    <label htmlFor="use-webp" className="text-sm font-normal">
-                        Convert images to WebP when they are sealed
-                    </label>
-                </div>
-                <div className="settings-field sm:max-w-xs">
-                    <label htmlFor="webp-quality">WebP quality</label>
-                    <input
-                        id="webp-quality"
-                        className="settings-input"
-                        type="number"
-                        min={1}
-                        max={100}
-                        required
-                        value={quality}
-                        disabled={!useWebP}
-                        aria-describedby="webp-quality-help"
-                        onChange={(event) => {
-                            edited();
-                            setQuality(event.target.value);
-                        }}
-                    />
-                    <p id="webp-quality-help" className="settings-subtle">
-                        1 to 100. 80 suits most images; higher is sharper and
-                        larger.
-                    </p>
-                </div>
-                <SaveRow
-                    pending={pending}
-                    error={error}
-                    saved={saved}
-                    message="Image settings saved."
-                />
+                </SettingsStack>
             </form>
         </SettingsCard>
     );
@@ -218,82 +237,89 @@ export function VideoStreamingCard({
             title="Video streaming"
             description="How videos are prepared for playback when they are sealed. The original file is always kept."
         >
-            <form onSubmit={submit} className="grid gap-5">
-                <div className="settings-field">
-                    <label htmlFor="video-streaming">Format</label>
-                    <Select
-                        value={streaming}
-                        onValueChange={(value) => {
-                            edited();
-                            setStreaming(value as VideoStreaming);
-                        }}
+            <form onSubmit={submit}>
+                <SettingsStack>
+                    <SettingsField
+                        label="Format"
+                        htmlFor="video-streaming"
+                        hint={
+                            <>
+                                Applies to videos sealed after you save.{" "}
+                                <a
+                                    href="https://medialit.cloud/docs/concepts#video-streaming"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-primary underline-offset-2 hover:underline"
+                                >
+                                    About the formats
+                                </a>
+                            </>
+                        }
+                        className="sm:max-w-sm"
                     >
-                        <SelectTrigger
-                            id="video-streaming"
-                            className="sm:max-w-xs"
+                        <Select
+                            value={streaming}
+                            onValueChange={(value) => {
+                                edited();
+                                setStreaming(value as VideoStreaming);
+                            }}
                         >
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {(["off", "hls", "mp4"] as VideoStreaming[]).map(
-                                (value) => (
+                            <SelectTrigger id="video-streaming">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {(
+                                    ["off", "hls", "mp4"] as VideoStreaming[]
+                                ).map((value) => (
                                     <SelectItem key={value} value={value}>
                                         {STREAMING_LABELS[value]}
                                     </SelectItem>
-                                ),
-                            )}
-                        </SelectContent>
-                    </Select>
-                    <p className="settings-subtle text-sm">
-                        Applies to videos sealed after you save.{" "}
-                        <a
-                            href="https://medialit.cloud/docs/concepts#video-streaming"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary underline-offset-2 hover:underline"
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </SettingsField>
+                    {streaming === "hls" ? (
+                        <SettingsFieldset
+                            legend="HLS renditions"
+                            hint="Sizes larger than the video are skipped."
                         >
-                            About the formats
-                        </a>
-                    </p>
-                </div>
-                {streaming === "hls" ? (
-                    <fieldset className="settings-field">
-                        <legend className="text-sm">HLS renditions</legend>
-                        <div className="flex flex-wrap gap-x-5 gap-y-2">
-                            {RENDITIONS.map((rendition) => (
-                                <div
-                                    key={rendition}
-                                    className="flex items-center gap-2"
-                                >
-                                    <Checkbox
-                                        id={`rendition-${rendition}`}
-                                        checked={renditions.includes(rendition)}
-                                        onCheckedChange={() =>
-                                            toggleRendition(rendition)
-                                        }
-                                    />
-                                    <label
-                                        htmlFor={`rendition-${rendition}`}
-                                        className="text-sm font-normal"
+                            <div className="flex flex-wrap gap-x-5 gap-y-2">
+                                {RENDITIONS.map((rendition) => (
+                                    <div
+                                        key={rendition}
+                                        className="flex items-center gap-2"
                                     >
-                                        {rendition}
-                                    </label>
-                                </div>
-                            ))}
-                        </div>
-                        <p className="settings-subtle text-sm">
-                            Sizes larger than the video are skipped.
-                        </p>
-                    </fieldset>
-                ) : null}
-                {minutes ? <MinutesUsage minutes={minutes} /> : null}
-                <SaveRow
-                    pending={pending}
-                    error={error}
-                    saved={saved}
-                    disabled={streaming === "hls" && renditions.length === 0}
-                    message="Video settings saved."
-                />
+                                        <Checkbox
+                                            id={`rendition-${rendition}`}
+                                            checked={renditions.includes(
+                                                rendition,
+                                            )}
+                                            onCheckedChange={() =>
+                                                toggleRendition(rendition)
+                                            }
+                                        />
+                                        <label
+                                            htmlFor={`rendition-${rendition}`}
+                                            className={settingsOptionClass}
+                                        >
+                                            {rendition}
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        </SettingsFieldset>
+                    ) : null}
+                    {minutes ? <MinutesUsage minutes={minutes} /> : null}
+                    <SaveRow
+                        pending={pending}
+                        error={error}
+                        saved={saved}
+                        disabled={
+                            streaming === "hls" && renditions.length === 0
+                        }
+                        message="Video settings saved."
+                    />
+                </SettingsStack>
             </form>
         </SettingsCard>
     );
@@ -306,39 +332,38 @@ function MinutesUsage({ minutes }: { minutes: ProcessingMinutes }) {
     const unit = (n: number) => (n === 1 ? "minute" : "minutes");
     if (allowed === null) {
         return (
-            <div className="grid gap-1 text-[13px]">
-                <span className="font-semibold">
-                    Video processing this month
-                </span>
-                <span className="text-muted-foreground">
+            <SettingsField label="Video processing this month">
+                <span className="text-[13px] text-foreground">
                     {used} {unit(used)} used · no limit
                 </span>
-            </div>
+            </SettingsField>
         );
     }
     const percent = allowed > 0 ? Math.min(100, (used / allowed) * 100) : 100;
     const left = Math.max(0, allowed - used);
     return (
-        <div className="grid gap-2 sm:max-w-xs">
-            <div className="flex items-baseline justify-between gap-3 text-[13px]">
-                <span id="minutes-label" className="font-semibold">
-                    Video processing this month
+        <SettingsField
+            label={
+                <span className="flex items-baseline justify-between gap-3">
+                    <span id="minutes-label">Video processing this month</span>
+                    <span className="font-normal text-muted-foreground">
+                        {used} of {allowed} {unit(allowed)}
+                    </span>
                 </span>
-                <span className="text-muted-foreground">
-                    {used} of {allowed}
-                </span>
-            </div>
+            }
+            hint={
+                left > 0
+                    ? `${left} ${unit(left)} left. Resets on the 1st (UTC).`
+                    : "No minutes left. New videos keep only their original and poster until the 1st (UTC)."
+            }
+            className="sm:max-w-sm"
+        >
             <Progress
                 value={percent}
                 aria-labelledby="minutes-label"
                 aria-valuetext={`${used} of ${allowed} ${unit(allowed)} used`}
                 className="h-1.5 bg-muted"
             />
-            <span className="text-[11px] text-muted-foreground">
-                {left > 0
-                    ? `${left} ${unit(left)} left. Resets on the 1st (UTC).`
-                    : "No minutes left. New videos keep only their original and poster until the 1st (UTC)."}
-            </span>
-        </div>
+        </SettingsField>
     );
 }

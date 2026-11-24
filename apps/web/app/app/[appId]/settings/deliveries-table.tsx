@@ -36,7 +36,7 @@ export default function DeliveriesTable({
 }) {
     if (deliveries.length === 0) {
         return (
-            <p className="settings-subtle">
+            <p className="m-0 text-[11px] leading-normal text-muted-foreground">
                 No deliveries yet. Events are sent when processing of a sealed
                 file finishes.
             </p>
@@ -45,9 +45,9 @@ export default function DeliveriesTable({
     const urls = new Map(endpoints.map((endpoint) => [endpoint.id, endpoint]));
     return (
         <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-[13px]">
                 <thead>
-                    <tr className="settings-subtle">
+                    <tr className="text-[11px] text-muted-foreground">
                         <th className="py-2 pr-4 font-medium">Queued</th>
                         <th className="py-2 pr-4 font-medium">Event</th>
                         <th className="py-2 pr-4 font-medium">Endpoint</th>
@@ -79,7 +79,7 @@ export default function DeliveriesTable({
                                 {STATUS_LABELS[delivery.status] ??
                                     delivery.status}
                                 {delivery.nextAttemptAt ? (
-                                    <span className="settings-subtle block">
+                                    <span className="block text-[11px] text-muted-foreground">
                                         Next:{" "}
                                         {timeFormat.format(
                                             new Date(delivery.nextAttemptAt),

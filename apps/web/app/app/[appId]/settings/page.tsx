@@ -30,6 +30,7 @@ import WebhooksSection from "./webhooks-section";
 import DeliveriesTable from "./deliveries-table";
 import SettingsTabs from "./settings-tabs";
 import { SettingsCard } from "@/components/settings-card";
+import { SettingsRow, SettingsStack } from "@/components/settings-field";
 
 export default async function Settings(props: {
     params: Promise<{ appId: string }>;
@@ -81,24 +82,21 @@ export default async function Settings(props: {
                                     title="General"
                                     description="Choose a name that helps you identify this media library."
                                 >
-                                    <UpdateSettingsForm
-                                        appId={app.appId}
-                                        name={app.name || ""}
-                                    />
-                                    <div className="settings-default-row">
-                                        <div>
-                                            <strong>Default app</strong>
-                                            <p className="settings-subtle">
-                                                Uploads from the dashboard and
-                                                SDK calls without an app go
-                                                here.
-                                            </p>
-                                        </div>
-                                        <DefaultAppControl
+                                    <SettingsStack>
+                                        <UpdateSettingsForm
                                             appId={app.appId}
-                                            isDefault={app.default}
+                                            name={app.name || ""}
                                         />
-                                    </div>
+                                        <SettingsRow
+                                            label="Default app"
+                                            description="Uploads from the dashboard and SDK calls without an app go here."
+                                        >
+                                            <DefaultAppControl
+                                                appId={app.appId}
+                                                isDefault={app.default}
+                                            />
+                                        </SettingsRow>
+                                    </SettingsStack>
                                 </SettingsCard>
                                 <SettingsCard
                                     icon={<Database aria-hidden="true" />}
@@ -156,13 +154,12 @@ export default async function Settings(props: {
                                     }
                                     tone="danger"
                                 >
-                                    <div className="settings-danger-action">
-                                        <p>This action cannot be undone.</p>
+                                    <SettingsRow description="This action cannot be undone.">
                                         <DeleteAppButton
                                             appName={app.name || "this app"}
                                             appId={app.appId}
                                         />
-                                    </div>
+                                    </SettingsRow>
                                 </SettingsCard>
                             </>
                         ),

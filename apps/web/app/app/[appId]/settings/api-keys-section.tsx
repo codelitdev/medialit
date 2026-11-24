@@ -51,9 +51,9 @@ export default function ApiKeysSection({
                 </p>
             ) : (
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full text-left text-[13px]">
                         <thead>
-                            <tr className="settings-subtle">
+                            <tr className="text-[11px] text-muted-foreground">
                                 <th className="py-2 pr-4 font-medium">Name</th>
                                 <th className="py-2 pr-4 font-medium">Key</th>
                                 <th className="py-2 pr-4 font-medium">
@@ -83,7 +83,7 @@ export default function ApiKeysSection({
                                     <td className="py-2 text-right">
                                         {key.managedByConfiguration ? (
                                             <span
-                                                className="settings-subtle"
+                                                className="text-[11px] text-muted-foreground"
                                                 title="Set by MEDIALIT_BOOTSTRAP_API_KEY. Change or remove that setting to rotate it."
                                             >
                                                 Managed by configuration
@@ -115,7 +115,7 @@ export default function ApiKeysSection({
                     Create key
                 </button>
                 {atLimit ? (
-                    <span className="settings-subtle">
+                    <span className="text-[11px] text-muted-foreground">
                         Apps can have {limit} keys. Revoke one you no longer use
                         to create another.
                     </span>
