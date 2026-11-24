@@ -119,8 +119,6 @@ Browsers and players load public files straight from the public bucket or your C
 
 ### Uploading a file
 
-Your server never handles the bytes, and your API key never reaches the browser. An upload is temporary until your server seals it; unsealed uploads are deleted.
-
 ```mermaid
 sequenceDiagram
     autonumber
@@ -164,13 +162,13 @@ sequenceDiagram
 | [`@medialit/cli`](packages/cli)                             | The `medialit` command                                      | [![npm](https://img.shields.io/npm/v/@medialit/cli)](https://www.npmjs.com/package/@medialit/cli)                             |
 | [`@medialit/integration-tests`](packages/integration-tests) | Integration tests and a production synthetic check          | [![npm](https://img.shields.io/npm/v/@medialit/integration-tests)](https://www.npmjs.com/package/@medialit/integration-tests) |
 
-The repository also contains the API and its worker (`apps/api`), which own all product behavior, and the dashboard (`apps/web`), a thin client over the API. The worker runs the background work: publishing sealed files, video posters and encoding, webhook deliveries and cleanup. The docs live in `frontlit/docs` and publish to [medialit.cloud/docs](https://medialit.cloud/docs) through FrontLit.
+The repository also contains the API and its worker (`apps/api`) and the dashboard (`apps/web`). The docs live in `frontlit/docs` and publish to [medialit.cloud/docs](https://medialit.cloud/docs) through FrontLit.
 
 ## Self-hosting
 
 MediaLit needs PostgreSQL, two S3-compatible buckets (one private and one public), and the [worker](https://medialit.cloud/docs/self-hosting#run-the-worker) next to the API. The [self-hosting guide](https://medialit.cloud/docs/self-hosting) covers AWS S3 with CloudFront, Cloudflare R2 and MinIO, along with upload limits and monitoring.
 
-To stream video, give the worker [room to encode](https://medialit.cloud/docs/self-hosting#size-the-worker-for-video) (about 2 CPUs, 2 GB of memory and 12 GB of disk for videos up to 1 GB), and let browsers [read video segments](https://medialit.cloud/docs/self-hosting#allow-players-to-read-video-segments) from your storage with a CORS rule.
+To stream video, give the worker [room to encode](https://medialit.cloud/docs/self-hosting#size-the-worker-for-video) and let browsers [read video segments](https://medialit.cloud/docs/self-hosting#allow-players-to-read-video-segments) from your storage with a CORS rule.
 
 MediaLit streams uploads into the private bucket as S3 multipart uploads, so the bucket needs a lifecycle rule that aborts incomplete multipart uploads. The guide shows how to [set it up](https://medialit.cloud/docs/self-hosting#clean-up-unfinished-uploads).
 
@@ -200,7 +198,6 @@ bun --filter @medialit/api db:migrate
 bun --filter @medialit/api dev          # API on http://localhost:8000
 bun --filter @medialit/api dev:worker   # Worker: background jobs
 bun --filter @medialit/web dev          # Dashboard on http://localhost:3000
-bun run dev:docs                        # Docs on http://localhost:3008
 ```
 
 Without the worker, sealed files don't get their posters, MP4 or HLS, public files aren't published, and webhooks aren't sent. On its first start, the API creates a user for `EMAIL` and a default app. Sign in to the dashboard with `EMAIL`; the code arrives in Mailpit at <http://127.0.0.1:8025>. Create an API key in the app's settings, or set `MEDIALIT_BOOTSTRAP_API_KEY` in `apps/api/.env` to have the API create one at startup. The MinIO console is at <http://127.0.0.1:9001> (`medialit` / `medialit-secret`).

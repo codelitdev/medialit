@@ -35,12 +35,23 @@ In CI, skip logging in and set `MEDIALIT_API_KEY` (and `MEDIALIT_ENDPOINT` if yo
 | `medialit get <id>`        | Prints a file's URL, a fresh one for private files |
 | `medialit seal <id>`       | Keeps a temporary upload                           |
 | `medialit rm <id>`         | Deletes a file                                     |
+| `medialit settings`        | Shows the app's media settings                     |
+| `medialit settings set`    | Changes the app's media settings                   |
 | `medialit whoami`          | Shows the server, account, app and storage used    |
 | `medialit logout`          | Logs out of the server                             |
 
 Uploads are private unless you pass `--public`. Add `--caption <text>` or `--group <name>` to label them, or `--temp` to leave them unsealed so MediaLit deletes them after 24 hours. Large files are uploaded in chunks and retried if the connection drops.
 
 `ls` takes `--public`, `--private`, `--group <name>`, `--page <n>` and `--limit <n>`.
+
+### Media settings
+
+```bash
+medialit settings set --video-streaming hls --hls-renditions 1080p,720p,480p
+medialit settings set --webp on --webp-quality 85
+```
+
+`settings set` changes only the options you pass; changes apply to files sealed afterwards. `--video-streaming` takes `off`, `hls` or `mp4`, and `--hls-renditions default` goes back to the default sizes.
 
 ### Webhooks
 

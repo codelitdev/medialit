@@ -91,17 +91,17 @@ The `videoStreaming` setting decides what is made from sealed videos:
 - **`mp4`** makes an MP4 optimized for the web, the `mp4` derivative: H.264 video and AAC audio with the index at the front, so playback starts before the whole file loads. A video that is already H.264/AAC in MP4 or MOV, at most 1080p and 8 Mbps, is only rewritten (seconds, no quality lost, no processing minutes). Anything else is re-encoded, at most 1080p and never larger than the original.
 - **`off`** makes only the poster.
 
-Every app starts with `off`, and each app has its own setting: choose `hls` or `mp4` for the apps whose videos you want processed. Changing your plan doesn't change it.
+Every app starts with `off`, and each app has its own setting: choose `hls` or `mp4` for the apps whose videos you want processed.
 
 The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` or `hls` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
 
 ### Processing minutes
 
-Video processing is measured in minutes of video, rounded up per video. Re-encoding counts; rewriting an MP4 that is already web-ready and making posters don't. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.
+Video processing is measured in minutes of video, rounded up per video. Re-encoding counts; rewriting an MP4 that is already web-ready and making posters don't. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers in OSS mode (`MEDIALIT_DEPLOYMENT_MODE=oss`, the Docker Compose default) have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.
 
 ### Processing status and derivatives
 
-Every media response has two more fields:
+Every media response has three more fields:
 
 - **`processing`** says where background processing of the file stands: `{ "status": "pending" }` until the file is sealed, then `processing` while work runs, and `ready` or `failed` when it ends. A failed step never makes the original unavailable, and `processing.error` says what went wrong.
 - **`metadata`** describes the file: `kind` (`video`, `audio` or `image`), and where they apply `durationSeconds`, `width` and `height` (as displayed, after rotation), `rotation`, `frameRate`, `videoCodec`, `audioCodec`, `bitrate`, `sampleRate`, `channels` and `format`. It is read when the file is sealed, so it is `null` for temporary uploads, and stays `null` if the file can't be read; the seal still succeeds.

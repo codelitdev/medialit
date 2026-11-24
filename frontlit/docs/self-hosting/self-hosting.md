@@ -364,7 +364,7 @@ CDN_ENDPOINT=https://<your_minio_api_endpoint> # For accessing public bucket con
 
 ## Run the worker
 
-The worker runs MediaLit's background jobs. Today it removes expired temporary uploads, unfinished uploads and old job records. It uses the same image and settings as the API, started with a different command:
+The worker runs MediaLit's background jobs: publishing sealed files, video posters, MP4 and HLS encodes, webhook deliveries, and cleanup of expired uploads and old job records. It uses the same image and settings as the API, started with a different command:
 
 ```yaml
 services:
@@ -377,7 +377,7 @@ services:
 
 The `docker-compose.yml` in the repository already has it. If you run the image some other way, for example on Kubernetes, run one or more workers next to the API, against the same database and buckets.
 
-Without a worker, uploads are never cleaned up: unsealed uploads stay in your bucket and keep counting toward storage. The API logs `No MediaLit worker is running` a minute after it starts, and every hour after that, while no worker is running. After 5 minutes without a worker it also sends the `jobs_no_worker` [alert](#alerts).
+Without a worker, sealed files stay `processing`, videos aren't encoded, webhooks aren't sent, and unsealed uploads stay in your bucket and keep counting toward storage. The API logs `No MediaLit worker is running` a minute after it starts, and every hour after that, while no worker is running. After 5 minutes without a worker it also sends the `jobs_no_worker` [alert](#alerts).
 
 You can run several workers. Each job runs once, on one of them.
 
@@ -543,8 +543,6 @@ For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 12 GB o
 | `VIDEO_MAX_WORK_BYTES`       | `10737418240` (10 GB) | Temporary disk one encode may use, source and output together. Keep the worker's disk larger                                                                |
 | `VIDEO_ENCODE_THREADS`       | `2`                   | Threads per encode. Match the worker's CPUs; more threads only reserve more memory                                                                          |
 
-Self-hosted servers have no limit on processing minutes.
-
 ## Create a key at startup
 
 When another service in the same Docker Compose file uses MediaLit, for example a bundled SendLit, FrontLit or CourseLit, it needs a working key before anyone can open the dashboard. Set `MEDIALIT_BOOTSTRAP_API_KEY` and MediaLit creates that key for the `EMAIL` user's default app every time it starts, before it reports healthy:
@@ -594,21 +592,7 @@ If your server reaches MediaLit on a different URL than browsers do, for example
   Back up the database before upgrading. Migrations can't be rolled back, and the hashed API keys migration removes plaintext keys for good.
 </Callout>
 
-### Upgrading from v0.8.x to v0.9.0
-
-v0.9.0 processes sealed videos on the worker. Follow the [upgrade guide](/docs/upgrade-from-v0-8-x-to-v0-9-0) before you upgrade: the worker needs more CPU, memory and disk, and HLS needs CORS on your storage.
-
-### Upgrading from v0.7.x to v0.8.0
-
-v0.8.0 moves upload cleanup from the API to a new worker service. Follow the [upgrade guide](/docs/upgrade-from-v0-7-x-to-v0-8-0) and add the worker before you upgrade, or uploads stop being cleaned up.
-
-### Upgrading from v0.6.x to v0.7.0
-
-v0.7.0 streams uploads straight to your bucket instead of the server's disk. Follow the [upgrade guide](/docs/upgrade-from-v0-6-x-to-v0-7-0) before you upgrade, because it needs a lifecycle rule on your private bucket.
-
-### Upgrading from v0.5.x to v0.6.0
-
-v0.6.0 stores API keys as hashes. Follow the [upgrade guide](/docs/upgrade-from-v0-5-x-to-v0-6-0) before you upgrade, because it needs a backup and a check for media that belongs to no app.
+Each version's steps are in the Upgrades section, starting with [v0.8.x to v0.9.0](/docs/upgrade-from-v0-8-x-to-v0-9-0). Follow the guide for every version you pass.
 
 ## Monitor your server
 

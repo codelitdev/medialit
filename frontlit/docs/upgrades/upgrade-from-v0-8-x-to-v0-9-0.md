@@ -18,8 +18,6 @@ MediaLit v0.9.0 processes sealed videos on the worker: it picks a better poster,
 - **The dashboard's App settings has tabs**: General, API keys, Media and Webhooks.
 - **A new alert, `video_queue_lag`,** fires when a video job waits more than 6 hours. See [Alerts](/docs/self-hosting#alerts).
 
-Self-hosted servers have no limit on processing minutes.
-
 ## 1. Back up the database
 
 With the bundled PostgreSQL service:
@@ -30,13 +28,11 @@ docker compose exec -T postgres pg_dump -U medialit medialit > medialit-before-0
 
 ## 2. Give the worker room for video
 
-For videos up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 12 GB of temporary disk. One encode runs at a time. With Docker Compose on a single server the worker shares the server's resources, so check that the server has that much to spare. On Kubernetes, raise the worker's limits, including `ephemeral-storage`. See [Size the worker for video](/docs/self-hosting#size-the-worker-for-video) for the settings that bound an encode.
+Give the worker the CPU, memory and temporary disk listed in [Size the worker for video](/docs/self-hosting#size-the-worker-for-video). With Docker Compose on a single server the worker shares the server's resources, so check that the server has that much to spare. On Kubernetes, raise the worker's limits, including `ephemeral-storage`.
 
 ## 3. Allow CORS on your storage
 
 Skip this if you use the bundled MinIO, or if no app will use `hls`. Browsers other than Safari read HLS segments with `fetch`, so S3, R2 and CloudFront need a CORS rule. See [Allow players to read video segments](/docs/self-hosting#allow-players-to-read-video-segments).
-
-Private videos' playlists are served by the API at `PUBLIC_API_URL`, so viewers' browsers must be able to reach that address. The API allows any origin on these routes; the link itself is the credential.
 
 ## 4. Upgrade
 

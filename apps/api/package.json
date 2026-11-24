@@ -18,13 +18,11 @@
         "url": "https://github.com/codelitdev/medialit/issues"
     },
     "scripts": {
-        "build": "tsc -p tsconfig.json --noEmit",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "swagger:generate": "bun src/swagger-generator.ts",
         "dev": "bun --watch --env-file=.env src/index.ts",
         "start": "bun src/index.ts",
         "dev:worker": "bun --watch --env-file=.env src/worker.ts",
-        "start:worker": "bun src/worker.ts",
         "jobs": "bun scripts/jobs.ts",
         "test": "node --require ./test-preload.cjs --import tsx --test '**/*.test.ts'",
         "test:pg": "node --require ./test-preload.cjs --import tsx --test 'src/**/*.pg.test.ts'",

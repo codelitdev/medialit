@@ -100,16 +100,9 @@ Since Claude Desktop communicates via standard input/output (stdio), you must us
 
 ---
 
-## Two-Step Upload Flow (Drafts & Sealing)
+## Temporary uploads and sealing
 
-To prevent cluttering of the media registry with unfinished uploads, MediaLit enforces a **two-step upload pattern** across both REST and MCP interfaces:
-
-1. **Upload (`upload_media`):** The file is written to storage, and a record is created with `temp: true`. In this temporary state, the file does **not** appear in paginated listings (`list_media`), count queries (`get_media_count`), or storage totals (`get_total_storage`).
-2. **Seal (`seal_media`):** The client verifies the upload and seals it. Sealing removes the `temp` flag, finalizing the record and making it globally visible to listing tools.
-
-<Callout type="warning" title="Orphan Cleanup">
-  Files left in the `temp: true` state for more than 24 hours are automatically purged by a background cleanup worker. Always ensure you call `seal_media` once the upload is completed successfully.
-</Callout>
+`upload_media` creates a temporary file that doesn't appear in `list_media`, `get_media_count` or `get_total_storage`. Call `seal_media` to keep it; temporary files are deleted after 24 hours. See [Temporary uploads and sealing](/docs/concepts#temporary-uploads-and-sealing).
 
 ---
 
@@ -149,9 +142,9 @@ Returns the total count of finalized media items in the account.
 
 #### `get_total_storage`
 
-Returns the total storage space consumed by the account, along with the allowed maximum limit in bytes.
+Returns the total storage space consumed by the account, the allowed maximum in bytes, and the video processing minutes used this month.
 
-- **Output:** `{ storage: number, maxStorage: number }`
+- **Output:** `{ storage: number, maxStorage: number, processingMinutes: { used: number, allowed: number | null } }`. `allowed` is `null` when there is no limit.
 
 #### `seal_media`
 
