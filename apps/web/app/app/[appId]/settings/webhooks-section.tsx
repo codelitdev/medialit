@@ -53,16 +53,13 @@ export default function WebhooksSection({
     const [deleting, setDeleting] = useState<WebhookEndpoint | null>(null);
 
     return (
-        <>
+        <div className="grid gap-4">
             {endpoints.length === 0 ? (
-                <p className="settings-subtle">
+                <p className="m-0 text-[11px] leading-normal text-muted-foreground">
                     This app has no webhook endpoints yet.
                 </p>
             ) : (
-                <ul
-                    className="mb-4 mt-4 grid gap-3"
-                    aria-label="Webhook endpoints"
-                >
+                <ul className="grid gap-3" aria-label="Webhook endpoints">
                     {endpoints.map((endpoint) => (
                         <EndpointRow
                             key={endpoint.id}
@@ -115,7 +112,7 @@ export default function WebhooksSection({
                     if (deleted) router.refresh();
                 }}
             />
-        </>
+        </div>
     );
 }
 

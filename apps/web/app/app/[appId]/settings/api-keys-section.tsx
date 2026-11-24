@@ -43,9 +43,9 @@ export default function ApiKeysSection({
     const atLimit = keys.length >= limit;
 
     return (
-        <>
+        <div className="grid gap-4">
             {keys.length === 0 ? (
-                <p className="settings-subtle">
+                <p className="m-0 text-[11px] leading-normal text-muted-foreground">
                     This app has no API keys yet. Create one to use the SDK or
                     REST API.
                 </p>
@@ -138,7 +138,7 @@ export default function ApiKeysSection({
                     if (revoked) router.refresh();
                 }}
             />
-        </>
+        </div>
     );
 }
 
