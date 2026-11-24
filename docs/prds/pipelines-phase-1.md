@@ -38,8 +38,8 @@ This is the first phase with derivative jobs, so it is also the first phase in w
 | `hlsRenditions`  | a non-empty subset of `1080p`, `720p`, `480p`, `360p` | `["1080p", "720p", "480p"]` |
 
 - **Existing apps are `"off"`.** The migration writes `video_streaming = 'off'` for every app that exists, inserting a `media_settings` row where there isn't one. Their processing and storage use don't change without notice.
-- **New apps follow the account's plan.** `video_streaming` is null for a new app, and null means: `"hls"` on self-hosted (OSS) installs and the paid plan, `"off"` on the free plan (#247, Plans). The default is resolved at seal, so an account that upgrades gets HLS on its new apps' next uploads without touching settings, and one that downgrades stops spending minutes it no longer has.
-- `GET` returns the effective value and whether it was set: `videoStreaming: "hls"`, `videoStreamingDefault: true`. Setting a value stores it. Setting `null` goes back to the plan default.
+- **New apps are `"off"` too, and each app chooses** (decision 9). There is no account-wide or plan-based default: an admin turns HLS or MP4 on for the apps that need it. `video_streaming` is null for a new app, and null means `"off"`. Changing plans doesn't change it; a downgraded account's encodes stop at its minutes allowance (D8).
+- `GET` returns the value in effect. Setting a value stores it. `videoStreaming` can't be set to `null`; `hlsRenditions: null` goes back to the default ladder.
 - `hlsRenditions` is checked against the fixed list, deduplicated and stored sorted from largest to smallest. Users can't set bitrates or ffmpeg arguments.
 - **No `1440p` or `2160p` for now.** On a 2 CPU worker, a 4K ladder of an hour-long video would take most of a day. Sources up to 2160p are still accepted and scaled down. The larger renditions can be added once encodes run on bigger nodes.
 - Changing a setting affects media sealed afterwards. Seal copies the values into the job's params (phase 0, D9).
@@ -174,7 +174,7 @@ Alternative rejected: **CloudFront signed cookies** for the prefix. They need th
 
 ### D8. Processing minutes
 
-Encoding costs real CPU, and HLS is the default for new paid and self-hosted apps. The cloud can't turn it on without a limit, so metering ships with phase 1.
+Encoding costs real CPU, and any app can turn HLS on. The cloud can't allow that without a limit, so metering ships with phase 1.
 
 - **What counts:** the source's duration, rounded up to whole minutes, once per HLS job (not per rendition) and once per MP4 re-encode. Remuxes, posters and metadata don't count.
 - **Allowance per calendar month (UTC):** free plan `PROCESSING_MINUTES_FREE` (default 5), paid plan `PROCESSING_MINUTES_PAID` (default 300 until the benchmark, section 12), self-hosted unlimited and not recorded.
@@ -245,7 +245,7 @@ media
   + metadata  jsonb                     -- D2; null until seal, or when the probe failed
 
 media_settings
-  + video_streaming  text               -- 'off' | 'hls' | 'mp4'; null = plan default (D1)
+  + video_streaming  text               -- 'off' | 'hls' | 'mp4'; null = 'off' (D1)
   + hls_renditions   text[]             -- null = default ladder
 
 processing_usage (
@@ -276,13 +276,13 @@ Migration: backfill `video_streaming = 'off'` for every existing app, inserting 
 
 These changes only add fields and routes.
 
-- **Media settings** (REST `POST /settings/media/create` and `/get`, MCP): `videoStreaming`, `videoStreamingDefault` (read-only), `hlsRenditions`.
+- **Media settings** (REST `POST /settings/media/create` and `/get`, MCP): `videoStreaming`, `hlsRenditions`.
 - **Media response** (REST, MCP, CLI, `@medialit/models`):
     - `metadata` (D2).
     - `derivatives.hls.url`: the master playlist (D6). `derivatives.mp4.url`: the MP4.
     - `derivatives.thumbnail` is `queued` while the poster is made.
 - **New routes:** `GET /media/{mediaId}/hls/{token}/master.m3u8` and `GET /media/{mediaId}/hls/{token}/v{n}/index.m3u8` (D6). Unauthenticated, checked by the token.
-- **CLI:** `medialit settings` with `get` and `set --video-streaming <off|hls|mp4|default> --hls-renditions 1080p,720p --webp <on|off> --webp-quality <n>`. Media settings had no CLI command until now.
+- **CLI:** `medialit settings` with `get` and `set --video-streaming <off|hls|mp4> --hls-renditions 1080p,720p --webp <on|off> --webp-quality <n>`. Media settings had no CLI command until now.
 - **Dashboard:** a Media tab in App settings, next to Webhooks: image optimization (WebP and its quality), video streaming and renditions. Processing minutes in the usage card.
 - The OpenAPI spec is regenerated.
 
@@ -412,7 +412,7 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
     - The shutdown grace stays at 20 s. A deploy during an encode restarts it from the start without using an attempt (section 2). That is acceptable at our volume, and releases can avoid times when a long encode is running.
 - **`.env.example`:** `WORKER_CONCURRENCY_VIDEO`, `VIDEO_MAX_SOURCE_BYTES`, `VIDEO_MAX_DURATION_SECONDS`, `VIDEO_MAX_MEMORY_MB`, `PROCESSING_MINUTES_FREE`, `PROCESSING_MINUTES_PAID`.
 - **Self-hosting docs:** worker sizing for 1 GB sources (2 CPU, 2 GiB, 12 GiB of temp disk) and the bucket CORS settings for MinIO and S3.
-- **Docs:** media settings (with the plan defaults), playing HLS and MP4, the player component, processing minutes, worker sizing for self-hosting, and the changelog: sealed videos now go through `processing` and fire webhooks, and their thumbnail can change after seal.
+- **Docs:** media settings (apps start `off`), playing HLS and MP4, the player component, processing minutes, worker sizing for self-hosting, and the changelog: sealed videos now go through `processing` and fire webhooks, and their thumbnail can change after seal.
 - **Tests:**
     - Unit tests for the rendition ladder (no upscaling, portrait, sources smaller than every rendition), the remux check, the frame pick, playlist rewriting and tokens, and minute reservation (two jobs racing for the last minutes, retries not charged twice, release on failure).
     - Integration tests with small generated videos (ffmpeg `testsrc` and `sine`, a few seconds each, at 360p, 720p and portrait, with and without audio, H.264 and VP9):
@@ -449,7 +449,7 @@ Added to the phase 0 checks, with the same paging and 30-minute cooldown:
 ## 10. Order of work
 
 0. **Observability for phase 0's flows** (7.1 to 7.4): the event wrapper, the events and logs for upload, seal, settling, publishing, webhooks and settings, the dashboard's `identify`, and the handler log context. Small, independent of the rest, and it gives a baseline before videos start going through processing.
-1. **Settings and minutes:** the two settings with plan defaults and the migration, REST, MCP, the new `medialit settings` CLI command, the dashboard Media section, and processing-minute metering (D8). Nothing queues jobs yet.
+1. **Settings and minutes:** the two settings (apps start `off`) and the migration, REST, MCP, the new `medialit settings` CLI command, the dashboard Media section, and processing-minute metering (D8). Nothing queues jobs yet.
 2. **#267 metadata** at seal (D2), and the `metadata` response field.
 3. **#265 posters** (D9), the `publicKey` destination in `media.publish`, the `video` class (D3), and the worker's new resources in the infra repo. The first derivative job: sealed videos start firing webhooks. The settling rule from D12 lands here.
 4. **#264 MP4** (D7). Smaller than HLS, and it proves the shared video job code (D4): the size check, the download, the retry rules and the timeout. The first benchmark runs here.
@@ -469,7 +469,7 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 
 ## 12. Decisions made in review
 
-1. **Free plan default `"off"`** (D1). #247 puts HLS on by default for self-hosted installs and the paid plan only, so free accounts don't spend their 5 minutes on their first upload without asking for it. They can still turn HLS on.
+1. **Free plan default `"off"`** (D1). #247 puts HLS on by default for self-hosted installs and the paid plan only, so free accounts don't spend their 5 minutes on their first upload without asking for it. They can still turn HLS on. Replaced by decision 9.
 2. **Metadata is read at seal, not as a job** (D2), accepting a few hundred milliseconds per video seal, at most 2 s, with ffprobe reading at most about 2 MB.
 3. **Paid plan allowance:** `PROCESSING_MINUTES_PAID` defaults to 300 a month, revised after the encoding benchmark in steps 4 and 5. Changing it is a config change.
 4. **Audio extraction moves to phase 2** (D10).
@@ -477,3 +477,4 @@ Each later step ships its own events, logs, exceptions and alerts from section 7
 6. **Video processing is sized for sources up to about 1 GB** (D4), on a 2 CPU, 2 GiB worker with 12 GiB of temp disk (`VIDEO_MAX_WORK_BYTES`, 10 GiB, per encode).
 7. **Thumbnail sizes are no longer a setting.** `thumbnailWidth` and `thumbnailHeight` (#256) forced one size on every place an app shows a thumbnail, and no service compared (Cloudinary, ImageKit, Bunny, Uploadcare, Mux) has an account-wide thumbnail size: they take the size from the URL (#196). Every app now gets the standard thumbnails: 16:9 and at most 480 px tall for images, 720 px tall for videos. The API ignores the two fields if a client still sends them. The columns stay until a later release, so a rollback works.
 8. **WebP quality defaults to 80**, as ImageKit's does. An app that turned WebP on without a quality converted at `cwebp -q 0`. A quality must now be 1 to 100, and a missing or 0 one means 80.
+9. **Every app starts `"off"`, and video streaming is chosen per app** (D1). Apps don't share account-wide configuration: an admin turns HLS or MP4 on for each app that needs it, on every plan and on self-hosted servers. This replaces the plan-based default of decision 1, along with the dashboard's Default option and `videoStreamingDefault`. A downgrade leaves the apps' settings alone; the free plan's minutes allowance (D8) caps what they can spend.

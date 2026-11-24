@@ -702,8 +702,8 @@ export function createDashboardRouter(auth: MedialitAuth) {
         res.json(await getMediaSettings(owned.user.id, owned.app.id));
     });
 
-    /* Changes only the fields it is given; null sets a video setting back
-       to the plan's default. */
+    /* Changes only the fields it is given; null sets the HLS renditions
+       back to the default ladder. */
     router.patch("/api/apps/:appId/media-settings", async (req, res) => {
         const owned = await ownedApp(req, res);
         if (!owned) return;

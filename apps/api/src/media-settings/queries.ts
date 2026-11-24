@@ -14,8 +14,8 @@ export async function getMediaSettings(
 
 /**
  * The one write path for media settings (REST, MCP, CLI and the dashboard).
- * Undefined fields are left unchanged; `null` sets a video setting back to
- * its default. Renditions are checked, deduplicated and sorted here, so
+ * Undefined fields are left unchanged; `null` sets the HLS renditions back
+ * to the default ladder. Renditions are checked, deduplicated and sorted here, so
  * every client stores the same thing. Throws `VideoSettingsError` for
  * renditions outside the fixed list.
  */
@@ -57,9 +57,8 @@ export async function updateMediaSettings({
         properties: {
             changed,
             ...(useWebP !== undefined ? { use_webp: Boolean(useWebP) } : {}),
-            // null: set back to the plan's default.
             ...(videoStreaming !== undefined
-                ? { video_streaming: videoStreaming ?? "default" }
+                ? { video_streaming: videoStreaming }
                 : {}),
             ...(renditions !== undefined
                 ? { hls_renditions: renditions ?? "default" }

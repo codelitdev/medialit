@@ -1,8 +1,9 @@
 /**
  * The video media settings (pipelines-phase-1.md, D1): `videoStreaming` and
  * `hlsRenditions`, their defaults, and the checks every client goes through.
+ * Each app chooses for itself: there is no account-wide default, and an app
+ * that never chose is `off`.
  */
-import type { AccountPlan } from "../billing/entitlements";
 import type { VideoStreaming } from "../db/schema";
 
 export type { VideoStreaming };
@@ -23,12 +24,6 @@ export const DEFAULT_HLS_RENDITIONS: readonly HlsRendition[] = [
     "720p",
     "480p",
 ];
-
-/** New apps follow the plan: HLS on self-hosted installs and the paid plan,
- * off on the free plan, so free minutes aren't spent without asking. */
-export function defaultVideoStreaming(plan: AccountPlan): VideoStreaming {
-    return plan === "basic" ? "off" : "hls";
-}
 
 export class VideoSettingsError extends Error {}
 
@@ -56,26 +51,20 @@ export function normalizeRenditions(value: unknown): HlsRendition[] {
 
 export type VideoSettings = {
     videoStreaming: VideoStreaming;
-    /** True when the app didn't choose, and the plan decides. */
-    videoStreamingDefault: boolean;
     hlsRenditions: HlsRendition[];
 };
 
-/** The settings in effect for an app, from what it stored and its plan. */
+/** The settings in effect for an app. Nothing stored means `off`. */
 export function effectiveVideoSettings(
     stored: {
         videoStreaming?: VideoStreaming | null;
         hlsRenditions?: string[] | null;
     } | null,
-    plan: AccountPlan,
 ): VideoSettings {
     const chosen = stored?.videoStreaming;
     const renditions = stored?.hlsRenditions;
     return {
-        videoStreaming: isVideoStreaming(chosen)
-            ? chosen
-            : defaultVideoStreaming(plan),
-        videoStreamingDefault: !isVideoStreaming(chosen),
+        videoStreaming: isVideoStreaming(chosen) ? chosen : "off",
         hlsRenditions:
             renditions && renditions.length > 0
                 ? HLS_RENDITIONS.filter((r) => renditions.includes(r))

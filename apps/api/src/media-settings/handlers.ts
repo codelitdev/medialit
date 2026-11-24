@@ -7,7 +7,7 @@ import { VideoSettingsError } from "./video";
 import { mediaSettingsSchema } from "./schemas";
 
 /** The fields an update may carry. A field missing from the body stays
- * undefined, so it is left unchanged; `null` is kept, so it resets. */
+ * undefined, so it is left unchanged; `null` is kept, so the renditions reset. */
 const FIELDS = [
     "useWebP",
     "webpOutputQuality",

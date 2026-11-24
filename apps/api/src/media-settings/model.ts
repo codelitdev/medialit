@@ -5,6 +5,7 @@ export interface MediaSettings {
     appId: string;
     useWebP?: boolean;
     webpOutputQuality?: number;
+    /** null: never chosen, which means `off`. */
     videoStreaming?: VideoStreaming | null;
     hlsRenditions?: string[] | null;
 }

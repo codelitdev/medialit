@@ -114,7 +114,7 @@ medialit settings set --video-streaming default      # follow your plan again
 medialit settings set --webp on --webp-quality 85
 ```
 
-`settings set` changes only the options you pass, and changes apply to files sealed afterwards. `--video-streaming` takes `off`, `hls`, `mp4` or `default`. `medialit whoami` also shows the video processing minutes used this month.
+`settings set` changes only the options you pass, and changes apply to files sealed afterwards. `--video-streaming` takes `off`, `hls` or `mp4`; apps start `off`. `--hls-renditions default` goes back to the default sizes. `medialit whoami` also shows the video processing minutes used this month.
 
 ## Use it from a coding agent
 

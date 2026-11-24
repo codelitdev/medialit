@@ -42,20 +42,18 @@ export type HlsRendition = "1080p" | "720p" | "480p" | "360p";
 export interface MediaSettings {
     useWebP?: boolean;
     webpOutputQuality?: number;
-    /** How sealed videos are prepared for playback. */
+    /** How sealed videos are prepared for playback. Apps start `off`. */
     videoStreaming?: VideoStreaming;
-    /** True when the app hasn't chosen, and the account's plan decides. */
-    videoStreamingDefault?: boolean;
     /** HLS sizes to make, largest first. */
     hlsRenditions?: HlsRendition[];
 }
 
-/** What `updateSettings` accepts: only the fields to change. `null` sets a
- * video setting back to its default. */
+/** What `updateSettings` accepts: only the fields to change. `null` sets the
+ * HLS renditions back to the default sizes. */
 export interface MediaSettingsUpdate {
     useWebP?: boolean;
     webpOutputQuality?: number;
-    videoStreaming?: VideoStreaming | null;
+    videoStreaming?: VideoStreaming;
     hlsRenditions?: HlsRendition[] | null;
 }
 

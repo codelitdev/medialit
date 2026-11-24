@@ -1492,6 +1492,24 @@ export async function getMediaSettingsRecord(
     };
 }
 
+/** How many of the account's apps have video streaming on (`hls` or
+ * `mp4`). The billing page warns about them before a downgrade. */
+export async function countVideoStreamingApps(userId: string): Promise<number> {
+    const db = getDb();
+    const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(mediaSettings)
+        .innerJoin(apps, eq(apps.id, mediaSettings.appId))
+        .where(
+            and(
+                eq(mediaSettings.userId, userId),
+                eq(apps.deleted, false),
+                inArray(mediaSettings.videoStreaming, ["hls", "mp4"]),
+            ),
+        );
+    return row?.count ?? 0;
+}
+
 export async function upsertMediaSettings(
     input: MediaSettingsRecord,
 ): Promise<void> {

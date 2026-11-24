@@ -19,8 +19,14 @@ import {
 
 export default function CancelSubscriptionButton({
     className,
+    videoStreamingApps,
+    freeMinutes,
 }: {
     className?: string;
+    /** The account's apps with video streaming on. */
+    videoStreamingApps: number;
+    /** The free plan's video processing minutes a month. */
+    freeMinutes: number;
 }) {
     const [formState, formAction] = useActionState(cancelSubscription, {
         success: false,
@@ -63,6 +69,19 @@ export default function CancelSubscriptionButton({
                         paid for. You can resume before then.
                     </DialogDescription>
                 </DialogHeader>
+                {videoStreamingApps > 0 ? (
+                    <p className="m-0 rounded-lg bg-muted px-3 py-2.5 text-[13px] leading-normal text-muted-foreground">
+                        {videoStreamingApps === 1
+                            ? "1 app has"
+                            : `${videoStreamingApps} apps have`}{" "}
+                        video streaming on. After Pro ends,{" "}
+                        {videoStreamingApps === 1 ? "it gets" : "they get"} the
+                        free plan’s {freeMinutes}{" "}
+                        {freeMinutes === 1 ? "minute" : "minutes"} of video
+                        processing a month. Once those are used, new videos keep
+                        only their original and poster until the next month.
+                    </p>
+                ) : null}
                 <form action={formAction}>
                     <DialogFooter>
                         <DialogClose asChild>

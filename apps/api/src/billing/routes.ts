@@ -5,7 +5,7 @@ import {
     billingErrorResponse,
     handleBillingWebhook,
 } from "@codelitdev/platform/billing";
-import { findUserById, type AccountUser } from "@/db";
+import { countVideoStreamingApps, findUserById, type AccountUser } from "@/db";
 import type { MedialitAuth } from "../auth/better-auth";
 import logger from "../services/log";
 import {
@@ -170,9 +170,11 @@ export function createBillingRouter(auth: MedialitAuth) {
         if (!account) return;
         const billing = configuredBilling();
         try {
-            res.json(
-                billingPlans(billing ? await billing.publicCatalog() : null),
-            );
+            const [catalog, videoStreamingApps] = await Promise.all([
+                billing ? billing.publicCatalog() : null,
+                countVideoStreamingApps(account.user.id),
+            ]);
+            res.json(billingPlans(catalog, videoStreamingApps));
         } catch (error) {
             sendBillingError(res, error);
         }

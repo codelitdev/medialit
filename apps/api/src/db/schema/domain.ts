@@ -171,8 +171,8 @@ export const mediaSettings = pgTable("media_settings", {
      * in a later migration. */
     thumbnailWidth: bigint("thumbnail_width", { mode: "number" }),
     thumbnailHeight: bigint("thumbnail_height", { mode: "number" }),
-    /** `off`, `hls` or `mp4`; null means the account plan's default
-     * (pipelines-phase-1.md, D1). */
+    /** `off`, `hls` or `mp4`, chosen per app; null (never chosen) means
+     * `off` (pipelines-phase-1.md, D1). */
     videoStreaming: text("video_streaming").$type<VideoStreaming>(),
     /** Renditions to make for HLS; null means the default ladder. */
     hlsRenditions: text("hls_renditions").array(),

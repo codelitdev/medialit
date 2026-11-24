@@ -40,9 +40,9 @@ Options:
                         media.processing.ready and media.processing.failed
                         (default: both)
   --enable, --disable   webhooks create/update: turn sending on or off
-  --video-streaming <off|hls|mp4|default>
+  --video-streaming <off|hls|mp4>
                         settings set: how sealed videos are prepared for
-                        playback; default follows your plan
+                        playback (apps start off)
   --hls-renditions <list>
                         settings set: comma-separated HLS sizes from 1080p,
                         720p, 480p and 360p, or default

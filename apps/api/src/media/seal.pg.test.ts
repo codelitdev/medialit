@@ -648,6 +648,59 @@ describe("seal", { skip }, () => {
         assert.equal(after?.thumbnail, after?.derivatives.thumbnail.url);
     });
 
+    test("an app that never chose a video format gets only a poster, whatever the plan", async () => {
+        // Each app turns streaming on for itself; nothing stored means off,
+        // on self-hosted servers and paid plans too.
+        await db.upsertMediaSettings({
+            userId,
+            appId,
+            useWebP: true,
+            webpOutputQuality: 80,
+            videoStreaming: null,
+            hlsRenditions: null,
+        });
+        const { getMediaSettings } = await import(
+            "../media-settings/service.js"
+        );
+        assert.equal(
+            (await getMediaSettings(userId, appId)).videoStreaming,
+            "off",
+        );
+        try {
+            const video = await upload(await blackStartVideo(), {
+                mimeType: "video/mp4",
+                fileName: "never-chose.mp4",
+                access: "public",
+            });
+            const sealed = await sealIt(video.mediaId);
+            assert.equal(sealed.derivatives.thumbnail.status, "queued");
+            assert.equal(sealed.derivatives.mp4, undefined);
+            assert.equal(sealed.derivatives.hls, undefined);
+            const record = await row(video.mediaId);
+            const types = (
+                await pgTest.db.execute(
+                    sql`SELECT type FROM jobs WHERE media_id = ${record!.id}`,
+                )
+            ).rows.map((job) => job.type);
+            assert.deepEqual(types, ["media.poster"]);
+        } finally {
+            await settings({});
+        }
+    });
+
+    test("the billing page counts the apps with video streaming on", async () => {
+        try {
+            await settings({ videoStreaming: "off" });
+            assert.equal(await db.countVideoStreamingApps(userId), 0);
+            await settings({ videoStreaming: "hls" });
+            assert.equal(await db.countVideoStreamingApps(userId), 1);
+            await settings({ videoStreaming: "mp4" });
+            assert.equal(await db.countVideoStreamingApps(userId), 1);
+        } finally {
+            await settings({});
+        }
+    });
+
     test("a poster that finishes before seal cleans up still ends up public", async () => {
         const video = await upload(await blackStartVideo(), {
             mimeType: "video/mp4",

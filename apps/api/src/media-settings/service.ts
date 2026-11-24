@@ -1,7 +1,6 @@
 import * as queries from "./queries";
 import { MediaSettingsResponse } from "./schemas";
 import { DEFAULT_WEBP_QUALITY } from "../config/constants";
-import { resolveAccountPlan } from "../billing/entitlements";
 import {
     effectiveVideoSettings,
     type VideoSettings,
@@ -12,11 +11,8 @@ export async function getMediaSettings(
     userId: string,
     appId: string,
 ): Promise<MediaSettingsResponse> {
-    const [mediaSettings, plan] = await Promise.all([
-        queries.getMediaSettings(userId, appId),
-        resolveAccountPlan({ id: userId }),
-    ]);
-    const video = effectiveVideoSettings(mediaSettings, plan);
+    const mediaSettings = await queries.getMediaSettings(userId, appId);
+    const video = effectiveVideoSettings(mediaSettings);
 
     if (!mediaSettings) {
         return {
@@ -40,21 +36,19 @@ export async function getVideoSettings(
     userId: string,
     appId: string,
 ): Promise<VideoSettings> {
-    const [mediaSettings, plan] = await Promise.all([
-        queries.getMediaSettings(userId, appId),
-        resolveAccountPlan({ id: userId }),
-    ]);
-    return effectiveVideoSettings(mediaSettings, plan);
+    return effectiveVideoSettings(
+        await queries.getMediaSettings(userId, appId),
+    );
 }
 
-/** Fields left undefined keep their value. `null` sets a video setting back
- * to its default. */
+/** Fields left undefined keep their value. `null` sets the HLS renditions
+ * back to the default ladder. */
 export interface UpdateMediaSettingsProps {
     userId: string;
     appId: string;
     useWebP?: boolean;
     webpOutputQuality?: number;
-    videoStreaming?: VideoStreaming | null;
+    videoStreaming?: VideoStreaming;
     hlsRenditions?: string[] | null;
 }
 

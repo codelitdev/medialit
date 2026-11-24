@@ -83,7 +83,7 @@
           "Settings"
         ],
         "summary": "Update Media Settings",
-        "description": "Change media processing settings: WebP and video streaming. Send only the fields to change; null sets videoStreaming or hlsRenditions back to the default. Applies to media sealed afterwards.",
+        "description": "Change media processing settings: WebP and video streaming. Send only the fields to change. Apps start with videoStreaming off, and null sets hlsRenditions back to the default sizes. Applies to media sealed afterwards.",
         "responses": {
           "200": {
             "description": "Settings updated successfully",
@@ -1901,9 +1901,6 @@
               "mp4"
             ]
           },
-          "videoStreamingDefault": {
-            "type": "boolean"
-          },
           "hlsRenditions": {
             "type": "array",
             "items": {
@@ -1936,8 +1933,7 @@
               "off",
               "hls",
               "mp4"
-            ],
-            "nullable": true
+            ]
           },
           "hlsRenditions": {
             "type": "array",

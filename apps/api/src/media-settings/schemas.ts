@@ -5,20 +5,17 @@ import type { HlsRendition, VideoStreaming } from "./video";
 export interface MediaSettingsResponse {
     useWebP: boolean;
     webpOutputQuality: number;
-    /** `off`, `hls` or `mp4`, as in effect now. */
+    /** `off`, `hls` or `mp4`. Apps start `off`. */
     videoStreaming: VideoStreaming;
-    /** True when the app hasn't chosen and the account's plan decides. */
-    videoStreamingDefault: boolean;
     hlsRenditions: HlsRendition[];
 }
 
-/** What an update accepts. `null` sets a video setting back to its default. */
+/** What an update accepts. `null` sets the HLS renditions back to the
+ * default ladder. */
 export const mediaSettingsSchema = Joi.object({
     useWebP: Joi.boolean(),
     webpOutputQuality: Joi.number().integer().min(1).max(100),
-    videoStreaming: Joi.string()
-        .valid(...VIDEO_STREAMING_VALUES)
-        .allow(null),
+    videoStreaming: Joi.string().valid(...VIDEO_STREAMING_VALUES),
     hlsRenditions: Joi.array()
         .items(Joi.string().valid(...HLS_RENDITIONS))
         .min(1)
@@ -29,6 +26,5 @@ export const mediaSettingsResponseSchema = Joi.object<MediaSettingsResponse>({
     useWebP: Joi.boolean(),
     webpOutputQuality: Joi.number().integer().min(1).max(100),
     videoStreaming: Joi.string().valid(...VIDEO_STREAMING_VALUES),
-    videoStreamingDefault: Joi.boolean(),
     hlsRenditions: Joi.array().items(Joi.string().valid(...HLS_RENDITIONS)),
 });

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Film, ImageIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import {
     Select,
     SelectContent,
@@ -29,16 +30,6 @@ const STREAMING_LABELS: Record<VideoStreaming, string> = {
     mp4: "MP4 optimized for the web",
     off: "Off",
 };
-
-/** For the Default option, which already has its own brackets. */
-const STREAMING_SHORT_LABELS: Record<VideoStreaming, string> = {
-    hls: "HLS",
-    mp4: "MP4",
-    off: "off",
-};
-
-/** "default" keeps following the plan; the others are a stored choice. */
-type StreamingChoice = VideoStreaming | "default";
 
 /** Saves one card's changes. Each card sends only its own fields, and only
  * those the user changed. */
@@ -185,29 +176,18 @@ export function VideoStreamingCard({
     appId,
     settings,
     minutes,
-    selfHosted,
 }: {
     appId: string;
     settings: MediaSettings;
     minutes: ProcessingMinutes | null;
-    /** Self-hosted servers have no plans, so the default is the server's. */
-    selfHosted: boolean;
 }) {
-    const initialStreaming: StreamingChoice = settings.videoStreamingDefault
-        ? "default"
-        : settings.videoStreaming;
-    const [streaming, setStreaming] =
-        useState<StreamingChoice>(initialStreaming);
+    const [streaming, setStreaming] = useState<VideoStreaming>(
+        settings.videoStreaming,
+    );
     const [renditions, setRenditions] = useState<HlsRendition[]>(
         settings.hlsRenditions,
     );
     const { pending, error, saved, save, edited } = useSave(appId);
-
-    const planDefault = settings.videoStreamingDefault
-        ? settings.videoStreaming
-        : null;
-    const effective =
-        streaming === "default" ? (planDefault ?? "off") : streaming;
 
     function toggleRendition(rendition: HlsRendition) {
         edited();
@@ -223,8 +203,8 @@ export function VideoStreamingCard({
     function submit(event: FormEvent) {
         event.preventDefault();
         const update: MediaSettingsUpdate = {};
-        if (streaming !== initialStreaming) {
-            update.videoStreaming = streaming === "default" ? null : streaming;
+        if (streaming !== settings.videoStreaming) {
+            update.videoStreaming = streaming;
         }
         if (renditions.join(",") !== settings.hlsRenditions.join(",")) {
             update.hlsRenditions = renditions;
@@ -245,7 +225,7 @@ export function VideoStreamingCard({
                         value={streaming}
                         onValueChange={(value) => {
                             edited();
-                            setStreaming(value as StreamingChoice);
+                            setStreaming(value as VideoStreaming);
                         }}
                     >
                         <SelectTrigger
@@ -255,13 +235,7 @@ export function VideoStreamingCard({
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="default">
-                                Default
-                                {planDefault
-                                    ? ` (${STREAMING_SHORT_LABELS[planDefault]})`
-                                    : ""}
-                            </SelectItem>
-                            {(["hls", "mp4", "off"] as VideoStreaming[]).map(
+                            {(["off", "hls", "mp4"] as VideoStreaming[]).map(
                                 (value) => (
                                     <SelectItem key={value} value={value}>
                                         {STREAMING_LABELS[value]}
@@ -271,11 +245,6 @@ export function VideoStreamingCard({
                         </SelectContent>
                     </Select>
                     <p className="settings-subtle text-sm">
-                        {streaming === "default"
-                            ? selfHosted
-                                ? "Follows this server’s default. "
-                                : "Follows your plan, so it changes if your plan does. "
-                            : ""}
                         Applies to videos sealed after you save.{" "}
                         <a
                             href="https://medialit.cloud/docs/concepts#video-streaming"
@@ -283,11 +252,11 @@ export function VideoStreamingCard({
                             rel="noreferrer"
                             className="text-primary underline-offset-2 hover:underline"
                         >
-                            About the formats and the default
+                            About the formats
                         </a>
                     </p>
                 </div>
-                {effective === "hls" ? (
+                {streaming === "hls" ? (
                     <fieldset className="settings-field">
                         <legend className="text-sm">HLS renditions</legend>
                         <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -317,22 +286,59 @@ export function VideoStreamingCard({
                         </p>
                     </fieldset>
                 ) : null}
-                {minutes ? (
-                    <p className="settings-subtle text-sm" role="status">
-                        Video processing this month: {minutes.used}{" "}
-                        {minutes.allowed === null
-                            ? "minutes (no limit)"
-                            : `of ${minutes.allowed} minutes`}
-                    </p>
-                ) : null}
+                {minutes ? <MinutesUsage minutes={minutes} /> : null}
                 <SaveRow
                     pending={pending}
                     error={error}
                     saved={saved}
-                    disabled={effective === "hls" && renditions.length === 0}
+                    disabled={streaming === "hls" && renditions.length === 0}
                     message="Video settings saved."
                 />
             </form>
         </SettingsCard>
+    );
+}
+
+/** This month's video processing minutes: a bar against the plan's
+ * allowance, or just the count where there is no limit (self-hosted). */
+function MinutesUsage({ minutes }: { minutes: ProcessingMinutes }) {
+    const { used, allowed } = minutes;
+    const unit = (n: number) => (n === 1 ? "minute" : "minutes");
+    if (allowed === null) {
+        return (
+            <div className="grid gap-1 text-[13px]">
+                <span className="font-semibold">
+                    Video processing this month
+                </span>
+                <span className="text-muted-foreground">
+                    {used} {unit(used)} used · no limit
+                </span>
+            </div>
+        );
+    }
+    const percent = allowed > 0 ? Math.min(100, (used / allowed) * 100) : 100;
+    const left = Math.max(0, allowed - used);
+    return (
+        <div className="grid gap-2 sm:max-w-xs">
+            <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                <span id="minutes-label" className="font-semibold">
+                    Video processing this month
+                </span>
+                <span className="text-muted-foreground">
+                    {used} of {allowed}
+                </span>
+            </div>
+            <Progress
+                value={percent}
+                aria-labelledby="minutes-label"
+                aria-valuetext={`${used} of ${allowed} ${unit(allowed)} used`}
+                className="h-1.5 bg-muted"
+            />
+            <span className="text-[11px] text-muted-foreground">
+                {left > 0
+                    ? `${left} ${unit(left)} left. Resets on the 1st (UTC).`
+                    : "No minutes left. New videos keep only their original and poster until the 1st (UTC)."}
+            </span>
+        </div>
     );
 }

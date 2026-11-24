@@ -563,7 +563,6 @@ export async function runCliIntegrationTests(
                 ]),
             );
             assert.equal(changed.videoStreaming, "mp4");
-            assert.equal(changed.videoStreamingDefault, false);
             assert.deepEqual(changed.hlsRenditions, ["1080p", "480p"]);
             assert.equal(changed.useWebP, settingsBefore.useWebP);
             assert.match(
@@ -573,23 +572,16 @@ export async function runCliIntegrationTests(
             await fails(["settings", "set"], /Pass --video-streaming/);
             await fails(
                 ["settings", "set", "--video-streaming", "dash"],
-                /off, hls, mp4 or default/,
+                /off, hls or mp4/,
             );
             await fails(
                 ["settings", "set", "--hls-renditions", "4k"],
                 /Unknown rendition|must be one of|hlsRenditions/,
             );
             const reset = object(
-                await json([
-                    "settings",
-                    "set",
-                    "--video-streaming",
-                    "default",
-                    "--hls-renditions",
-                    "default",
-                ]),
+                await json(["settings", "set", "--hls-renditions", "default"]),
             );
-            assert.equal(reset.videoStreamingDefault, true);
+            assert.equal(reset.videoStreaming, "mp4");
             assert.deepEqual(reset.hlsRenditions, ["1080p", "720p", "480p"]);
             assert.match(
                 (await ok(["whoami"])).stdout,
@@ -600,9 +592,7 @@ export async function runCliIntegrationTests(
                 "settings",
                 "set",
                 "--video-streaming",
-                settingsBefore.videoStreamingDefault
-                    ? "default"
-                    : String(settingsBefore.videoStreaming),
+                String(settingsBefore.videoStreaming),
                 "--hls-renditions",
                 (settingsBefore.hlsRenditions as string[]).join(","),
             ]);

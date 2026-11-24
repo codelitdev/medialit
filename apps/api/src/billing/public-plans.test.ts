@@ -36,6 +36,8 @@ test("takes Pro prices from the billing catalog", () => {
 
 test("takes limits from the enforced settings", () => {
     const plans = billingPlans(null);
+    assert.equal(plans.plans.basic.limits.processingMinutes, 5);
+    assert.equal(plans.plans.pro.limits.processingMinutes, 300);
     assert.equal(
         plans.plans.basic.limits.storageBytes,
         maxStorageAllowedNotSubscribed,
@@ -58,4 +60,9 @@ test("has no prices and no checkout without a complete catalog", () => {
     assert.equal(partial.plans.pro.prices, null);
     assert.equal(partial.checkoutAvailable, false);
     assert.equal(partial.currency, null);
+});
+
+test("reports the apps with video streaming on", () => {
+    assert.equal(billingPlans(null).videoStreamingApps, 0);
+    assert.equal(billingPlans(null, 2).videoStreamingApps, 2);
 });

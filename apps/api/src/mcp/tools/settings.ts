@@ -14,7 +14,7 @@ export const settingsTools = (): MedialitMcpTool[] => [
         title: "Get media settings",
         risk: "read",
         description:
-            "Returns the current media processing configuration for the connected app: WebP conversion and quality, and video streaming (videoStreaming is off, hls or mp4; videoStreamingDefault is true when the account's plan decides; hlsRenditions lists the HLS sizes made).",
+            "Returns the current media processing configuration for the connected app: WebP conversion and quality, and video streaming (videoStreaming is off, hls or mp4; apps start off; hlsRenditions lists the HLS sizes made).",
         inputSchema: z.object({}),
         outputSchema: mediaSettingsSchema,
         annotations: { idempotentHint: true },
@@ -43,10 +43,9 @@ export const settingsTools = (): MedialitMcpTool[] => [
                 .describe("WebP output quality 1–100. Defaults to 80"),
             videoStreaming: z
                 .enum(["off", "hls", "mp4"])
-                .nullable()
                 .optional()
                 .describe(
-                    "How sealed videos are prepared for playback: hls (adaptive streaming), mp4 (one file optimized for the web) or off. null goes back to the account plan's default",
+                    "How sealed videos are prepared for playback: hls (adaptive streaming), mp4 (one file optimized for the web) or off. Apps start off",
                 ),
             hlsRenditions: z
                 .array(z.enum(HLS_RENDITIONS))

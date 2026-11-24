@@ -260,21 +260,16 @@ export async function settings(args: string[], flags: Flags): Promise<void> {
 
 const VIDEO_STREAMING: VideoStreaming[] = ["off", "hls", "mp4"];
 
-/** The settings flags as an update. `default` sets a video setting back to
- * the plan's default. */
+/** The settings flags as an update. `default` sets the HLS renditions back
+ * to the default sizes. */
 export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
     const update: MediaSettingsUpdate = {};
     if (flags.videoStreaming !== undefined) {
         const value = flags.videoStreaming.trim().toLowerCase();
-        if (value === "default") {
-            update.videoStreaming = null;
-        } else if (VIDEO_STREAMING.includes(value as VideoStreaming)) {
-            update.videoStreaming = value as VideoStreaming;
-        } else {
-            throw new Error(
-                "--video-streaming takes off, hls, mp4 or default.",
-            );
+        if (!VIDEO_STREAMING.includes(value as VideoStreaming)) {
+            throw new Error("--video-streaming takes off, hls or mp4.");
         }
+        update.videoStreaming = value as VideoStreaming;
     }
     if (flags.hlsRenditions !== undefined) {
         const value = flags.hlsRenditions.trim();
@@ -311,7 +306,7 @@ function describeSettings(settings: MediaSettings): string {
     ];
     if (settings.videoStreaming) {
         lines.push(
-            `Video streaming: ${settings.videoStreaming}${settings.videoStreamingDefault ? " (plan default)" : ""}`,
+            `Video streaming: ${settings.videoStreaming}`,
             `HLS renditions:  ${(settings.hlsRenditions ?? []).join(", ")}`,
         );
     }

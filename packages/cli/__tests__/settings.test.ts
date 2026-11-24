@@ -22,20 +22,20 @@ describe("medialit settings set", () => {
         assert.deepEqual(settingsUpdate({}), {});
     });
 
-    test("default sets the video settings back to the plan's default", () => {
-        assert.deepEqual(
-            settingsUpdate({
-                videoStreaming: "default",
-                hlsRenditions: "default",
-            }),
-            { videoStreaming: null, hlsRenditions: null },
-        );
+    test("default sets the HLS renditions back to the default sizes", () => {
+        assert.deepEqual(settingsUpdate({ hlsRenditions: "default" }), {
+            hlsRenditions: null,
+        });
     });
 
     test("refuses values the server would refuse", () => {
         assert.throws(
             () => settingsUpdate({ videoStreaming: "dash" }),
-            /off, hls, mp4 or default/,
+            /off, hls or mp4/,
+        );
+        assert.throws(
+            () => settingsUpdate({ videoStreaming: "default" }),
+            /off, hls or mp4/,
         );
         assert.throws(() => settingsUpdate({ webp: "yes" }), /on or off/);
         assert.throws(() => settingsUpdate({ webpQuality: "101" }), /1 to 100/);

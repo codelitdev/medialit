@@ -91,7 +91,7 @@ The `videoStreaming` setting decides what is made from sealed videos:
 - **`mp4`** makes an MP4 optimized for the web, the `mp4` derivative: H.264 video and AAC audio with the index at the front, so playback starts before the whole file loads. A video that is already H.264/AAC in MP4 or MOV, at most 1080p and 8 Mbps, is only rewritten (seconds, no quality lost, no processing minutes). Anything else is re-encoded, at most 1080p and never larger than the original.
 - **`off`** makes only the poster.
 
-An app that hasn't chosen a format follows the default, shown as **Default** in the dashboard. The default is `hls` on self-hosted servers and the paid plan, and `off` on the free plan, so free minutes aren't spent unless you ask. It follows the plan, so an app on the default switches to `hls` when you upgrade. To go back to the default from code, set `videoStreaming` to `null`; settings report `videoStreamingDefault: true` while an app follows it. New apps start on the default. Apps that existed before v0.9.0 were set to `off`: choose **Default** or a format in the dashboard to process the videos they seal afterwards.
+Every app starts with `off`, and each app has its own setting: choose `hls` or `mp4` for the apps whose videos you want processed. Changing your plan doesn't change it.
 
 The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` or `hls` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
 

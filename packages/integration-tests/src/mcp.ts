@@ -476,8 +476,8 @@ export async function runMcpIntegrationTests(
         await restoreMediaSettings();
         log("PASS get_media_settings and update_media_settings round trip");
 
-        // Video settings: chosen values, a refused rendition, and null
-        // going back to the plan's default.
+        // Video settings: chosen values, refused values, and null setting
+        // the renditions back to the default sizes.
         const videoBefore = await client.callTool("get_media_settings");
         try {
             await client.callTool("update_media_settings", {
@@ -486,25 +486,26 @@ export async function runMcpIntegrationTests(
             });
             const video = await client.callTool("get_media_settings");
             assert.equal(video.videoStreaming, "hls");
-            assert.equal(video.videoStreamingDefault, false);
             assert.deepEqual(video.hlsRenditions, ["720p", "480p"]);
             const refused = await client.callToolResult(
                 "update_media_settings",
                 { hlsRenditions: ["4k"] },
             );
             assert.equal(refused.isError, true, "4k was accepted");
+            const noDefault = await client.callToolResult(
+                "update_media_settings",
+                { videoStreaming: null },
+            );
+            assert.equal(noDefault.isError, true, "null was accepted");
             await client.callTool("update_media_settings", {
-                videoStreaming: null,
                 hlsRenditions: null,
             });
             const reset = await client.callTool("get_media_settings");
-            assert.equal(reset.videoStreamingDefault, true);
+            assert.equal(reset.videoStreaming, "hls");
             assert.deepEqual(reset.hlsRenditions, ["1080p", "720p", "480p"]);
         } finally {
             await client.callTool("update_media_settings", {
-                videoStreaming: videoBefore.videoStreamingDefault
-                    ? null
-                    : videoBefore.videoStreaming,
+                videoStreaming: videoBefore.videoStreaming,
                 hlsRenditions: videoBefore.hlsRenditions as string[],
             });
         }

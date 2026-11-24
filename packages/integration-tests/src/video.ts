@@ -13,7 +13,6 @@ type JsonObject = Record<string, unknown>;
 
 interface VideoSettings {
     videoStreaming: string;
-    videoStreamingDefault: boolean;
     hlsRenditions: string[];
 }
 
@@ -194,7 +193,6 @@ export async function runVideoIntegrationTests(
             ["off", "hls", "mp4"].includes(original.videoStreaming),
             `videoStreaming is ${original.videoStreaming}`,
         );
-        assert.equal(typeof original.videoStreamingDefault, "boolean");
         assert.ok(Array.isArray(original.hlsRenditions));
 
         // Only the fields given change; renditions are deduplicated and
@@ -206,7 +204,6 @@ export async function runVideoIntegrationTests(
         });
         let current = await settings();
         assert.equal(current.videoStreaming, "mp4");
-        assert.equal(current.videoStreamingDefault, false);
         assert.deepEqual(current.hlsRenditions, ["1080p", "480p"]);
         assert.equal(current.useWebP, before.useWebP);
         assert.equal(current.webpOutputQuality, before.webpOutputQuality);
@@ -214,6 +211,8 @@ export async function runVideoIntegrationTests(
 
         for (const bad of [
             { videoStreaming: "dash" },
+            // No account-wide default to go back to: each app chooses.
+            { videoStreaming: null },
             { hlsRenditions: ["4k"] },
             { hlsRenditions: ["2160p"] },
             { hlsRenditions: [] },
@@ -228,17 +227,12 @@ export async function runVideoIntegrationTests(
         assert.equal((await settings()).videoStreaming, "mp4");
         log("PASS video settings: invalid values are refused");
 
-        // null goes back to the plan's default.
-        await api("settings/media/create", {
-            videoStreaming: null,
-            hlsRenditions: null,
-        });
+        // null sets the renditions back to the default sizes.
+        await api("settings/media/create", { hlsRenditions: null });
         current = await settings();
-        assert.equal(current.videoStreamingDefault, true);
+        assert.equal(current.videoStreaming, "mp4");
         assert.deepEqual(current.hlsRenditions, ["1080p", "720p", "480p"]);
-        log(
-            `PASS video settings: null restores the plan default (${current.videoStreaming})`,
-        );
+        log("PASS video settings: null restores the default renditions");
 
         const stats = await api("media/get/size");
         const minutes = object(stats.processingMinutes);
@@ -389,9 +383,7 @@ export async function runVideoIntegrationTests(
         if (original) {
             try {
                 await api("settings/media/create", {
-                    videoStreaming: original.videoStreamingDefault
-                        ? null
-                        : original.videoStreaming,
+                    videoStreaming: original.videoStreaming,
                     hlsRenditions: original.hlsRenditions,
                 });
             } catch (error) {

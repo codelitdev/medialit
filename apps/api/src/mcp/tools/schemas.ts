@@ -80,7 +80,6 @@ export const mediaSettingsSchema = z.object({
     useWebP: z.boolean(),
     webpOutputQuality: z.number().min(1).max(100),
     videoStreaming: z.enum(["off", "hls", "mp4"]),
-    videoStreamingDefault: z.boolean(),
     hlsRenditions: z.array(z.enum(HLS_RENDITIONS)),
 });
 

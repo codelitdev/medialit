@@ -352,20 +352,15 @@ export type HlsRendition = "1080p" | "720p" | "480p" | "360p";
 export type MediaSettings = {
     useWebP: boolean;
     webpOutputQuality: number;
+    /** Apps start `off`. */
     videoStreaming: VideoStreaming;
-    /** True when the app hasn't chosen and the account's plan decides. */
-    videoStreamingDefault: boolean;
     hlsRenditions: HlsRendition[];
 };
 
 export type MediaSettingsUpdate = Partial<
-    Omit<
-        MediaSettings,
-        "videoStreamingDefault" | "videoStreaming" | "hlsRenditions"
-    >
+    Omit<MediaSettings, "hlsRenditions">
 > & {
-    /** null goes back to the plan's default. */
-    videoStreaming?: VideoStreaming | null;
+    /** null goes back to the default sizes. */
     hlsRenditions?: HlsRendition[] | null;
 };
 

@@ -366,7 +366,7 @@ async function runSeal(
         const planned = planProcessing({
             mimeType: media.mimeType,
             metadata,
-            video: effectiveVideoSettings(settings, plan),
+            video: effectiveVideoSettings(settings),
             plan,
         });
 
