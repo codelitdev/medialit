@@ -88,7 +88,6 @@ The API owns all product behavior. Every client, including the dashboard, goes t
 ```mermaid
 flowchart TB
     subgraph clients["Clients"]
-        direction LR
         browser["Your web app<br/>@medialit/react"]
         server["Your server<br/>medialit SDK"]
         agent["AI agents<br/>MCP"]
@@ -101,18 +100,18 @@ flowchart TB
     worker["Worker<br/>apps/api"]
 
     subgraph storage["S3-compatible storage"]
-        direction LR
         private[("Private bucket")]
         public[("Public bucket / CDN")]
     end
 
     hook["Your webhook endpoint"]
 
-    clients -- "REST, MCP, signed uploads" --> api
+    browser & server & agent & cli & web --> api
     api -- "media records, queued jobs" --> db
-    api -- "uploads, thumbnails, WebP" --> storage
+    api -- "uploads, thumbnails, WebP" --> private
     db -- "new jobs" --> worker
-    worker -- "posters, MP4, HLS, publishing" --> storage
+    worker -- "posters, MP4, HLS" --> private
+    worker -- "publishes public files" --> public
     worker -- "signed webhooks" --> hook
 ```
 
