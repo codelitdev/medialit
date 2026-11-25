@@ -15,3 +15,10 @@
     - **CLI:** `medialit upload`
 - For each upload, check that the file can be fetched back with the same bytes, that the reported size is right, and that thumbnails exist for images and videos
 - Until all three pass, report the change as not fully tested and name what was skipped
+
+# Definition of "done"
+
+A task is considered done when you have performed the following steps.
+
+1. Full e2e browser based smoke testing on local
+2. Full e2e browser based smoke testing on QA. Perform this step at the very last so that you have to do it only once per task.
