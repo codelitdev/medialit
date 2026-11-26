@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from "react";
 
+import type { MediaDerivative } from "@medialit/models";
 import type { PlayableMedia } from "@medialit/react";
+
+/** What the details dialog plays, with derivatives as the API returns
+ * them (including why one failed). */
+export type FileMedia = PlayableMedia & {
+    derivatives?: Record<string, MediaDerivative | undefined>;
+};
 
 type FileState = {
     /** The file, its thumbnail and derivatives (HLS and the web MP4 when the
      * app makes them). `file` is a signed URL for private media. */
-    media?: PlayableMedia;
+    media?: FileMedia;
     error: boolean;
 };
 

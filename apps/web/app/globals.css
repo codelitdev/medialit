@@ -1598,6 +1598,24 @@ a {
     text-align: right;
 }
 
+.file-dialog-facts > .file-dialog-fact-stacked {
+    align-items: flex-start;
+}
+
+.file-dialog-fact-note {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.file-dialog-fact-note a {
+    color: var(--foreground);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 .file-dialog-facts dd.mono {
     font-family: var(--font-mono);
     font-size: 13px;

@@ -3,6 +3,7 @@
 import { MediaLitVideo, type PlayableMedia } from "@medialit/react";
 import { useState, type ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Checkbox } from "@codelitdev/design-system";
 import {
     FileArchive,
@@ -27,7 +28,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import FileInteractivity from "./file-interactivity";
-import { useFileUrl } from "./use-file-url";
+import { useFileUrl, type FileMedia } from "./use-file-url";
 import { nativeViewerFor, type NativeViewer } from "./viewers";
 
 /* Matches the dialog's phone layout in globals.css. */
@@ -131,6 +132,73 @@ function FilePreviewMedia({
 
 /* Dialog body. Mounted only while the dialog is open, so the file URL is
    fetched each time the details are opened. */
+type StreamingFormat = "HLS" | "MP4";
+
+/* The streaming version made for a video, the one the player picks: HLS,
+   else the web MP4. Null when the app's Video streaming setting made none. */
+function videoStreaming(
+    derivatives: FileMedia["derivatives"],
+): { format: StreamingFormat; status: string; error?: string } | null {
+    const hls = derivatives?.hls;
+    if (hls) return { format: "HLS", status: hls.status, error: hls.error };
+    const mp4 = derivatives?.mp4;
+    if (mp4) return { format: "MP4", status: mp4.status, error: mp4.error };
+    return null;
+}
+
+const streamingStatus: Record<string, string> = {
+    queued: "processing",
+    processing: "processing",
+    ready: "ready",
+    failed: "failed",
+};
+
+/* Whether the video plays as HLS, the web MP4 or the original, and why. */
+function StreamingFact({
+    appId,
+    playable,
+}: {
+    appId: string;
+    playable?: FileMedia;
+}) {
+    if (!playable) return null;
+    const streaming = videoStreaming(playable.derivatives);
+    return (
+        <div className="file-dialog-fact-stacked">
+            <dt>Streaming</dt>
+            {streaming ? (
+                <dd>
+                    {streaming.format} ·{" "}
+                    {streamingStatus[streaming.status] ?? streaming.status}
+                    {streaming.status === "failed" && (
+                        <span className="file-dialog-fact-note">
+                            {streaming.error ? `${streaming.error}. ` : ""}
+                            The original plays instead.
+                        </span>
+                    )}
+                    {streaming.status !== "ready" &&
+                        streaming.status !== "failed" && (
+                            <span className="file-dialog-fact-note">
+                                The original plays until it is ready.
+                            </span>
+                        )}
+                </dd>
+            ) : (
+                <dd>
+                    Off for this video
+                    <span className="file-dialog-fact-note">
+                        It plays the original. Choose HLS or MP4 in{" "}
+                        <Link href={`/app/${appId}/settings#media`}>
+                            App settings
+                        </Link>
+                        ; videos uploaded after that get it.
+                    </span>
+                </dd>
+            )}
+        </div>
+    );
+}
+
 function FileDetailsContent({
     media,
     appId,
@@ -147,8 +215,16 @@ function FileDetailsContent({
     const { media: playable, error } = useFileUrl(appId, media.mediaId);
     const url = playable?.file ?? "";
     const kind = kindLabels[media.kind];
+    const playing =
+        media.kind === "video" && playable?.derivatives?.hls?.status === "ready"
+            ? "HLS"
+            : media.kind === "video" &&
+                playable?.derivatives?.mp4?.status === "ready"
+              ? "MP4"
+              : undefined;
     const fileLabel =
-        media.originalFileName.split(".").at(-1)?.toUpperCase() || kind;
+        playing ??
+        (media.originalFileName.split(".").at(-1)?.toUpperCase() || kind);
     const isPublic = media.access !== "private";
     const ExpandIcon = expanded ? Minimize2 : Maximize2;
     const expandLabel = expanded ? "Show file details" : "Expand preview";
@@ -221,6 +297,9 @@ function FileDetailsContent({
                         <dt>File ID</dt>
                         <dd className="mono">{media.mediaId}</dd>
                     </div>
+                    {media.kind === "video" && (
+                        <StreamingFact appId={appId} playable={playable} />
+                    )}
                 </dl>
                 <FileInteractivity
                     media={media}
