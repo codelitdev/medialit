@@ -63,8 +63,9 @@ const doc = {
             description: "Upload, list, and manage media resources.",
         },
         {
-            name: "Settings",
-            description: "Manage media processing configuration.",
+            name: "Media processing",
+            description:
+                "How new uploads are processed: WebP conversion and its quality, and thumbnail sizes.",
         },
         {
             name: "Webhooks",

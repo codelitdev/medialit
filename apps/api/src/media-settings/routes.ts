@@ -14,7 +14,7 @@ export default (passport: any) => {
     router.post(
         "/create",
         /* 
-            #swagger.tags = ['Settings']
+            #swagger.tags = ['Media processing']
             #swagger.summary = 'Update Media Settings'
             #swagger.description = 'Change media processing settings: WebP and video streaming. Send only the fields to change. Apps start with videoStreaming off, and null sets hlsRenditions back to the default sizes. Applies to media sealed afterwards.'
             #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
@@ -52,7 +52,7 @@ export default (passport: any) => {
     router.post(
         "/get",
         /*
-            #swagger.tags = ['Settings']
+            #swagger.tags = ['Media processing']
             #swagger.summary = 'Get Media Settings'
             #swagger.description = 'Retrieve current media processing configuration.'
             #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]

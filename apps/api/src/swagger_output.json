@@ -38,8 +38,8 @@
       "description": "Upload, list, and manage media resources."
     },
     {
-      "name": "Settings",
-      "description": "Manage media processing configuration."
+      "name": "Media processing",
+      "description": "How new uploads are processed: WebP conversion and its quality, and thumbnail sizes."
     },
     {
       "name": "Webhooks",
@@ -80,7 +80,7 @@
     "/settings/media/create": {
       "post": {
         "tags": [
-          "Settings"
+          "Media processing"
         ],
         "summary": "Update Media Settings",
         "description": "Change media processing settings: WebP and video streaming. Send only the fields to change. Apps start with videoStreaming off, and null sets hlsRenditions back to the default sizes. Applies to media sealed afterwards.",
@@ -168,7 +168,7 @@
     "/settings/media/get": {
       "post": {
         "tags": [
-          "Settings"
+          "Media processing"
         ],
         "summary": "Get Media Settings",
         "description": "Retrieve current media processing configuration.",
