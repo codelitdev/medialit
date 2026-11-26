@@ -13,6 +13,9 @@ import {
     derivativeJobDefinitions,
 } from "../media/derivatives";
 import { prune } from "./queue";
+import { posterJob } from "../media/poster";
+import { mp4Job } from "../media/mp4";
+import { hlsJob } from "../media/hls";
 import { registerWebhookHooks, webhookDeliverJob } from "../webhooks/delivery";
 import type { JobDefinition, PeriodicJob } from "./runner";
 
@@ -60,6 +63,9 @@ export const jobDefinitions: JobDefinition[] = [
         handler: async () => prune(getDb()),
     },
     ...derivativeJobDefinitions,
+    posterJob,
+    mp4Job,
+    hlsJob,
     webhookDeliverJob(),
 ];
 

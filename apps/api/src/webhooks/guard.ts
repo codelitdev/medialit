@@ -1,6 +1,6 @@
 /**
- * Checks a webhook URL before it is saved and again at every delivery
- * (pipelines-phase-0.md, D8). URLs are parsed with the WHATWG parser, so
+ * Checks a webhook URL before it is saved and again at every delivery.
+ * URLs are parsed with the WHATWG parser, so
  * decimal, octal and hex IPv4 spellings (`http://2130706433`,
  * `http://0x7f.1`) are normalized before the address check.
  */

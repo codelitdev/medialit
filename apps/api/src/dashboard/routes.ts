@@ -29,15 +29,20 @@ import { configuredBootstrapKeyHash } from "../apikey/bootstrap-config";
 import type { MedialitAuth } from "../auth/better-auth";
 import {
     accountSubscription,
-    maxStorageFor,
     resolveAccountBilling,
 } from "../billing/entitlements";
+import { storageStats } from "../billing/usage";
+import {
+    getMediaSettings,
+    parseMediaSettingsUpdate,
+} from "../media-settings/service";
+import { updateMediaSettings } from "../media-settings/queries";
 import { deploymentMode } from "../billing/catalog";
 import mediaService from "../media/service";
 import { sealErrorStatus } from "../media/handlers";
 import { mediaKind, parseMediaKind } from "../media/kind";
 import { mediaPreview } from "../media/preview";
-import { getMediaCount, getTotalSpace } from "../media/queries";
+import { getMediaCount } from "../media/queries";
 import { validatePresigningOptions } from "../signature/handlers";
 import { generateSignature } from "../signature/service";
 import logger from "../services/log";
@@ -434,14 +439,7 @@ export function createDashboardRouter(auth: MedialitAuth) {
     router.get("/api/apps/:appId/stats", async (req, res) => {
         const owned = await ownedApp(req, res);
         if (!owned) return;
-        const storage = await getTotalSpace({
-            userId: owned.user.id,
-            appId: owned.app.id,
-        });
-        res.json({
-            storage,
-            maxStorage: await maxStorageFor(owned.user),
-        });
+        res.json(await storageStats(owned.user, owned.app.id));
     });
 
     /* A signature for one browser (or app) upload to this app. The client
@@ -678,6 +676,30 @@ export function createDashboardRouter(auth: MedialitAuth) {
             listWebhookDeliveries(owned.app.id),
         ]);
         res.json({ endpoints, deliveries, events: WEBHOOK_EVENTS });
+    });
+
+    router.get("/api/apps/:appId/media-settings", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        res.json(await getMediaSettings(owned.user.id, owned.app.id));
+    });
+
+    /* Changes only the fields it is given; null sets the HLS renditions
+       back to the default ladder. */
+    router.patch("/api/apps/:appId/media-settings", async (req, res) => {
+        const owned = await ownedApp(req, res);
+        if (!owned) return;
+        const parsed = parseMediaSettingsUpdate(req.body);
+        if ("error" in parsed) {
+            res.status(400).json({ error: parsed.error });
+            return;
+        }
+        await updateMediaSettings({
+            userId: owned.user.id,
+            appId: owned.app.id,
+            ...parsed.update,
+        });
+        res.json(await getMediaSettings(owned.user.id, owned.app.id));
     });
 
     router.post("/api/apps/:appId/webhooks", async (req, res) => {

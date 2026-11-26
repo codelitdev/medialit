@@ -364,7 +364,7 @@ CDN_ENDPOINT=https://<your_minio_api_endpoint> # For accessing public bucket con
 
 ## Run the worker
 
-The worker runs MediaLit's background jobs. Today it removes expired temporary uploads, unfinished uploads and old job records. It uses the same image and settings as the API, started with a different command:
+The worker runs MediaLit's background jobs: publishing sealed files, video posters, MP4 and HLS encodes, webhook deliveries, and cleanup of expired uploads and old job records. It uses the same image and settings as the API, started with a different command:
 
 ```yaml
 services:
@@ -377,16 +377,17 @@ services:
 
 The `docker-compose.yml` in the repository already has it. If you run the image some other way, for example on Kubernetes, run one or more workers next to the API, against the same database and buckets.
 
-Without a worker, uploads are never cleaned up: unsealed uploads stay in your bucket and keep counting toward storage. The API logs `No MediaLit worker is running` a minute after it starts, and every hour after that, while no worker is running. After 5 minutes without a worker it also sends the `jobs_no_worker` [alert](#alerts).
+Without a worker, sealed files stay `processing`, videos aren't encoded, webhooks aren't sent, and unsealed uploads stay in your bucket and keep counting toward storage. The API logs `No MediaLit worker is running` a minute after it starts, and every hour after that, while no worker is running. After 5 minutes without a worker it also sends the `jobs_no_worker` [alert](#alerts).
 
 You can run several workers. Each job runs once, on one of them.
 
 | Variable                   | Default          | What it does                                                                                                                |
 | -------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `WORKER_PORT`              | `8001`           | Port for `/health` and `/ready`                                                                                             |
-| `WORKER_CONCURRENCY_CPU`   | one per CPU core | Media processing jobs run at once                                                                                           |
+| `WORKER_CONCURRENCY_CPU`   | one per CPU core | Media processing jobs other than video encodes (posters, for example) run at once                                           |
 | `WORKER_CONCURRENCY_IO`    | `16`             | Cleanup and other network-bound jobs run at once                                                                            |
-| `WORKER_CLASSES`           | `cpu,io`         | Limit a worker to some kinds of jobs, for example `io`                                                                      |
+| `WORKER_CONCURRENCY_VIDEO` | `1`              | Video encodes run at once. Each encode uses every core, so keep this at 1 unless the worker has cores to spare              |
+| `WORKER_CLASSES`           | `cpu,io,video`   | Limit a worker to some kinds of jobs, for example `io`, or `video` for a worker that only encodes                           |
 | `WORKER_SHUTDOWN_GRACE_MS` | `8000`           | On shutdown, how long running jobs get to finish. Unfinished jobs go back to the queue, and another worker runs them again. |
 
 Set your container's stop timeout a few seconds above `WORKER_SHUTDOWN_GRACE_MS`.
@@ -409,12 +410,13 @@ It turns the address check off and also allows `http` URLs in production. Only s
 
 The API and the workers check the job queue every minute. When something is wrong, they log an error with an `alert_code` and email the addresses in `OPERATOR_ALERT_EMAIL` (comma-separated), through the `EMAIL_*` SMTP settings. Each alert emails at most once every 30 minutes, however many API instances and workers you run. Without `OPERATOR_ALERT_EMAIL`, alerts are only logged.
 
-| Alert                | Means                                                           | What to do                                                                                                       |
-| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `jobs_no_worker`     | No worker has reported for 5 minutes, so nothing is cleaned up. | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
-| `jobs_queue_lag`     | A job has waited more than 10 minutes to start.                 | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
-| `jobs_failure_spike` | More than 10 jobs failed for good in the last 10 minutes.       | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
-| `webp_busy`          | Seal skipped WebP because every conversion slot was busy.       | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
+| Alert                | Means                                                                     | What to do                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `jobs_no_worker`     | No worker has reported for 5 minutes, so nothing is cleaned up.           | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
+| `jobs_queue_lag`     | A job other than a video encode has waited more than 10 minutes to start. | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
+| `video_queue_lag`    | A video job has waited more than 6 hours to start.                        | Video encodes run one at a time and can take an hour or two each. Check the worker, or give it more CPU.         |
+| `jobs_failure_spike` | More than 10 jobs failed for good in the last 10 minutes.                 | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
+| `webp_busy`          | Seal skipped WebP because every conversion slot was busy.                 | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
 
 With `POSTHOG_API_KEY` set, the API and the worker also send their logs and errors to PostHog. A job that fails for good shows there as an exception from `worker.<job type>.failed`.
 
@@ -504,6 +506,57 @@ SEAL_WAIT_MS=15000             # a second seal of the same file waits this long,
 
 The memory limit uses `prlimit`, from util-linux, which the MediaLit image includes. On a machine without it, conversions run without a memory limit and the API logs a warning. The image limit also applies to thumbnails: images over `WEBP_MAX_PIXELS` get no thumbnail.
 
+## Allow players to read video segments
+
+Browsers that can't play HLS natively, such as Firefox, play it with hls.js, which reads playlists and segments with `fetch`. That needs CORS on your storage: allow `GET` and `HEAD` from any origin on both buckets. Segment URLs of private videos are signed, so this doesn't open anything up.
+
+Safari and recent versions of Chrome play HLS natively, without CORS. A video that plays in those browsers doesn't show that CORS is set; use the check at the end of this section.
+
+Playlists of private videos are served by the API at `PUBLIC_API_URL`, with CORS for any origin, so viewers' browsers must be able to reach that address.
+
+- **MinIO** allows any origin by default.
+- **S3** and **R2**: set a CORS rule on both buckets, for example with the AWS CLI:
+
+```bash
+aws s3api put-bucket-cors --bucket <bucket> --cors-configuration '{
+  "CORSRules": [{
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["Content-Length", "Content-Range", "ETag"],
+    "MaxAgeSeconds": 3600
+  }]
+}'
+```
+
+- **Behind CloudFront**, also attach the managed response headers policy `Managed-SimpleCORS` to the distribution's behaviors. Otherwise CloudFront can cache a response without the CORS header and serve it to browsers.
+
+To check, seal a video in an app with `hls` on, and once `derivatives.hls` is `ready`, ask storage for one of its segments with an `Origin` header:
+
+```bash
+# derivatives.hls.url from GET /media/get/<mediaId>
+MASTER='<master playlist URL>'
+VARIANT="${MASTER%/*}/$(curl -s "$MASTER" | grep -v '^#' | grep . | head -1)"
+SEGMENT=$(curl -s "$VARIANT" | grep '^http' | head -1)
+curl -s -o /dev/null -D - -H 'Origin: https://example.com' "$SEGMENT" | grep -i '^access-control-allow-origin'
+```
+
+It prints `access-control-allow-origin: *` when CORS is set. No output means hls.js players can't load the video.
+
+## Size the worker for video
+
+The worker processes sealed videos: posters, and the MP4 or HLS versions the [`videoStreaming`](/docs/concepts#video-streaming) setting asks for. One encode runs at a time (`WORKER_CONCURRENCY_VIDEO`) and uses every core it gets.
+
+For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 12 GB of temporary disk: the worker downloads the source and writes the output before uploading it. At the bitrate caps, an HLS ladder of 1080p, 720p and 480p takes about 4.3 GB per hour of video. An encode whose source and output wouldn't fit in `VIDEO_MAX_WORK_BYTES` is refused before it starts; the video keeps its original and poster. On 2 CPUs, an hour of 1080p video takes roughly one to two hours to encode.
+
+| Variable                     | Default               | What it does                                                                                                                                                |
+| ---------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VIDEO_MAX_SOURCE_BYTES`     | `1073741824` (1 GB)   | Larger videos keep their original and poster, and aren't encoded                                                                                            |
+| `VIDEO_MAX_DURATION_SECONDS` | `7200` (2 hours)      | Longer videos keep their original and poster, and aren't encoded                                                                                            |
+| `VIDEO_MAX_MEMORY_MB`        | `3072`                | Address space ffmpeg may reserve for one encode, a guard against a file that makes it run away. It uses far less: about 0.5 GB for a 4K source at 2 threads |
+| `VIDEO_MAX_WORK_BYTES`       | `10737418240` (10 GB) | Temporary disk one encode may use, source and output together. Keep the worker's disk larger                                                                |
+| `VIDEO_ENCODE_THREADS`       | `2`                   | Threads per encode. Match the worker's CPUs; more threads only reserve more memory                                                                          |
+
 ## Create a key at startup
 
 When another service in the same Docker Compose file uses MediaLit, for example a bundled SendLit, FrontLit or CourseLit, it needs a working key before anyone can open the dashboard. Set `MEDIALIT_BOOTSTRAP_API_KEY` and MediaLit creates that key for the `EMAIL` user's default app every time it starts, before it reports healthy:
@@ -553,17 +606,7 @@ If your server reaches MediaLit on a different URL than browsers do, for example
   Back up the database before upgrading. Migrations can't be rolled back, and the hashed API keys migration removes plaintext keys for good.
 </Callout>
 
-### Upgrading from v0.7.x to v0.8.0
-
-v0.8.0 moves upload cleanup from the API to a new worker service. Follow the [upgrade guide](/docs/upgrade-from-v0-7-x-to-v0-8-0) and add the worker before you upgrade, or uploads stop being cleaned up.
-
-### Upgrading from v0.6.x to v0.7.0
-
-v0.7.0 streams uploads straight to your bucket instead of the server's disk. Follow the [upgrade guide](/docs/upgrade-from-v0-6-x-to-v0-7-0) before you upgrade, because it needs a lifecycle rule on your private bucket.
-
-### Upgrading from v0.5.x to v0.6.0
-
-v0.6.0 stores API keys as hashes. Follow the [upgrade guide](/docs/upgrade-from-v0-5-x-to-v0-6-0) before you upgrade, because it needs a backup and a check for media that belongs to no app.
+Each version's steps are in the Upgrades section, starting with [v0.8.x to v0.9.0](/docs/upgrade-from-v0-8-x-to-v0-9-0). Follow the guide for every version you pass.
 
 ## Monitor your server
 

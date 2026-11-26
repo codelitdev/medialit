@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { sql, type SQL } from "drizzle-orm";
 import type { AppDb } from "./client.js";
+import type { MediaMetadata } from "@medialit/models";
 import type { DerivativeStatus, ProcessingStatus } from "./schema/index.js";
 
 /** The database or a transaction. */
@@ -37,24 +38,19 @@ export type LockedMedia = {
     temp: boolean;
     accessControl: "public" | "private";
     processingStatus: ProcessingStatus;
+    mimeType: string;
+    /** `main.{ext}`, or `main.webp` after WebP conversion. */
+    fileName: string;
 };
 
-/** Derivatives that are public for every media item, as thumbnails are
- * today. Others are public only for public media. */
-export const ALWAYS_PUBLIC_DERIVATIVES: readonly string[] = [
-    "thumbnail",
-    "poster",
-];
-
+/** Thumbnails are public for every media item; other derivatives only for
+ * public media. */
 export function needsPublicCopy(
     media: Pick<LockedMedia, "temp" | "accessControl">,
     name: string,
 ): boolean {
     if (media.temp) return false;
-    return (
-        media.accessControl === "public" ||
-        ALWAYS_PUBLIC_DERIVATIVES.includes(name)
-    );
+    return media.accessControl === "public" || name === "thumbnail";
 }
 
 const DERIVATIVE_COLUMNS = sql.raw(
@@ -81,29 +77,18 @@ function toDerivative(row: DerivativeRecord): DerivativeRecord {
     return { ...row, size: Number(row.size ?? 0) };
 }
 
-/** Every derivative of the given media items, by public media ID. */
-export async function listDerivativesByMediaIds(
+/** Every derivative of a media item, by its public media ID. */
+export async function listDerivativesByMediaId(
     db: Executor,
-    mediaIds: string[],
-): Promise<Map<string, DerivativeRecord[]>> {
-    const byMedia = new Map<string, DerivativeRecord[]>();
-    if (mediaIds.length === 0) return byMedia;
-    const found = await rows<DerivativeRecord & { publicMediaId: string }>(
+    mediaId: string,
+): Promise<DerivativeRecord[]> {
+    const found = await rows<DerivativeRecord>(
         db,
-        sql`SELECT ${DERIVATIVE_COLUMNS}, m.media_id AS "publicMediaId"
+        sql`SELECT ${DERIVATIVE_COLUMNS}
             FROM derivatives d JOIN media m ON m.id = d.media_id
-            WHERE m.media_id IN (${sql.join(
-                mediaIds.map((id) => sql`${id}`),
-                sql`, `,
-            )})
-            ORDER BY d.name`,
+            WHERE m.media_id = ${mediaId} ORDER BY d.name`,
     );
-    for (const { publicMediaId, ...row } of found) {
-        const list = byMedia.get(publicMediaId) ?? [];
-        list.push(toDerivative(row));
-        byMedia.set(publicMediaId, list);
-    }
-    return byMedia;
+    return found.map(toDerivative);
 }
 
 export async function listDerivatives(
@@ -129,7 +114,8 @@ export async function lockMedia(
         db,
         sql`SELECT id, media_id AS "mediaId", user_id AS "userId",
                 app_id AS "appId", temp, access_control AS "accessControl",
-                processing_status AS "processingStatus"
+                processing_status AS "processingStatus",
+                mime_type AS "mimeType", file_name AS "fileName"
             FROM media WHERE id = ${mediaRowId}
             ${options.lock === false ? sql`` : sql`FOR UPDATE`}`,
     );
@@ -229,20 +215,45 @@ export async function unpublishedDerivatives(
  * were copied. Returns the IDs that flipped. */
 export async function markDerivativesPublic(
     db: Executor,
-    copied: Pick<DerivativeRecord, "id" | "key">[],
+    copied: Pick<
+        DerivativeRecord,
+        "id" | "key" | "params" | "name" | "mediaRowId"
+    >[],
 ): Promise<string[]> {
     const flipped: string[] = [];
     for (const row of copied) {
+        // A derivative published under another name (the poster, as
+        // thumb.webp) takes that key in the public bucket.
+        const publicKey = publicKeyOf(row);
         const updated = await rows<{ id: string }>(
             db,
-            sql`UPDATE derivatives SET bucket = 'public', updated_at = now()
+            sql`UPDATE derivatives SET bucket = 'public', key = ${publicKey},
+                    updated_at = now()
                 WHERE id = ${row.id} AND status = 'ready' AND bucket = 'private'
                 AND key = ${row.key}
                 RETURNING id`,
         );
-        if (updated.length > 0) flipped.push(row.id);
+        if (updated.length === 0) continue;
+        flipped.push(row.id);
+        // A thumbnail made after upload (the upload's own one failed) is
+        // the media's thumbnail from now on.
+        if (row.name === "thumbnail") {
+            await db.execute(
+                sql`UPDATE media SET thumbnail_generated = true
+                    WHERE id = ${row.mediaRowId} AND NOT thumbnail_generated`,
+            );
+        }
     }
     return flipped;
+}
+
+/** The key a derivative has once public: `params.publicKey`, or the key it
+ * has in the private bucket. */
+export function publicKeyOf(
+    row: Pick<DerivativeRecord, "key" | "params">,
+): string | null {
+    const publicKey = row.params?.publicKey;
+    return typeof publicKey === "string" && publicKey ? publicKey : row.key;
 }
 
 export type SettledStatus = Extract<ProcessingStatus, "ready" | "failed">;
@@ -263,7 +274,9 @@ export async function settleMedia(
         return null;
     }
     const failed = all.filter((d) => d.status === "failed");
-    const status: SettledStatus = failed.length > 0 ? "failed" : "ready";
+    // Failures that leave the media usable don't fail it (phase 1, D12).
+    const blocking = failed.filter((d) => !leavesMediaUsable(d));
+    const status: SettledStatus = blocking.length > 0 ? "failed" : "ready";
     const error =
         failed.length > 0
             ? failed.map((d) => `${d.name}: ${d.error ?? "failed"}`).join("; ")
@@ -274,6 +287,25 @@ export async function settleMedia(
             WHERE id = ${media.id}`,
     );
     return { status, error };
+}
+
+/** Errors of video outputs refused by MediaLit's own limits. The original
+ * still plays, so the media settles `ready` (phase 1, D12). */
+export const LIMIT_ERRORS = [
+    "out_of_processing_minutes",
+    "source_too_large",
+    "source_too_long",
+] as const;
+
+/** A failed derivative that leaves the media fully usable: a poster (the
+ * upload thumbnail stays), or HLS or MP4 refused by our limits. */
+export function leavesMediaUsable(
+    derivative: Pick<DerivativeRecord, "name" | "error">,
+): boolean {
+    if (derivative.name === "thumbnail") return true;
+    if (derivative.name !== "hls" && derivative.name !== "mp4") return false;
+    const error = derivative.error ?? "";
+    return LIMIT_ERRORS.some((code) => error.startsWith(code));
 }
 
 /** Derivatives stuck in `queued` or `processing` whose job is no longer
@@ -295,4 +327,19 @@ export async function orphanedDerivatives(
             LIMIT 500`,
     );
     return found.map(toDerivative);
+}
+
+/** Seal may not have read the metadata (its probe failed, was slow, or hit
+ * its read limit); a job's probe of the whole file fills in what is
+ * missing. Fields seal read are kept. */
+export async function fillMediaMetadata(
+    db: Executor,
+    mediaRowId: string,
+    metadata: MediaMetadata,
+): Promise<void> {
+    await db.execute(
+        sql`UPDATE media SET metadata =
+                ${JSON.stringify(metadata)}::jsonb || coalesce(metadata, '{}'::jsonb)
+            WHERE id = ${mediaRowId}`,
+    );
 }

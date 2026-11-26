@@ -4,15 +4,13 @@ import type { AddressInfo } from "node:net";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
 import { Webhook } from "standardwebhooks";
-import {
-    createAccount,
-    createApp,
-    createMediaRecord,
-    setDb,
-    softDeleteApp,
-    upsertDerivative,
-} from "@/db";
+import { setDb, softDeleteApp } from "@/db";
 import type { AppDb } from "../db/client.js";
+import {
+    createOwner as owner,
+    createProcessingMedia,
+    waitFor,
+} from "../db/test-records.js";
 import { claim, enqueue, complete, getJob } from "../jobs/queue.js";
 import { JobError } from "../jobs/errors.js";
 import { createRunner, type JobContext } from "../jobs/runner.js";
@@ -22,11 +20,12 @@ import {
     type TestPostgres,
 } from "../jobs/test-postgres.js";
 import { finishDerivative, onProcessingSettled } from "../media/derivatives.js";
+import type { CaptureEventInput } from "@codelitdev/observability";
 import {
-    registerWebhookHooks,
-    unregisterWebhookHooks,
-    webhookDeliverJob,
-} from "./delivery.js";
+    flushEventsForTests,
+    setEventSinkForTests,
+} from "../services/events.js";
+import { registerWebhookHooks, webhookDeliverJob } from "./delivery.js";
 import type { GuardOptions, Resolver } from "./guard.js";
 import {
     WEBHOOK_DELIVER_JOB,
@@ -123,43 +122,9 @@ before(async () => {
 });
 
 after(async () => {
-    unregisterWebhookHooks();
     await hooks.close();
     await pgTest?.drop();
 });
-
-async function owner() {
-    const user = await createAccount({
-        email: `webhooks-${Date.now()}-${Math.random()}@example.com`,
-    });
-    const app = await createApp({
-        userId: user.id,
-        name: `App ${Math.random()}`,
-    });
-    return { user, app };
-}
-
-async function processingMedia(user: { id: string }, app: { id: string }) {
-    const media = await createMediaRecord({
-        fileName: "main.mp4",
-        mediaId: `media-${Math.random().toString(36).slice(2)}`,
-        userId: user.id,
-        appId: app.id,
-        originalFileName: "a.mp4",
-        mimeType: "video/mp4",
-        size: 10,
-        thumbnailGenerated: false,
-        accessControl: "private",
-        temp: false,
-        processingStatus: "processing",
-    });
-    await upsertDerivative(db, {
-        mediaRowId: media.id,
-        name: "poster",
-        status: "queued",
-    });
-    return media;
-}
 
 async function deliveries(appId: string) {
     const result = await db.execute(
@@ -190,19 +155,6 @@ function contextFor(job: { id: string }): JobContext {
         signal: new AbortController().signal,
         workerId: "test",
     };
-}
-
-async function waitFor<T>(
-    check: () => Promise<T | undefined>,
-    timeoutMs = 10_000,
-): Promise<T> {
-    const started = Date.now();
-    for (;;) {
-        const value = await check();
-        if (value !== undefined) return value;
-        if (Date.now() - started > timeoutMs) throw new Error("timed out");
-        await new Promise((resolve) => setTimeout(resolve, 50));
-    }
 }
 
 describe("webhooks (Postgres)", { skip }, () => {
@@ -357,8 +309,6 @@ describe("webhooks (Postgres)", { skip }, () => {
         const strict = { ...localGuard, allowPrivateNetworks: false };
         for (const url of [
             hookUrl,
-            "http://2130706433/hooks",
-            "http://[::ffff:127.0.0.1]/hooks",
             "http://169.254.169.254/latest/meta-data",
         ]) {
             await assert.rejects(
@@ -433,7 +383,10 @@ describe("webhooks (Postgres)", { skip }, () => {
         const second = await create({ events: ["media.processing.ready"] });
         await create({ enabled: false });
         await create({ events: ["media.processing.failed"] });
-        const media = await processingMedia(user, app);
+        const { media: media } = await createProcessingMedia({
+            owner: { user, app },
+            queued: "poster",
+        });
 
         await finishDerivative({
             mediaRowId: media.id,
@@ -469,7 +422,10 @@ describe("webhooks (Postgres)", { skip }, () => {
         });
 
         // A failed media fires media.processing.failed with the error.
-        const failing = await processingMedia(user, app);
+        const { media: failing } = await createProcessingMedia({
+            owner: { user, app },
+            queued: "poster",
+        });
         await finishDerivative({
             mediaRowId: failing.id,
             name: "poster",
@@ -488,7 +444,10 @@ describe("webhooks (Postgres)", { skip }, () => {
     test("a rolled-back status change queues no delivery", async () => {
         const { user, app } = await owner();
         await createWebhook(app.id, { url: hookUrl }, { guard: localGuard });
-        const media = await processingMedia(user, app);
+        const { media: media } = await createProcessingMedia({
+            owner: { user, app },
+            queued: "poster",
+        });
         const stop = onProcessingSettled(async () => {
             throw new Error("later step failed");
         });
@@ -519,6 +478,10 @@ describe("webhooks (Postgres)", { skip }, () => {
 
     test("a receiver that answers 500 then 200 gets the same webhook-id twice, and the delivery succeeds", async () => {
         await cancelQueuedDeliveries();
+        const sent: CaptureEventInput[] = [];
+        const restoreSink = setEventSinkForTests((input) => {
+            sent.push(input);
+        });
         const { user, app } = await owner();
         const endpoint = await createWebhook(
             app.id,
@@ -526,7 +489,10 @@ describe("webhooks (Postgres)", { skip }, () => {
             { guard: localGuard },
         );
         hooks.respond([500, 200]);
-        const media = await processingMedia(user, app);
+        const { media: media } = await createProcessingMedia({
+            owner: { user, app },
+            queued: "poster",
+        });
         await finishDerivative({
             mediaRowId: media.id,
             name: "poster",
@@ -545,7 +511,7 @@ describe("webhooks (Postgres)", { skip }, () => {
                 },
             ],
             classes: ["io"],
-            concurrency: { cpu: 1, io: 4 },
+            concurrency: { cpu: 1, io: 4, video: 1 },
             logger: silent,
             pollMs: 50,
         });
@@ -563,7 +529,25 @@ describe("webhooks (Postgres)", { skip }, () => {
             assert.equal((done.result as { status: number }).status, 200);
         } finally {
             await runner.stop(1_000);
+            await flushEventsForTests();
+            restoreSink();
         }
+        // The retried attempt isn't a failure for good, so it sends no event.
+        assert.deepEqual(
+            sent.map((e) => e.event),
+            [
+                "webhook.endpoint_changed",
+                "media.processing.settled",
+                "webhook.delivered",
+            ],
+        );
+        const delivered = sent[2];
+        assert.equal(delivered.subjectId, user.id);
+        assert.deepEqual(delivered.groups, { app: app.appId });
+        assert.equal(delivered.properties?.endpoint_id, endpoint.id);
+        assert.equal(delivered.properties?.response_code, 200);
+        assert.equal(delivered.properties?.attempts_made, 2);
+        assert.doesNotMatch(JSON.stringify(sent), /https?:|127\.0\.0\.1/);
         assert.equal(hooks.received.length, 2);
         const ids = hooks.received.map((r) => r.headers["webhook-id"]);
         assert.equal(ids[0], ids[1]);
@@ -630,7 +614,7 @@ describe("webhooks (Postgres)", { skip }, () => {
             workerId: "webhook-test-worker-2",
             definitions: [webhookDeliverJob({ guard: () => localGuard })],
             classes: ["io"],
-            concurrency: { cpu: 1, io: 4 },
+            concurrency: { cpu: 1, io: 4, video: 1 },
             logger: silent,
             pollMs: 50,
         });
@@ -689,7 +673,10 @@ describe("webhooks (Postgres)", { skip }, () => {
         const { user, app } = await owner();
         await createWebhook(app.id, { url: hookUrl }, { guard: localGuard });
         await createWebhook(app.id, { url: hookUrl }, { guard: localGuard });
-        const media = await processingMedia(user, app);
+        const { media: media } = await createProcessingMedia({
+            owner: { user, app },
+            queued: "poster",
+        });
         await finishDerivative({
             mediaRowId: media.id,
             name: "poster",

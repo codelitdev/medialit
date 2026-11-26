@@ -2,6 +2,7 @@
  * Managing an app's webhook endpoints, shared by REST, MCP and the
  * dashboard. Every function takes the app's internal ID.
  */
+import type { WebhookDelivery, WebhookEndpoint } from "@medialit/models";
 import { getAppById } from "@/db";
 import {
     guardOptionsFromEnv,
@@ -17,12 +18,13 @@ import {
     listEndpoints,
     recentDeliveries,
     updateEndpoint,
-    type WebhookDeliveryRecord,
     type WebhookEndpointRecord,
     type WebhookEvent,
 } from "./queries";
 import { sendTestEvent, type TestResult } from "./delivery";
 import { generateSecret } from "./signing";
+import logger from "../services/log";
+import { trackEvent } from "../services/events";
 
 export { WebhookLimitError, WEBHOOK_EVENTS } from "./queries";
 
@@ -40,37 +42,6 @@ export class WebhookNotFoundError extends Error {
         this.name = "WebhookNotFoundError";
     }
 }
-
-export type WebhookEndpoint = {
-    id: string;
-    url: string;
-    events: WebhookEvent[];
-    enabled: boolean;
-    /** The last characters of the signing secret, to tell secrets apart. */
-    secretHint: string;
-    /** The signing secret: only in the answers to create, rotate and the
-     * reveal action, which need write access. */
-    secret?: string;
-    createdAt: string;
-    updatedAt: string;
-};
-
-export type WebhookDelivery = {
-    id: string;
-    endpointId: string;
-    event: string;
-    webhookId: string;
-    mediaId: string | null;
-    status: string;
-    attempts: number;
-    maxAttempts: number;
-    responseStatus?: number;
-    error?: string;
-    durationMs?: number;
-    createdAt: string;
-    finishedAt: string | null;
-    nextAttemptAt: string | null;
-};
 
 /** `…` and the secret's last 4 characters. */
 export function secretHint(secret: string): string {
@@ -93,35 +64,6 @@ export function publicEndpoint(
         ...(options.withSecret ? { secret: row.secret } : {}),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
-    };
-}
-
-function publicDelivery(row: WebhookDeliveryRecord): WebhookDelivery {
-    return {
-        id: row.id,
-        endpointId: row.endpointId,
-        event: row.event,
-        webhookId: row.webhookId,
-        mediaId: row.mediaId,
-        status: row.status,
-        attempts: row.attempts,
-        maxAttempts: row.maxAttempts,
-        ...(typeof row.result?.status === "number"
-            ? { responseStatus: row.result.status }
-            : {}),
-        ...(typeof row.result?.error === "string"
-            ? { error: row.result.error }
-            : {}),
-        ...(typeof row.result?.durationMs === "number"
-            ? { durationMs: row.result.durationMs }
-            : {}),
-        createdAt: new Date(row.createdAt).toISOString(),
-        finishedAt: row.finishedAt
-            ? new Date(row.finishedAt).toISOString()
-            : null,
-        nextAttemptAt: row.nextAttemptAt
-            ? new Date(row.nextAttemptAt).toISOString()
-            : null,
     };
 }
 
@@ -169,7 +111,24 @@ async function checkedUrl(value: unknown, guard: GuardOptions) {
     }
 }
 
-export type ServiceOptions = { guard?: GuardOptions; ca?: string | Buffer };
+export type ServiceOptions = { guard?: GuardOptions };
+
+type EndpointAction = "created" | "updated" | "rotated" | "deleted";
+
+function reportEndpointChanged(
+    appId: string,
+    endpointId: string,
+    action: EndpointAction,
+): void {
+    const fields = { app_id: appId, endpoint_id: endpointId, action };
+    logger.info(fields, "webhook endpoint changed");
+    trackEvent({
+        event: "webhook.endpoint_changed",
+        source: "webhooks.endpoints",
+        appId,
+        properties: { endpoint_id: endpointId, action },
+    });
+}
 
 export async function createWebhook(
     appId: string,
@@ -187,6 +146,7 @@ export async function createWebhook(
         enabled,
         events,
     });
+    reportEndpointChanged(appId, row.id, "created");
     return publicEndpoint(row, { withSecret: true });
 }
 
@@ -211,7 +171,7 @@ export async function listWebhookDeliveries(
     appId: string,
     limit?: number,
 ): Promise<WebhookDelivery[]> {
-    return (await recentDeliveries(appId, limit)).map(publicDelivery);
+    return recentDeliveries(appId, limit);
 }
 
 export async function updateWebhook(
@@ -252,6 +212,11 @@ export async function updateWebhook(
     }
     const row = await updateEndpoint(appId, id, patch);
     if (!row) throw new WebhookNotFoundError();
+    reportEndpointChanged(
+        appId,
+        row.id,
+        patch.secret !== undefined ? "rotated" : "updated",
+    );
     // A new secret is returned once, to the caller who rotated it.
     return publicEndpoint(row, { withSecret: patch.secret !== undefined });
 }
@@ -261,6 +226,7 @@ export async function deleteWebhook(appId: string, id: unknown): Promise<void> {
         throw new WebhookInputError("id is required");
     }
     if (!(await deleteEndpoint(appId, id))) throw new WebhookNotFoundError();
+    reportEndpointChanged(appId, id, "deleted");
 }
 
 export async function testWebhook(
@@ -278,6 +244,5 @@ export async function testWebhook(
         endpoint,
         publicAppId: app.appId,
         guard: options.guard,
-        ca: options.ca,
     });
 }

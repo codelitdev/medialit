@@ -26,8 +26,6 @@
     "lint:fix": "eslint --cache --fix",
     "prettier:fix": "prettier --write **/*.{ts,tsx,js,css,md}",
     "release": "./release.sh",
-    "dev:api": "bun --filter @medialit/api dev",
-    "dev:web": "bun --filter @medialit/web dev --port 3007",
     "test:integration": "bun --filter @medialit/integration-tests test:integration",
     "test:integration:stack": "bash packages/integration-tests/scripts/run-with-local-stack.sh"
   },

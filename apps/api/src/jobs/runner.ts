@@ -1,5 +1,5 @@
 /**
- * Runs queued jobs (pipelines-phase-0.md, section 5). One runner per worker
+ * Runs queued jobs. One runner per worker
  * process. It claims jobs for the classes it serves, renews their leases
  * while they run, aborts a job whose row was cancelled or deleted, takes
  * back expired leases, and queues the periodic jobs.
@@ -10,6 +10,7 @@ import {
     complete,
     fail,
     heartbeat,
+    liveWorkerClasses,
     reap,
     recordWorker,
     release,
@@ -18,8 +19,19 @@ import {
     type JobRow,
 } from "./queue";
 
-export const JOB_CLASSES = ["cpu", "io"] as const;
+/** `video` holds encodes that use every core. */
+export const JOB_CLASSES = ["cpu", "io", "video"] as const;
 export type JobClass = (typeof JOB_CLASSES)[number];
+
+/** A worker not seen for this long counts as gone. Workers report every
+ * 30 s and keep their row when they stop, so a restart doesn't count. */
+export const WORKER_SEEN_WITHIN_MS = 5 * 60 * 1000;
+
+/** The job classes no live worker serves. */
+export async function missingWorkerClasses(db: Executor): Promise<string[]> {
+    const live = await liveWorkerClasses(db, WORKER_SEEN_WITHIN_MS);
+    return JOB_CLASSES.filter((jobClass) => !live.has(jobClass));
+}
 
 export type JobContext = {
     job: JobRow;

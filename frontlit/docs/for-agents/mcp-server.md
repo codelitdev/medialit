@@ -16,7 +16,7 @@ Once connected, you can ask things like:
 - "Delete the drafts you made earlier."
 - "How much storage am I using?"
 
-Uploads from agents are [temporary until sealed](#two-step-upload-flow-drafts-sealing), so an agent's scratch files are cleaned up unless it, or you, decides to keep them. The [CLI](/docs/cli) is different: it seals uploads right away unless the agent passes `--temp`.
+Uploads from agents are [temporary until sealed](#temporary-uploads-and-sealing), so an agent's scratch files are cleaned up unless it, or you, decides to keep them. The [CLI](/docs/cli) is different: it seals uploads right away unless the agent passes `--temp`.
 
 The server is at `https://api.medialit.cloud/mcp` and uses the Streamable HTTP transport, so there is nothing to install or run locally.
 
@@ -100,16 +100,9 @@ Since Claude Desktop communicates via standard input/output (stdio), you must us
 
 ---
 
-## Two-Step Upload Flow (Drafts & Sealing)
+## Temporary uploads and sealing
 
-To prevent cluttering of the media registry with unfinished uploads, MediaLit enforces a **two-step upload pattern** across both REST and MCP interfaces:
-
-1. **Upload (`upload_media`):** The file is written to storage, and a record is created with `temp: true`. In this temporary state, the file does **not** appear in paginated listings (`list_media`), count queries (`get_media_count`), or storage totals (`get_total_storage`).
-2. **Seal (`seal_media`):** The client verifies the upload and seals it. Sealing removes the `temp` flag, finalizing the record and making it globally visible to listing tools.
-
-<Callout type="warning" title="Orphan Cleanup">
-  Files left in the `temp: true` state for more than 24 hours are automatically purged by a background cleanup worker. Always ensure you call `seal_media` once the upload is completed successfully.
-</Callout>
+`upload_media` creates a temporary file that doesn't appear in `list_media`, `get_media_count` or `get_total_storage`. Call `seal_media` to keep it; temporary files are deleted after 24 hours. See [Temporary uploads and sealing](/docs/concepts#temporary-uploads-and-sealing).
 
 ---
 
@@ -149,9 +142,9 @@ Returns the total count of finalized media items in the account.
 
 #### `get_total_storage`
 
-Returns the total storage space consumed by the account, along with the allowed maximum limit in bytes.
+Returns the total storage space consumed by the account, the allowed maximum in bytes, and the video processing minutes used this month.
 
-- **Output:** `{ storage: number, maxStorage: number }`
+- **Output:** `{ storage: number, maxStorage: number, processingMinutes: { used: number, allowed: number | null } }`. `allowed` is `null` when there is no limit.
 
 #### `seal_media`
 
@@ -203,20 +196,20 @@ Creates a short-lived [upload signature](/docs/concepts#upload-signatures) that 
 
 #### `get_media_settings`
 
-Retrieves the active image processing configurations for the account, such as auto-conversion behaviors.
+Retrieves the app's media processing settings.
 
-- **Output:** Active configurations (WebP defaults, thumbnail dimensions).
+- **Output:** `useWebP`, `webpOutputQuality`, `videoStreaming` (`off`, `hls` or `mp4`; apps start `off`) and `hlsRenditions`.
 
 #### `update_media_settings`
 
-Overwrites specific image processing defaults. Supply only the properties you wish to modify.
+Changes the app's media processing settings. Supply only the properties you wish to modify. Changes apply to files sealed afterwards.
 
 - **Inputs:**
     - `useWebP` _(boolean, optional)_: Auto-convert uploaded images to WebP.
-    - `webpOutputQuality` _(number, optional)_: Output quality between `0` and `100`.
-    - `thumbnailWidth` _(number, optional)_: Default width of generated thumbnails.
-    - `thumbnailHeight` _(number, optional)_: Default height of generated thumbnails.
-- **Output:** `{ updated: true }`
+    - `webpOutputQuality` _(number, optional)_: Output quality between `1` and `100`. It is `80` when not set.
+    - `videoStreaming` _(`off` | `hls` | `mp4`, optional)_: How sealed videos are prepared for playback. Apps start `off`.
+    - `hlsRenditions` _(array, optional)_: HLS sizes from `1080p`, `720p`, `480p` and `360p`. `null` restores the default.
+- **Output:** `{ message: "success" }`
 
 ---
 

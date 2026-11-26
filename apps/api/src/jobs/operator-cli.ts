@@ -1,12 +1,11 @@
 /**
- * `bun --filter @medialit/api jobs <command>` (pipelines-phase-0.md,
- * section 9). Reads and changes the job queue with DATABASE_URL; on the
+ * `bun --filter @medialit/api jobs <command>`. Reads and changes the job queue with DATABASE_URL; on the
  * cluster, run it with `kubectl exec` in the worker pod.
  */
 import { sql, type SQL } from "drizzle-orm";
 import { JOB_STATUSES } from "../db/schema/domain";
-import { cancel, JOBS_CHANNEL, type Executor } from "./queue";
-import { WORKER_SEEN_WITHIN_MS } from "./liveness";
+import { cancel, JOBS_CHANNEL, ms, rows, type Executor } from "./queue";
+import { WORKER_SEEN_WITHIN_MS } from "./runner";
 
 export type JobsCliIo = {
     db: Executor;
@@ -88,14 +87,6 @@ function status(value: string | undefined): string | undefined {
         );
     }
     return value;
-}
-
-function ms(value: number): SQL {
-    return sql`(${Math.round(value)} * interval '1 millisecond')`;
-}
-
-async function rows<T>(db: Executor, query: SQL): Promise<T[]> {
-    return (await db.execute(query)).rows as T[];
 }
 
 /** Rows as aligned columns. */
@@ -369,20 +360,19 @@ async function cancelCommand(io: JobsCliIo, flags: Flags): Promise<number> {
         );
         return 0;
     }
-    const cancelled = await rows<{ id: string }>(
-        io.db,
-        sql`UPDATE jobs SET status = 'cancelled', finished_at = now(),
-                locked_by = NULL, locked_until = NULL
-            WHERE ${where} RETURNING id`,
-    );
-    io.out(`Cancelled ${cancelled.length} jobs.`);
+    const since = flags.values.get("--since");
+    const cancelled = await cancel(io.db, {
+        type: flags.values.get("--type"),
+        sinceMs: since === undefined ? undefined : parseAge(since),
+    });
+    io.out(`Cancelled ${cancelled} jobs.`);
     return 0;
 }
 
 async function workers(io: JobsCliIo) {
     const found = await rows<{
         id: string;
-        classes: string[] | string;
+        classes: string[];
         startedMs: string;
         seenMs: string;
     }>(
@@ -400,9 +390,7 @@ async function workers(io: JobsCliIo) {
         ["ID", "CLASSES", "STARTED", "LAST SEEN", "LIVE"],
         found.map((worker) => [
             worker.id,
-            Array.isArray(worker.classes)
-                ? worker.classes.join(",")
-                : worker.classes.replace(/[{}]/g, ""),
+            worker.classes.join(","),
             `${formatAge(Number(worker.startedMs))} ago`,
             `${formatAge(Number(worker.seenMs))} ago`,
             Number(worker.seenMs) < WORKER_SEEN_WITHIN_MS ? "yes" : "no",

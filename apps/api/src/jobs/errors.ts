@@ -1,4 +1,4 @@
-/** Why a job attempt failed, as a fixed class (pipelines-phase-0.md, section 9). */
+/** Why a job attempt failed, as a fixed class. */
 export type FailedReason =
     | "timeout"
     | "storage"
@@ -9,7 +9,12 @@ export type FailedReason =
     | "connection_failed"
     | "blocked_address"
     | "cancelled"
-    | "internal";
+    | "internal"
+    // Video jobs refused by MediaLit's limits or the tenant's file.
+    | "out_of_processing_minutes"
+    | "source_too_long"
+    | "source_too_large"
+    | "no_video_stream";
 
 /**
  * Thrown by a handler to say how its job failed. Any other error counts as

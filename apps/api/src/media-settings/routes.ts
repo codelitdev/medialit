@@ -16,7 +16,7 @@ export default (passport: any) => {
         /* 
             #swagger.tags = ['Media processing']
             #swagger.summary = 'Update Media Settings'
-            #swagger.description = 'Update configuration for media processing.'
+            #swagger.description = 'Change media processing settings: WebP and video streaming. Send only the fields to change. Apps start with videoStreaming off, and null sets hlsRenditions back to the default sizes. Applies to media sealed afterwards.'
             #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
             #swagger.requestBody = {
                 required: true,

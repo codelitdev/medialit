@@ -17,6 +17,7 @@ import {
     sql,
     type SQL,
 } from "drizzle-orm";
+import type { MediaKind } from "../media/kind.js";
 import { getDb, type AppDb } from "./client.js";
 import { recordThumbnailDerivative, type Executor } from "./derivatives.js";
 import {
@@ -35,6 +36,8 @@ import {
     webhookEndpoints,
     type ApiKeyCreatedByType,
     type ProcessingStatus,
+    type VideoStreaming,
+    type MediaMetadata,
 } from "./schema/index.js";
 
 const SIGNATURE_LENGTH = 100;
@@ -115,6 +118,7 @@ export type MediaRecord = {
     uploaded?: boolean;
     processingStatus: ProcessingStatus;
     processingError?: string;
+    metadata?: MediaMetadata;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -140,8 +144,9 @@ export type MediaSettingsRecord = {
     appId: string;
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
+    /** Undefined leaves it unchanged; null goes back to the default. */
+    videoStreaming?: VideoStreaming | null;
+    hlsRenditions?: string[] | null;
 };
 
 export type SignatureRecord = {
@@ -249,6 +254,7 @@ function mapMedia(row: typeof media.$inferSelect): MediaRecord {
         uploaded: row.uploaded,
         processingStatus: row.processingStatus,
         processingError: row.processingError || undefined,
+        metadata: row.metadata ?? undefined,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -825,12 +831,10 @@ function escapeLike(value: string): string {
     return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-export type MediaKindFilter = "image" | "video" | "pdf" | "other";
-
 /* SQL twin of mediaKind() in media/kind.ts; keep the two in step. The kinds
    never overlap: image and video go by type prefix, pdf is any other type
    that names pdf, and other is everything left. */
-function mediaKindCondition(kind: MediaKindFilter): SQL {
+function mediaKindCondition(kind: MediaKind): SQL {
     const mimeType = sql`lower(${media.mimeType})`;
     const isImage = sql`${mimeType} like 'image/%'`;
     const isVideo = sql`${mimeType} like 'video/%'`;
@@ -914,7 +918,7 @@ export async function countMedia(input: {
     access?: "public" | "private";
     group?: string;
     search?: string;
-    kind?: MediaKindFilter;
+    kind?: MediaKind;
 }): Promise<number> {
     const db = getDb();
     const filters = [
@@ -950,7 +954,7 @@ export async function listMedia(input: {
     page?: number;
     recordsPerPage?: number;
     search?: string;
-    kind?: MediaKindFilter;
+    kind?: MediaKind;
     sort?: "newest" | "oldest" | "name" | "largest";
 }): Promise<MediaRecord[]> {
     const db = getDb();
@@ -1035,9 +1039,9 @@ export async function listAppMediaSummaries(
     const db = getDb();
     const filters = [eq(media.userId, userId), eq(media.temp, false)];
     if (appId) filters.push(eq(media.appId, appId));
-    const countOf = (kind: MediaKindFilter) =>
+    const countOf = (kind: MediaKind) =>
         sql<number>`count(*) filter (where ${mediaKindCondition(kind)})::int`;
-    const storageOf = (kind: MediaKindFilter) =>
+    const storageOf = (kind: MediaKind) =>
         sql<number>`coalesce(sum(${media.size}) filter (where ${mediaKindCondition(kind)}), 0)::float8`;
     const rows = await db
         .select({
@@ -1103,36 +1107,6 @@ export async function deleteMediaRecord(
     await db
         .delete(media)
         .where(and(eq(media.userId, userId), eq(media.mediaId, mediaId)));
-}
-
-/**
- * Marks media sealed. `inTransaction` runs in the same transaction with the
- * media row's internal ID, for work that must commit with the seal, such as
- * queueing jobs.
- */
-export async function sealMediaRecord(input: {
-    userId: string;
-    appId: string;
-    mediaId: string;
-    inTransaction?: (tx: Executor, mediaRowId: string) => Promise<void>;
-}): Promise<void> {
-    await getDb().transaction(async (tx) => {
-        const rows = await tx
-            .update(media)
-            .set({ temp: false, processingStatus: "ready", updatedAt: now() })
-            .where(
-                and(
-                    eq(media.userId, input.userId),
-                    eq(media.appId, input.appId),
-                    eq(media.mediaId, input.mediaId),
-                    eq(media.uploaded, true),
-                ),
-            )
-            .returning({ id: media.id });
-        if (rows.length > 0 && input.inTransaction) {
-            await input.inTransaction(tx, rows[0].id);
-        }
-    });
 }
 
 /** What `claimSeal` found. `claimed` carries the row's internal ID. */
@@ -1244,10 +1218,12 @@ export async function releaseSealClaim(input: {
 export async function commitSeal(input: {
     mediaRowId: string;
     token: string;
-    processingStatus: "ready" | "failed";
+    processingStatus: "ready" | "failed" | "processing";
     processingError?: string;
     webp?: { fileName: string; mimeType: string; size: number };
-    inTransaction?: (tx: Executor, mediaRowId: string) => Promise<void>;
+    /** Read before the commit (D2); null when it couldn't be read. */
+    metadata: MediaMetadata | null;
+    inTransaction: (tx: Executor, mediaRowId: string) => Promise<void>;
 }): Promise<"committed" | "lost" | "missing"> {
     return await getDb().transaction(async (tx) => {
         const [row] = await tx
@@ -1265,6 +1241,7 @@ export async function commitSeal(input: {
                 sealingUntil: null,
                 processingStatus: input.processingStatus,
                 processingError: input.processingError ?? null,
+                metadata: input.metadata,
                 ...(input.webp
                     ? {
                           fileName: input.webp.fileName,
@@ -1275,9 +1252,7 @@ export async function commitSeal(input: {
                 updatedAt: now(),
             })
             .where(eq(media.id, input.mediaRowId));
-        if (input.inTransaction) {
-            await input.inTransaction(tx, input.mediaRowId);
-        }
+        await input.inTransaction(tx, input.mediaRowId);
         return "committed";
     });
 }
@@ -1477,9 +1452,27 @@ export async function getMediaSettingsRecord(
         appId: row.appId,
         useWebP: row.useWebP ?? undefined,
         webpOutputQuality: row.webpOutputQuality ?? undefined,
-        thumbnailWidth: row.thumbnailWidth ?? undefined,
-        thumbnailHeight: row.thumbnailHeight ?? undefined,
+        videoStreaming: row.videoStreaming ?? null,
+        hlsRenditions: row.hlsRenditions ?? null,
     };
+}
+
+/** How many of the account's apps have video streaming on (`hls` or
+ * `mp4`). The billing page warns about them before a downgrade. */
+export async function countVideoStreamingApps(userId: string): Promise<number> {
+    const db = getDb();
+    const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(mediaSettings)
+        .innerJoin(apps, eq(apps.id, mediaSettings.appId))
+        .where(
+            and(
+                eq(mediaSettings.userId, userId),
+                eq(apps.deleted, false),
+                inArray(mediaSettings.videoStreaming, ["hls", "mp4"]),
+            ),
+        );
+    return row?.count ?? 0;
 }
 
 export async function upsertMediaSettings(
@@ -1494,16 +1487,16 @@ export async function upsertMediaSettings(
             appId: input.appId,
             useWebP: input.useWebP,
             webpOutputQuality: input.webpOutputQuality,
-            thumbnailWidth: input.thumbnailWidth,
-            thumbnailHeight: input.thumbnailHeight,
+            videoStreaming: input.videoStreaming,
+            hlsRenditions: input.hlsRenditions,
         })
         .onConflictDoUpdate({
             target: mediaSettings.appId,
             set: {
                 useWebP: input.useWebP,
                 webpOutputQuality: input.webpOutputQuality,
-                thumbnailWidth: input.thumbnailWidth,
-                thumbnailHeight: input.thumbnailHeight,
+                videoStreaming: input.videoStreaming,
+                hlsRenditions: input.hlsRenditions,
             },
         });
 }

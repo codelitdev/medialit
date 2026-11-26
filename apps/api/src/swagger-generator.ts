@@ -163,8 +163,6 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
     };
 
     if (content.paths) {
-        delete content.paths["/cleanup/temp"];
-        delete content.paths["/cleanup/tus"];
         delete content.paths["/mcp"];
         delete content.paths["/.well-known/oauth-authorization-server"];
         delete content.paths["/oauth/authorize"];
@@ -183,7 +181,6 @@ swaggerAutogen()(outputFile, routes, doc).then(() => {
                 apiPath.startsWith("/api/") ||
                 apiPath.startsWith("/oauth/") ||
                 apiPath.startsWith("/.well-known") ||
-                apiPath.startsWith("/cleanup/") ||
                 apiPath.startsWith("/payment/") ||
                 apiPath.startsWith("/webhooks/") ||
                 apiPath === "/mcp" ||

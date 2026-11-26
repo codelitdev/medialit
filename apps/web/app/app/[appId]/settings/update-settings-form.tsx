@@ -1,5 +1,6 @@
 "use client";
 
+import { SettingsField, SettingsStatus } from "@/components/settings-field";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -25,9 +26,12 @@ export default function UpdateSettingsForm({
     }, [router, state]);
 
     return (
-        <div className="settings-field">
-            <label htmlFor="new-app-name">App name</label>
-            <form action={updateNameAction} className="settings-control-row">
+        <SettingsField
+            label="App name"
+            htmlFor="new-app-name"
+            className="sm:max-w-sm"
+        >
+            <form action={updateNameAction} className="flex items-center gap-2">
                 <input
                     id="new-app-name"
                     className="settings-input"
@@ -39,17 +43,11 @@ export default function UpdateSettingsForm({
                 <input name="appId" value={appId} type="hidden" readOnly />
                 <SubmitButton />
             </form>
-            {state.error ? (
-                <p className="inline-error" role="alert">
-                    {String(state.error)}
-                </p>
-            ) : null}
-            {state.success ? (
-                <p className="inline-feedback" role="status">
-                    App name saved.
-                </p>
-            ) : null}
-        </div>
+            <SettingsStatus
+                error={state.error}
+                success={state.success && "App name saved."}
+            />
+        </SettingsField>
     );
 }
 

@@ -230,6 +230,24 @@ export const deleteObject = async (params: DeleteParams) => {
     return response;
 };
 
+/* Reads the first `bytes` bytes of an object (fewer if it is shorter). */
+export const getObjectHead = async (params: {
+    Key: string;
+    Bucket?: string;
+    bytes: number;
+}): Promise<Buffer> => {
+    const bucket = params.Bucket || cloudBucket;
+    const response = await getS3Client(bucket).send(
+        new GetObjectCommand({
+            Bucket: bucket,
+            Key: params.Key,
+            Range: `bytes=0-${Math.max(0, params.bytes - 1)}`,
+        }),
+    );
+    const bytes = await response.Body!.transformToByteArray();
+    return Buffer.from(bytes.subarray(0, params.bytes));
+};
+
 /* Reads a whole object into memory. Callers check `ContentLength` against
    their own limit first, so pass `maxBytes` to refuse anything larger. */
 export const getObjectBytes = async (params: {
@@ -266,14 +284,55 @@ export const getObjectTagging = async (params: {
 export const generateSignedUrl = async (
     key: string,
     bucket?: string,
+    /** Seconds the URL stays valid; the SDK's default (15 minutes) if
+     * unset. At most 7 days. */
+    expiresIn?: number,
 ): Promise<string> => {
     const targetBucket = bucket || cloudBucket;
     const command = new GetObjectCommand({
         Bucket: targetBucket,
         Key: key,
     });
-    const url = await getS3SignedUrl(getS3Client(targetBucket), command);
+    const url = await getS3SignedUrl(
+        getS3Client(targetBucket),
+        command,
+        expiresIn ? { expiresIn: Math.floor(expiresIn) } : undefined,
+    );
     return url;
+};
+
+/**
+ * A CloudFront signed query string for every object under `prefix` (a
+ * custom policy with a wildcard), valid until `expiresAt`. One signature
+ * for a whole HLS rendition instead of one per segment.
+ */
+export const cloudfrontPrefixQuery = (
+    prefix: string,
+    expiresAt: Date,
+): string => {
+    if (!CDN_ENDPOINT || !CLOUDFRONT_KEY_PAIR_ID || !CLOUDFRONT_PRIVATE_KEY) {
+        throw new Error("CDN configuration is missing");
+    }
+    const resource = `${CDN_ENDPOINT}/${prefix}*`;
+    const policy = JSON.stringify({
+        Statement: [
+            {
+                Resource: resource,
+                Condition: {
+                    DateLessThan: {
+                        "AWS:EpochTime": Math.floor(expiresAt.getTime() / 1000),
+                    },
+                },
+            },
+        ],
+    });
+    const signed = getCfSignedUrl({
+        url: resource,
+        keyPairId: CLOUDFRONT_KEY_PAIR_ID,
+        privateKey: CLOUDFRONT_PRIVATE_KEY,
+        policy,
+    });
+    return new URL(signed).search.slice(1);
 };
 
 export const generateCloudfrontSignedUrl = (key: string): string => {
@@ -338,27 +397,10 @@ export const deleteFolder = async (
     bucket?: string,
 ): Promise<void> => {
     const targetBucket = bucket || cloudBucket;
-    const client = getS3Client(targetBucket);
-    let continuationToken: string | undefined;
-
-    do {
-        const command = new ListObjectsV2Command({
-            Bucket: targetBucket,
-            Prefix: prefix,
-            ContinuationToken: continuationToken,
-        });
-
-        const response = await client.send(command);
-
-        if (response.Contents && response.Contents.length > 0) {
-            const deletePromises = response.Contents.map((object: any) =>
-                deleteObject({ Key: object.Key!, Bucket: targetBucket }),
-            );
-            await Promise.all(deletePromises);
-        }
-
-        continuationToken = response.NextContinuationToken;
-    } while (continuationToken);
+    const keys = await listKeys(prefix, targetBucket);
+    await Promise.all(
+        keys.map((Key) => deleteObject({ Key, Bucket: targetBucket })),
+    );
 };
 
 /**

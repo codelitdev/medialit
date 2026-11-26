@@ -20,6 +20,8 @@ Commands:
   webhooks secret <id>    Print an endpoint's signing secret
   webhooks test <id>      Send a signed test event to an endpoint
   webhooks rm <id>        Delete an endpoint
+  settings                Show the app's media settings
+  settings set            Change media settings (options below)
 
 Options:
   --endpoint <url>      MediaLit server, for self-hosted instances
@@ -38,6 +40,14 @@ Options:
                         media.processing.ready and media.processing.failed
                         (default: both)
   --enable, --disable   webhooks create/update: turn sending on or off
+  --video-streaming <off|hls|mp4>
+                        settings set: how sealed videos are prepared for
+                        playback (apps start off)
+  --hls-renditions <list>
+                        settings set: comma-separated HLS sizes from 1080p,
+                        720p, 480p and 360p, or default
+  --webp <on|off>       settings set: convert images to WebP at seal
+  --webp-quality <n>    settings set: WebP quality, 1 to 100 (default 80)
   -h, --help            Show this help
   -v, --version         Show the version
 
@@ -65,6 +75,10 @@ async function main(argv: string[]): Promise<void> {
             events: { type: "string" },
             enable: { type: "boolean" },
             disable: { type: "boolean" },
+            "video-streaming": { type: "string" },
+            "hls-renditions": { type: "string" },
+            webp: { type: "string" },
+            "webp-quality": { type: "string" },
             help: { type: "boolean", short: "h" },
             version: { type: "boolean", short: "v" },
         },
@@ -72,6 +86,9 @@ async function main(argv: string[]): Promise<void> {
     const flags: commands.Flags = {
         ...values,
         browser: !values["no-browser"],
+        videoStreaming: values["video-streaming"],
+        hlsRenditions: values["hls-renditions"],
+        webpQuality: values["webp-quality"],
     };
     const [command, ...args] = positionals;
 
@@ -106,6 +123,8 @@ async function main(argv: string[]): Promise<void> {
             return commands.remove(args, flags);
         case "webhooks":
             return commands.webhooks(args, flags);
+        case "settings":
+            return commands.settings(args, flags);
         default:
             throw new Error(
                 `Unknown command "${command}". Run \`medialit --help\`.`,

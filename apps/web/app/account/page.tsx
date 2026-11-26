@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowUpRight, CreditCard, UserRound } from "lucide-react";
 import { auth } from "@/auth";
 import { getSubscriber, getUser } from "@/app/actions";
+import { SettingsCard } from "@/components/settings-card";
 
 export default async function AccountPage() {
     const [session, account, user] = await Promise.all([
@@ -34,38 +35,24 @@ export default async function AccountPage() {
             </div>
 
             <div className="account-overview">
-                <section className="settings-card">
-                    <div className="settings-card-title">
-                        <span className="settings-card-icon">
-                            <UserRound aria-hidden="true" />
-                        </span>
-                        <div>
-                            <h2>Profile</h2>
-                            <p className="settings-subtle">
-                                Account information used to sign in.
-                            </p>
-                        </div>
-                    </div>
+                <SettingsCard
+                    icon={<UserRound aria-hidden="true" />}
+                    title="Profile"
+                    description="Account information used to sign in."
+                >
                     <div className="account-profile-details">
                         <span>Name</span>
                         <strong>{user?.name || "—"}</strong>
                         <span>Email</span>
                         <strong>{account.email}</strong>
                     </div>
-                </section>
+                </SettingsCard>
 
-                <section className="settings-card">
-                    <div className="settings-card-title">
-                        <span className="settings-card-icon">
-                            <CreditCard aria-hidden="true" />
-                        </span>
-                        <div>
-                            <h2>Plan</h2>
-                            <p className="settings-subtle">
-                                Your plan sets storage and upload limits.
-                            </p>
-                        </div>
-                    </div>
+                <SettingsCard
+                    icon={<CreditCard aria-hidden="true" />}
+                    title="Plan"
+                    description="Your plan sets storage and upload limits."
+                >
                     <div className="account-plan-row">
                         <div>
                             <span className="cl-badge cl-badge--default">
@@ -99,7 +86,7 @@ export default async function AccountPage() {
                             .
                         </p>
                     ) : null}
-                </section>
+                </SettingsCard>
             </div>
         </>
     );

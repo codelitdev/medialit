@@ -11,7 +11,14 @@ import {
     uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type {
+    MediaMetadata,
+    ProcessingStatus,
+    VideoStreaming,
+} from "@medialit/models";
 import { session, user } from "./auth.generated";
+
+export type { MediaMetadata, ProcessingStatus };
 
 export const profiles = pgTable("profiles", {
     userId: text("user_id")
@@ -94,7 +101,6 @@ export const apiKeys = pgTable(
     }),
 );
 
-export type ProcessingStatus = "pending" | "processing" | "ready" | "failed";
 export type DerivativeStatus = "queued" | "processing" | "ready" | "failed";
 
 export const media = pgTable(
@@ -131,6 +137,10 @@ export const media = pgTable(
             .notNull()
             .default("ready"),
         processingError: text("processing_error"),
+        /** Duration, size, codecs and format, read at seal
+         * (pipelines-phase-1.md, D2). Null until then, or when it couldn't
+         * be read. */
+        metadata: jsonb("metadata").$type<MediaMetadata>(),
         /** The token of the seal that holds this media, and when its claim
          * expires. Set only while a seal is converting and copying. */
         sealClaim: text("seal_claim"),
@@ -162,9 +172,49 @@ export const mediaSettings = pgTable("media_settings", {
         .references(() => apps.id, { onDelete: "cascade" }),
     useWebP: boolean("use_web_p"),
     webpOutputQuality: bigint("webp_output_quality", { mode: "number" }),
+    /** No longer read or written: thumbnails have one size for every app.
+     * Kept so the previous release still works after a rollback; drop them
+     * in a later migration. */
     thumbnailWidth: bigint("thumbnail_width", { mode: "number" }),
     thumbnailHeight: bigint("thumbnail_height", { mode: "number" }),
+    /** `off`, `hls` or `mp4`, chosen per app; null (never chosen) means
+     * `off` (pipelines-phase-1.md, D1). */
+    videoStreaming: text("video_streaming").$type<VideoStreaming>(),
+    /** Renditions to make for HLS; null means the default ladder. */
+    hlsRenditions: text("hls_renditions").array(),
 });
+
+export type { VideoStreaming };
+
+/**
+ * Processing minutes an account used (pipelines-phase-1.md, D8). One row per
+ * encode, keyed by its job so a retry doesn't charge twice. Deleting media
+ * keeps its rows: the minutes were spent.
+ */
+export const processingUsage = pgTable(
+    "processing_usage",
+    {
+        id: text("id").primaryKey(),
+        userId: text("user_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        mediaId: text("media_id").references(() => media.id, {
+            onDelete: "set null",
+        }),
+        jobId: text("job_id").notNull().unique(),
+        kind: text("kind").notNull(),
+        minutes: integer("minutes").notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => ({
+        userCreated: index("processing_usage_user_created_idx").on(
+            table.userId,
+            table.createdAt,
+        ),
+    }),
+);
 
 export const signatures = pgTable(
     "signatures",

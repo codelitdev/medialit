@@ -3,17 +3,18 @@ import { after, before, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
 import {
     completeUploadingMediaRecord,
-    createAccount,
-    createApp,
-    createMediaRecord,
     createUploadingMediaRecord,
     getMediaRecord,
     listDerivatives,
-    sealMediaRecord,
     setDb,
     totalMediaSize,
     upsertDerivative,
 } from "@/db";
+import {
+    createOwner as owner,
+    createProcessingMedia as processingMedia,
+    sealForTests,
+} from "../db/test-records.js";
 import type { AppDb } from "../db/client.js";
 import type { JobRow } from "../jobs/queue.js";
 import { permanentError, retryableError } from "../jobs/errors.js";
@@ -37,6 +38,11 @@ import {
 } from "./derivatives.js";
 import { cloudBucket, cloudPublicBucket } from "../config/constants.js";
 import { headObject, listKeys, putObject } from "../services/s3.js";
+import type { CaptureEventInput } from "@codelitdev/observability";
+import {
+    flushEventsForTests,
+    setEventSinkForTests,
+} from "../services/events.js";
 
 const skip = testPostgresUrl
     ? false
@@ -55,38 +61,6 @@ before(async () => {
 after(async () => {
     await pgTest?.drop();
 });
-
-async function owner() {
-    const user = await createAccount({
-        email: `derivatives-${Date.now()}-${Math.random()}@example.com`,
-    });
-    const app = await createApp({
-        userId: user.id,
-        name: `App ${Math.random()}`,
-    });
-    return { user, app };
-}
-
-/** Sealed media whose processing is under way. */
-async function processingMedia(
-    options: { access?: "public" | "private"; size?: number } = {},
-) {
-    const { user, app } = await owner();
-    const record = await createMediaRecord({
-        fileName: "main.mp4",
-        mediaId: `media-${Math.random().toString(36).slice(2)}`,
-        userId: user.id,
-        appId: app.id,
-        originalFileName: "a.mp4",
-        mimeType: "video/mp4",
-        size: options.size ?? 10,
-        thumbnailGenerated: false,
-        accessControl: options.access ?? "private",
-        temp: false,
-        processingStatus: "processing",
-    });
-    return { user, app, media: record };
-}
 
 async function mediaStatus(id: string) {
     const result = await db.execute(
@@ -160,7 +134,7 @@ describe("derivatives (Postgres)", { skip }, () => {
         assert.equal(thumb.key, "thumb.webp");
         assert.equal(await totalMediaSize({ userId: user.id }), 100);
 
-        await sealMediaRecord({
+        await sealForTests({
             userId: user.id,
             appId: app.id,
             mediaId,
@@ -191,7 +165,7 @@ describe("derivatives (Postgres)", { skip }, () => {
             key: "hls/",
             size: 5,
         });
-        await sealMediaRecord({
+        await sealForTests({
             userId: media.userId,
             appId: media.appId,
             mediaId: media.mediaId,
@@ -200,7 +174,7 @@ describe("derivatives (Postgres)", { skip }, () => {
         await db.transaction((tx) => afterSealCommit(tx, media.id));
         assert.equal((await jobsOf(media.id, MEDIA_PUBLISH_JOB)).length, 1);
 
-        // Private media publishes only thumbnails and posters.
+        // Private media publishes only thumbnails.
         const other = await processingMedia({ access: "private" });
         await upsertDerivative(db, {
             mediaRowId: other.media.id,
@@ -220,35 +194,53 @@ describe("derivatives (Postgres)", { skip }, () => {
         const { media } = await processingMedia({ access: "public" });
         await upsertDerivative(db, {
             mediaRowId: media.id,
-            name: "poster",
+            name: "still",
             status: "queued",
         });
         const events: ProcessingSettledEvent[] = [];
         const stop = onProcessingSettled(async (_tx, event) => {
             events.push(event);
         });
+        const sent: CaptureEventInput[] = [];
+        const restoreSink = setEventSinkForTests((input) => {
+            sent.push(input);
+        });
         try {
             const job = derivativeJob({
-                type: "test.poster",
-                name: "poster",
+                type: "test.still",
+                name: "still",
                 class: "io",
                 maxAttempts: 3,
                 produce: async ({ privateFolder }) => {
                     assert.ok(privateFolder.endsWith(`/${media.mediaId}/`));
                     return {
-                        key: "poster.webp",
+                        key: "still.webp",
                         mimeType: "image/webp",
                         size: 3,
                     };
                 },
             });
-            await job.handler({ derivative: "poster" }, context(media.id));
+            await job.handler({ derivative: "still" }, context(media.id));
+            await flushEventsForTests();
         } finally {
             stop();
+            restoreSink();
         }
-        const [poster] = await listDerivatives(db, media.id);
-        assert.equal(poster.status, "ready");
-        assert.equal(poster.size, 3);
+        // Sent once, after the commit, under the account.
+        assert.equal(sent.length, 1);
+        assert.equal(sent[0].event, "media.processing.settled");
+        assert.equal(sent[0].subjectId, media.userId);
+        assert.deepEqual(sent[0].properties, {
+            media_id: media.mediaId,
+            media_kind: "video",
+            status: "ready",
+            derivatives: ["still"],
+            failed_derivatives: [],
+            app_id: media.appId,
+        });
+        const [still] = await listDerivatives(db, media.id);
+        assert.equal(still.status, "ready");
+        assert.equal(still.size, 3);
         assert.deepEqual(await mediaStatus(media.id), {
             status: "ready",
             error: null,
@@ -264,7 +256,7 @@ describe("derivatives (Postgres)", { skip }, () => {
         const { media } = await processingMedia({ access: "public" });
         await upsertDerivative(db, {
             mediaRowId: media.id,
-            name: "poster",
+            name: "still",
             status: "queued",
         });
         // A publish job that already read its rows is running.
@@ -275,10 +267,10 @@ describe("derivatives (Postgres)", { skip }, () => {
         );
         await finishDerivative({
             mediaRowId: media.id,
-            name: "poster",
+            name: "still",
             result: {
                 status: "ready",
-                output: { key: "poster.webp", size: 1 },
+                output: { key: "still.webp", size: 1 },
             },
         });
         const queued = await db.execute(
@@ -290,7 +282,7 @@ describe("derivatives (Postgres)", { skip }, () => {
 
     test("media settles only after its last derivative finishes", async () => {
         const { media } = await processingMedia();
-        for (const name of ["poster", "mp4"]) {
+        for (const name of ["still", "mp4"]) {
             await upsertDerivative(db, {
                 mediaRowId: media.id,
                 name,
@@ -299,10 +291,10 @@ describe("derivatives (Postgres)", { skip }, () => {
         }
         await finishDerivative({
             mediaRowId: media.id,
-            name: "poster",
+            name: "still",
             result: {
                 status: "ready",
-                output: { key: "poster.webp", size: 1 },
+                output: { key: "still.webp", size: 1 },
             },
         });
         assert.equal((await mediaStatus(media.id)).status, "processing");
@@ -349,7 +341,7 @@ describe("derivatives (Postgres)", { skip }, () => {
         const other = await processingMedia();
         const bad = derivativeJob({
             type: "test.bad",
-            name: "poster",
+            name: "still",
             class: "cpu",
             maxAttempts: 3,
             produce: async () => {
@@ -357,7 +349,7 @@ describe("derivatives (Postgres)", { skip }, () => {
             },
         });
         await assert.rejects(
-            bad.handler({ derivative: "poster" }, context(other.media.id)),
+            bad.handler({ derivative: "still" }, context(other.media.id)),
         );
         assert.equal((await mediaStatus(other.media.id)).status, "failed");
     });
@@ -440,7 +432,7 @@ describe(
         const put = (key: string) =>
             putObject({
                 Key: key,
-                Body: Buffer.from("poster"),
+                Body: Buffer.from("still"),
                 ContentType: "image/webp",
                 Bucket: cloudBucket,
             });
@@ -450,28 +442,28 @@ describe(
             const privateKey = derivativeObjectKey(
                 media.mediaId,
                 "private",
-                "poster.webp",
+                "still.webp",
             );
             const publicKey = derivativeObjectKey(
                 media.mediaId,
                 "public",
-                "poster.webp",
+                "still.webp",
             );
             const job = derivativeJob({
                 type: "test.poster_storage",
-                name: "poster",
+                name: "still",
                 class: "io",
                 maxAttempts: 3,
                 produce: async () => {
                     await put(privateKey);
                     return {
-                        key: "poster.webp",
+                        key: "still.webp",
                         mimeType: "image/webp",
                         size: 6,
                     };
                 },
             });
-            await job.handler({ derivative: "poster" }, context(media.id));
+            await job.handler({ derivative: "still" }, context(media.id));
             assert.equal((await jobsOf(media.id, MEDIA_PUBLISH_JOB)).length, 1);
 
             assert.deepEqual(await publishDerivatives(media.id), {
@@ -479,8 +471,8 @@ describe(
             });
             assert.equal(await exists(publicKey, cloudPublicBucket), true);
             assert.equal(await exists(privateKey, cloudBucket), false);
-            const [poster] = await listDerivatives(db, media.id);
-            assert.equal(poster.bucket, "public");
+            const [still] = await listDerivatives(db, media.id);
+            assert.equal(still.bucket, "public");
             // Idempotent: nothing is left to publish.
             assert.deepEqual(await publishDerivatives(media.id), {
                 published: 0,
@@ -498,18 +490,18 @@ describe(
             const privateKey = derivativeObjectKey(
                 media.mediaId,
                 "private",
-                "poster.webp",
+                "still.webp",
             );
             await put(privateKey);
             await upsertDerivative(db, {
                 mediaRowId: media.id,
-                name: "poster",
+                name: "still",
                 status: "ready",
-                key: "poster.webp",
+                key: "still.webp",
                 mimeType: "image/webp",
                 size: 6,
             });
-            await sealMediaRecord({
+            await sealForTests({
                 userId: media.userId,
                 appId: media.appId,
                 mediaId: media.mediaId,
@@ -521,7 +513,7 @@ describe(
             });
             assert.equal(
                 await exists(
-                    derivativeObjectKey(media.mediaId, "public", "poster.webp"),
+                    derivativeObjectKey(media.mediaId, "public", "still.webp"),
                     cloudPublicBucket,
                 ),
                 true,

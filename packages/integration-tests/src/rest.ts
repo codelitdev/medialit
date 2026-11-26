@@ -13,12 +13,16 @@ import {
     checkWebhooks,
     fetchWithRateLimit,
     generatePng,
-    WebhookRefused,
+    integer,
+    isWebp,
+    type JsonObject,
+    object,
+    serverOptions,
+    text,
     type WebhookClient,
+    WebhookRefused,
 } from "./utils";
-export { generatePng } from "./utils";
 
-type JsonObject = Record<string, unknown>;
 type Access = "public" | "private";
 interface UploadedMedia {
     mediaId: string;
@@ -31,30 +35,6 @@ interface Stats {
     maxStorage: number;
 }
 
-function object(value: unknown): JsonObject {
-    assert(
-        value && typeof value === "object" && !Array.isArray(value),
-        "Expected a JSON object",
-    );
-    return value as JsonObject;
-}
-
-function text(value: unknown, label: string): string {
-    assert(
-        typeof value === "string" && value.length > 0,
-        `${label} must be a nonempty string`,
-    );
-    return value;
-}
-
-function integer(value: unknown, label: string): number {
-    assert(
-        typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
-        `${label} must be a nonnegative integer`,
-    );
-    return value;
-}
-
 export async function runIntegrationTests(
     options: {
         apiKey?: string;
@@ -62,22 +42,7 @@ export async function runIntegrationTests(
         log?: (message: string) => void;
     } = {},
 ): Promise<void> {
-    const apiKey = options.apiKey ?? process.env.MEDIALIT_APIKEY;
-    assert(apiKey?.trim(), "MEDIALIT_APIKEY is required");
-    const server =
-        options.server ?? process.env.MEDIALIT_SERVER ?? "localhost:8000";
-    const base = new URL(
-        /^https?:\/\//i.test(server) ? server : `http://${server}`,
-    );
-    assert(
-        ["http:", "https:"].includes(base.protocol),
-        "MEDIALIT_SERVER must use HTTP or HTTPS",
-    );
-    assert(
-        !base.username && !base.password && !base.search && !base.hash,
-        "MEDIALIT_SERVER must be a base URL without credentials, query, or fragment",
-    );
-    base.pathname = `${base.pathname.replace(/\/+$/, "")}/`;
+    const { apiKey, base } = serverOptions(options);
     const log = options.log ?? console.log;
     const group = `__integration_${randomUUID()}`;
     const png = generatePng(64, 36);
@@ -141,7 +106,7 @@ export async function runIntegrationTests(
             ...filters,
         });
         assert(Array.isArray(result), "List media must return an array");
-        return result.map(object);
+        return result.map((item) => object(item));
     }
 
     async function stats(): Promise<Stats> {
@@ -221,9 +186,7 @@ export async function runIntegrationTests(
             );
         } else {
             // Respect existing account WebP conversion settings without changing them.
-            assert.equal(bytes.toString("ascii", 0, 4), "RIFF");
-            assert.equal(bytes.toString("ascii", 8, 12), "WEBP");
-            assert(bytes.length > 12, "Downloaded WebP is empty");
+            assert(isWebp(bytes), "Downloaded file is not WebP");
         }
     }
 
@@ -400,7 +363,7 @@ export async function runIntegrationTests(
             list: async () => {
                 const result = await call("get", {});
                 assert(Array.isArray(result.endpoints));
-                return result.endpoints.map(object);
+                return result.endpoints.map((item) => object(item));
             },
             update: (id, input) => call("update", { ...input, id }),
             remove: async (id) => {

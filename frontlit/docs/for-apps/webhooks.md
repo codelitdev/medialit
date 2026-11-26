@@ -44,6 +44,8 @@ The test action answers `{ "result": "delivered", "status": 200 }`, or `"failed"
 
 Endpoints receive both unless you pass `events`. A failed step never makes the original file unavailable.
 
+Sealed videos send an event once their poster is made. A failure that leaves the file fully usable (a poster that couldn't be made, or video processing refused because the account is out of processing minutes or the video is over a limit) sends `media.processing.ready`, with that derivative's `status: "failed"` and its `error` in `derivatives`. Check `derivatives` if you want to tell your users about it.
+
 ## Payload
 
 ```json

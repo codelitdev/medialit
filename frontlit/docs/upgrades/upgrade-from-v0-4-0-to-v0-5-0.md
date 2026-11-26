@@ -2,7 +2,7 @@
 title: "Upgrade from v0.4.0 to v0.5.0"
 description: "Move a self-hosted MediaLit installation from MongoDB to PostgreSQL"
 slug: upgrade-from-v0-4-0-to-v0-5-0
-nav_order: 10
+nav_order: 50
 ---
 
 MediaLit v0.5.0 uses PostgreSQL instead of MongoDB. This upgrade requires a

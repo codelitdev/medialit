@@ -175,6 +175,8 @@ Gets storage statistics.
     interface MediaStats {
         storage: number; // Current storage used in bytes
         maxStorage: number; // Maximum allowed storage in bytes
+        // Video processing minutes this month; allowed is null with no limit
+        processingMinutes?: { used: number; allowed: number | null };
     }
     ```
 
@@ -186,17 +188,17 @@ Gets the current media settings.
 
 - Promise resolving to a MediaSettings object
 
-### `updateSettings(settings: MediaSettings): Promise<void>`
+### `updateSettings(settings: MediaSettingsUpdate): Promise<void>`
 
-Updates the media settings.
+Updates the media settings. Pass only the fields to change; changes apply to files sealed afterwards.
 
 #### Parameters:
 
-- `settings`: A MediaSettings object:
+- `settings`:
     - `useWebP`: Whether to convert images to WebP format
-    - `webpOutputQuality`: Quality of WebP conversion (0-100)
-    - `thumbnailWidth`: Width of generated thumbnails
-    - `thumbnailHeight`: Height of generated thumbnails
+    - `webpOutputQuality`: Quality of WebP conversion (1-100, 80 when not set)
+    - `videoStreaming`: `"off"`, `"hls"` or `"mp4"`, what is made from sealed videos. Apps start `"off"`
+    - `hlsRenditions`: HLS sizes from `"1080p"`, `"720p"`, `"480p"` and `"360p"`, or `null` for the default sizes
 
 ### Webhooks
 
@@ -271,8 +273,6 @@ interface MediaStats {
 interface MediaSettings {
     useWebP?: boolean;
     webpOutputQuality?: number;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
 }
 ```
 

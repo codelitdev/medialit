@@ -1,7 +1,7 @@
 import { z } from "zod";
 import mediaService from "../../media/service";
 import mediaQueries from "../../media/queries";
-import { maxStorageFor } from "../../billing/entitlements";
+import { storageStats } from "../../billing/usage";
 import { NOT_ENOUGH_STORAGE, SUCCESS } from "../../config/strings";
 import type { MedialitMcpTool } from "../context";
 import { medialitTool } from "../tool";
@@ -103,13 +103,7 @@ export const mediaTools = (): MedialitMcpTool[] => [
         inputSchema: z.object({}),
         outputSchema: storageSchema,
         annotations: { idempotentHint: true },
-        async handler({ context }) {
-            const storage = await mediaQueries.getTotalSpace({
-                userId: context.userId,
-                appId: context.appId,
-            });
-            return { storage, maxStorage: await maxStorageFor(context.user) };
-        },
+        handler: ({ context }) => storageStats(context.user, context.appId),
     }),
 
     medialitTool({

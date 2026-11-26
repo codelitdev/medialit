@@ -19,12 +19,19 @@ import type { getSubscriber } from "@/app/actions";
 
 type Interval = "month" | "year";
 type Subscriber = NonNullable<Awaited<ReturnType<typeof getSubscriber>>>;
-type Limits = { storageBytes: number; maxUploadBytes: number };
+type Limits = {
+    storageBytes: number;
+    maxUploadBytes: number;
+    /** Video processing minutes a month. */
+    processingMinutes: number;
+};
 
 /** Shape of GET /api/account/billing/plans. */
 export type BillingPlans = {
     checkoutAvailable: boolean;
     currency: string | null;
+    /** The account's apps with video streaming on. */
+    videoStreamingApps: number;
     plans: {
         basic: { limits: Limits };
         pro: {
@@ -67,6 +74,7 @@ function plansFrom(billing: BillingPlans): Plan[] {
             features: [
                 `${formatBytes(basic.limits.storageBytes)} of storage`,
                 `${formatBytes(basic.limits.maxUploadBytes)} maximum file size`,
+                minutesFeature(basic.limits.processingMinutes),
                 "Unlimited upload and download",
                 "Private files",
             ],
@@ -80,10 +88,15 @@ function plansFrom(billing: BillingPlans): Plan[] {
                 "Everything in the Basic plan",
                 `${formatBytes(pro.limits.storageBytes)} of storage`,
                 `${formatBytes(pro.limits.maxUploadBytes)} maximum file size`,
+                minutesFeature(pro.limits.processingMinutes),
             ],
             isSecondary: false,
         },
     ];
+}
+
+function minutesFeature(minutes: number): string {
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} of video processing a month`;
 }
 
 /** Whole months saved by paying yearly, or 0. */
@@ -99,14 +112,14 @@ function PricingPane({
     plan,
     interval,
     currency,
-    checkoutAvailable,
     user,
+    billing,
 }: {
     plan: Plan;
     interval: Interval;
     currency: string;
-    checkoutAvailable: boolean;
     user: Subscriber;
+    billing: BillingPlans;
 }) {
     const { name, description, prices, features, isSecondary } = plan;
     const current = user.plan === name.toLowerCase();
@@ -160,7 +173,7 @@ function PricingPane({
                 )}
                 {name === "Pro" &&
                     user.plan === "basic" &&
-                    checkoutAvailable && (
+                    billing.checkoutAvailable && (
                         <BillingButton
                             mode="checkout"
                             interval={interval}
@@ -179,7 +192,13 @@ function PricingPane({
                 {name === "Pro" &&
                     user.subscription &&
                     user.subscription.status !== "cancelling" && (
-                        <CancelSubscriptionButton className="w-full" />
+                        <CancelSubscriptionButton
+                            className="w-full"
+                            videoStreamingApps={billing.videoStreamingApps}
+                            freeMinutes={
+                                billing.plans.basic.limits.processingMinutes
+                            }
+                        />
                     )}
                 {name === "Pro" &&
                     user.subscription?.status === "cancelling" && (
@@ -237,8 +256,8 @@ export default function PricingPlans({
                         plan={plan}
                         interval={interval}
                         currency={currency}
-                        checkoutAvailable={billing.checkoutAvailable}
                         user={user}
+                        billing={billing}
                     />
                 ))}
             </div>

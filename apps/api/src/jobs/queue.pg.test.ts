@@ -33,12 +33,13 @@ import {
     type RunnerLogger,
 } from "./runner.js";
 import { pgListener } from "./listen.js";
-import { missingWorkerClasses } from "./liveness.js";
+import { missingWorkerClasses } from "./runner.js";
 import {
     createTestPostgres,
     testPostgresUrl,
     type TestPostgres,
 } from "./test-postgres.js";
+import { waitFor } from "../db/test-records.js";
 
 const skip = testPostgresUrl
     ? false
@@ -113,19 +114,6 @@ function quietLogger() {
         error: log("error"),
     };
     return { logger, lines };
-}
-
-async function waitFor<T>(
-    check: () => Promise<T | undefined | null | false>,
-    timeoutMs = 10_000,
-): Promise<T> {
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-        const value = await check();
-        if (value) return value;
-        if (Date.now() > deadline) throw new Error("timed out waiting");
-        await new Promise((resolve) => setTimeout(resolve, 50));
-    }
 }
 
 describe("job queue (Postgres)", { skip }, () => {
@@ -571,7 +559,7 @@ describe("job runner (Postgres)", { skip }, () => {
             workerId: `runner-${Math.random().toString(36).slice(2)}`,
             definitions,
             classes: ["cpu", "io"],
-            concurrency: { cpu: 2, io: 4 },
+            concurrency: { cpu: 2, io: 4, video: 1 },
             logger,
             pollMs: 100,
             heartbeatMs: 100,
@@ -816,7 +804,7 @@ describe("job runner (Postgres)", { skip }, () => {
                     },
                 },
             ],
-            { concurrency: { cpu: 2, io: 1 } },
+            { concurrency: { cpu: 2, io: 1, video: 1 } },
         );
         const ids: string[] = [];
         for (let i = 0; i < 6; i++) {
@@ -1009,14 +997,18 @@ describe("job runner (Postgres)", { skip }, () => {
 describe("worker liveness (Postgres)", { skip }, () => {
     test("reports classes with no worker seen in 5 minutes", async () => {
         await db.execute(sql`DELETE FROM workers`);
-        assert.deepEqual(await missingWorkerClasses(db), ["cpu", "io"]);
+        assert.deepEqual(await missingWorkerClasses(db), [
+            "cpu",
+            "io",
+            "video",
+        ]);
         await recordWorker(db, { id: "io-only", classes: ["io"] });
-        assert.deepEqual(await missingWorkerClasses(db), ["cpu"]);
+        assert.deepEqual(await missingWorkerClasses(db), ["cpu", "video"]);
         await recordWorker(db, { id: "old-cpu", classes: ["cpu"] });
         await db.execute(
             sql`UPDATE workers SET last_seen_at = now() - interval '6 minutes' WHERE id = 'old-cpu'`,
         );
-        assert.deepEqual(await missingWorkerClasses(db), ["cpu"]);
+        assert.deepEqual(await missingWorkerClasses(db), ["cpu", "video"]);
     });
 });
 

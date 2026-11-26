@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import mediaRoutes from "./media/routes";
+import playbackRoutes from "./media/playback-routes";
 import signatureRoutes from "./signature/routes";
 import mediaSettingsRoutes from "./media-settings/routes";
 import webhookRoutes from "./webhooks/routes";
@@ -22,11 +23,6 @@ import {
 import { trustProxySetting } from "./auth/trust-proxy";
 import { toNodeHandler } from "better-auth/node";
 import type { apiReadiness } from "./lifecycle";
-import { cleanupTUSUploads } from "./tus/cleanup";
-import {
-    cleanupExpiredTempUploads,
-    cleanupStaleUploads,
-} from "./media/cleanup";
 import type { MedialitAuth } from "./auth/better-auth";
 import {
     AUTH_BASE_PATH,
@@ -147,9 +143,13 @@ export function createApp(input: {
         ["/health", "/media", "/settings/media", "/settings/webhooks"],
         cors<express.Request>((req, callback) =>
             callback(null, {
-                origin: /^\/media\/create(\/|\?|$)/.test(req.originalUrl)
-                    ? "*"
-                    : DOCS_ORIGIN,
+                // HLS playlists of private media carry their own token, and
+                // players on any site fetch them.
+                origin:
+                    /^\/media\/create(\/|\?|$)/.test(req.originalUrl) ||
+                    /^\/media\/[^/]+\/hls\//.test(req.originalUrl)
+                        ? "*"
+                        : DOCS_ORIGIN,
             }),
         ),
     );
@@ -224,29 +224,9 @@ export function createApp(input: {
     app.use("/settings/webhooks", webhookRoutes);
     app.use("/media/signature", signatureRoutes);
     app.use("/media", tusRoutes);
+    // Before mediaRoutes: these take a playlist token, not an API key.
+    app.use("/media", playbackRoutes);
     app.use("/media", mediaRoutes);
-
-    app.get(
-        "/cleanup/temp",
-        /* #swagger.ignore = true */
-        async (req, res) => {
-            await cleanupExpiredTempUploads();
-            await cleanupStaleUploads();
-            res.status(200).json({
-                message: "Expired temp uploads cleaned up",
-            });
-        },
-    );
-    app.get(
-        "/cleanup/tus",
-        /* #swagger.ignore = true */
-        async (req, res) => {
-            await cleanupTUSUploads();
-            res.status(200).json({
-                message: "Expired tus uploads cleaned up",
-            });
-        },
-    );
 
     app.use(createDashboardRouter(auth));
     app.use(createBillingRouter(auth));

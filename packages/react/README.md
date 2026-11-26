@@ -1,6 +1,6 @@
 # @medialit/react
 
-A drop-in upload component and hook for [MediaLit](https://medialit.cloud). Files go straight from the browser to MediaLit over the resumable tus protocol, so your API key stays on your server.
+A drop-in upload component, hook and video player for [MediaLit](https://medialit.cloud). Files go straight from the browser to MediaLit over the resumable tus protocol, so your API key stays on your server.
 
 ## Install
 
@@ -119,5 +119,18 @@ function UploadButton() {
 ```
 
 `upload(file)` resolves to the media, or `null` if the upload failed or was cancelled. It never rejects.
+
+## Play a video
+
+`MediaLitVideo` plays the best version MediaLit made of a video: HLS when it is ready, then the MP4 optimized for the web, then the original. The poster is the video's thumbnail.
+
+```tsx
+import { MediaLitVideo } from "@medialit/react";
+
+// `media` is a media response from your server, e.g. `medialit.get(mediaId)`.
+<MediaLitVideo media={media} width={640} />;
+```
+
+Safari and iOS play HLS natively; other browsers load [hls.js](https://github.com/video-dev/hls.js) only when a video needs it. Other `<video>` props pass through. Private files have signed URLs that expire, so fetch the media when the page renders.
 
 For a framework other than React, use [`@medialit/uploader`](../uploader).

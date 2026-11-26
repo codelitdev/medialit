@@ -126,9 +126,8 @@ services:
       minio-init:
         condition: service_completed_successfully
 
-  # Runs background jobs: cleaning up expired and unfinished uploads, and
-  # (in later versions) processing media. Same image and settings as the API.
-  # Without it, uploads are never cleaned up.
+  # Runs background jobs: publishing sealed files, video posters and encodes,
+  # webhook deliveries and cleanup. Same image and settings as the API.
   medialit-worker:
     image: codelit/medialit
     restart: on-failure

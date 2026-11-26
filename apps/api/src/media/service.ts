@@ -11,6 +11,8 @@ import {
     getObjectBytes,
 } from "../services/s3";
 import logger from "../services/log";
+import { trackEvent } from "../services/events";
+import { mediaKind } from "./kind";
 import generateKey from "./utils/generate-key";
 import GetPageProps from "./GetPageProps";
 import {
@@ -19,7 +21,7 @@ import {
     getMediaCount,
     getPaginatedMedia,
 } from "./queries";
-import { getDb, listDerivativesByMediaIds, listMediaRecordsByIds } from "@/db";
+import { getDb, listDerivativesByMediaId, listMediaRecordsByIds } from "@/db";
 import type { ProcessingStatus } from "../db/schema";
 import { deleteMediaFolders, derivativesResponse } from "./derivatives";
 import { sealStoredMedia } from "./seal";
@@ -80,6 +82,7 @@ async function upload({
     }
     return await finalizeStoredUpload({
         ...target,
+        transport: "mcp",
         userId,
         appId,
         originalFileName: fileName,
@@ -205,10 +208,10 @@ async function getMediaResponse(
         processingStatus?: ProcessingStatus;
         processingError?: string;
     };
-    const derivativeRows =
-        (await listDerivativesByMediaIds(getDb(), [media.mediaId])).get(
-            media.mediaId,
-        ) ?? [];
+    const derivativeRows = await listDerivativesByMediaId(
+        getDb(),
+        media.mediaId,
+    );
 
     return {
         mediaId: media.mediaId,
@@ -229,7 +232,11 @@ async function getMediaResponse(
                 ? { error: record.processingError }
                 : {}),
         },
-        derivatives: await derivativesResponse(media.mediaId, derivativeRows),
+        derivatives: await derivativesResponse(media.mediaId, derivativeRows, {
+            durationSeconds: record.metadata?.durationSeconds,
+        }),
+        // Read at seal (phase 1, D2); null before, or when unreadable.
+        metadata: record.metadata ?? null,
     };
 }
 
@@ -324,6 +331,24 @@ async function deleteMedia({
     await mediaService.removeStoredFiles(media);
     await deleteMediaQuery(userId, mediaId);
     await sweepAfterDelete(media);
+    reportDeleted(media, appId);
+}
+
+function reportDeleted(media: MediaWithUserId, appId: string): void {
+    const fields = {
+        media_id: media.mediaId,
+        app_id: appId,
+        media_kind: mediaKind(media.mimeType),
+        temp: Boolean(media.temp),
+    };
+    logger.info(fields, "media deleted");
+    trackEvent({
+        event: "media.deleted",
+        source: "media.delete",
+        appId,
+        userId: String(media.userId),
+        properties: fields,
+    });
 }
 
 /* A seal or job that committed between removing the files and deleting the
@@ -371,6 +396,7 @@ async function deleteMediaMany({
                     await mediaService.removeStoredFiles(media);
                     await deleteMediaQuery(userId, media.mediaId);
                     await sweepAfterDelete(media);
+                    reportDeleted(media, appId);
                 }),
         );
         for (const result of results) {

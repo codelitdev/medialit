@@ -1,5 +1,9 @@
 /** Shared by the webhook tests. */
 
+/** A few refused addresses, for the layers above `isBlockedAddress`,
+ * which is tested against the full list. */
+export const SOME_REFUSED_ADDRESSES = ["169.254.169.254", "::ffff:10.0.0.1"];
+
 /** One address from every refused range. */
 export const REFUSED_ADDRESSES = [
     "0.0.0.0",

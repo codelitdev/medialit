@@ -66,36 +66,6 @@ export type ImageCheck =
     | { ok: true; info: ImageInfo; bytes: number }
     | { ok: false; reason: ImageLimitReason; message: string };
 
-/** Checks a byte count against the limit. Null when it's within it. */
-export function checkInputBytes(
-    bytes: number,
-    limits: Pick<ImageLimits, "maxInputBytes">,
-): { reason: "too_large"; message: string } | null {
-    if (bytes > limits.maxInputBytes) {
-        return {
-            reason: "too_large",
-            message: `The image is ${bytes} bytes, over the limit of ${limits.maxInputBytes}`,
-        };
-    }
-    return null;
-}
-
-/** Checks an image's dimensions against the pixel limit. Null when it's
- * within it. */
-export function checkPixels(
-    info: Pick<ImageInfo, "width" | "height">,
-    limits: Pick<ImageLimits, "maxPixels">,
-): { reason: "too_many_pixels"; message: string } | null {
-    const pixels = info.width * info.height;
-    if (pixels > limits.maxPixels) {
-        return {
-            reason: "too_many_pixels",
-            message: `The image is ${info.width}×${info.height} pixels, over the limit of ${limits.maxPixels}`,
-        };
-    }
-    return null;
-}
-
 /**
  * Checks a local image file against the byte and pixel limits, reading only
  * its size and header. Never decodes it.
@@ -105,8 +75,13 @@ export async function checkImageFile(
     limits: Pick<ImageLimits, "maxInputBytes" | "maxPixels">,
 ): Promise<ImageCheck> {
     const bytes = (await stat(path)).size;
-    const tooLarge = checkInputBytes(bytes, limits);
-    if (tooLarge) return { ok: false, ...tooLarge };
+    if (bytes > limits.maxInputBytes) {
+        return {
+            ok: false,
+            reason: "too_large",
+            message: `The image is ${bytes} bytes, over the limit of ${limits.maxInputBytes}`,
+        };
+    }
     const info = await readImageInfoFromFile(path);
     if (!info || info.width < 1 || info.height < 1) {
         return {
@@ -115,7 +90,12 @@ export async function checkImageFile(
             message: "The image header could not be read",
         };
     }
-    const tooManyPixels = checkPixels(info, limits);
-    if (tooManyPixels) return { ok: false, ...tooManyPixels };
+    if (info.width * info.height > limits.maxPixels) {
+        return {
+            ok: false,
+            reason: "too_many_pixels",
+            message: `The image is ${info.width}×${info.height} pixels, over the limit of ${limits.maxPixels}`,
+        };
+    }
     return { ok: true, info, bytes };
 }

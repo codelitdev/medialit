@@ -16,6 +16,7 @@
         "test:all": "bun src/bin.ts all",
         "test:rest": "bun src/bin.ts rest",
         "test:webp": "bun src/bin.ts webp",
+        "test:video": "bun src/bin.ts video",
         "test:mcp": "bun src/bin.ts mcp",
         "test:cli": "bun --filter @medialit/cli build && bun src/bin.ts cli",
         "prepublishOnly": "bun run build"

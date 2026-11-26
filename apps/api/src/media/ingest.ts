@@ -1,6 +1,5 @@
-import os from "os";
 import path from "path";
-import { mkdir, mkdtemp, rm, stat } from "fs/promises";
+import { stat } from "fs/promises";
 import { createReadStream } from "fs";
 import thumbnail from "@medialit/thumbnail";
 import { checkImageFile } from "@medialit/images";
@@ -9,12 +8,10 @@ import {
     cloudBucket,
     imagePatternForThumbnailGeneration,
     PATH_PREFIX,
-    tempFileDirForUploads,
     videoPattern,
 } from "../config/constants";
 import { NOT_ENOUGH_STORAGE } from "../config/strings";
 import {
-    deleteObject,
     downloadObject,
     generateSignedUrl,
     headObject,
@@ -23,7 +20,9 @@ import {
 } from "../services/s3";
 import { webpLimits } from "./webp-limits";
 import logger from "../services/log";
-import { getMediaSettings } from "../media-settings/queries";
+import { trackEvent } from "../services/events";
+import { mediaKind } from "./kind";
+import { describeError } from "../jobs/errors";
 import * as presignedUrlService from "../signature/service";
 import generateFileName from "./utils/generate-file-name";
 import generateKey from "./utils/generate-key";
@@ -35,6 +34,7 @@ import {
     getUploadingMediaSize,
 } from "@/db";
 import { hasEnoughStorage } from "./storage-middleware";
+import { deleteQuietly, makeWorkDir, removeWorkDir } from "./work-files";
 
 /** An image the thumbnail step refuses to decode (over the pixel limit). */
 class ThumbnailSkipped extends Error {
@@ -118,7 +118,7 @@ export async function abandonUpload(
     target: UploadTarget,
     extraKeys: string[] = [],
 ): Promise<void> {
-    await deleteStored([target.key, ...extraKeys]);
+    await deleteQuietly([target.key, ...extraKeys], target.mediaId);
     await deleteUploadingMediaRecord(target.mediaId).catch((err) => {
         logger.error(
             { err, mediaId: target.mediaId },
@@ -127,7 +127,11 @@ export async function abandonUpload(
     });
 }
 
+/** How an upload arrived, for logs and events. */
+export type UploadTransport = "form" | "tus" | "mcp";
+
 export interface StoredUpload extends UploadTarget {
+    transport: UploadTransport;
     userId: string;
     appId: string;
     /** The name the client gave the file. */
@@ -146,8 +150,8 @@ export interface StoredUpload extends UploadTarget {
  *
  * 1. Checks storage again with the size actually stored. The original is
  *    kept as uploaded: WebP conversion happens at seal (`sealMedia`).
- * 2. Makes a thumbnail, of the app's `thumbnailWidth` × `thumbnailHeight`
- *    when it stored them.
+ * 2. Makes a thumbnail: 16:9 and up to 480 px for images, 720 px tall for
+ *    videos.
  *    Videos are read through a presigned URL, so only the bytes ffmpeg needs
  *    are fetched.
  * 3. Marks the media record `startUpload` wrote as uploaded.
@@ -159,27 +163,15 @@ export async function finalizeStoredUpload(
     upload: StoredUpload,
 ): Promise<string> {
     const { mediaId, ext, key, userId, appId } = upload;
+    const startedAt = Date.now();
+    let storedSize = 0;
+    let thumbnailOutcome: "made" | "skipped" | "failed" | "none" = "none";
     const tags = getTags(userId, upload.group);
     const stored = new Set<string>([key]);
     let workDir: string | undefined;
 
     try {
-        // mkdtemp makes only the last directory; the configured one may not
-        // exist yet, as in a fresh container.
-        const tempRoot = tempFileDirForUploads || os.tmpdir();
-        await mkdir(tempRoot, { recursive: true });
-        workDir = await mkdtemp(path.join(tempRoot, "medialit-finalize-"));
-        const settings = await getMediaSettings(userId, appId);
-        // Only a size the app stored: apps that never set one keep the
-        // thumbnails MediaLit always made (16:9, up to 480 px for images,
-        // 720 px tall for videos), not the defaults shown for display.
-        const thumbnailDimensions =
-            settings?.thumbnailWidth && settings?.thumbnailHeight
-                ? {
-                      width: settings.thumbnailWidth,
-                      height: settings.thumbnailHeight,
-                  }
-                : undefined;
+        workDir = await makeWorkDir("finalize");
         const isImage = imagePatternForThumbnailGeneration.test(
             upload.mimeType,
         );
@@ -189,6 +181,7 @@ export async function finalizeStoredUpload(
         const mimeType = upload.mimeType;
         const head = await headObject({ Key: key, Bucket: cloudBucket });
         const size = head.ContentLength ?? 0;
+        storedSize = size;
         await putObjectTagging({ Key: key, Tagging: tags });
 
         // The total already holds this upload's declared size; swap it for
@@ -224,19 +217,11 @@ export async function finalizeStoredUpload(
                         maxPixels: webpLimits().maxPixels,
                     });
                     if (!check.ok) throw new ThumbnailSkipped(check.reason);
-                    await thumbnail.forImage(
-                        localPath,
-                        thumbPath,
-                        thumbnailDimensions,
-                    );
+                    await thumbnail.forImage(localPath, thumbPath);
                 } else {
                     // A URL MediaLit made, never one from the client.
                     const source = await generateSignedUrl(key, cloudBucket);
-                    await thumbnail.forVideo(
-                        source,
-                        thumbPath,
-                        thumbnailDimensions,
-                    );
+                    await thumbnail.forVideo(source, thumbPath);
                 }
                 await putObject({
                     Key: thumbKey,
@@ -248,15 +233,19 @@ export async function finalizeStoredUpload(
                 stored.add(thumbKey);
                 thumbnailGenerated = true;
                 thumbnailSize = (await stat(thumbPath)).size;
+                thumbnailOutcome = "made";
             } catch (err: any) {
+                thumbnailOutcome =
+                    err instanceof ThumbnailSkipped ? "skipped" : "failed";
                 if (err instanceof ThumbnailSkipped) {
                     logger.info(
                         { media_id: mediaId, reason: err.reason },
                         "thumbnail skipped",
                     );
                 } else {
+                    // Video errors name the presigned URL; keep it out.
                     logger.error(
-                        { err, media_id: mediaId },
+                        { error: describeError(err), media_id: mediaId },
                         "Failed to generate thumbnail",
                     );
                 }
@@ -281,14 +270,35 @@ export async function finalizeStoredUpload(
             throw new Error("The upload expired before it finished");
         }
     } catch (err) {
-        await deleteStored([...stored]);
+        await deleteQuietly([...stored], mediaId);
         await deleteUploadingMediaRecord(mediaId).catch(() => {});
         throw err;
     } finally {
-        if (workDir) {
-            await rm(workDir, { recursive: true, force: true }).catch(() => {});
-        }
+        await removeWorkDir(workDir);
     }
+
+    const finished = {
+        media_id: mediaId,
+        app_id: appId,
+        transport: upload.transport,
+        media_kind: mediaKind(upload.mimeType),
+        size_bytes: storedSize,
+        duration_ms: Date.now() - startedAt,
+    };
+    logger.info(finished, "upload finished");
+    trackEvent({
+        event: "media.uploaded",
+        source: "media.upload",
+        appId,
+        userId,
+        properties: {
+            media_id: mediaId,
+            transport: finished.transport,
+            media_kind: finished.media_kind,
+            size_bytes: finished.size_bytes,
+            thumbnail: thumbnailOutcome,
+        },
+    });
 
     if (upload.signature) {
         presignedUrlService
@@ -302,19 +312,4 @@ export async function finalizeStoredUpload(
     }
 
     return mediaId;
-}
-
-/** Deletes objects of an upload that won't be kept. Never throws. */
-export async function deleteStored(keys: string[]): Promise<void> {
-    const results = await Promise.allSettled(
-        keys.map((Key) => deleteObject({ Key, Bucket: cloudBucket })),
-    );
-    for (const result of results) {
-        if (result.status === "rejected") {
-            logger.error(
-                { err: result.reason },
-                "Failed to delete a rejected upload",
-            );
-        }
-    }
 }

@@ -1,12 +1,12 @@
 /**
- * Telemetry for the API and the worker (pipelines-phase-0.md, section 9),
- * set up as in SendLit. Logs always go to stdout. With POSTHOG_API_KEY set,
+ * Telemetry for the API and the worker, set up as in SendLit. Logs always go to stdout. With POSTHOG_API_KEY set,
  * every log line is also sent to PostHog's logs endpoint, and errors and
  * events are captured. Without it, capture calls do nothing.
  */
 import {
     createObservability,
     type CaptureClient,
+    type CaptureEventInput,
     type Observability,
 } from "@codelitdev/observability";
 import { serviceName } from "./service-name";
@@ -34,11 +34,52 @@ const PROPERTY_ALLOWLIST = new Set([
     "age_ms",
     "count",
     "reason",
+    // Product events and lifecycle logs.
+    "transport",
+    "media_kind",
+    "access",
+    "size_bytes",
+    "thumbnail",
+    "webp",
+    "jobs_queued",
+    "derivative",
+    "derivatives",
+    "failed_derivatives",
+    "endpoint_id",
+    "event_type",
+    "response_code",
+    "error_class",
+    "action",
+    "changed",
+    "use_webp",
+    "video_streaming",
+    "hls_renditions",
+    "kind",
+    "plan",
+    "minutes",
+    "minutes_needed",
+    "minutes_used",
+    "minutes_allowed",
+    "minutes_charged",
+    "temp",
+    "next_run_in_ms",
+    "output",
+    "remux",
+    "renditions",
+    "source_duration_s",
+    "source_height",
+    "video_codec",
+    "speed",
 ]);
 
 /** Allowlisted keys that hold record IDs. They skip the long-token mask,
  * which would otherwise hide every 40-character ID. */
-const IDENTIFIER_KEYS = new Set(["media_id", "job_id", "app_id"]);
+const IDENTIFIER_KEYS = new Set([
+    "media_id",
+    "job_id",
+    "app_id",
+    "endpoint_id",
+]);
 
 /**
  * `purpose: "events"` builds the instance for product events. Errors are
@@ -96,7 +137,8 @@ const productEvents = createMedialitObservability(process.env, {
 
 export const captureException =
     observability.captureException.bind(observability);
-export const captureEvent = productEvents.captureEvent.bind(productEvents);
+export const captureEvent: (input: CaptureEventInput) => void =
+    productEvents.captureEvent.bind(productEvents);
 
 /** Flushes captured errors, events and sent logs, within `timeoutMs`. */
 export const shutdownObservability = async (timeoutMs: number) => {

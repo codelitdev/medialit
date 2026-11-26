@@ -1,9 +1,10 @@
 /**
- * Webhook endpoint rows (pipelines-phase-0.md, section 4). Endpoint IDs are
+ * Webhook endpoint rows. Endpoint IDs are
  * public (`wh_…`); `appId` is always the app's internal ID. Functions that
  * run inside another transaction take the executor.
  */
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import type { WebhookDelivery } from "@medialit/models";
 import { getUniqueId } from "@medialit/utils";
 import { getDb } from "@/db";
 import { apps, jobs, webhookEndpoints } from "../db/schema/index.js";
@@ -20,16 +21,10 @@ export const WEBHOOK_DELIVER_JOB = "webhook.deliver";
 /** Endpoints an app may have. */
 export const MAX_ENDPOINTS_PER_APP = 10;
 
-export type WebhookEndpointRecord = {
-    id: string;
-    appId: string;
-    url: string;
-    secret: string;
-    enabled: boolean;
-    events: WebhookEvent[];
-    createdAt: Date;
-    updatedAt: Date;
-};
+export type WebhookEndpointRecord = Omit<
+    typeof webhookEndpoints.$inferSelect,
+    "events"
+> & { events: WebhookEvent[] };
 
 export class WebhookLimitError extends Error {
     constructor(readonly limit: number) {
@@ -38,18 +33,8 @@ export class WebhookLimitError extends Error {
     }
 }
 
-function map(row: typeof webhookEndpoints.$inferSelect): WebhookEndpointRecord {
-    return {
-        id: row.id,
-        appId: row.appId,
-        url: row.url,
-        secret: row.secret,
-        enabled: row.enabled,
-        events: row.events as WebhookEvent[],
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    };
-}
+const record = (row: typeof webhookEndpoints.$inferSelect) =>
+    row as WebhookEndpointRecord;
 
 export async function listEndpoints(
     appId: string,
@@ -59,7 +44,7 @@ export async function listEndpoints(
         .from(webhookEndpoints)
         .where(eq(webhookEndpoints.appId, appId))
         .orderBy(asc(webhookEndpoints.createdAt), asc(webhookEndpoints.id));
-    return rows.map(map);
+    return rows.map(record);
 }
 
 export async function getEndpoint(
@@ -73,7 +58,7 @@ export async function getEndpoint(
             and(eq(webhookEndpoints.appId, appId), eq(webhookEndpoints.id, id)),
         )
         .limit(1);
-    return row ? map(row) : null;
+    return row ? record(row) : null;
 }
 
 /** Adds an endpoint. The app row is locked so concurrent creates can't
@@ -112,7 +97,7 @@ export async function insertEndpoint(input: {
                 updatedAt: timestamp,
             })
             .returning();
-        return map(row);
+        return record(row);
     });
 }
 
@@ -130,7 +115,7 @@ export async function updateEndpoint(
             and(eq(webhookEndpoints.appId, appId), eq(webhookEndpoints.id, id)),
         )
         .returning();
-    return row ? map(row) : null;
+    return row ? record(row) : null;
 }
 
 export async function deleteEndpoint(
@@ -180,28 +165,11 @@ export async function deliveryTarget(
     );
 }
 
-export type WebhookDeliveryRecord = {
-    id: string;
-    endpointId: string;
-    event: string;
-    webhookId: string;
-    mediaId: string | null;
-    status: string;
-    attempts: number;
-    maxAttempts: number;
-    /** What the last attempt got: a status code or a generic error class. */
-    result: { status?: number; error?: string; durationMs?: number } | null;
-    createdAt: Date;
-    finishedAt: Date | null;
-    /** When the next attempt runs, for a delivery that will retry. */
-    nextAttemptAt: Date | null;
-};
-
 /** The app's most recent deliveries, newest first, from the job rows. */
 export async function recentDeliveries(
     appId: string,
     limit = 20,
-): Promise<WebhookDeliveryRecord[]> {
+): Promise<WebhookDelivery[]> {
     const rows = await getDb()
         .select({
             id: jobs.id,
@@ -220,6 +188,11 @@ export async function recentDeliveries(
         .limit(limit);
     return rows.map((row) => {
         const payload = (row.payload ?? {}) as Partial<DeliverPayload>;
+        const result = (row.result ?? {}) as {
+            status?: number;
+            error?: string;
+            durationMs?: number;
+        };
         return {
             id: row.id,
             endpointId: payload.endpointId ?? "",
@@ -229,10 +202,19 @@ export async function recentDeliveries(
             status: row.status,
             attempts: row.attempts,
             maxAttempts: row.maxAttempts,
-            result: (row.result as WebhookDeliveryRecord["result"]) ?? null,
-            createdAt: row.createdAt,
-            finishedAt: row.finishedAt,
-            nextAttemptAt: row.status === "queued" ? row.runAt : null,
+            ...(typeof result.status === "number"
+                ? { responseStatus: result.status }
+                : {}),
+            ...(typeof result.error === "string"
+                ? { error: result.error }
+                : {}),
+            ...(typeof result.durationMs === "number"
+                ? { durationMs: result.durationMs }
+                : {}),
+            createdAt: row.createdAt.toISOString(),
+            finishedAt: row.finishedAt?.toISOString() ?? null,
+            nextAttemptAt:
+                row.status === "queued" ? row.runAt.toISOString() : null,
         };
     });
 }

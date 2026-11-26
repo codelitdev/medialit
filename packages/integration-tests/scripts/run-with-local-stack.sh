@@ -78,6 +78,7 @@ export MAX_STORAGE_ALLOWED_NOT_SUBSCRIBED=1234567890
 # The REST and CLI suites make a few hundred API-key calls from this machine
 # within a minute, more than the default limit of 120 a minute allows.
 export API_RATE_LIMIT_PER_MINUTE="${API_RATE_LIMIT_PER_MINUTE:-5000}"
+export MCP_RATE_LIMIT_PER_MINUTE="${MCP_RATE_LIMIT_PER_MINUTE:-5000}"
 mkdir -p "$TEMP_FILE_DIR_FOR_UPLOADS"
 # The API seeds this key for the EMAIL user at startup, the same way a bundled
 # self-hosted install gets its key. It is never logged.
@@ -154,7 +155,7 @@ grep -q "Live workers: 1" <<<"$stats" || {
     echo "jobs stats did not count the running worker"
     exit 1
 }
-(cd apps/api && bun run --silent jobs workers) | grep -Eq "cpu,io .* yes$" || {
+(cd apps/api && bun run --silent jobs workers) | grep -Eq "cpu,io,video .* yes$" || {
     echo "jobs workers did not list the running worker as live"
     exit 1
 }

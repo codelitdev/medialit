@@ -36,15 +36,18 @@ import {
 } from "../jobs/test-postgres.js";
 import * as schema from "../db/schema/index.js";
 import type { AppDb } from "../db/client.js";
+import { makeTestVideo } from "./test-video.js";
+import { waitFor } from "../db/test-records.js";
 
 const realCwebp = findExecutable("cwebp");
 const realFfmpeg = findExecutable("ffmpeg");
+const realFfprobe = findExecutable("ffprobe");
 const skip = !testPostgresUrl
     ? "set JOBS_TEST_DATABASE_URL to run against real Postgres"
     : !process.env.CLOUD_ENDPOINT
       ? "set the CLOUD_* settings of a test MinIO"
-      : !realCwebp || !realFfmpeg
-        ? "cwebp and ffmpeg must be installed"
+      : !realCwebp || !realFfmpeg || !realFfprobe
+        ? "cwebp, ffmpeg and ffprobe must be installed"
         : false;
 
 // Loaded in before(), after the environment is set.
@@ -93,14 +96,6 @@ function alive(pid: number): boolean {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function waitFor(check: () => Promise<boolean>, ms = 10_000) {
-    const deadline = Date.now() + ms;
-    while (!(await check())) {
-        if (Date.now() > deadline) throw new Error("Timed out waiting");
-        await sleep(25);
-    }
-}
-
 before(async () => {
     if (skip) return;
     work = await mkdtemp(path.join(os.tmpdir(), "seal-pg-"));
@@ -113,6 +108,7 @@ before(async () => {
         path.join(bin, "cwebp"),
         `#!/bin/sh
 echo "$$" >> "${work}/cwebp.log"
+echo "$*" >> "${work}/cwebp-args.log"
 if [ -f "${control("sleep")}" ]; then sleep "$(cat "${control("sleep")}")"; fi
 if [ -f "${control("fail")}" ]; then echo "conversion broke" >&2; exit 1; fi
 exec "${realCwebp}" "$@"
@@ -120,8 +116,22 @@ exec "${realCwebp}" "$@"
     );
     await writeFile(
         path.join(bin, "ffmpeg"),
-        `#!/bin/sh\necho "$*" >> "${work}/ffmpeg.log"\nexec "${realFfmpeg}" "$@"\n`,
+        `#!/bin/sh
+echo "$*" >> "${work}/ffmpeg.log"
+if [ -f "${control("ffmpeg-fail")}" ]; then echo "ffmpeg broke" >&2; exit 1; fi
+if [ -f "${control("ffmpeg-kill")}" ]; then kill -9 $$; fi
+exec "${realFfmpeg}" "$@"
+`,
     );
+    // ffprobe: can be made slow, to check seal's limit on it.
+    await writeFile(
+        path.join(bin, "ffprobe"),
+        `#!/bin/sh
+if [ -f "${control("probe-sleep")}" ]; then sleep "$(cat "${control("probe-sleep")}")"; fi
+exec "${realFfprobe}" "$@"
+`,
+    );
+    await chmod(path.join(bin, "ffprobe"), 0o755);
     await chmod(path.join(bin, "cwebp"), 0o755);
     await chmod(path.join(bin, "ffmpeg"), 0o755);
     process.env.PATH = `${bin}${path.delimiter}${realPath}`;
@@ -159,8 +169,11 @@ beforeEach(async () => {
     for (const key of Object.keys(process.env)) {
         if (/^(WEBP_|SEAL_)/.test(key)) delete process.env[key];
     }
-    for (const name of ["sleep", "fail"]) await setControl(name, null);
+    for (const name of ["sleep", "fail", "probe-sleep", "ffmpeg-fail"]) {
+        await setControl(name, null);
+    }
     await rm(path.join(work, "cwebp.log"), { force: true });
+    await rm(path.join(work, "cwebp-args.log"), { force: true });
     await rm(path.join(work, "ffmpeg.log"), { force: true });
     await settings({ useWebP: true });
     checks.resetWebpBusyForTests();
@@ -181,16 +194,16 @@ afterEach(() => {
 
 async function settings(overrides: {
     useWebP?: boolean;
-    thumbnailWidth?: number;
-    thumbnailHeight?: number;
+    videoStreaming?: "off" | "hls" | "mp4";
+    hlsRenditions?: string[];
 }) {
     await db.upsertMediaSettings({
         userId,
         appId,
         useWebP: overrides.useWebP ?? true,
         webpOutputQuality: 80,
-        thumbnailWidth: overrides.thumbnailWidth ?? 100,
-        thumbnailHeight: overrides.thumbnailHeight ?? 50,
+        videoStreaming: overrides.videoStreaming ?? "off",
+        hlsRenditions: overrides.hlsRenditions ?? null,
     });
 }
 
@@ -283,9 +296,9 @@ function isWebp(data: Buffer): boolean {
 }
 
 describe("seal", { skip }, () => {
-    test("an app that never stored a thumbnail size keeps the old thumbnail sizes", async () => {
+    test("thumbnails have one size for every app, whatever size an older release stored", async () => {
         await pgTest.db.execute(
-            sql`update media_settings set thumbnail_width = null, thumbnail_height = null where user_id = ${userId} and app_id = ${appId}`,
+            sql`update media_settings set thumbnail_width = 100, thumbnail_height = 50 where user_id = ${userId} and app_id = ${appId}`,
         );
         const thumbSize = async (mediaId: string) => {
             const info = await readImageInfoFromBuffer(
@@ -302,18 +315,7 @@ describe("seal", { skip }, () => {
         assert.equal(await thumbSize(pixel.mediaId), "1x1");
 
         const videoPath = path.join(work, "default-size.mp4");
-        execFileSync("ffmpeg", [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=size=640x360:duration=1",
-            "-pix_fmt",
-            "yuv420p",
-            videoPath,
-        ]);
+        makeTestVideo(videoPath, { size: "640x360", seconds: 1 });
         const video = await upload(await readFile(videoPath), {
             mimeType: "video/mp4",
             fileName: "clip.mp4",
@@ -321,7 +323,7 @@ describe("seal", { skip }, () => {
         assert.equal(await thumbSize(video.mediaId), "1280x720");
     });
 
-    test("upload keeps the original, makes a sized thumbnail and never converts", async () => {
+    test("upload keeps the original, makes a thumbnail and never converts", async () => {
         const original = png();
         const media = await upload(original, { access: "public" });
         assert.equal(media.mimeType, "image/png");
@@ -339,13 +341,714 @@ describe("seal", { skip }, () => {
         const thumb = await readImageInfoFromBuffer(
             await bytes(media.mediaId, "private", "thumb.webp"),
         );
-        assert.deepEqual([thumb?.width, thumb?.height], [100, 50]);
+        // MediaLit's one thumbnail size: 16:9 from the center, at most 480
+        // px tall. png() makes each image a little wider than the last.
+        const ratio = (thumb?.width ?? 0) / (thumb?.height ?? 1);
+        assert.ok(Math.abs(ratio - 16 / 9) < 0.02, `ratio ${ratio}`);
+        assert.ok((thumb?.height ?? 0) <= 480);
         assert.deepEqual(
             await logLines("cwebp.log"),
             [],
             "a temp image is never converted",
         );
         assert.equal((await row(media.mediaId))?.processingStatus, "pending");
+    });
+
+    test("upload, seal and delete each send one event with only allowlisted properties", async () => {
+        const events = await import("../services/events.js");
+        const sent: Array<{
+            event: string;
+            subjectId?: unknown;
+            groups?: Record<string, unknown>;
+            properties?: Record<string, unknown>;
+        }> = [];
+        const restore = events.setEventSinkForTests((input) => {
+            sent.push(input);
+        });
+        try {
+            const media = await upload(png(), {
+                access: "public",
+                fileName: "secret-holiday.png",
+            });
+            await sealIt(media.mediaId);
+            await mediaService.deleteMedia({
+                userId,
+                appId,
+                mediaId: media.mediaId,
+            });
+            await events.flushEventsForTests();
+
+            assert.deepEqual(
+                sent.map((e) => e.event),
+                ["media.uploaded", "media.sealed", "media.deleted"],
+            );
+            const app = await db.getAppById(appId);
+            for (const event of sent) {
+                assert.equal(event.subjectId, userId);
+                assert.deepEqual(event.groups, { app: app?.appId });
+                assert.equal(event.properties?.media_id, media.mediaId);
+                assert.equal(event.properties?.app_id, appId);
+                assert.doesNotMatch(
+                    JSON.stringify(event),
+                    /secret-holiday|https?:/,
+                );
+            }
+            assert.deepEqual(
+                {
+                    transport: sent[0].properties?.transport,
+                    media_kind: sent[0].properties?.media_kind,
+                    thumbnail: sent[0].properties?.thumbnail,
+                },
+                { transport: "mcp", media_kind: "image", thumbnail: "made" },
+            );
+            assert.equal(sent[1].properties?.webp, "converted");
+            assert.equal(sent[1].properties?.access, "public");
+            assert.equal(typeof sent[1].properties?.duration_ms, "number");
+            assert.equal(sent[2].properties?.temp, false);
+        } finally {
+            restore();
+        }
+    });
+
+    test("seal reads metadata: ffprobe for video, the header for images", async () => {
+        const videoPath = path.join(work, "metadata.mp4");
+        makeTestVideo(videoPath, { size: "320x180", audio: true });
+        const video = await upload(await readFile(videoPath), {
+            mimeType: "video/mp4",
+            fileName: "metadata.mp4",
+            access: "public",
+        });
+        assert.equal(video.metadata, null, "temp media has no metadata");
+        const sealedVideo = await sealIt(video.mediaId);
+        const meta = sealedVideo.metadata!;
+        assert.equal(meta.kind, "video");
+        assert.equal(meta.width, 320);
+        assert.equal(meta.height, 180);
+        assert.equal(meta.videoCodec, "h264");
+        assert.equal(meta.audioCodec, "aac");
+        assert.equal(meta.frameRate, 25);
+        assert.ok(Math.abs(Number(meta.durationSeconds) - 2) < 0.2);
+        // Stored, so later reads return it too.
+        assert.deepEqual((await row(video.mediaId))?.metadata, meta);
+
+        const image = await upload(png(300, 200), { access: "private" });
+        const sealedImage = await sealIt(image.mediaId);
+        assert.deepEqual(sealedImage.metadata, {
+            kind: "image",
+            width: 300 + pngCount,
+            height: 200,
+            format: "webp",
+        });
+
+        await settings({ useWebP: false });
+        const kept = await upload(png(120, 80));
+        assert.deepEqual((await sealIt(kept.mediaId)).metadata, {
+            kind: "image",
+            width: 120 + pngCount,
+            height: 80,
+            format: "png",
+        });
+    });
+
+    test("a file that can't be read, or a slow ffprobe, still seals without metadata", async () => {
+        const broken = await upload(Buffer.from("not really a video"), {
+            mimeType: "video/mp4",
+            fileName: "broken.mp4",
+        });
+        const sealedBroken = await sealIt(broken.mediaId);
+        assert.equal(sealedBroken.metadata, null);
+        assert.equal((await row(broken.mediaId))?.temp, false);
+
+        const videoPath = path.join(work, "slow-probe.mp4");
+        makeTestVideo(videoPath, { size: "160x90", seconds: 1 });
+        const slow = await upload(await readFile(videoPath), {
+            mimeType: "video/mp4",
+            fileName: "slow.mp4",
+        });
+        await setControl("probe-sleep", "10");
+        const startedAt = Date.now();
+        const sealedSlow = await sealIt(slow.mediaId);
+        const took = Date.now() - startedAt;
+        assert.equal(sealedSlow.metadata, null);
+        assert.ok(
+            took < seal.SEAL_PROBE_TIMEOUT_MS + 3_000,
+            `seal waited ${took} ms for ffprobe`,
+        );
+
+        // The poster job has more time to read it, and keeps what it reads,
+        // so the video has metadata even with streaming off. Seal passed
+        // the poster no duration, so it probes.
+        await setControl("probe-sleep", null);
+        const job = await runPosterAndPublish(slow.mediaId);
+        assert.equal(job.payload.params.durationSeconds, undefined);
+        const filled = (await row(slow.mediaId))?.metadata;
+        assert.equal(filled?.kind, "video");
+        assert.equal(filled?.width, 160);
+        assert.equal(filled?.height, 90);
+        assert.ok(Math.abs(Number(filled?.durationSeconds) - 1) < 0.2);
+    });
+
+    /** A 10 s video whose first 3 s are black. */
+    async function blackStartVideo(): Promise<Buffer> {
+        const file = path.join(work, "black-start.mp4");
+        execFileSync(realFfmpeg!, [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:size=320x180:rate=25:duration=3",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=320x180:rate=25:duration=7",
+            "-filter_complex",
+            "[0:v][1:v]concat=n=2:v=1:a=0",
+            "-pix_fmt",
+            "yuv420p",
+            file,
+        ]);
+        return await readFile(file);
+    }
+
+    /** Average luma of a WebP in the bucket, 0-255. */
+    async function luma(mediaId: string, where: "private" | "public") {
+        const file = path.join(work, `luma-${mediaId}.webp`);
+        await writeFile(file, await bytes(mediaId, where, "thumb.webp"));
+        const out = execFileSync(
+            realFfmpeg!,
+            [
+                "-v",
+                "error",
+                "-i",
+                file,
+                "-vf",
+                "signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-",
+                "-f",
+                "null",
+                "-",
+            ],
+            { encoding: "utf8" },
+        );
+        return Number(/YAVG=([\d.]+)/.exec(out)?.[1]);
+    }
+
+    /** Runs the jobs seal queued for a media item, as the worker would:
+     * its poster, then media.publish. */
+    async function runPosterAndPublish(mediaId: string) {
+        const { posterJob } = await import("./poster.js");
+        const derivatives = await import("./derivatives.js");
+        const record = await row(mediaId);
+        assert.ok(record);
+        const [job] = (
+            await pgTest.db.execute(
+                sql`SELECT id, payload, priority, max_attempts FROM jobs
+                    WHERE media_id = ${record.id} AND type = 'media.poster'`,
+            )
+        ).rows as Array<{
+            id: string;
+            payload: { derivative: string; params: Record<string, unknown> };
+            priority: number;
+            max_attempts: number;
+        }>;
+        assert.ok(job, "seal queued a poster job");
+        await posterJob
+            .handler(job.payload, {
+                job: {
+                    id: job.id,
+                    mediaId: record.id,
+                    attempts: 1,
+                    maxAttempts: job.max_attempts,
+                } as never,
+                signal: new AbortController().signal,
+                workerId: "test",
+            })
+            .catch(() => undefined);
+        await derivatives.publishDerivatives(record.id);
+        return job;
+    }
+
+    test("sealing a video queues a poster that replaces the public thumb.webp with a frame that isn't black", async () => {
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "black-start.mp4",
+            access: "public",
+        });
+        const sealed = await sealIt(video.mediaId);
+        assert.deepEqual(sealed.processing, { status: "processing" });
+        assert.equal(sealed.derivatives.thumbnail.status, "queued");
+        // The upload thumbnail is the black first frame.
+        assert.ok((await luma(video.mediaId, "public")) < 32);
+
+        const job = await runPosterAndPublish(video.mediaId);
+        assert.equal(job.payload.derivative, "thumbnail");
+        assert.equal(job.payload.params.publicKey, "thumb.webp");
+        assert.equal(job.payload.params.thumbnailWidth, undefined);
+        assert.equal(job.payload.params.durationSeconds, 10);
+        // Free-plan jobs run after paid and self-hosted ones.
+        const { resolveAccountPlan } = await import(
+            "../billing/entitlements.js"
+        );
+        const { priorityFor } = await import("./processing-plan.js");
+        assert.equal(
+            job.priority,
+            priorityFor(await resolveAccountPlan({ id: userId })),
+        );
+
+        assert.ok((await luma(video.mediaId, "public")) > 32);
+        assert.deepEqual(await files(video.mediaId, "private"), []);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.deepEqual(after?.processing, { status: "ready" });
+        assert.equal(after?.derivatives.thumbnail.status, "ready");
+        assert.match(
+            String(after?.derivatives.thumbnail.url),
+            /\/thumb\.webp$/,
+        );
+        assert.equal(after?.thumbnail, after?.derivatives.thumbnail.url);
+    });
+
+    test("an app that never chose a video format gets only a poster, whatever the plan", async () => {
+        // Each app turns streaming on for itself; nothing stored means off,
+        // on self-hosted servers and paid plans too.
+        await db.upsertMediaSettings({
+            userId,
+            appId,
+            useWebP: true,
+            webpOutputQuality: 80,
+            videoStreaming: null,
+            hlsRenditions: null,
+        });
+        const { getMediaSettings } = await import(
+            "../media-settings/service.js"
+        );
+        assert.equal(
+            (await getMediaSettings(userId, appId)).videoStreaming,
+            "off",
+        );
+        try {
+            const video = await upload(await blackStartVideo(), {
+                mimeType: "video/mp4",
+                fileName: "never-chose.mp4",
+                access: "public",
+            });
+            const sealed = await sealIt(video.mediaId);
+            assert.equal(sealed.derivatives.thumbnail.status, "queued");
+            assert.equal(sealed.derivatives.mp4, undefined);
+            assert.equal(sealed.derivatives.hls, undefined);
+            const record = await row(video.mediaId);
+            const types = (
+                await pgTest.db.execute(
+                    sql`SELECT type FROM jobs WHERE media_id = ${record!.id}`,
+                )
+            ).rows.map((job) => job.type);
+            assert.deepEqual(types, ["media.poster"]);
+        } finally {
+            await settings({});
+        }
+    });
+
+    test("the billing page counts the apps with video streaming on", async () => {
+        try {
+            await settings({ videoStreaming: "off" });
+            assert.equal(await db.countVideoStreamingApps(userId), 0);
+            await settings({ videoStreaming: "hls" });
+            assert.equal(await db.countVideoStreamingApps(userId), 1);
+            await settings({ videoStreaming: "mp4" });
+            assert.equal(await db.countVideoStreamingApps(userId), 1);
+        } finally {
+            await settings({});
+        }
+    });
+
+    test("a poster that finishes before seal cleans up still ends up public", async () => {
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "race.mp4",
+            access: "private",
+        });
+        // Run the poster and publish between seal's commit and its cleanup
+        // of the private bucket.
+        seal.sealHooks.afterCommit = async () => {
+            delete seal.sealHooks.afterCommit;
+            await runPosterAndPublish(video.mediaId);
+        };
+        await sealIt(video.mediaId);
+        assert.ok((await luma(video.mediaId, "public")) > 32);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.equal(after?.derivatives.thumbnail.status, "ready");
+        assert.deepEqual(after?.processing, { status: "ready" });
+    });
+
+    test("a failed poster keeps the upload thumbnail and settles the media ready", async () => {
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "fails.mp4",
+        });
+        await sealIt(video.mediaId);
+        const before = await bytes(video.mediaId, "public", "thumb.webp");
+        await setControl("ffmpeg-fail", "1");
+        await runPosterAndPublish(video.mediaId);
+        await setControl("ffmpeg-fail", null);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.equal(after?.derivatives.thumbnail.status, "failed");
+        // D12: a failed poster leaves the media usable.
+        assert.equal(after?.processing.status, "ready");
+        assert.match(String(after?.processing.error), /^thumbnail: /);
+        assert.deepEqual(
+            await bytes(video.mediaId, "public", "thumb.webp"),
+            before,
+        );
+    });
+
+    test("a poster gives a video whose upload thumbnail failed its thumbnail", async () => {
+        await setControl("ffmpeg-fail", "1");
+        const video = await upload(await blackStartVideo(), {
+            mimeType: "video/mp4",
+            fileName: "no-thumb.mp4",
+        });
+        await setControl("ffmpeg-fail", null);
+        assert.equal(video.thumbnail, "");
+        await sealIt(video.mediaId);
+        await runPosterAndPublish(video.mediaId);
+        const after = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.match(String(after?.thumbnail), /\/thumb\.webp/);
+        assert.ok((await luma(video.mediaId, "public")) > 32);
+    });
+
+    /** Runs one job seal queued, as the worker would. Returns the error it
+     * threw, if any. */
+    async function runJob(
+        mediaId: string,
+        type: string,
+        attempts = 1,
+    ): Promise<{ id: string; error?: unknown }> {
+        const definitions = (await import("../jobs/definitions.js"))
+            .jobDefinitions;
+        const definition = definitions.find((d) => d.type === type);
+        assert.ok(definition, `no job type ${type}`);
+        const record = await row(mediaId);
+        assert.ok(record);
+        const [job] = (
+            await pgTest.db.execute(
+                sql`SELECT id, payload, max_attempts FROM jobs
+                    WHERE media_id = ${record.id} AND type = ${type}`,
+            )
+        ).rows as Array<{ id: string; payload: unknown; max_attempts: number }>;
+        assert.ok(job, `seal queued ${type}`);
+        try {
+            await definition.handler(job.payload as never, {
+                job: {
+                    id: job.id,
+                    mediaId: record.id,
+                    attempts,
+                    maxAttempts: job.max_attempts,
+                } as never,
+                signal: new AbortController().signal,
+                workerId: "test",
+            });
+            return { id: job.id };
+        } catch (error) {
+            return { id: job.id, error };
+        }
+    }
+
+    function makeVideo(
+        name: string,
+        size: string,
+        codec: string[],
+        audio: string[] = [],
+    ): Promise<Buffer> {
+        return readFile(
+            makeTestVideo(path.join(work, name), {
+                size,
+                audio: audio.length > 0,
+                codec: [...codec, ...audio],
+                ffmpeg: realFfmpeg!,
+            }),
+        );
+    }
+
+    const h264 = () =>
+        makeVideo(
+            "h264.mp4",
+            "640x360",
+            ["-c:v", "libx264", "-pix_fmt", "yuv420p"],
+            ["-c:a", "aac"],
+        );
+    const vp9 = () =>
+        makeVideo("vp9.webm", "640x360", [
+            "-c:v",
+            "libvpx-vp9",
+            "-deadline",
+            "realtime",
+        ]);
+
+    async function minutesUsed(): Promise<number> {
+        const { minutesUsed } = await import(
+            "../billing/processing-minutes.js"
+        );
+        return await minutesUsed(userId);
+    }
+
+    test("mp4: an H.264/AAC upload is remuxed for free, a VP9 one is re-encoded and charged", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const used = await minutesUsed();
+
+        const remuxed = await upload(await h264(), {
+            mimeType: "video/mp4",
+            fileName: "h264.mp4",
+            access: "public",
+        });
+        const sealed = await sealIt(remuxed.mediaId);
+        assert.equal(sealed.derivatives.mp4.status, "queued");
+        assert.equal(
+            (await runJob(remuxed.mediaId, "media.mp4")).error,
+            undefined,
+        );
+        await runJob(remuxed.mediaId, "media.poster");
+        const derivatives = await import("./derivatives.js");
+        await derivatives.publishDerivatives((await row(remuxed.mediaId))!.id);
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: remuxed.mediaId,
+        });
+        assert.equal(done?.derivatives.mp4.status, "ready");
+        assert.equal(done?.derivatives.mp4.mimeType, "video/mp4");
+        assert.deepEqual(done?.processing, { status: "ready" });
+        // Public media: the MP4 is published next to the original.
+        assert.deepEqual(await files(remuxed.mediaId, "public"), [
+            "main.mp4",
+            "thumb.webp",
+            "web.mp4",
+        ]);
+        const web = await bytes(remuxed.mediaId, "public", "web.mp4");
+        assert.ok(web.indexOf("moov") < web.indexOf("mdat"));
+        assert.equal(await minutesUsed(), used, "a remux is free");
+
+        const encoded = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "vp9.webm",
+            access: "private",
+        });
+        await sealIt(encoded.mediaId);
+        assert.equal(
+            (await runJob(encoded.mediaId, "media.mp4")).error,
+            undefined,
+        );
+        assert.equal(await minutesUsed(), used + 1, "a 2 s encode is 1 minute");
+        assert.deepEqual(await files(encoded.mediaId, "private"), [
+            "main.webm",
+            "web.mp4",
+        ]);
+    });
+
+    test("mp4: a source over VIDEO_MAX_SOURCE_BYTES fails for good, unread, and the media settles ready", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const video = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "big.webm",
+        });
+        await sealIt(video.mediaId);
+        process.env.VIDEO_MAX_SOURCE_BYTES = "1000";
+        const { error } = await runJob(video.mediaId, "media.mp4");
+        delete process.env.VIDEO_MAX_SOURCE_BYTES;
+        const { JobError } = await import("../jobs/errors.js");
+        assert.ok(error instanceof JobError);
+        assert.equal(error.retryable, false);
+        assert.equal(error.reason, "source_too_large");
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.equal(done?.derivatives.mp4.status, "failed");
+        assert.match(String(done?.derivatives.mp4.error), /^source_too_large/);
+        // D12: our limit, not the file's fault.
+        assert.equal(done?.processing.status, "ready");
+    });
+
+    test("mp4: out of processing minutes fails for good, charges nothing, and the media settles ready", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const video = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "no-minutes.webm",
+        });
+        await sealIt(video.mediaId);
+        const used = await minutesUsed();
+        const saved = process.env.PROCESSING_MINUTES_FREE;
+        const savedPaid = process.env.PROCESSING_MINUTES_PAID;
+        process.env.PROCESSING_MINUTES_FREE = String(used);
+        process.env.PROCESSING_MINUTES_PAID = String(used);
+        const { error } = await runJob(video.mediaId, "media.mp4");
+        if (saved === undefined) delete process.env.PROCESSING_MINUTES_FREE;
+        else process.env.PROCESSING_MINUTES_FREE = saved;
+        if (savedPaid === undefined) delete process.env.PROCESSING_MINUTES_PAID;
+        else process.env.PROCESSING_MINUTES_PAID = savedPaid;
+        const { resolveAccountPlan } = await import(
+            "../billing/entitlements.js"
+        );
+        if ((await resolveAccountPlan({ id: userId })) === "oss") {
+            // Self-hosted has no limit; nothing to check here.
+            assert.equal(error, undefined);
+            return;
+        }
+        const { JobError } = await import("../jobs/errors.js");
+        assert.ok(error instanceof JobError);
+        assert.equal(error.reason, "out_of_processing_minutes");
+        assert.equal(await minutesUsed(), used);
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.match(
+            String(done?.derivatives.mp4.error),
+            /^out_of_processing_minutes/,
+        );
+        assert.equal(done?.processing.status, "ready");
+    });
+
+    test("mp4: ffmpeg exiting with an error fails for good and gives the minutes back; killed by a signal, it is retried", async () => {
+        await settings({ videoStreaming: "mp4" });
+        const { JobError } = await import("../jobs/errors.js");
+        const video = await upload(await vp9(), {
+            mimeType: "video/webm",
+            fileName: "breaks.webm",
+        });
+        await sealIt(video.mediaId);
+        const used = await minutesUsed();
+
+        await writeFile(control("ffmpeg-kill"), "1");
+        const killed = await runJob(video.mediaId, "media.mp4");
+        await rm(control("ffmpeg-kill"), { force: true });
+        assert.ok(killed.error instanceof JobError);
+        assert.equal(killed.error.retryable, true);
+        assert.equal(killed.error.reason, "internal");
+        // Kept for the retry, which reuses the reservation.
+        assert.equal(await minutesUsed(), used + 1);
+
+        await setControl("ffmpeg-fail", "1");
+        const failed = await runJob(video.mediaId, "media.mp4", 2);
+        await setControl("ffmpeg-fail", null);
+        assert.ok(failed.error instanceof JobError);
+        assert.equal(failed.error.retryable, false);
+        assert.equal(failed.error.reason, "bad_input");
+        assert.equal(await minutesUsed(), used, "a failed encode is free");
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        // The file's fault: the media settles failed, the original stays.
+        assert.equal(done?.processing.status, "failed");
+        assert.equal(done?.derivatives.mp4.status, "failed");
+    });
+
+    test("hls: a 360p video gets the renditions that fit, as fMP4, and a signed playlist URL", async () => {
+        await settings({
+            videoStreaming: "hls",
+            hlsRenditions: ["720p", "480p", "360p"],
+        });
+        const used = await minutesUsed();
+        const video = await upload(await h264(), {
+            mimeType: "video/mp4",
+            fileName: "hls.mp4",
+            access: "private",
+        });
+        const sealed = await sealIt(video.mediaId);
+        assert.equal(sealed.derivatives.hls.status, "queued");
+        assert.equal(
+            (await runJob(video.mediaId, "media.hls")).error,
+            undefined,
+        );
+        await runJob(video.mediaId, "media.poster");
+
+        const stored = await files(video.mediaId, "private");
+        // 640x360: 720p and 480p are larger than the source.
+        const playlists = stored.filter(
+            (f) => f.startsWith("hls/") && !f.includes("seg"),
+        );
+        assert.deepEqual(playlists.slice(0, 2), [
+            "hls/master.m3u8",
+            "hls/v0/index.m3u8",
+        ]);
+        // ffmpeg names a lone rendition's init file init.mp4, others
+        // init_{n}.mp4.
+        assert.match(playlists[2], /^hls\/v0\/init(_0)?\.mp4$/);
+        assert.equal(playlists.length, 3, "one rendition only");
+        assert.ok(stored.includes("hls/v0/seg00000.m4s"));
+        const master = (
+            await bytes(video.mediaId, "private", "hls/master.m3u8")
+        ).toString("utf8");
+        assert.match(master, /RESOLUTION=640x360/);
+        assert.equal(await minutesUsed(), used + 1);
+
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        const hls = done?.derivatives.hls;
+        assert.equal(hls?.status, "ready");
+        assert.ok((hls?.size ?? 0) > 0);
+        assert.match(
+            String(hls?.url),
+            new RegExp(
+                `/media/${video.mediaId}/hls/\\d+\\.[A-Za-z0-9_-]{43}/master\\.m3u8$`,
+            ),
+        );
+        assert.deepEqual(done?.processing, { status: "ready" });
+    });
+
+    test("hls: a video whose worst-case output doesn't fit VIDEO_MAX_WORK_BYTES is refused before it is charged", async () => {
+        await settings({ videoStreaming: "hls" });
+        const video = await upload(await h264(), {
+            mimeType: "video/mp4",
+            fileName: "no-disk.mp4",
+            access: "private",
+        });
+        await sealIt(video.mediaId);
+        const used = await minutesUsed();
+        // Room for well under the video's 2 s at a 360p rendition's rate.
+        const source = (await bytes(video.mediaId, "private", "main.mp4"))
+            .length;
+        process.env.VIDEO_MAX_WORK_BYTES = String(source + 50_000);
+        const { error } = await runJob(video.mediaId, "media.hls");
+        delete process.env.VIDEO_MAX_WORK_BYTES;
+        const { JobError } = await import("../jobs/errors.js");
+        assert.ok(error instanceof JobError);
+        assert.equal(error.reason, "source_too_long");
+        assert.equal(error.retryable, false);
+        assert.equal(await minutesUsed(), used, "refused before charging");
+        await runJob(video.mediaId, "media.poster");
+        const done = await mediaService.getMediaDetails({
+            userId,
+            appId,
+            mediaId: video.mediaId,
+        });
+        assert.match(String(done?.derivatives.hls.error), /^source_too_long/);
+        assert.equal(done?.processing.status, "ready");
     });
 
     test("sealing a public image publishes only main.webp", async () => {
@@ -393,6 +1096,16 @@ describe("seal", { skip }, () => {
         // Sealing again returns the same media and converts nothing.
         assert.deepEqual(await sealIt(media.mediaId), sealed);
         assert.equal((await logLines("cwebp.log")).length, 1);
+    });
+
+    test("an app that never set a WebP quality converts at 80, not 0", async () => {
+        await pgTest.db.execute(
+            sql`update media_settings set webp_output_quality = null where user_id = ${userId} and app_id = ${appId}`,
+        );
+        const media = await upload(png(), { access: "private" });
+        await sealIt(media.mediaId);
+        const [args] = await logLines("cwebp-args.log");
+        assert.match(args ?? "", /(^| )-q 80( |$)/);
     });
 
     test("sealing a private image leaves only main.webp in the private bucket", async () => {
@@ -502,18 +1215,7 @@ describe("seal", { skip }, () => {
             fileName: "a.webp",
         });
         const videoPath = path.join(work, "clip.mp4");
-        execFileSync("ffmpeg", [
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc=size=640x360:duration=1",
-            "-pix_fmt",
-            "yuv420p",
-            videoPath,
-        ]);
+        makeTestVideo(videoPath, { size: "640x360", seconds: 1 });
         const video = await readFile(videoPath);
         const videoMedia = await upload(video, {
             mimeType: "video/mp4",
@@ -523,7 +1225,7 @@ describe("seal", { skip }, () => {
         const videoThumb = await readImageInfoFromBuffer(
             await bytes(videoMedia.mediaId, "private", "thumb.webp"),
         );
-        assert.deepEqual([videoThumb?.width, videoThumb?.height], [100, 50]);
+        assert.deepEqual([videoThumb?.width, videoThumb?.height], [1280, 720]);
         const doc = Buffer.from("just some text");
         const docMedia = await upload(doc, {
             mimeType: "text/plain",
@@ -535,7 +1237,11 @@ describe("seal", { skip }, () => {
             const sealed = await sealIt(media.mediaId);
             assert.equal(sealed.mimeType, media.mimeType);
             assert.equal(sealed.size, media.size);
-            assert.equal((await row(media.mediaId))?.processingStatus, "ready");
+            // A video goes on to its poster (phase 1, D11).
+            assert.equal(
+                (await row(media.mediaId))?.processingStatus,
+                media === videoMedia ? "processing" : "ready",
+            );
         }
         assert.deepEqual(await files(videoMedia.mediaId, "public"), [
             "main.mp4",

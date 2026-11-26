@@ -83,7 +83,7 @@
           "Media processing"
         ],
         "summary": "Update Media Settings",
-        "description": "Update configuration for media processing.",
+        "description": "Change media processing settings: WebP and video streaming. Send only the fields to change. Apps start with videoStreaming off, and null sets hlsRenditions back to the default sizes. Applies to media sealed afterwards.",
         "responses": {
           "200": {
             "description": "Settings updated successfully",
@@ -862,6 +862,101 @@
           }
         ],
         "operationId": "createUploadSignature"
+      }
+    },
+    "/media/{mediaId}/hls/{token}/master.m3u8": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "HLS master playlist of private media",
+        "description": "The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the length of the video plus an hour. Players fetch it themselves; clients never build this URL.",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The master playlist (application/vnd.apple.mpegurl)"
+          },
+          "403": {
+            "description": "Wrong or expired token"
+          },
+          "404": {
+            "description": "No ready HLS for this media",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          }
+        }
+      }
+    },
+    "/media/{mediaId}/hls/{token}/{rendition}/index.m3u8": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "HLS rendition playlist of private media",
+        "description": "A rendition playlist the master playlist points to, with every segment as a signed storage URL that lasts as long as the token.",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "rendition",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rendition playlist (application/vnd.apple.mpegurl)"
+          },
+          "403": {
+            "description": "Wrong or expired token"
+          },
+          "404": {
+            "description": "No such rendition, or no ready HLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          }
+        }
       }
     },
     "/media/create": {
@@ -1660,6 +1755,72 @@
               ],
               "additionalProperties": false
             }
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "video",
+                  "audio",
+                  "image"
+                ]
+              },
+              "durationSeconds": {
+                "type": "number",
+                "format": "float"
+              },
+              "width": {
+                "type": "number",
+                "format": "float"
+              },
+              "height": {
+                "type": "number",
+                "format": "float"
+              },
+              "rotation": {
+                "type": "number",
+                "format": "float",
+                "enum": [
+                  0,
+                  90,
+                  180,
+                  270
+                ]
+              },
+              "frameRate": {
+                "type": "number",
+                "format": "float"
+              },
+              "videoCodec": {
+                "type": "string"
+              },
+              "audioCodec": {
+                "type": "string"
+              },
+              "bitrate": {
+                "type": "number",
+                "format": "float"
+              },
+              "sampleRate": {
+                "type": "number",
+                "format": "float"
+              },
+              "channels": {
+                "type": "number",
+                "format": "float"
+              },
+              "format": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "nullable": true,
+            "description": "Duration, size, codecs and format, read at seal. Null before seal or when the file couldn't be read."
           }
         },
         "required": [
@@ -1728,20 +1889,29 @@
             "type": "boolean"
           },
           "webpOutputQuality": {
-            "type": "number",
-            "format": "float",
-            "minimum": 0,
+            "type": "integer",
+            "minimum": 1,
             "maximum": 100
           },
-          "thumbnailWidth": {
-            "type": "number",
-            "format": "float",
-            "minimum": 1
+          "videoStreaming": {
+            "type": "string",
+            "enum": [
+              "off",
+              "hls",
+              "mp4"
+            ]
           },
-          "thumbnailHeight": {
-            "type": "number",
-            "format": "float",
-            "minimum": 1
+          "hlsRenditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "1080p",
+                "720p",
+                "480p",
+                "360p"
+              ]
+            }
           }
         },
         "additionalProperties": false
@@ -1753,20 +1923,31 @@
             "type": "boolean"
           },
           "webpOutputQuality": {
-            "type": "number",
-            "format": "float",
-            "minimum": 0,
+            "type": "integer",
+            "minimum": 1,
             "maximum": 100
           },
-          "thumbnailWidth": {
-            "type": "number",
-            "format": "float",
-            "minimum": 1
+          "videoStreaming": {
+            "type": "string",
+            "enum": [
+              "off",
+              "hls",
+              "mp4"
+            ]
           },
-          "thumbnailHeight": {
-            "type": "number",
-            "format": "float",
-            "minimum": 1
+          "hlsRenditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "1080p",
+                "720p",
+                "480p",
+                "360p"
+              ]
+            },
+            "minItems": 1,
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1852,6 +2033,27 @@
           "maxStorage": {
             "type": "number",
             "format": "float"
+          },
+          "processingMinutes": {
+            "type": "object",
+            "properties": {
+              "used": {
+                "type": "number",
+                "format": "float"
+              },
+              "allowed": {
+                "type": "number",
+                "format": "float",
+                "nullable": true,
+                "description": "Null when there is no limit"
+              }
+            },
+            "required": [
+              "used",
+              "allowed"
+            ],
+            "additionalProperties": false,
+            "description": "Video processing minutes this calendar month (UTC)"
           }
         },
         "required": [

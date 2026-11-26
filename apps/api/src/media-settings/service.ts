@@ -1,57 +1,43 @@
-import * as queries from "./queries";
-import { MediaSettingsResponse } from "./schemas";
-import {
-    thumbnailHeight as defaultThumbnailHeight,
-    thumbnailWidth as defaultThumbnailWidth,
-} from "../config/constants";
+import { getMediaSettingsRecord } from "@/db";
+import { MediaSettingsResponse, mediaSettingsSchema } from "./schemas";
+import { DEFAULT_WEBP_QUALITY } from "../config/constants";
+import { effectiveVideoSettings } from "./video";
+import type { UpdateMediaSettingsProps } from "./queries";
 
 export async function getMediaSettings(
     userId: string,
     appId: string,
 ): Promise<MediaSettingsResponse> {
-    const mediaSettings = await queries.getMediaSettings(userId, appId);
-
-    if (!mediaSettings) {
-        return {
-            useWebP: false,
-            webpOutputQuality: 0,
-            thumbnailHeight: defaultThumbnailHeight,
-            thumbnailWidth: defaultThumbnailWidth,
-        };
-    }
-
+    const mediaSettings = await getMediaSettingsRecord(userId, appId);
     return {
-        useWebP: mediaSettings.useWebP || false,
-        webpOutputQuality: mediaSettings.webpOutputQuality || 0,
-        thumbnailHeight:
-            mediaSettings.thumbnailHeight || defaultThumbnailHeight,
-        thumbnailWidth: mediaSettings.thumbnailWidth || defaultThumbnailWidth,
+        useWebP: mediaSettings?.useWebP || false,
+        webpOutputQuality:
+            mediaSettings?.webpOutputQuality || DEFAULT_WEBP_QUALITY,
+        ...effectiveVideoSettings(mediaSettings),
     };
 }
 
-export interface UpdateMediaSettingsProps {
-    userId: string;
-    appId: string;
-    useWebP: boolean;
-    webpOutputQuality: number;
-    thumbnailWidth: number;
-    thumbnailHeight: number;
-}
+type SettingsFields = Omit<UpdateMediaSettingsProps, "userId" | "appId">;
 
-export async function updateMediaSettings({
-    userId,
-    appId,
-    useWebP,
-    webpOutputQuality,
-    thumbnailWidth,
-    thumbnailHeight,
-}: UpdateMediaSettingsProps): Promise<void> {
-    await queries.updateMediaSettings({
-        userId,
-        appId,
-        useWebP,
-        webpOutputQuality,
-        thumbnailWidth,
-        thumbnailHeight,
-    });
+const FIELDS = [
+    "useWebP",
+    "webpOutputQuality",
+    "videoStreaming",
+    "hlsRenditions",
+] as const;
+
+/** Picks the settings fields from a request body and validates them. A field
+ * missing from the body stays undefined, so it is left unchanged; `null` is
+ * kept, so the renditions reset. */
+export function parseMediaSettingsUpdate(
+    body: Record<string, unknown> | undefined,
+): { update: SettingsFields } | { error: string } {
+    const input = Object.fromEntries(
+        FIELDS.filter((field) => body?.[field] !== undefined).map((field) => [
+            field,
+            body![field],
+        ]),
+    );
+    const { error } = mediaSettingsSchema.validate(input);
+    return error ? { error: error.message } : { update: input };
 }

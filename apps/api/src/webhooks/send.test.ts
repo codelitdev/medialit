@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import type { GuardOptions, Resolver } from "./guard";
 import { MAX_RESPONSE_BYTES, sendWebhook } from "./send";
-import { REFUSED_ADDRESSES } from "./test-fixtures";
+import { SOME_REFUSED_ADDRESSES } from "./test-fixtures";
 
 type Seen = { host?: string; path?: string; sni?: string };
 
@@ -167,7 +167,7 @@ describe("sending a webhook", () => {
     });
 
     test("a hostname whose answer changed to a private address is refused at delivery", async () => {
-        for (const address of REFUSED_ADDRESSES) {
+        for (const address of SOME_REFUSED_ADDRESSES) {
             seen.length = 0;
             const result = await post(
                 `http://receiver.test:${server.port}/hook`,

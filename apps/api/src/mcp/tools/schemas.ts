@@ -1,3 +1,7 @@
+import {
+    HLS_RENDITIONS,
+    VIDEO_STREAMING_VALUES,
+} from "../../media-settings/video";
 import { z } from "zod";
 
 const accessSchema = z.enum(["public", "private"]);
@@ -31,12 +35,33 @@ export const mediaSchema = z.object({
         )
         .optional()
         .describe("Outputs made from the original, by name"),
+    metadata: z
+        .object({
+            kind: z.enum(["video", "audio", "image"]),
+            durationSeconds: z.number().optional(),
+            width: z.number().optional(),
+            height: z.number().optional(),
+            rotation: z.number().optional(),
+            frameRate: z.number().optional(),
+            videoCodec: z.string().optional(),
+            audioCodec: z.string().optional(),
+            bitrate: z.number().optional(),
+            sampleRate: z.number().optional(),
+            channels: z.number().optional(),
+            format: z.string().optional(),
+        })
+        .nullable()
+        .optional()
+        .describe(
+            "Duration, size, codecs and format, read at seal. Null before seal",
+        ),
 });
 
 export const mediaListItemSchema = mediaSchema.omit({
     file: true,
     processing: true,
     derivatives: true,
+    metadata: true,
 });
 
 export const mediaListSchema = z.object({
@@ -46,13 +71,19 @@ export const mediaListSchema = z.object({
 export const storageSchema = z.object({
     storage: z.number(),
     maxStorage: z.number(),
+    /** This month's video processing minutes; `allowed` is null when there
+     * is no limit. */
+    processingMinutes: z.object({
+        used: z.number(),
+        allowed: z.number().nullable(),
+    }),
 });
 
 export const mediaSettingsSchema = z.object({
     useWebP: z.boolean(),
-    webpOutputQuality: z.number().min(0).max(100),
-    thumbnailWidth: z.number().positive(),
-    thumbnailHeight: z.number().positive(),
+    webpOutputQuality: z.number().min(1).max(100),
+    videoStreaming: z.enum(VIDEO_STREAMING_VALUES),
+    hlsRenditions: z.array(z.enum(HLS_RENDITIONS)),
 });
 
 export const successMessageSchema = z.object({

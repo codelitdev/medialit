@@ -25,16 +25,9 @@ export const MEDIA_ID_LENGTH = 40;
 export const imagePattern = /^image\/(jpe?g|png)$/;
 export const imagePatternForThumbnailGeneration = /^image\/(jpe?g|png|webp)$/;
 export const videoPattern = /video/;
-export const thumbnailWidth = 120;
-export const thumbnailHeight = 69;
+/** WebP quality when the app hasn't set one. ImageKit defaults to 80 too. */
+export const DEFAULT_WEBP_QUALITY = 80;
 export const numberOfRecordsPerPage = 10;
-
-// Mail config
-export const mailHost = process.env.EMAIL_HOST;
-export const mailUser = process.env.EMAIL_USER;
-export const mailPass = process.env.EMAIL_PASS;
-export const mailFrom = process.env.EMAIL_FROM;
-export const mailPort = parseInt(process.env.EMAIL_PORT || "") || 587;
 
 // AWS S3 config
 export const CLOUD_ENDPOINT = process.env.CLOUD_ENDPOINT || "";

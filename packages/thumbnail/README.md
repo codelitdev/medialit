@@ -2,8 +2,6 @@
 
 > Create thumbnails from your image and video files for your Node.js based application.
 
-Each thumbnail is exactly the size you ask for: the image or video frame is scaled to cover it, keeping its aspect ratio, and the overflow is cropped from the center.
-
 For generating thumbnails, this package uses ffmpeg (for videos) utilities, so make sure that is installed on your machine before using this package.
 
 _Note: This module will always overwrite the thumbnail file, if already exists._
@@ -30,20 +28,21 @@ apt install ffmpeg
 ```
 import thumbnail from "@medialit/thumbnail";
 
-await thumbnail.forImage("./path/to/file.png", "./path/to/thumb.webp", {
-    width: 320,
-    height: 180,
-});
+await thumbnail.forImage("./path/to/file.png", "./path/to/thumb.webp");
 ```
 
 ## API
 
-### forImage(source, destination, size)
+### forImage(source, destination)
 
-Makes a `size.width` × `size.height` thumbnail of a local image file (PNG, JPEG, WebP or GIF).
+Makes a thumbnail of a local image file (PNG, JPEG, WebP or GIF): cropped to 16:9 from the center, at most 480 pixels tall.
 
-### forVideo(source, destination, size)
+### forVideo(source, destination)
 
-Makes a `size.width` × `size.height` thumbnail of a video's first frame. `source` is an `http(s)` URL; ffmpeg reads only the bytes it needs.
+Makes a thumbnail of a video's first frame, 720 pixels tall. `source` is an `http(s)` URL; ffmpeg reads only the bytes it needs.
 
-ffmpeg runs without a shell, in its own process group, and is killed after `THUMBNAIL_TIMEOUT_MS` (60 s). Sides are capped at `MAX_THUMBNAIL_SIDE` (4096).
+### forVideoPoster(source, destination, { seekSeconds, signal })
+
+Makes a video's poster: from `seekSeconds` on, skips near-black frames and picks the most representative frame. Sized like `forVideo`.
+
+ffmpeg runs without a shell, in its own process group, and is killed after `THUMBNAIL_TIMEOUT_MS` (60 s).

@@ -1,5 +1,10 @@
 import Joi from "joi";
-import { AccessControl } from "@medialit/models";
+import {
+    AccessControl,
+    type MediaDerivative,
+    type MediaMetadata,
+    type MediaProcessing,
+} from "@medialit/models";
 
 export const uploadMediaSchema = Joi.object({
     caption: Joi.string().optional().allow(""),
@@ -25,21 +30,12 @@ export interface MediaResponse {
     caption?: string;
     group?: string;
     /** Background processing of sealed media. */
-    processing: {
-        status: "pending" | "processing" | "ready" | "failed";
-        error?: string;
-    };
+    processing: MediaProcessing;
     /** Outputs made from the original, by name. `url` is set once ready. */
-    derivatives: Record<
-        string,
-        {
-            status: "queued" | "processing" | "ready" | "failed";
-            url?: string;
-            mimeType?: string;
-            size?: number;
-            error?: string;
-        }
-    >;
+    derivatives: Record<string, MediaDerivative>;
+    /** Duration, size, codecs and format, read at seal. Null before seal,
+     * or when the file couldn't be read. */
+    metadata: MediaMetadata | null;
 }
 
 export interface MediaListItemResponse {
@@ -84,6 +80,24 @@ export const mediaResponseSchema = Joi.object<MediaResponse>({
             }),
         )
         .required(),
+    metadata: Joi.object({
+        kind: Joi.string().valid("video", "audio", "image").required(),
+        durationSeconds: Joi.number().optional(),
+        width: Joi.number().optional(),
+        height: Joi.number().optional(),
+        rotation: Joi.number().valid(0, 90, 180, 270).optional(),
+        frameRate: Joi.number().optional(),
+        videoCodec: Joi.string().optional(),
+        audioCodec: Joi.string().optional(),
+        bitrate: Joi.number().optional(),
+        sampleRate: Joi.number().optional(),
+        channels: Joi.number().optional(),
+        format: Joi.string().optional(),
+    })
+        .allow(null)
+        .description(
+            "Duration, size, codecs and format, read at seal. Null before seal or when the file couldn't be read.",
+        ),
 });
 
 export const mediaListItemResponseSchema = Joi.object<MediaListItemResponse>({
@@ -105,4 +119,11 @@ export const mediaCountResponseSchema = Joi.object({
 export const mediaSizeResponseSchema = Joi.object({
     storage: Joi.number().required(),
     maxStorage: Joi.number().required(),
+    processingMinutes: Joi.object({
+        used: Joi.number().required(),
+        allowed: Joi.number()
+            .allow(null)
+            .required()
+            .description("Null when there is no limit"),
+    }).description("Video processing minutes this calendar month (UTC)"),
 });

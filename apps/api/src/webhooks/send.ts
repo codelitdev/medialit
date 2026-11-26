@@ -1,5 +1,5 @@
 /**
- * Sends one webhook request (pipelines-phase-0.md, D8). The hostname is
+ * Sends one webhook request. The hostname is
  * resolved and every address checked, then the request connects to the
  * checked address itself, with the hostname kept for SNI, certificate
  * checks and the `Host` header. Connecting by name after checking would

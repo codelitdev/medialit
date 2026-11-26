@@ -181,6 +181,24 @@ type={{
   }}
 />
 
+## MediaLitVideo
+
+Plays a video with the best version MediaLit made of it: HLS when the app's [`videoStreaming`](/docs/concepts#video-streaming) is `hls`, the web MP4 when it is `mp4`, and otherwise the original file. The poster is the video's thumbnail.
+
+```tsx
+import { MediaLitVideo } from "@medialit/react";
+
+// `media` is a media response from your server: GET /media/get/:mediaId,
+// or `medialit.get(mediaId)` with the Node.js SDK.
+<MediaLitVideo media={media} width={640} />;
+```
+
+Browsers with Media Source Extensions, which is every desktop browser, play HLS with [hls.js](https://github.com/video-dev/hls.js). The component loads it only when a video needs it, so pages without HLS don't download it. On iPhone, Safari plays HLS natively. If HLS fails to play, the component switches to the web MP4 or the original. Any other `<video>` prop, such as `autoPlay`, `muted` or `className`, passes through. `controls` and `playsInline` are on by default.
+
+To use another player, see [Playing videos](/docs/concepts#playing-videos).
+
+Fetch the media on your server and pass it down: its URLs are signed for private files and expire, so fetch it when the page renders rather than storing it.
+
 ## UploadedMedia
 
 What an upload returns.

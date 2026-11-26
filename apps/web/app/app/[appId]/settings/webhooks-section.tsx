@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import type {
@@ -23,6 +23,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    SettingsField,
+    SettingsFieldset,
+    SettingsHint,
+    SettingsStatus,
+} from "@/components/settings-field";
 
 const EVENT_LABELS: Record<WebhookEvent, string> = {
     "media.processing.ready": "Processing finished",
@@ -52,16 +59,13 @@ export default function WebhooksSection({
     const [deleting, setDeleting] = useState<WebhookEndpoint | null>(null);
 
     return (
-        <>
+        <div className="grid gap-4">
             {endpoints.length === 0 ? (
-                <p className="settings-subtle">
+                <SettingsHint>
                     This app has no webhook endpoints yet.
-                </p>
+                </SettingsHint>
             ) : (
-                <ul
-                    className="mb-4 mt-4 grid gap-3"
-                    aria-label="Webhook endpoints"
-                >
+                <ul className="grid gap-3" aria-label="Webhook endpoints">
                     {endpoints.map((endpoint) => (
                         <EndpointRow
                             key={endpoint.id}
@@ -114,7 +118,7 @@ export default function WebhooksSection({
                     if (deleted) router.refresh();
                 }}
             />
-        </>
+        </div>
     );
 }
 
@@ -173,16 +177,18 @@ function EndpointRow({
     }
 
     return (
-        <li className="grid gap-3 rounded-md border p-4">
+        <li className="grid gap-4 rounded-lg border border-border p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="grid gap-1 min-w-0">
-                    <strong className="break-all">{endpoint.url}</strong>
-                    <span className="settings-subtle text-sm">
+                <div className="grid min-w-0 gap-1">
+                    <span className="break-all text-[13px] font-semibold leading-5 text-foreground">
+                        {endpoint.url}
+                    </span>
+                    <SettingsHint>
                         {endpoint.enabled ? "Enabled" : "Disabled"} ·{" "}
                         {endpoint.events
                             .map((event) => EVENT_LABELS[event] ?? event)
                             .join(", ")}
-                    </span>
+                    </SettingsHint>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <button
@@ -229,41 +235,36 @@ function EndpointRow({
                     </button>
                 </div>
             </div>
-            <SecretField
-                // A rotation changes the hint and starts the field afresh.
-                key={endpoint.secretHint}
-                appId={appId}
-                endpointId={endpoint.id}
-                hint={endpoint.secretHint}
-                secret={rotatedSecret}
-                initiallyShown={rotatedSecret !== undefined}
-            />
-            <div className="flex flex-wrap items-center gap-3">
-                <button
-                    type="button"
-                    className="workspace-button ghost"
-                    disabled={pending !== ""}
-                    onClick={() =>
-                        change(
-                            "rotate",
-                            { rotateSecret: true },
-                            "New secret created. Update your receiver to use it.",
-                        )
-                    }
+            <SettingsField
+                label="Signing secret"
+                htmlFor={`secret-${endpoint.id}`}
+            >
+                <SecretField
+                    // A rotation changes the hint and starts the field afresh.
+                    key={endpoint.secretHint}
+                    appId={appId}
+                    endpointId={endpoint.id}
+                    hint={endpoint.secretHint}
+                    secret={rotatedSecret}
+                    initiallyShown={rotatedSecret !== undefined}
                 >
-                    {pending === "rotate" ? "Rotating…" : "Rotate secret"}
-                </button>
-                {feedback ? (
-                    <p className="inline-feedback" role="status">
-                        {feedback}
-                    </p>
-                ) : null}
-                {error ? (
-                    <p className="inline-error" role="alert">
-                        {error}
-                    </p>
-                ) : null}
-            </div>
+                    <button
+                        type="button"
+                        className="workspace-button secondary"
+                        disabled={pending !== ""}
+                        onClick={() =>
+                            change(
+                                "rotate",
+                                { rotateSecret: true },
+                                "New secret created. Update your receiver to use it.",
+                            )
+                        }
+                    >
+                        {pending === "rotate" ? "Rotating…" : "Rotate secret"}
+                    </button>
+                </SecretField>
+            </SettingsField>
+            <SettingsStatus error={error} success={feedback} />
         </li>
     );
 }
@@ -280,12 +281,15 @@ function SecretField({
     hint,
     secret: known,
     initiallyShown = false,
+    children,
 }: {
     appId: string;
     endpointId: string;
     hint: string;
     secret?: string;
     initiallyShown?: boolean;
+    /** More buttons for the row, after Show and Copy. */
+    children?: ReactNode;
 }) {
     const [secret, setSecret] = useState<string | undefined>(known);
     const [shown, setShown] = useState(initiallyShown && Boolean(known));
@@ -329,14 +333,14 @@ function SecretField({
 
     return (
         <div className="grid gap-2">
-            <div className="settings-control-row">
+            <div className="flex flex-wrap items-center gap-2">
                 <input
-                    className="settings-input settings-mono-input"
+                    id={`secret-${endpointId}`}
+                    className="settings-input settings-mono-input grow basis-[220px]"
                     value={
                         shown && secret ? secret : `whsec_••••••••••••${hint}`
                     }
                     readOnly
-                    aria-label="Signing secret"
                     onFocus={(event) => shown && event.currentTarget.select()}
                 />
                 <button
@@ -366,12 +370,9 @@ function SecretField({
                     )}
                     {copied ? "Copied" : "Copy"}
                 </button>
+                {children}
             </div>
-            {error ? (
-                <p className="inline-error" role="alert">
-                    {error}
-                </p>
-            ) : null}
+            <SettingsStatus error={error} />
         </div>
     );
 }
@@ -471,8 +472,7 @@ function EndpointDialog({
                     </>
                 ) : (
                     <form onSubmit={submit} className="grid gap-4">
-                        <div className="settings-field">
-                            <label htmlFor="webhook-url">URL</label>
+                        <SettingsField label="URL" htmlFor="webhook-url">
                             <input
                                 id="webhook-url"
                                 className="settings-input"
@@ -483,30 +483,30 @@ function EndpointDialog({
                                 placeholder="https://example.com/hooks/medialit"
                                 onChange={(event) => setUrl(event.target.value)}
                             />
-                        </div>
-                        <fieldset className="settings-field">
-                            <legend className="text-sm font-medium">
-                                Events
-                            </legend>
+                        </SettingsField>
+                        <SettingsFieldset legend="Events">
                             {events.map((item) => (
-                                <label
+                                <div
                                     key={item}
-                                    className="flex items-center gap-2 text-sm font-normal"
+                                    className="flex items-center gap-2"
                                 >
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
+                                        id={`event-${item}`}
                                         checked={selected.includes(item)}
-                                        onChange={() => toggle(item)}
+                                        onCheckedChange={() => toggle(item)}
                                     />
-                                    <span>
+                                    <label
+                                        htmlFor={`event-${item}`}
+                                        className="text-sm font-normal"
+                                    >
                                         {EVENT_LABELS[item] ?? item}{" "}
                                         <code className="settings-subtle">
                                             {item}
                                         </code>
-                                    </span>
-                                </label>
+                                    </label>
+                                </div>
                             ))}
-                        </fieldset>
+                        </SettingsFieldset>
                         {error ? (
                             <p className="inline-error" role="alert">
                                 {error}
