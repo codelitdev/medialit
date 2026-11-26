@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { videoSources } from "../src/medialit-video";
+import { hlsPlayback, videoSources } from "../src/medialit-video";
 
 describe("videoSources", () => {
     test("plays HLS when ready, with the web MP4 as the fallback", () => {
@@ -42,5 +42,34 @@ describe("videoSources", () => {
             hls: undefined,
             fallback: undefined,
         });
+    });
+});
+
+describe("hlsPlayback", () => {
+    test("uses hls.js wherever Media Source Extensions exist, even when the browser claims native HLS", () => {
+        // Desktop Chrome and Edge answer "maybe" for native HLS but can
+        // fail to play it on Windows.
+        assert.equal(
+            hlsPlayback({ mediaSource: true, nativeHls: true }),
+            "hls.js",
+        );
+        assert.equal(
+            hlsPlayback({ mediaSource: true, nativeHls: false }),
+            "hls.js",
+        );
+    });
+
+    test("plays natively without Media Source Extensions, as on iPhone", () => {
+        assert.equal(
+            hlsPlayback({ mediaSource: false, nativeHls: true }),
+            "native",
+        );
+    });
+
+    test("can't play HLS with neither", () => {
+        assert.equal(
+            hlsPlayback({ mediaSource: false, nativeHls: false }),
+            "none",
+        );
     });
 });

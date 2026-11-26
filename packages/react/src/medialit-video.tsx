@@ -25,6 +25,22 @@ export function videoSources(media: PlayableMedia): {
     };
 }
 
+/**
+ * How to play HLS: hls.js wherever the browser has Media Source Extensions,
+ * which is every desktop browser, and native playback only without them
+ * (Safari on iPhone). Desktop Chrome and Edge report native HLS support too,
+ * but on some platforms it fails without an error, so it isn't trusted when
+ * hls.js can run.
+ */
+export function hlsPlayback(browser: {
+    mediaSource: boolean;
+    nativeHls: boolean;
+}): "hls.js" | "native" | "none" {
+    if (browser.mediaSource) return "hls.js";
+    if (browser.nativeHls) return "native";
+    return "none";
+}
+
 export interface MediaLitVideoProps
     extends Omit<VideoHTMLAttributes<HTMLVideoElement>, "src"> {
     media: PlayableMedia;
@@ -33,10 +49,10 @@ export interface MediaLitVideoProps
 type HlsInstance = { destroy(): void };
 
 /**
- * Plays a MediaLit video: HLS when ready (natively in Safari and iOS, with
- * hls.js elsewhere, loaded only when needed), otherwise the web MP4 or the
- * original. The poster is the media's thumbnail. Other `<video>` props pass
- * through.
+ * Plays a MediaLit video: HLS when ready (with hls.js, loaded only when
+ * needed, or natively on iPhone), otherwise the web MP4 or the original.
+ * If HLS fails to play, it switches to the web MP4 or the original. The
+ * poster is the media's thumbnail. Other `<video>` props pass through.
  */
 export function MediaLitVideo({
     media,
@@ -44,6 +60,7 @@ export function MediaLitVideo({
     controls = true,
     playsInline = true,
     preload = "metadata",
+    onError,
     ...props
 }: MediaLitVideoProps) {
     const ref = useRef<HTMLVideoElement>(null);
@@ -55,18 +72,24 @@ export function MediaLitVideo({
         if (!video) return;
         let hls: HlsInstance | undefined;
         let cancelled = false;
-        if (
-            hlsUrl &&
-            video.canPlayType("application/vnd.apple.mpegurl") !== ""
-        ) {
+        const nativeHls =
+            video.canPlayType("application/vnd.apple.mpegurl") !== "";
+        const playback = hlsUrl
+            ? hlsPlayback({
+                  mediaSource:
+                      typeof window !== "undefined" && "MediaSource" in window,
+                  nativeHls,
+              })
+            : "none";
+        if (playback === "native") {
             setSrc(hlsUrl);
-        } else if (hlsUrl) {
+        } else if (playback === "hls.js" && hlsUrl) {
             setSrc(undefined);
             import("hls.js")
                 .then(({ default: Hls }) => {
                     if (cancelled) return;
                     if (!Hls.isSupported()) {
-                        setSrc(fallback);
+                        setSrc(nativeHls ? hlsUrl : fallback);
                         return;
                     }
                     const instance = new Hls();
@@ -99,6 +122,11 @@ export function MediaLitVideo({
         <video
             ref={ref}
             src={src}
+            onError={(event) => {
+                // Native HLS that won't play: switch to the file that will.
+                if (src && src === hlsUrl && fallback) setSrc(fallback);
+                onError?.(event);
+            }}
             poster={poster ?? media.thumbnail}
             controls={controls}
             playsInline={playsInline}
