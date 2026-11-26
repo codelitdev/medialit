@@ -32,7 +32,7 @@ Give the worker the CPU, memory and temporary disk listed in [Size the worker fo
 
 ## 3. Allow CORS on your storage
 
-Skip this if you use the bundled MinIO, or if no app will use `hls`. Browsers other than Safari read HLS segments with `fetch`, so S3, R2 and CloudFront need a CORS rule. See [Allow players to read video segments](/docs/self-hosting#allow-players-to-read-video-segments).
+Skip this if you use the bundled MinIO, or if no app will use `hls`. Browsers that can't play HLS natively, such as Firefox, read HLS segments with `fetch`, so S3, R2 and CloudFront need a CORS rule. See [Allow players to read video segments](/docs/self-hosting#allow-players-to-read-video-segments), which also shows how to check it.
 
 ## 4. Upgrade
 
@@ -47,7 +47,7 @@ The `init` service runs the migrations before the API and the worker start. If y
 
 1. `docker compose exec medialit-worker bun apps/api/scripts/jobs.ts workers` lists the worker with the classes `cpu,io,video`.
 2. Upload a video and seal it. Its `processing.status` is `processing`, then `ready` within a minute or so, and `derivatives.thumbnail` is `ready`.
-3. Turn on `hls` for a test app under **App settings** > **Media**, seal a video in it and play it in the dashboard's preview once `derivatives.hls` is `ready`.
+3. Turn on `hls` for a test app under **App settings** > **Media**, seal a video in it and play it in the dashboard's preview in Firefox once `derivatives.hls` is `ready`. Safari and recent Chrome play HLS without CORS, so they don't show whether step 3 worked; the [CORS check](/docs/self-hosting#allow-players-to-read-video-segments) does.
 
 ## Roll back
 

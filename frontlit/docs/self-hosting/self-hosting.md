@@ -508,7 +508,9 @@ The memory limit uses `prlimit`, from util-linux, which the MediaLit image inclu
 
 ## Allow players to read video segments
 
-Browsers other than Safari play HLS with hls.js, which reads playlists and segments with `fetch`. That needs CORS on your storage: allow `GET` and `HEAD` from any origin on both buckets. Segment URLs of private videos are signed, so this doesn't open anything up.
+Browsers that can't play HLS natively, such as Firefox, play it with hls.js, which reads playlists and segments with `fetch`. That needs CORS on your storage: allow `GET` and `HEAD` from any origin on both buckets. Segment URLs of private videos are signed, so this doesn't open anything up.
+
+Safari and recent versions of Chrome play HLS natively, without CORS. A video that plays in those browsers doesn't show that CORS is set; use the check at the end of this section.
 
 Playlists of private videos are served by the API at `PUBLIC_API_URL`, with CORS for any origin, so viewers' browsers must be able to reach that address.
 
@@ -528,6 +530,18 @@ aws s3api put-bucket-cors --bucket <bucket> --cors-configuration '{
 ```
 
 - **Behind CloudFront**, also attach the managed response headers policy `Managed-SimpleCORS` to the distribution's behaviors. Otherwise CloudFront can cache a response without the CORS header and serve it to browsers.
+
+To check, seal a video in an app with `hls` on, and once `derivatives.hls` is `ready`, ask storage for one of its segments with an `Origin` header:
+
+```bash
+# derivatives.hls.url from GET /media/get/<mediaId>
+MASTER='<master playlist URL>'
+VARIANT="${MASTER%/*}/$(curl -s "$MASTER" | grep -v '^#' | grep . | head -1)"
+SEGMENT=$(curl -s "$VARIANT" | grep '^http' | head -1)
+curl -s -o /dev/null -D - -H 'Origin: https://example.com' "$SEGMENT" | grep -i '^access-control-allow-origin'
+```
+
+It prints `access-control-allow-origin: *` when CORS is set. No output means hls.js players can't load the video.
 
 ## Size the worker for video
 
