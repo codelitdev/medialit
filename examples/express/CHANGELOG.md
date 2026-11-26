@@ -1,5 +1,14 @@
 # @example/express
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [450be9d]
+- Updated dependencies [022aaca]
+- Updated dependencies [4643c6c]
+    - medialit@0.5.0
+
 ## 0.1.2
 
 ### Patch Changes
