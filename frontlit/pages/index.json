@@ -1,0 +1,256 @@
+{
+  "$schema": "https://frontlit.app/schema/page.v1.json",
+  "title": "MediaLit: File storage for AI agents, apps and teams",
+  "description": "Store, serve and share files from your apps and AI agents. Free 1 GB plan, Pro 100 GB  for $10/mo. Open source, MCP server and CLI included.",
+  "layout": [
+    {
+      "name": "hero",
+      "settings": {
+        "verticalPadding": "py-40",
+        "maxWidth": "max-w-6xl",
+        "background": {
+          "type": "gradient",
+          "backgroundImage": "radial-gradient(ellipse 127% 99% at 50% 152%, #f9f6f2 0%, #f9f6f2 70%, rgba(142,106,199,0.95) 70.5%, rgba(192,132,252,0.45) 71.8%, rgba(236,72,153,0.12) 77%, transparent 85%), url(\"https://cdn.medialit.cloud/medialit-service/p/pmdTJNYA1LRAuWtavN-DqzXIj3NAw_LAcGakIlNv/main.webp\"), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 700' preserveAspectRatio='xMidYMid slice'%3E%3Cdefs%3E%3Cfilter id='s' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeDropShadow dx='0' dy='8' stdDeviation='10' flood-color='%235b4190' flood-opacity='0.18'/%3E%3C/filter%3E%3C/defs%3E%3Cg class='f' style='animation-duration:6s;animation-delay:0s'%3E%3Cg transform='translate(190 190) rotate(-8)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23fefdfb' stroke='%23e4d8f2' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%237a5bb5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%237a5bb5'%3EPDF%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:7.5s;animation-delay:-2s'%3E%3Cg transform='translate(320 430) rotate(7)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23fefdfb' stroke='%23e4d8f2' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%237a5bb5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%237a5bb5'%3EPNG%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:8s;animation-delay:-4s'%3E%3Cg transform='translate(95 350) rotate(-4)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23fefdfb' stroke='%23e4d8f2' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%237a5bb5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%237a5bb5'%3ESVG%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:6.5s;animation-delay:-1s'%3E%3Cg transform='translate(1410 180) rotate(8)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23fefdfb' stroke='%23e4d8f2' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%237a5bb5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%237a5bb5'%3EMP4%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:7s;animation-delay:-3s'%3E%3Cg transform='translate(1290 410) rotate(-7)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23fefdfb' stroke='%23e4d8f2' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%237a5bb5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%237a5bb5'%3EZIP%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:8.5s;animation-delay:-5s'%3E%3Cg transform='translate(1505 360) rotate(5)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23fefdfb' stroke='%23e4d8f2' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%237a5bb5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%237a5bb5'%3ECSV%3C/text%3E%3C/g%3E%3C/g%3E%3C/svg%3E\"), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 700' preserveAspectRatio='xMidYMid slice'%3E%3Cdefs%3E%3CradialGradient id='a'%3E%3Cstop offset='0' stop-color='%23a855f7' stop-opacity='0.5'/%3E%3Cstop offset='1' stop-color='%23a855f7' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b'%3E%3Cstop offset='0' stop-color='%23ec4899' stop-opacity='0.38'/%3E%3Cstop offset='1' stop-color='%23ec4899' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='c'%3E%3Cstop offset='0' stop-color='%23fbbf24' stop-opacity='0.34'/%3E%3Cstop offset='1' stop-color='%23fbbf24' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='d'%3E%3Cstop offset='0' stop-color='%233b82f6' stop-opacity='0.26'/%3E%3Cstop offset='1' stop-color='%233b82f6' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle class='a' cx='260' cy='60' r='560' fill='url(%23a)'/%3E%3Ccircle class='b' cx='1380' cy='20' r='520' fill='url(%23b)'/%3E%3Ccircle class='c' cx='1180' cy='470' r='470' fill='url(%23c)'/%3E%3Ccircle class='d' cx='330' cy='480' r='450' fill='url(%23d)'/%3E%3C/svg%3E\")",
+          "backgroundImageDark": "radial-gradient(ellipse 127% 99% at 50% 152%, #1b1510 0%, #1b1510 70%, rgba(196,167,255,1) 70.5%, rgba(168,85,247,0.55) 71.8%, rgba(236,72,153,0.18) 77%, transparent 85%), url(\"https://cdn.medialit.cloud/medialit-service/p/LNkJkwgEuOsjAiWB8RNmio5C5NCyoAMljR8J2fmp/main.webp\"), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 700' preserveAspectRatio='xMidYMid slice'%3E%3Cdefs%3E%3Cfilter id='s' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeDropShadow dx='0' dy='8' stdDeviation='10' flood-color='%23000000' flood-opacity='0.5'/%3E%3C/filter%3E%3C/defs%3E%3Cg class='f' style='animation-duration:6s;animation-delay:0s'%3E%3Cg transform='translate(190 190) rotate(-8)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23251e18' stroke='%233d3150' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%23c9b2f5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%23c9b2f5'%3EPDF%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:7.5s;animation-delay:-2s'%3E%3Cg transform='translate(320 430) rotate(7)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23251e18' stroke='%233d3150' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%23c9b2f5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%23c9b2f5'%3EPNG%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:8s;animation-delay:-4s'%3E%3Cg transform='translate(95 350) rotate(-4)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23251e18' stroke='%233d3150' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%23c9b2f5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%23c9b2f5'%3ESVG%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:6.5s;animation-delay:-1s'%3E%3Cg transform='translate(1410 180) rotate(8)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23251e18' stroke='%233d3150' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%23c9b2f5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%23c9b2f5'%3EMP4%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:7s;animation-delay:-3s'%3E%3Cg transform='translate(1290 410) rotate(-7)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23251e18' stroke='%233d3150' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%23c9b2f5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%23c9b2f5'%3EZIP%3C/text%3E%3C/g%3E%3C/g%3E%3Cg class='f' style='animation-duration:8.5s;animation-delay:-5s'%3E%3Cg transform='translate(1505 360) rotate(5)'%3E%3Crect x='-34' y='-34' width='68' height='68' rx='18' fill='%23251e18' stroke='%233d3150' filter='url(%23s)'/%3E%3Cpath d='M-12 -16h14l10 10v22a3 3 0 0 1-3 3h-21a3 3 0 0 1-3-3v-29a3 3 0 0 1 3-3z' fill='none' stroke='%23c9b2f5' stroke-width='2.2' stroke-linejoin='round' opacity='.55'/%3E%3Ctext y='26' text-anchor='middle' font-family='ui-monospace,SFMono-Regular,Menlo,monospace' font-size='12' font-weight='700' fill='%23c9b2f5'%3ECSV%3C/text%3E%3C/g%3E%3C/g%3E%3C/svg%3E\"), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 700' preserveAspectRatio='xMidYMid slice'%3E%3Cdefs%3E%3CradialGradient id='a'%3E%3Cstop offset='0' stop-color='%238b5cf6' stop-opacity='0.6'/%3E%3Cstop offset='1' stop-color='%238b5cf6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b'%3E%3Cstop offset='0' stop-color='%23db2777' stop-opacity='0.42'/%3E%3Cstop offset='1' stop-color='%23db2777' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='c'%3E%3Cstop offset='0' stop-color='%23d98f28' stop-opacity='0.3'/%3E%3Cstop offset='1' stop-color='%23d98f28' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='d'%3E%3Cstop offset='0' stop-color='%233b82f6' stop-opacity='0.32'/%3E%3Cstop offset='1' stop-color='%233b82f6' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle class='a' cx='260' cy='60' r='560' fill='url(%23a)'/%3E%3Ccircle class='b' cx='1380' cy='20' r='520' fill='url(%23b)'/%3E%3Ccircle class='c' cx='1180' cy='470' r='470' fill='url(%23c)'/%3E%3Ccircle class='d' cx='330' cy='480' r='450' fill='url(%23d)'/%3E%3C/svg%3E\")",
+          "gradientBackgroundSize": "100% 100%, 180px 180px, cover, cover",
+          "gradientBackgroundPosition": "center",
+          "gradientBackgroundRepeat": "repeat"
+        },
+        "layout": "centered",
+        "preTitle": "",
+        "title": "One home for every file your agents, apps and team create",
+        "titleSize": {
+          "desktop": 52
+        },
+        "description": "An agent saves a report, your app serves it, you find it in the dashboard. Same files, same links.",
+        "buttonCaption": "Start free",
+        "buttonAction": "https://app.medialit.cloud/login",
+        "secondaryButtonCaption": "Read the quick start",
+        "secondaryButtonAction": "https://docs.medialit.cloud/quick-start",
+        "contentAlignment": "center"
+      }
+    },
+    {
+      "name": "embed",
+      "settings": {
+        "contentType": "script",
+        "content": "<style>\n  .mlx-wrap, .mlx-proof {\n    --mlx-fg: var(--foreground, #261d16); --mlx-muted: var(--muted-foreground, #6a6258);\n    --mlx-card: var(--card, #fefdfb); --mlx-border: var(--border, #e2ddd5);\n    --mlx-v: #9b78d6; --mlx-violet: var(--mlx-v);\n    --mlx-violet-soft: color-mix(in oklab, var(--mlx-v) 13%, var(--card, #fefdfb));\n    --mlx-violet-ink: color-mix(in oklab, var(--mlx-v) 70%, var(--foreground, #261d16));\n    --mlx-wire: color-mix(in oklab, var(--mlx-v) 30%, var(--background, #f9f6f2));\n    --mlx-chip: var(--muted, #eeebe5); --mlx-shadow: color-mix(in oklab, var(--foreground, #261d16) 8%, transparent);\n  }\n  .mlx-wrap, .mlx-proof { font-family: \"fl-hanken-grotesk\", ui-sans-serif, system-ui, sans-serif; color: var(--mlx-fg); }\n  .mlx-wrap { max-width: 1040px; margin: 0 auto; padding: 8px 16px 24px; }\n  svg.mlx-flow { width: 100%; height: auto; display: block; overflow: visible; }\n  .mlx-card { fill: var(--mlx-card); stroke: var(--mlx-border); filter: drop-shadow(0 6px 18px var(--mlx-shadow)); }\n  .mlx-tile { fill: var(--mlx-violet-soft); }\n  .mlx-ico { fill: none; stroke: var(--mlx-violet); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }\n  .mlx-t1 { font: 600 16px \"fl-hanken-grotesk\", system-ui, sans-serif; fill: var(--mlx-fg); }\n  .mlx-t2 { font: 400 13px \"fl-hanken-grotesk\", system-ui, sans-serif; fill: var(--mlx-muted); }\n  .mlx-mono { font: 500 12.5px \"fl-spline-sans-mono\", ui-monospace, monospace; fill: var(--mlx-violet-ink); }\n  .mlx-wire { fill: none; stroke: var(--mlx-wire); stroke-width: 2; stroke-dasharray: 4 6; }\n  .mlx-wire-out { fill: none; stroke: var(--mlx-wire); stroke-width: 2; }\n  .mlx-flowdash { fill: none; stroke: var(--mlx-violet); stroke-width: 2; stroke-dasharray: 10 190; animation: mlx-dash 3.6s linear infinite; opacity: .7; }\n  @keyframes mlx-dash { to { stroke-dashoffset: -200; } }\n  .mlx-doc { fill: var(--mlx-violet); }\n  .mlx-hub { fill: url(#mlx-hubgrad); filter: drop-shadow(0 10px 30px rgba(142, 106, 199, 0.45)); }\n  .mlx-ring { fill: none; stroke: var(--mlx-violet); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: mlx-ring 1.2s ease-out infinite; animation-delay: 1.5s; }\n  @keyframes mlx-ring { from { transform: scale(1); opacity: .55; } to { transform: scale(1.45); opacity: 0; } }\n  .mlx-logo { transform-box: fill-box; transform-origin: center; animation: mlx-spin 6s cubic-bezier(.6,0,.2,1) infinite; }\n  @keyframes mlx-spin { 0%, 70% { transform: rotate(0deg); } 88%, 100% { transform: rotate(90deg); } }\n  .mlx-pt { fill: rgba(255,255,255,.22); stroke: #fff; stroke-width: 2.6; stroke-linejoin: round; animation: mlx-bloom 6s ease-in-out infinite; }\n  .mlx-pt1 { animation-delay: 1.2s; } .mlx-pt2 { animation-delay: 2.4s; } .mlx-pt3 { animation-delay: 3.6s; }\n  @keyframes mlx-bloom { 0%, 18%, 40%, 100% { transform: translateY(0); fill: rgba(255,255,255,.22); } 25% { transform: translateY(-3px); fill: rgba(255,255,255,.65); } }\n  .mlx-s-logo { width: 26px; height: 26px; }\n  .mlx-chip { fill: var(--mlx-chip); }\n  .mlx-pub { fill: var(--mlx-violet-soft); }\n  .mlx-row { opacity: 0; }\n  .mlx-r0 { animation: mlx-r0 6s ease-out infinite; }\n  .mlx-r1 { animation: mlx-r1 6s ease-out infinite; }\n  .mlx-r2 { animation: mlx-r2 6s ease-out infinite; }\n  @keyframes mlx-r0 { 0%, 25% { opacity: 0; transform: translateX(10px); } 30%, 90% { opacity: 1; transform: none; } 97%, 100% { opacity: 0; } }\n  @keyframes mlx-r1 { 0%, 45% { opacity: 0; transform: translateX(10px); } 50%, 90% { opacity: 1; transform: none; } 97%, 100% { opacity: 0; } }\n  @keyframes mlx-r2 { 0%, 65% { opacity: 0; transform: translateX(10px); } 70%, 90% { opacity: 1; transform: none; } 97%, 100% { opacity: 0; } }\n  .mlx-caret { animation: mlx-blink 1s steps(1) infinite; fill: var(--mlx-violet); }\n  @keyframes mlx-blink { 50% { opacity: 0; } }\n\n  /* Phone layout */\n  .mlx-stack { display: none; }\n  @media (max-width: 680px) {\n    svg.mlx-flow { display: none; }\n    .mlx-stack { display: flex; flex-direction: column; align-items: center; gap: 10px; }\n    .mlx-s-card { width: 100%; box-sizing: border-box; display: flex; gap: 12px; align-items: center; background: var(--mlx-card); border: 1px solid var(--mlx-border); border-radius: 16px; padding: 12px 14px; box-shadow: 0 6px 18px var(--mlx-shadow); }\n    .mlx-s-ico { width: 40px; height: 40px; border-radius: 12px; background: var(--mlx-violet-soft); display: grid; place-items: center; flex: none; }\n    .mlx-s-ico svg { width: 22px; height: 22px; }\n    .mlx-s-t1 { font-weight: 600; font-size: 15px; }\n    .mlx-s-t2 { font-size: 13px; color: var(--mlx-muted); }\n    .mlx-s-arrow { width: 2px; height: 22px; background: linear-gradient(var(--mlx-wire), var(--mlx-violet)); border-radius: 2px; animation: mlx-pulse 1.6s ease-in-out infinite; }\n    @keyframes mlx-pulse { 50% { opacity: .35; } }\n    .mlx-s-hub { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 16px; color: #fff; font-weight: 700; background: linear-gradient(135deg, #a07ad6, #7a55b8); box-shadow: 0 10px 30px rgba(142,106,199,.45); }\n    .mlx-s-url { font: 500 12.5px \"fl-spline-sans-mono\", ui-monospace, monospace; color: var(--mlx-violet-ink); background: var(--mlx-violet-soft); padding: 10px 14px; border-radius: 999px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n  }\n  @media (prefers-reduced-motion: reduce) {\n    .mlx-row { opacity: 1 !important; animation: none !important; transform: none !important; }\n    .mlx-ring, .mlx-flowdash, .mlx-caret, .mlx-s-arrow, .mlx-logo, .mlx-pt { animation: none !important; }\n    .mlx-doc { display: none; }\n  }\n  .mlx-proof { margin: 28px auto 0; text-align: center; font: 500 14px \"fl-hanken-grotesk\", system-ui, sans-serif; color: var(--mlx-muted); }\n  .mlx-proof b { color: var(--mlx-fg); font-weight: 600; }\n</style>\n\n<div class=\"mlx-wrap\" role=\"img\" aria-label=\"An AI agent, your app and you each upload a file to MediaLit. All three files land in one list, each with a public URL.\">\n  <svg class=\"mlx-flow\" viewBox=\"0 0 1000 380\" aria-hidden=\"true\">\n    <defs>\n      <linearGradient id=\"mlx-hubgrad\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">\n        <stop offset=\"0\" stop-color=\"#a988dd\"/><stop offset=\"1\" stop-color=\"#6f4bb0\"/>\n      </linearGradient>\n      <path id=\"mlx-p0\" d=\"M294 66 C 380 66, 380 190, 438 190\"/>\n      <path id=\"mlx-p1\" d=\"M294 190 C 360 190, 380 190, 438 190\"/>\n      <path id=\"mlx-p2\" d=\"M294 314 C 380 314, 380 190, 438 190\"/>\n    </defs>\n\n    <!-- wires -->\n    <use href=\"#mlx-p0\" class=\"mlx-wire\"/><use href=\"#mlx-p1\" class=\"mlx-wire\"/><use href=\"#mlx-p2\" class=\"mlx-wire\"/>\n    <path class=\"mlx-wire-out\" d=\"M562 190 C 590 190, 600 190, 628 190\"/>\n    <path class=\"mlx-flowdash\" d=\"M562 190 C 590 190, 600 190, 628 190\"/>\n\n    <!-- sources -->\n    <g>\n      <rect class=\"mlx-card\" x=\"40\" y=\"30\" width=\"254\" height=\"72\" rx=\"16\"/>\n      <rect class=\"mlx-tile\" x=\"56\" y=\"46\" width=\"40\" height=\"40\" rx=\"12\"/>\n      <g class=\"mlx-ico\" transform=\"translate(64 54)\"><path d=\"M12 8V4H8\"/><rect width=\"16\" height=\"12\" x=\"4\" y=\"8\" rx=\"2\"/><path d=\"M2 14h2\"/><path d=\"M20 14h2\"/><path d=\"M15 13v2\"/><path d=\"M9 13v2\"/></g>\n      <text class=\"mlx-t1\" x=\"110\" y=\"62\">AI agents</text><text class=\"mlx-t2\" x=\"110\" y=\"82\">Claude, ChatGPT over MCP</text>\n    </g>\n    <g>\n      <rect class=\"mlx-card\" x=\"40\" y=\"154\" width=\"254\" height=\"72\" rx=\"16\"/>\n      <rect class=\"mlx-tile\" x=\"56\" y=\"170\" width=\"40\" height=\"40\" rx=\"12\"/>\n      <g class=\"mlx-ico\" transform=\"translate(64 178)\"><path d=\"m18 16 4-4-4-4\"/><path d=\"m6 8-4 4 4 4\"/><path d=\"m14.5 4-5 16\"/></g>\n      <text class=\"mlx-t1\" x=\"110\" y=\"186\">Your app</text><text class=\"mlx-t2\" x=\"110\" y=\"206\">API + React uploader</text>\n    </g>\n    <g>\n      <rect class=\"mlx-card\" x=\"40\" y=\"278\" width=\"254\" height=\"72\" rx=\"16\"/>\n      <rect class=\"mlx-tile\" x=\"56\" y=\"294\" width=\"40\" height=\"40\" rx=\"12\"/>\n      <g class=\"mlx-ico\" transform=\"translate(64 302)\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"/><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"/></g>\n      <text class=\"mlx-t1\" x=\"110\" y=\"310\">You</text><text class=\"mlx-t2\" x=\"110\" y=\"330\">CLI + dashboard</text>\n    </g>\n\n    <!-- travelling files -->\n    <g class=\"mlx-doc\" opacity=\"0\">\n      <rect x=\"-9\" y=\"-11\" width=\"18\" height=\"22\" rx=\"4\"/>\n      <animateMotion dur=\"6s\" begin=\"0s\" repeatCount=\"indefinite\" keyPoints=\"0;1;1\" keyTimes=\"0;0.25;1\" calcMode=\"linear\"><mpath href=\"#mlx-p0\"/></animateMotion>\n      <animate attributeName=\"opacity\" dur=\"6s\" begin=\"0s\" repeatCount=\"indefinite\" values=\"0;1;1;0;0\" keyTimes=\"0;0.03;0.22;0.26;1\"/>\n    </g>\n    <g class=\"mlx-doc\" opacity=\"0\">\n      <rect x=\"-9\" y=\"-11\" width=\"18\" height=\"22\" rx=\"4\"/>\n      <animateMotion dur=\"6s\" begin=\"1.2s\" repeatCount=\"indefinite\" keyPoints=\"0;1;1\" keyTimes=\"0;0.25;1\" calcMode=\"linear\"><mpath href=\"#mlx-p1\"/></animateMotion>\n      <animate attributeName=\"opacity\" dur=\"6s\" begin=\"1.2s\" repeatCount=\"indefinite\" values=\"0;1;1;0;0\" keyTimes=\"0;0.03;0.22;0.26;1\"/>\n    </g>\n    <g class=\"mlx-doc\" opacity=\"0\">\n      <rect x=\"-9\" y=\"-11\" width=\"18\" height=\"22\" rx=\"4\"/>\n      <animateMotion dur=\"6s\" begin=\"2.4s\" repeatCount=\"indefinite\" keyPoints=\"0;1;1\" keyTimes=\"0;0.25;1\" calcMode=\"linear\"><mpath href=\"#mlx-p2\"/></animateMotion>\n      <animate attributeName=\"opacity\" dur=\"6s\" begin=\"2.4s\" repeatCount=\"indefinite\" values=\"0;1;1;0;0\" keyTimes=\"0;0.03;0.22;0.26;1\"/>\n    </g>\n\n    <!-- hub -->\n    <rect class=\"mlx-ring\" x=\"438\" y=\"128\" width=\"124\" height=\"124\" rx=\"30\"/>\n    <rect class=\"mlx-hub\" x=\"438\" y=\"128\" width=\"124\" height=\"124\" rx=\"30\"/>\n    <g transform=\"translate(456 134) scale(1.375)\">\n      <g class=\"mlx-logo\"><g transform=\"rotate(0 32 32)\"><path class=\"mlx-pt mlx-pt0\" d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\"/></g><g transform=\"rotate(90 32 32)\"><path class=\"mlx-pt mlx-pt1\" d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\"/></g><g transform=\"rotate(180 32 32)\"><path class=\"mlx-pt mlx-pt2\" d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\"/></g><g transform=\"rotate(270 32 32)\"><path class=\"mlx-pt mlx-pt3\" d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\"/></g></g>\n    </g>\n    <text x=\"500\" y=\"232\" text-anchor=\"middle\" style=\"font: 700 15px 'fl-hanken-grotesk', system-ui, sans-serif\" fill=\"#fff\">MediaLit</text>\n\n    <!-- output panel -->\n    <rect class=\"mlx-card\" x=\"628\" y=\"58\" width=\"344\" height=\"264\" rx=\"18\"/>\n    <text class=\"mlx-t1\" x=\"652\" y=\"94\">Files</text>\n    <text class=\"mlx-t2\" x=\"948\" y=\"94\" text-anchor=\"end\">one place</text>\n    <line x1=\"652\" x2=\"948\" y1=\"110\" y2=\"110\" stroke=\"var(--mlx-border)\"/>\n\n    <g class=\"mlx-row mlx-r0\">\n      <rect class=\"mlx-tile\" x=\"652\" y=\"124\" width=\"32\" height=\"32\" rx=\"9\"/>\n      <text class=\"mlx-mono\" x=\"668\" y=\"145\" text-anchor=\"middle\">PDF</text>\n      <text class=\"mlx-t1\" x=\"696\" y=\"137\" style=\"font-size:14px\">report.pdf</text><text class=\"mlx-t2\" x=\"696\" y=\"153\" style=\"font-size:12px\">from Claude</text>\n      <rect class=\"mlx-pub\" x=\"884\" y=\"129\" width=\"64\" height=\"22\" rx=\"11\"/><text class=\"mlx-mono\" x=\"916\" y=\"144\" text-anchor=\"middle\" style=\"font-size:11px\">public</text>\n    </g>\n    <g class=\"mlx-row mlx-r1\">\n      <rect class=\"mlx-tile\" x=\"652\" y=\"168\" width=\"32\" height=\"32\" rx=\"9\"/>\n      <text class=\"mlx-mono\" x=\"668\" y=\"189\" text-anchor=\"middle\">IMG</text>\n      <text class=\"mlx-t1\" x=\"696\" y=\"181\" style=\"font-size:14px\">avatar.png</text><text class=\"mlx-t2\" x=\"696\" y=\"197\" style=\"font-size:12px\">from your app</text>\n      <rect class=\"mlx-chip\" x=\"884\" y=\"173\" width=\"64\" height=\"22\" rx=\"11\"/><text class=\"mlx-t2\" x=\"916\" y=\"188\" text-anchor=\"middle\" style=\"font-size:11px\">private</text>\n    </g>\n    <g class=\"mlx-row mlx-r2\">\n      <rect class=\"mlx-tile\" x=\"652\" y=\"212\" width=\"32\" height=\"32\" rx=\"9\"/>\n      <text class=\"mlx-mono\" x=\"668\" y=\"233\" text-anchor=\"middle\">SVG</text>\n      <text class=\"mlx-t1\" x=\"696\" y=\"225\" style=\"font-size:14px\">logo.svg</text><text class=\"mlx-t2\" x=\"696\" y=\"241\" style=\"font-size:12px\">from you, via the CLI</text>\n      <rect class=\"mlx-pub\" x=\"884\" y=\"217\" width=\"64\" height=\"22\" rx=\"11\"/><text class=\"mlx-mono\" x=\"916\" y=\"232\" text-anchor=\"middle\" style=\"font-size:11px\">public</text>\n    </g>\n\n    <rect class=\"mlx-pub\" x=\"652\" y=\"268\" width=\"296\" height=\"34\" rx=\"17\"/>\n    <text class=\"mlx-mono\" x=\"672\" y=\"290\">cdn.medialit.cloud/…/report.pdf</text>\n    <rect class=\"mlx-caret\" x=\"928\" y=\"278\" width=\"2\" height=\"14\"/>\n  </svg>\n\n  <div class=\"mlx-stack\" aria-hidden=\"true\">\n    <div class=\"mlx-s-card\"><div class=\"mlx-s-ico\"><svg viewBox=\"0 0 24 24\" class=\"mlx-ico\" fill=\"none\" stroke=\"currentColor\"><path d=\"M12 8V4H8\"/><rect width=\"16\" height=\"12\" x=\"4\" y=\"8\" rx=\"2\"/><path d=\"M2 14h2\"/><path d=\"M20 14h2\"/><path d=\"M15 13v2\"/><path d=\"M9 13v2\"/></svg></div><div><div class=\"mlx-s-t1\">AI agents</div><div class=\"mlx-s-t2\">Claude, ChatGPT over MCP</div></div></div>\n    <div class=\"mlx-s-card\"><div class=\"mlx-s-ico\"><svg viewBox=\"0 0 24 24\" class=\"mlx-ico\" fill=\"none\" stroke=\"currentColor\"><path d=\"m18 16 4-4-4-4\"/><path d=\"m6 8-4 4 4 4\"/><path d=\"m14.5 4-5 16\"/></svg></div><div><div class=\"mlx-s-t1\">Your app</div><div class=\"mlx-s-t2\">API + React uploader</div></div></div>\n    <div class=\"mlx-s-card\"><div class=\"mlx-s-ico\"><svg viewBox=\"0 0 24 24\" class=\"mlx-ico\" fill=\"none\" stroke=\"currentColor\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"/><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"/></svg></div><div><div class=\"mlx-s-t1\">You</div><div class=\"mlx-s-t2\">CLI + dashboard</div></div></div>\n    <div class=\"mlx-s-arrow\"></div>\n    <div class=\"mlx-s-hub\"><svg class=\"mlx-s-logo\" viewBox=\"0 0 64 64\"><g fill=\"rgba(255,255,255,.22)\" stroke=\"#fff\" stroke-width=\"2.6\" stroke-linejoin=\"round\"><path d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\" transform=\"rotate(0 32 32)\"/><path d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\" transform=\"rotate(90 32 32)\"/><path d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\" transform=\"rotate(180 32 32)\"/><path d=\"M32,24 C28.8,19 28.8,13.5 32,10 C35.2,13.5 35.2,19 32,24 Z\" transform=\"rotate(270 32 32)\"/></g></svg> MediaLit</div>\n    <div class=\"mlx-s-arrow\"></div>\n    <div class=\"mlx-s-url\">cdn.medialit.cloud/…/report.pdf</div>\n  </div>\n</div>\n\n<p class=\"mlx-proof\">The file backend behind <b>CourseLit</b> and <b>SendLit</b></p>\n\n<script>\n  (function () {\n    if (window.matchMedia(\"(prefers-reduced-motion: reduce)\").matches) {\n      var s = document.querySelector(\"svg.mlx-flow\");\n      if (s && s.pauseAnimations) { s.pauseAnimations(); }\n    }\n  })();\n</script>"
+      }
+    },
+    {
+      "name": "grid",
+      "settings": {
+        "title": "Three ways in, one set of files",
+        "description": "An agent saves a report. You check it in the dashboard. Your app serves it from the same URL. Nobody copies files between tools.",
+        "items": [
+          {
+            "title": "Agents",
+            "description": "Let Claude, ChatGPT or Cursor save what they make and hand you a link that lasts, instead of losing it in a chat. They connect over MCP and sign in, so there's no API key to paste. Coding agents like Claude Code and Codex use the CLI.",
+            "icon": "Bot",
+            "mediaAlignment": "top",
+            "buttonCaption": "Storage for agents",
+            "buttonAction": "/agent-storage"
+          },
+          {
+            "title": "Apps",
+            "description": "Add uploads to your product without building the plumbing. Drop the React uploader into your frontend and call the REST API or the Node.js SDK from your server. Your API key never reaches the browser.",
+            "icon": "CodeXml",
+            "mediaAlignment": "top",
+            "buttonCaption": "File uploads for apps",
+            "buttonAction": "/file-uploads"
+          },
+          {
+            "title": "You",
+            "description": "See, preview and share every file in one dashboard. Upload from a terminal or a CI job with the same CLI your agents use.",
+            "icon": "Users",
+            "mediaAlignment": "top",
+            "buttonCaption": "File storage for businesses",
+            "buttonAction": "/file-storage"
+          }
+        ]
+      }
+    },
+    {
+      "name": "featured",
+      "settings": {
+        "cssId": "features",
+        "layout": "grid",
+        "title": "Adding uploads to your app? Skip the plumbing",
+        "description": "Storing user files in S3 yourself means presigned URLs, CORS rules, thumbnails, a database of what you stored and a job to clean up what nobody uses. MediaLit already does all of that, so you write one API call instead.\n\nSee how it fits your setup: [file uploads for developers](/file-uploads), [storage for AI agents](/agent-storage) and [file storage for businesses](/file-storage).",
+        "items": [
+          {
+            "title": "Direct browser uploads",
+            "description": "Your server hands out a short-lived signature and the browser uploads directly. Your API key never leaves your server.",
+            "icon": "CloudUpload"
+          },
+          {
+            "title": "No orphaned files",
+            "description": "Uploads stay temporary until your app decides to keep them. Anything nobody keeps is deleted after 24 hours, so abandoned uploads never pile up.",
+            "icon": "Trash2"
+          },
+          {
+            "title": "Public and private files",
+            "description": "Public files get a permanent URL. Private files are served through signed URLs that expire.",
+            "icon": "Lock"
+          },
+          {
+            "title": "Resumable uploads",
+            "description": "Large files upload in chunks and pick up where they left off after a dropped connection.",
+            "icon": "RefreshCcw"
+          },
+          {
+            "title": "Thumbnails",
+            "description": "Thumbnails are generated for images and videos on upload, with optional WebP conversion.",
+            "icon": "Image"
+          },
+          {
+            "title": "Every file, listed",
+            "description": "List your files with their details, paginated and filtered by group or access, without keeping your own database.",
+            "icon": "List"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rich-text",
+      "settings": {
+        "verticalPadding": "py-10",
+        "text": "## Up and running in a minute\n\nConnect an agent, upload from your terminal or call it from your code. Same account, same files.",
+        "alignment": "center"
+      }
+    },
+    {
+      "name": "rich-text",
+      "settings": {
+        "verticalPadding": "py-8",
+        "maxWidth": "max-w-5xl",
+        "text": "### 1. Connect an agent\n\nAdd the MCP server in Claude, ChatGPT, Cursor or any MCP client, then sign in. In Claude Code:\n\n```\nclaude mcp add --transport http medialit https://api.medialit.cloud/mcp\n```\n\n### 2. Upload from your terminal\n\nInstall the CLI, sign in once, and upload. In a CI job, set MEDIALIT\\_API\\_KEY instead of logging in.\n\n```\nnpm install -g @medialit/cli\nmedialit login\nmedialit upload photo.jpg --public\n```\n\n### 3. Call it from your code\n\nUse the Node.js SDK on your server, or the REST API from any language.\n\n```\nconst medialit = new MediaLit({ apiKey: process.env.MEDIALIT_API_KEY });\nconst media = await medialit.upload(\"./photo.jpg\", { access: \"public\" });\n```"
+      }
+    },
+    {
+      "name": "banner",
+      "settings": {
+        "background": {
+          "type": "gradient",
+          "backgroundImage": "url(\"https://cdn.medialit.cloud/medialit-service/p/pmdTJNYA1LRAuWtavN-DqzXIj3NAw_LAcGakIlNv/main.webp\"), radial-gradient(rgba(124,58,237,0.18) 1px, transparent 1.2px), conic-gradient(from 210deg at 50% 50%, #efe4fb, #fbe2ef, #fdecd9, #e0f0f2, #e8e2fb, #efe4fb)",
+          "backgroundImageDark": "url(\"https://cdn.medialit.cloud/medialit-service/p/LNkJkwgEuOsjAiWB8RNmio5C5NCyoAMljR8J2fmp/main.webp\"), radial-gradient(rgba(196,167,255,0.16) 1px, transparent 1.2px), conic-gradient(from 210deg at 50% 50%, #2b1f40, #3b1d33, #3a2a1c, #1b2d33, #261f3f, #2b1f40)",
+          "gradientBackgroundSize": "180px 180px, 22px 22px, 100% 100%",
+          "gradientBackgroundPosition": "center",
+          "gradientBackgroundRepeat": "repeat"
+        },
+        "title": "Open source, and portable",
+        "description": "Everything that runs medialit.cloud is open source. If you outgrow the hosted service or need your files somewhere else, run the same API yourself on AWS S3, Cloudflare R2, MinIO or any S3-compatible storage. Point your code at your server and it keeps working.",
+        "buttonCaption": "Read the self-hosting guide",
+        "buttonAction": "https://docs.medialit.cloud/self-hosting",
+        "secondaryButtonCaption": "View on GitHub",
+        "secondaryButtonAction": "https://github.com/codelitdev/medialit"
+      }
+    },
+    {
+      "name": "pricing",
+      "settings": {
+        "cssId": "pricing",
+        "layout": "grid",
+        "title": "Simple pricing",
+        "description": "Start free. Upgrade when you need more room. Every plan gets the API, the MCP server, the CLI and the dashboard.",
+        "pricingSwitcher": true,
+        "tiers": [
+          {
+            "name": "Free",
+            "price": "$0",
+            "priceYearly": "",
+            "description": "For side projects and trying MediaLit out.",
+            "features": [
+              "1 GB of storage",
+              "50 MB maximum file size",
+              "Unlimited uploads and downloads",
+              "Agent access over MCP",
+              "The CLI and the dashboard",
+              "Public and private files",
+              "Thumbnails for images and videos",
+              "Delivery through a CDN"
+            ],
+            "buttonCaption": "Start free",
+            "buttonAction": "https://app.medialit.cloud/login"
+          },
+          {
+            "name": "Pro",
+            "price": "$10/month",
+            "priceYearly": "$100/year",
+            "description": "For production apps and anyone with more to store. Same features, 100x the room.",
+            "features": [
+              "Everything in Free",
+              "100 GB of storage",
+              "2 GB maximum file size"
+            ],
+            "buttonCaption": "Upgrade to Pro",
+            "buttonAction": "https://app.medialit.cloud/account/billing",
+            "highlighted": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "faq",
+      "settings": {
+        "cssId": "faq",
+        "layout": "list",
+        "title": "Questions, answered",
+        "items": [
+          {
+            "question": "Is MediaLit just a wrapper around object storage?",
+            "answer": "No. Storing bytes is the easy part. MediaLit adds what you would otherwise build around it: browser uploads without exposing keys, resumable uploads, automatic cleanup of unused uploads, public and private access, a list of your files with their details, thumbnails, quotas, an MCP server for agents, a dashboard and a CLI."
+          },
+          {
+            "question": "Can I upload from the browser without exposing my API key?",
+            "answer": "Yes. Your server creates a short-lived upload signature and the browser uploads with it. The React uploader handles this for you."
+          },
+          {
+            "question": "Which AI assistants work with MediaLit?",
+            "answer": "Any client that supports remote MCP servers, including Claude, ChatGPT, Cursor and VS Code. You sign in with OAuth, so there is no API key to paste."
+          },
+          {
+            "question": "Can I upload from the terminal, a CI job or a coding agent?",
+            "answer": "Yes, with the CLI. Run medialit login on your machine, and you and any coding agent running there can use it. In CI, set MEDIALIT_API_KEY instead of logging in."
+          },
+          {
+            "question": "Can I use my own S3 or R2 bucket?",
+            "answer": "Yes, by self-hosting MediaLit on AWS S3, Cloudflare R2, MinIO or any S3-compatible storage. The hosted service at medialit.cloud stores files in its own storage."
+          },
+          {
+            "question": "Is the open-source version limited?",
+            "answer": "No. Everything that runs medialit.cloud is in the GitHub repository, licensed under AGPL-3.0."
+          },
+          {
+            "question": "What happens when I run out of storage?",
+            "answer": "New uploads are refused until you free up space or upgrade to Pro. Files you already have stay online and keep their URLs."
+          },
+          {
+            "question": "Who can see my files?",
+            "answer": "Only you, unless you make a file public. Public files get a permanent URL that anyone with the link can open. Private files can only be opened through signed URLs that expire. An agent gets access only after you sign in and connect it."
+          }
+        ]
+      }
+    },
+    {
+      "name": "banner",
+      "settings": {
+        "background": {
+          "type": "gradient",
+          "backgroundImage": "url(\"https://cdn.medialit.cloud/medialit-service/p/pmdTJNYA1LRAuWtavN-DqzXIj3NAw_LAcGakIlNv/main.webp\"), radial-gradient(ellipse 30% 40% at 50% 100%, rgba(255,255,255,0.85), transparent 70%), conic-gradient(from 270deg at 50% 105%, transparent 0deg, rgba(168,85,247,0.45) 30deg, transparent 48deg, rgba(236,72,153,0.38) 66deg, transparent 84deg, rgba(251,191,36,0.38) 96deg, transparent 114deg, rgba(59,130,246,0.30) 132deg, transparent 150deg, rgba(168,85,247,0.40) 160deg, transparent 180deg), radial-gradient(ellipse 80% 70% at 50% 100%, rgba(168,85,247,0.18), transparent 70%)",
+          "backgroundImageDark": "url(\"https://cdn.medialit.cloud/medialit-service/p/LNkJkwgEuOsjAiWB8RNmio5C5NCyoAMljR8J2fmp/main.webp\"), radial-gradient(ellipse 30% 40% at 50% 100%, rgba(255,255,255,0.18), transparent 70%), conic-gradient(from 270deg at 50% 105%, transparent 0deg, rgba(139,92,246,0.55) 30deg, transparent 48deg, rgba(219,39,119,0.42) 66deg, transparent 84deg, rgba(217,143,40,0.38) 96deg, transparent 114deg, rgba(59,130,246,0.38) 132deg, transparent 150deg, rgba(139,92,246,0.5) 160deg, transparent 180deg), radial-gradient(ellipse 80% 70% at 50% 100%, rgba(139,92,246,0.25), transparent 70%)",
+          "gradientBackgroundSize": "180px 180px, 100% 100%, 100% 100%, 100% 100%",
+          "gradientBackgroundPosition": "center",
+          "gradientBackgroundRepeat": "repeat",
+          "gradientMaskImage": "linear-gradient(to top, #000 50%, transparent 100%)"
+        },
+        "layout": "stacked",
+        "title": "Give your files one home",
+        "description": "Start free on medialit.cloud, or run it on your own infrastructure.",
+        "buttonCaption": "Start free",
+        "buttonAction": "https://app.medialit.cloud/login",
+        "secondaryButtonAction": "https://docs.medialit.cloud"
+      }
+    }
+  ]
+}

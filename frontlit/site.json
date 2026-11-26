@@ -1,0 +1,90 @@
+{
+  "$schema": "https://frontlit.app/schema/site.v1.json",
+  "header": {
+    "links": [
+      {
+        "label": "Features",
+        "href": "/#features"
+      },
+      {
+        "label": "Pricing",
+        "href": "/#pricing"
+      },
+      {
+        "label": "Docs",
+        "href": "/docs"
+      }
+    ],
+    "ctaLabel": "Start free",
+    "ctaHref": "https://app.medialit.cloud/login",
+    "githubRepo": "codelitdev/medialit",
+    "showGithubStars": true
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/codelitdev/medialit"
+    },
+    "columns": [
+      {
+        "title": "Resources",
+        "links": [
+          {
+            "label": "Docs",
+            "href": "/docs"
+          },
+          {
+            "label": "GitHub",
+            "href": "https://github.com/codelitdev/medialit"
+          },
+          {
+            "label": "Pricing",
+            "href": "/#pricing"
+          }
+        ]
+      },
+      {
+        "title": "Legal",
+        "links": [
+          {
+            "label": "Terms",
+            "href": "/terms"
+          },
+          {
+            "label": "Privacy",
+            "href": "/privacy"
+          }
+        ]
+      },
+      {
+        "title": "Alternatives ",
+        "links": [
+          {
+            "label": "MediaLit vs Amazon S3",
+            "href": "/compare#s3"
+          },
+          {
+            "label": "MediaLit vs UploadThing",
+            "href": "/compare-uploadthing"
+          },
+          {
+            "label": "MediaLit vs Cloudinary",
+            "href": "/compare-cloudinary"
+          },
+          {
+            "label": "MediaLit vs Filestack",
+            "href": "/compare#filestack"
+          },
+          {
+            "label": "MediaLit vs Vercel Blob",
+            "href": "/compare#vercel-blob"
+          },
+          {
+            "label": "MediaLit vs Supabase Storage",
+            "href": "/compare#supabase"
+          }
+        ]
+      }
+    ],
+    "copyrightText": "© MediaLit. All rights reserved."
+  }
+}
