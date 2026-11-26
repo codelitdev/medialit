@@ -193,7 +193,9 @@ import { MediaLitVideo } from "@medialit/react";
 <MediaLitVideo media={media} width={640} />;
 ```
 
-Safari and iOS play HLS natively. Other browsers use [hls.js](https://github.com/video-dev/hls.js), which the component loads only when a video needs it, so pages without HLS don't download it. Any other `<video>` prop, such as `autoPlay`, `muted` or `className`, passes through. `controls` and `playsInline` are on by default.
+Browsers with Media Source Extensions, which is every desktop browser, play HLS with [hls.js](https://github.com/video-dev/hls.js). The component loads it only when a video needs it, so pages without HLS don't download it. On iPhone, Safari plays HLS natively. If HLS fails to play, the component switches to the web MP4 or the original. Any other `<video>` prop, such as `autoPlay`, `muted` or `className`, passes through. `controls` and `playsInline` are on by default.
+
+To use another player, see [Playing videos](/docs/concepts#playing-videos).
 
 Fetch the media on your server and pass it down: its URLs are signed for private files and expire, so fetch it when the page renders rather than storing it.
 

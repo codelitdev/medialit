@@ -87,7 +87,7 @@ Change these settings in the dashboard under **App settings** > **Media**, or wi
 
 The `videoStreaming` setting decides what is made from sealed videos:
 
-- **`hls`** makes HLS streams with adaptive bitrate, the `hls` derivative: renditions from the app's `hlsRenditions` (`1080p`, `720p`, `480p` and `360p`; `1080p`, `720p` and `480p` by default), skipping any larger than the video, in 6-second segments. Players switch between them as the connection changes. `derivatives.hls.url` is the master playlist. For public videos it is a storage URL; for private videos it is a link to the MediaLit API that lasts for the video's length plus an hour and signs each segment for as long, so playback works however long the video is. Play it with [`MediaLitVideo`](/docs/react#medialitvideo), hls.js, Video.js or Safari's built-in player.
+- **`hls`** makes HLS streams with adaptive bitrate, the `hls` derivative: renditions from the app's `hlsRenditions` (`1080p`, `720p`, `480p` and `360p`; `1080p`, `720p` and `480p` by default), skipping any larger than the video, in 6-second segments. Players switch between them as the connection changes. `derivatives.hls.url` is the master playlist. For public videos it is a storage URL; for private videos it is a link to the MediaLit API that lasts for the video's length plus an hour and signs each segment for as long, so playback works however long the video is. Play it with [`MediaLitVideo`](/docs/react#medialitvideo) or any HLS player; see [Playing videos](#playing-videos).
 - **`mp4`** makes an MP4 optimized for the web, the `mp4` derivative: H.264 video and AAC audio with the index at the front, so playback starts before the whole file loads. A video that is already H.264/AAC in MP4 or MOV, at most 1080p and 8 Mbps, is only rewritten (seconds, no quality lost, no processing minutes). Anything else is re-encoded, at most 1080p and never larger than the original.
 - **`off`** makes only the poster.
 
@@ -104,7 +104,7 @@ Video processing is measured in minutes of video, rounded up per video. Re-encod
 Every media response has three more fields:
 
 - **`processing`** says where background processing of the file stands: `{ "status": "pending" }` until the file is sealed, then `processing` while work runs, and `ready` or `failed` when it ends. A failed step never makes the original unavailable, and `processing.error` says what went wrong.
-- **`metadata`** describes the file: `kind` (`video`, `audio` or `image`), and where they apply `durationSeconds`, `width` and `height` (as displayed, after rotation), `rotation`, `frameRate`, `videoCodec`, `audioCodec`, `bitrate`, `sampleRate`, `channels` and `format`. It is read when the file is sealed, so it is `null` for temporary uploads, and stays `null` if the file can't be read; the seal still succeeds.
+- **`metadata`** describes the file: `kind` (`video`, `audio` or `image`), and where they apply `durationSeconds`, `width` and `height` (as displayed, after rotation), `rotation`, `frameRate`, `videoCodec`, `audioCodec`, `bitrate`, `sampleRate`, `channels` and `format`. It is read when the file is sealed, so it is `null` for temporary uploads, and stays `null` if the file can't be read; the seal still succeeds. If a video takes too long to read at seal, its poster job reads it and fills it in shortly after.
 - **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. `thumbnail` is the same image as the `thumbnail` field. Sealed videos also get `mp4` or `hls`, as the app's [`videoStreaming`](#video-streaming) asks. A derivative is `queued` until it is made.
 
 A sealed video is `processing` until its poster and its MP4 or HLS are done, then `ready`. A failed poster, or video processing refused by a limit (out of processing minutes, too large or too long), leaves the file usable: the derivative is `failed` with its reason, `processing.error` says why, and the file's status is still `ready`.
@@ -124,6 +124,47 @@ A sealed video is `processing` until its poster and its MP4 or HLS are done, the
 ```
 
 Derivatives other than thumbnails count toward your storage.
+
+### Playing videos
+
+[`MediaLitVideo`](/docs/react#medialitvideo) handles all of this for React apps. Any other player works too, because everything it needs is in the media response:
+
+- **Pick a source.** Play `derivatives.hls.url` when `derivatives.hls.status` is `ready`, else `derivatives.mp4.url` when that is `ready`, else `file`. A `<video>` element plays the MP4 and the original as they are.
+- **Play HLS** with hls.js, Video.js, Shaka Player or another player built on Media Source Extensions in browsers, and with the built-in player on iPhone (Safari) and in native apps (AVPlayer, ExoPlayer). Desktop Chrome and Edge report built-in HLS support, but it can fail without an error, so prefer a Media Source Extensions player there.
+- **Don't store private URLs.** The playlist link of a private video expires (the video's length plus an hour), like `file`. Fetch the media again when you need to play it.
+- **Self-hosted:** browser players built on Media Source Extensions need [CORS on your storage](/docs/self-hosting#allow-players-to-read-video-segments). Native players don't.
+
+With hls.js:
+
+```js
+import Hls from "hls.js";
+
+const video = document.querySelector("video");
+const hls = media.derivatives?.hls;
+const fallback =
+    media.derivatives?.mp4?.status === "ready"
+        ? media.derivatives.mp4.url
+        : media.file;
+
+if (hls?.status === "ready" && Hls.isSupported()) {
+    const player = new Hls();
+    player.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+            player.destroy();
+            video.src = fallback;
+        }
+    });
+    player.loadSource(hls.url);
+    player.attachMedia(video);
+} else if (
+    hls?.status === "ready" &&
+    video.canPlayType("application/vnd.apple.mpegurl")
+) {
+    video.src = hls.url; // iPhone
+} else {
+    video.src = fallback;
+}
+```
 
 ## Limits
 
