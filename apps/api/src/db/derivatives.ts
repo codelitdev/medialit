@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { sql, type SQL } from "drizzle-orm";
 import type { AppDb } from "./client.js";
+import type { MediaMetadata } from "@medialit/models";
 import type { DerivativeStatus, ProcessingStatus } from "./schema/index.js";
 
 /** The database or a transaction. */
@@ -326,4 +327,19 @@ export async function orphanedDerivatives(
             LIMIT 500`,
     );
     return found.map(toDerivative);
+}
+
+/** Seal may not have read the metadata (its probe failed, was slow, or hit
+ * its read limit); a job's probe of the whole file fills in what is
+ * missing. Fields seal read are kept. */
+export async function fillMediaMetadata(
+    db: Executor,
+    mediaRowId: string,
+    metadata: MediaMetadata,
+): Promise<void> {
+    await db.execute(
+        sql`UPDATE media SET metadata =
+                ${JSON.stringify(metadata)}::jsonb || coalesce(metadata, '{}'::jsonb)
+            WHERE id = ${mediaRowId}`,
+    );
 }

@@ -474,6 +474,21 @@ describe("seal", { skip }, () => {
             took < seal.SEAL_PROBE_TIMEOUT_MS + 3_000,
             `seal waited ${took} ms for ffprobe`,
         );
+
+        // The poster job has more time to read it, and keeps what it reads,
+        // so the video has metadata even with streaming off. Seal passed
+        // the poster no duration, so it probes.
+        await setControl("probe-sleep", null);
+        const job = await runPosterAndPublish(slow.mediaId);
+        assert.equal(job.payload.params.durationSeconds, undefined);
+        const filled = (await row(slow.mediaId))?.metadata as Record<
+            string,
+            unknown
+        > | null;
+        assert.equal(filled?.kind, "video");
+        assert.equal(filled?.width, 160);
+        assert.equal(filled?.height, 90);
+        assert.ok(Math.abs(Number(filled?.durationSeconds) - 1) < 0.2);
     });
 
     /** A 10 s video whose first 3 s are black. */

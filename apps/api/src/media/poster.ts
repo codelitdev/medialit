@@ -21,7 +21,7 @@ import { permanentError } from "../jobs/errors";
 import { derivativeJob, mediaFolder } from "./derivatives";
 import { POSTER_ATTEMPTS, POSTER_JOB } from "./processing-plan";
 import { probeMedia } from "./probe";
-import type { LockedMedia } from "@/db";
+import { fillMediaMetadata, getDb, type LockedMedia } from "@/db";
 import { makeWorkDir, removeWorkDir } from "./work-files";
 
 export const POSTER_KEY = "poster.webp";
@@ -54,11 +54,18 @@ export const posterJob = derivativeJob({
         const source = await generateSignedUrl(original.key, original.bucket);
         let duration = Number(params.durationSeconds) || undefined;
         if (duration === undefined) {
+            // Seal couldn't read the metadata, e.g. a phone video whose
+            // index is at the end of the file, read over a slow link. This
+            // job has more time: keep what it reads, so the media has
+            // metadata even when no MP4 or HLS job runs.
             const probed = await probeMedia(source, {
                 timeoutMs: 30_000,
                 signal,
             }).catch(() => null);
             duration = probed?.metadata.durationSeconds;
+            if (probed) {
+                await fillMediaMetadata(getDb(), media.id, probed.metadata);
+            }
         }
 
         const workDir = await makeWorkDir("poster");

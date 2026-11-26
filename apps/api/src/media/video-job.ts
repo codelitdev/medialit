@@ -18,7 +18,7 @@
 import path from "node:path";
 import { ProcessLimitError } from "@medialit/images";
 import { sql } from "drizzle-orm";
-import { getDb } from "@/db";
+import { fillMediaMetadata, getDb } from "@/db";
 import { downloadObject, headObject } from "../services/s3";
 import logger from "../services/log";
 import { trackEvent } from "../services/events";
@@ -196,7 +196,7 @@ export function videoJob(definition: {
                         "the file has no video that can be read",
                     );
                 }
-                await fillMetadata(media.id, probe);
+                await fillMediaMetadata(getDb(), media.id, probe.metadata);
                 const duration = probe.metadata.durationSeconds ?? 0;
                 const width = probe.metadata.width ?? 0;
                 const height = probe.metadata.height ?? 0;
@@ -376,15 +376,4 @@ function reportFailure(
         userId: media.userId,
         properties,
     });
-}
-
-/** Seal may not have read all the metadata (the probe failed, was slow, or
- * hit its read limit); the job's probe of the whole file fills in what is
- * missing. Fields seal read are kept. */
-async function fillMetadata(mediaRowId: string, probe: ProbeResult) {
-    await getDb().execute(
-        sql`UPDATE media SET metadata =
-                ${JSON.stringify(probe.metadata)}::jsonb || coalesce(metadata, '{}'::jsonb)
-            WHERE id = ${mediaRowId}`,
-    );
 }
