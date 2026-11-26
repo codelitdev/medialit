@@ -17,7 +17,6 @@
  */
 import path from "node:path";
 import { ProcessLimitError } from "@medialit/images";
-import { sql } from "drizzle-orm";
 import { fillMediaMetadata, getDb } from "@/db";
 import { downloadObject, headObject } from "../services/s3";
 import logger from "../services/log";

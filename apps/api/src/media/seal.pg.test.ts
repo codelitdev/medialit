@@ -481,10 +481,7 @@ describe("seal", { skip }, () => {
         await setControl("probe-sleep", null);
         const job = await runPosterAndPublish(slow.mediaId);
         assert.equal(job.payload.params.durationSeconds, undefined);
-        const filled = (await row(slow.mediaId))?.metadata as Record<
-            string,
-            unknown
-        > | null;
+        const filled = (await row(slow.mediaId))?.metadata;
         assert.equal(filled?.kind, "video");
         assert.equal(filled?.width, 160);
         assert.equal(filled?.height, 90);
