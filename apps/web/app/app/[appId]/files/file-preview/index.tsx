@@ -293,6 +293,12 @@ function FileDetailsContent({
                         <dt>Uploaded</dt>
                         <dd>{formatRelativeUpload(media.createdAt)}</dd>
                     </div>
+                    {media.group && (
+                        <div>
+                            <dt>Group</dt>
+                            <dd className="mono">{media.group}</dd>
+                        </div>
+                    )}
                     <div>
                         <dt>File ID</dt>
                         <dd className="mono">{media.mediaId}</dd>
