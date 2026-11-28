@@ -36,7 +36,7 @@ When the video also has HLS (phase 1), the captions are added to the HLS playlis
 | `transcriptionProvider` | a provider id; now only `medialit` | `medialit` |
 
 - Every app starts `false`, existing and new, as `videoStreaming` does (phase 1, decision 9). An admin turns it on for the apps that need it. Null means `false`, so no backfill is needed.
-- It applies to video and audio uploads sealed afterwards. Seal copies it into the job's params.
+- It applies to video and audio uploads sealed afterwards. Seal copies it into the job's params. A seal request can override it for one upload (D13).
 - It is independent of `videoStreaming`. With streaming `off`, captions still attach to the original and the MP4 through `<track>` (D8).
 - **Language is detected**, not set. A `captionsLanguage` setting can come later if detection isn't good enough (#269).
 - The free plan can turn it on. It then uses its free minutes (D9).
@@ -265,6 +265,29 @@ Phase 1's D11, extended. "Audio known absent" means seal's metadata read the fil
 
 Audio and captions are background derivatives (D10): seal sets `processing_status = 'processing'` only for the others, so an audio upload with captions on settles at seal as today. Captions jobs use the same priority as video jobs (paid and self-hosted first).
 
+"Captions on" and phase 1's `videoStreaming` are the values in effect for that upload: the app's settings, or the seal request's override (D13).
+
+### D13. Processing settings can be overridden per upload, at seal
+
+The media settings are per app, and every video sealed in the app gets the same processing. An app that serves several kinds of users needs more: CourseLit lets trial schools upload large videos, and with HLS and captions on for its app, every trial upload would be encoded and transcribed, spending CourseLit's processing minutes and holding up paying schools in the same queue.
+
+- **`POST /media/seal/{mediaId}` takes an optional `processing` object:**
+
+    ```json
+    { "processing": { "videoStreaming": "off", "generateCaptions": false } }
+    ```
+
+    `videoStreaming` (`"off"`, `"hls"` or `"mp4"`, phase 1) and `generateCaptions` are each optional. A field that is left out uses the app's setting. `hlsRenditions` and `transcriptionProvider` always come from the app.
+
+- **Seal is the right place.** Processing is decided at seal (phase 0: compute is spent only on files that are kept), and seal is always called by the app's own server with its API key (or the dashboard, the CLI and MCP for their users). A browser holding an upload signature can't seal, so a trial user can't turn processing back on. Signatures don't change.
+- **Either direction.** The override can turn processing off for an app that has it on (trial schools) or on for an app that has it off (only paid schools). The caller holds the account's API key and its minutes, so there is nothing to protect by allowing only "off".
+- **Stored with the jobs, as the app settings are.** Seal copies the values in effect into each job's params, and the media response gains nothing new: the derivatives present show what ran.
+- **Sealing again changes nothing.** Seal is idempotent (phase 0): a second seal of sealed media returns it unchanged and ignores its `processing`. There is no reprocessing (section 11), so an upload sealed with processing off stays that way after the school upgrades.
+- **Exposed in** REST (in the OpenAPI spec), MCP (`seal_media` gains `processing`), the SDK, and the CLI (`medialit upload` and `medialit seal` gain `--streaming <off|hls|mp4>` and `--captions <on|off>`). Invalid values are a `400`, and the media stays temp.
+- **Observability:** `media.sealed` (phase 0) gains `processing_overridden` (boolean), `video_streaming` and `generate_captions`, the values in effect.
+
+Alternatives rejected: **a separate MediaLit app for trial schools** (works today, but media would have to move between apps when a school upgrades), and **the override in the upload signature** (signatures are made before the app knows whether the file will be kept, and seal already runs on the app's server).
+
 ## 4. Data model
 
 ```sql
@@ -283,7 +306,7 @@ No migration of existing rows.
 
 ## 5. Flows
 
-**Seal:** as in phase 1, with the jobs from D12. A derivative that waits gets its row, not its job.
+**Seal:** as in phase 1, with the jobs from D12, using the seal request's `processing` override where given (D13). A derivative that waits gets its row, not its job.
 
 **Audio:** start the derivative, check the size, download, probe, copy or encode the audio, upload, finish. Finishing queues the captions job, or fails it if the audio failed (D2). When captions settle, the audio is deleted (D3).
 
@@ -300,7 +323,8 @@ These changes only add fields and routes.
 - **Media settings** (REST, MCP, SDK): `generateCaptions` and `transcriptionProvider`. The `GET` response adds `transcriptionProviders` (D1). Setting a provider that isn't configured is a `400`.
 - **Media response** (REST, MCP, CLI, `@medialit/models`): `derivatives.captions` with `url`, `language` and `files` (D8). The internal `audio` derivative is left out of responses and webhook payloads.
 - **New route:** `GET /media/{mediaId}/hls/{token}/subs/index.m3u8` (D11), in the OpenAPI spec.
-- **CLI:** `medialit settings set --captions <on|off>`. `medialit get <mediaId>` shows the captions' language and URL.
+- **Seal** (REST, MCP, SDK, CLI): optional `processing: { videoStreaming?, generateCaptions? }` (D13).
+- **CLI:** `medialit settings set --captions <on|off>`; `medialit upload` and `medialit seal` take `--streaming` and `--captions` (D13). `medialit get <mediaId>` shows the captions' language and URL.
 - **Dashboard:** a Captions card in the Media tab (a switch, the minutes it uses, and a note when the server has no transcription service). File details show the captions' status and language, link the VTT and transcript, and the preview shows the captions.
 - **Webhooks:** new event `media.captions.ready`, sent when captions settle, ready or failed (D10). Subscribed to per endpoint, like the others, in REST, MCP (`create_webhook`, `update_webhook`) and the dashboard. `media.processing.ready` no longer waits for captions, and shows them as `queued` or `processing`.
 - **`@medialit/react`:** `MediaLitVideo` forwards a `ref` to its `<video>` element (D8).
@@ -376,6 +400,7 @@ The three capacity alerts aren't urgent, so they page at most once a day: `pageA
     - A **fake transcription provider** for integration tests (deterministic segments from the chunk's length), so the stack suites don't need the transcription image. One suite runs against the real service, in CI with the `tiny` model.
     - Integration tests with generated media (ffmpeg `sine` with gaps for silences, and `testsrc`):
         - `generateCaptions` on queues audio then captions for a video, captions only for an audio upload, and nothing for a video with no audio;
+        - a seal with `processing: { videoStreaming: "off", generateCaptions: false }` in an app with both on queues only the poster; the reverse, in an app with both off, queues HLS, audio and captions; a field left out uses the app's setting; an invalid value is a `400` and the media stays temp; sealing again with a different `processing` changes nothing;
         - an AAC source is copied, an Opus source is encoded, and the audio is gone from storage and from the response once captions settle, whether they are ready or failed;
         - a video with no audio stream (metadata unknown at seal) fails `audio` and `captions` with `no_audio_stream` while the media stays `ready`;
         - the outputs exist, the response has `url`, `language` and `files`, and private URLs are signed;
@@ -406,6 +431,7 @@ The three capacity alerts aren't urgent, so they page at most once a day: `pageA
 3. **The transcription service and provider** (D4): the image, CI, compose files, infra manifests, the provider interface, the fake provider.
 4. **#269 captions job** (D7, D8, D9): chunking, resume, outputs, minutes, the response fields, `<track>` in `MediaLitVideo`.
 5. **Captions in HLS** (D11): the served playlist for private media, `media.hls_subtitles` for public media.
+6. **Per-upload override at seal** (D13), in REST, MCP, the SDK and the CLI. It can ship first, on its own, since it also covers phase 1's `videoStreaming`.
 
 Each step ships its events, logs, exceptions and alerts from section 7.
 
@@ -431,3 +457,4 @@ Each step ships its events, logs, exceptions and alerts from section 7.
 6. **No new node for the first version** (D5). There is no caption traffic yet, so the transcription service shares the existing nodes, unloads its model when idle, and is evicted before the apps. A dedicated node is added when the queue, caption minutes, CPU credits or evictions call for it.
 7. **Captions don't hold up the media** (D10). They are background derivatives with their own webhook, `media.captions.ready`, and apps get a stable `transcript.json` contract and a `ref` on `MediaLitVideo` (D8), enough for synced transcripts without MediaLit knowing about them.
 8. **One transcription service, run by MediaLit: `medialit-transcribe`** (D1, D4). Tenants pick the provider per app; the list shows what is configured, with its health, and never hides a provider that is down. External providers come later, with the tenant's own API key and not charged as processing minutes.
+9. **Processing can be overridden per upload, at seal** (D13). `videoStreaming` and `generateCaptions` in the seal request override the app's settings for that upload, in either direction, so an app such as CourseLit can skip processing for trial users without a second app.
