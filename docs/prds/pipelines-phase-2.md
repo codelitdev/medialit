@@ -6,7 +6,7 @@
 
 ## 1. Goal
 
-Transcribe the audio of videos and audio files, and turn it into captions (WebVTT) and a transcript. Transcription runs on Whisper in MediaLit's own pods, with no hosted AI provider and no API key, so self-hosted installs and the cloud work the same, and audio never leaves the cluster.
+Transcribe the audio of videos and audio files, and turn it into captions (WebVTT) and a transcript. Transcription runs on Whisper in MediaLit's own transcription service (`medialit-transcribe`), with no hosted AI provider and no API key, so self-hosted installs and the cloud work the same, and audio never leaves the cluster. External providers, with the tenant's own API key, can be added later behind the same setting (D1, D4).
 
 One media setting controls it: `generateCaptions` (`boolean`, default `false`). Audio extraction is an internal step with no setting. It runs when captions need it.
 
@@ -28,17 +28,25 @@ When the video also has HLS (phase 1), the captions are added to the HLS playlis
 
 ## 3. Decisions
 
-### D1. One media setting, per app
+### D1. Media settings, per app
 
-| Setting            | Values    | Default |
-| ------------------ | --------- | ------- |
-| `generateCaptions` | `boolean` | `false` |
+| Setting                 | Values                             | Default    |
+| ----------------------- | ---------------------------------- | ---------- |
+| `generateCaptions`      | `boolean`                          | `false`    |
+| `transcriptionProvider` | a provider id; now only `medialit` | `medialit` |
 
 - Every app starts `false`, existing and new, as `videoStreaming` does (phase 1, decision 9). An admin turns it on for the apps that need it. Null means `false`, so no backfill is needed.
 - It applies to video and audio uploads sealed afterwards. Seal copies it into the job's params.
 - It is independent of `videoStreaming`. With streaming `off`, captions still attach to the original and the MP4 through `<track>` (D8).
 - **Language is detected**, not set. A `captionsLanguage` setting can come later if detection isn't good enough (#269).
 - The free plan can turn it on. It then uses its free minutes (D9).
+- **`transcriptionProvider`** picks who transcribes. In this phase the only provider is `medialit`, MediaLit's own transcription service (D4). Seal copies it into the job's params with `generateCaptions`, so changing it affects new uploads only, and a job never switches provider partway: two engines in one transcript would give uneven timing and style.
+- **The provider list is configuration, not health.** `GET` settings returns `transcriptionProviders: [{ id, name, configured, available }]`:
+    - `medialit` is listed when the API has `TRANSCRIBE_URL`; `available` is the service's last health check.
+    - A provider that is configured but down stays listed with `available: false`, and the dashboard shows it as "unavailable right now". A pod restart or eviction must not make a saved choice look broken; queued jobs retry and wait (D7).
+    - With no provider configured, the list is empty and the dashboard explains that the server has no transcription service.
+- **Dashboard:** the Captions card has the switch and, when more than one provider is listed, a dropdown. With one provider, there is no dropdown.
+- **External providers later (out of scope, section 11).** MediaLit runs only its own service. An external provider such as ElevenLabs is added as a `TranscriptionProvider` (D4) and enabled per app by the tenant entering their own API key: stored encrypted, write-only, shown afterwards only as its last characters (as webhook secrets are). It appears in the list once a key is saved. Its minutes aren't charged as processing minutes, because the tenant pays the provider. Sending audio to another company is the tenant's explicit choice; MediaLit never falls back to an external provider on its own.
 
 ### D2. Derivatives can wait for another derivative
 
@@ -63,11 +71,11 @@ Alternative rejected: **one job that extracts and transcribes.** It would hold a
 - **Internal and temporary** (section 12, decision 2). The audio exists only as the captions job's input. It is never published, and it isn't in the media response or the webhook payload. When `captions` settles (ready, or failed for good, including by the reconciler), the same transaction deletes the `audio` row and, after the commit, its file. While it exists it counts towards storage, like any derivative, for the few minutes it lives.
 - **Not metered:** a copy takes seconds, and an encode is a small fraction of a video encode.
 
-### D4. Transcription runs in a separate Whisper service
+### D4. Transcription runs in a separate, optional service: `medialit-transcribe`
 
-- Whisper runs as its own deployment, `medialit-whisper`, with an HTTP API on the cluster network only (a `ClusterIP` service and a network policy that admits only the worker). It has no authentication: nothing outside the cluster can reach it.
-- **The model is baked into the image** (`codelit/medialit-whisper`, built and pushed by CI like the API image, with the runtime and model versions pinned). Pods don't download anything at start, and self-hosted installs pull one image. Mounting the model from a volume is the fallback if the image gets too large to pull quickly.
-- **The model loads on the first request and unloads after 10 minutes idle** (`WHISPER_IDLE_UNLOAD_SECONDS`, default 600). Loading took 10 to 16 seconds on the QA node, small next to a chunk's transcription, and an idle pod then holds about 100 MB instead of about 1.9 GB. That is what lets the service share a node with the apps while there is little caption traffic (D5). The health route answers whether the model is loaded or not, so readiness doesn't depend on it.
+- Transcription runs as its own deployment, `medialit-transcribe`, optional for self-hosted installs, with an HTTP API on the cluster network only (a `ClusterIP` service and a network policy that admits only the worker). It has no authentication: nothing outside the cluster can reach it.
+- **The model is baked into the image** (`codelit/medialit-transcribe`, built and pushed by CI like the API image, with the runtime and model versions pinned). Pods don't download anything at start, and self-hosted installs pull one image. Mounting the model from a volume is the fallback if the image gets too large to pull quickly.
+- **The model loads on the first request and unloads after 10 minutes idle** (`TRANSCRIBE_IDLE_UNLOAD_SECONDS`, default 600). Loading took 10 to 16 seconds on the QA node, small next to a chunk's transcription, and an idle pod then holds about 100 MB instead of about 1.9 GB. That is what lets the service share a node with the apps while there is little caption traffic (D5). The health route answers whether the model is loaded or not, so readiness doesn't depend on it.
 - **It reports what capacity planning needs** (D5, section 7). Each response, and the health route, carries an `instance_id` made at process start, so the worker sees restarts. A transcribe response also carries `load_ms` when it loaded the model, and the node's CPU steal while it transcribed, from `/proc/stat` (node-wide, not per container). A burstable instance out of CPU credits shows up as steal.
 - **The worker sends it audio and gets segments back.** The TypeScript side converts, chunks, retries, stores and meters. The service only transcribes.
 - **Provider interface** (`apps/api/src/transcription/`):
@@ -88,15 +96,16 @@ Alternative rejected: **one job that extracts and transcribes.** It would hold a
         };
     };
     interface TranscriptionProvider {
-        name: string; // "faster-whisper"
-        model: string; // e.g. "large-v3-turbo-int8"
+        id: string; // "medialit", the value of transcriptionProvider (D1)
+        model: string; // e.g. "faster-whisper/large-v3-turbo-int8"
+        health(): Promise<{ available: boolean }>;
         transcribe(input: TranscribeInput): Promise<TranscribeResult>;
     }
     ```
 
-    `TRANSCRIPTION_PROVIDER` picks it (default `faster-whisper`, D5) and `WHISPER_URL` points to the service. A hosted provider such as ElevenLabs Scribe can be added later behind the same interface without touching the job.
+    The job picks the provider named in its params (D1). `TRANSCRIBE_URL` points to the service. An external provider with the tenant's key can be added later behind the same interface without touching the job (D1).
 
-- **Without `WHISPER_URL`** (a self-hosted install that didn't add the service), captions fail with `transcription_unavailable` and the media stays `ready`. The settings routes and the dashboard say so when `generateCaptions` is on and the API has no `WHISPER_URL`. The API and the worker read the same environment in our deployments; the docs say both need it.
+- **Without `TRANSCRIBE_URL`** (a self-hosted install that didn't add the service), captions fail with `transcription_unavailable` and the media stays `ready`. The settings routes and the dashboard say so when `generateCaptions` is on and the API has no `TRANSCRIBE_URL`. The API and the worker read the same environment in our deployments; the docs say both need it.
 
 ### D5. Runtime and model: faster-whisper, `large-v3-turbo` int8
 
@@ -132,7 +141,7 @@ Measured, for each runtime and model: real-time factor (seconds of audio per sec
 - **VAD is required.** Without it, both invent text in music and silence.
 - **Hindi is slow and weak on both** (about 2.4× real time, 26% character error rate). The FLEURS English rate is high for both because its read sentences are short and full of names and numbers; the long-form TED talk is the closer match to course videos.
 
-**Decision: faster-whisper with `large-v3-turbo` int8 and its Silero VAD.** It is more accurate, about 1.8× faster, and drops less speech. What it costs: a small HTTP wrapper of our own (`apps/whisper/`, Python, about a hundred lines: one `POST /transcribe` taking a WAV and returning `language` and `segments`, and `GET /health`), pinned with its dependencies in the image. faster-whisper 1.2.1 can't read files with PyAV 17 (`av.open` lost `metadata_errors`), so the wrapper decodes the WAV itself and passes samples; the image pins PyAV anyway.
+**Decision: faster-whisper with `large-v3-turbo` int8 and its Silero VAD.** It is more accurate, about 1.8× faster, and drops less speech. What it costs: a small HTTP wrapper of our own (`apps/transcribe/`, Python, about a hundred lines: one `POST /transcribe` taking a WAV and returning `language` and `segments`, and `GET /health`), pinned with its dependencies in the image. faster-whisper 1.2.1 can't read files with PyAV 17 (`av.open` lost `metadata_errors`), so the wrapper decodes the WAV itself and passes samples; the image pins PyAV anyway.
 
 **Sizing.** On 2 Graviton2 cores, faster-whisper runs at about 0.9× real time for English: one replica keeps up with about 25 hours of uploaded audio a day, less for languages such as Hindi. There is no caption traffic yet (captions are new and off by default, D1), so **the first version runs on the existing nodes**, in QA and prod, with no new node:
 
@@ -146,17 +155,17 @@ Measured, for each runtime and model: real-time factor (seconds of audio per sec
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | ---------------------- |
 | captions wait too long                                                                                                                                                                                                                                                                                                   | the oldest queued `transcribe` job                                         | `transcribe_queue_lag` |
 | more than about 2 hours of audio/day                                                                                                                                                                                                                                                                                     | caption minutes in `processing_usage`, in `captions.daily`                 | `captions_volume`      |
-| the node runs out of CPU credits                                                                                                                                                                                                                                                                                         | `cpu_steal_pct` on `captions.made`, and `speed` falling for the same audio | `whisper_throttled`    |
-| the Whisper pod keeps restarting                                                                                                                                                                                                                                                                                         | `whisper.restarted` (its `instance_id` changed)                            | `whisper_restarts`     |
+| the node runs out of CPU credits                                                                                                                                                                                                                                                                                         | `cpu_steal_pct` on `captions.made`, and `speed` falling for the same audio | `transcribe_throttled` |
+| the transcription pod keeps restarting                                                                                                                                                                                                                                                                                   | `transcribe.restarted` (its `instance_id` changed)                         | `transcribe_restarts`  |
 | It is a change to the deployment's node selector and requests, not to the code. Scaling past 2 threads wasn't measured, because the QA node has 2 cores; it is measured on the dedicated node when one is added. The job timeouts (D7) use 3× the audio's duration, which covers Hindi's 2.4× with room for a busy node. |
 
 ### D6. A `transcribe` job class
 
 - One transcription can take about as long as the audio. It must not hold up image and video jobs, and they must not hold it up.
-- New class `transcribe`, default concurrency 1, set with `WORKER_CONCURRENCY_TRANSCRIBE`. It should equal the number of Whisper replicas: the work happens in the Whisper pods, and the worker only converts chunks and waits. More concurrency than replicas only queues requests inside the service, where nothing tracks them.
+- New class `transcribe`, default concurrency 1, set with `WORKER_CONCURRENCY_TRANSCRIBE`. It should equal the number of transcription service replicas: the work happens in the service's pods, and the worker only converts chunks and waits. More concurrency than replicas only queues requests inside the service, where nothing tracks them.
 - The worker's own share is small: ffmpeg converting the audio to 16 kHz mono WAV (about 115 MB per hour) and the HTTP calls. So the job runs in the existing worker; no second worker deployment is needed. `WORKER_CLASSES` can still move it to one later.
 - **Audio extraction is `video`, not `cpu`:** it reads the same large originals as the encodes and needs the same temp disk budget, which the `video` slot already accounts for. A copy takes seconds, so it barely delays encodes. Paid and self-hosted jobs run first (phase 1, D11).
-- **Scaling** on queue length (KEDA or a similar autoscaler on the count of queued `transcribe` jobs) is out of the first version. One Whisper replica first, sized by the benchmark.
+- **Scaling** on queue length (KEDA or a similar autoscaler on the count of queued `transcribe` jobs) is out of the first version. One transcription service replica first, sized by the benchmark.
 
 ### D7. What a captions job does
 
@@ -176,7 +185,7 @@ Job `media.captions`, class `transcribe`, derivative `captions`.
 
 **Timeouts.** Each chunk request times out after `max(2 min, 2 × chunk length)` (set from the benchmark). The job's own limit is `max(15 min, 3 × duration)`, enforced by the job as video jobs do, with the job type's `timeoutMs` set to the largest possible value.
 
-**Retries.** Like every other derivative job, a captions job is retried before it fails (section 12, decision 5). It gets 5 attempts, more than encodes' 3, because progress is kept and the service is a network hop. Attempts back off as the queue's other retries do, so a Whisper pod that restarts has time to come back.
+**Retries.** Like every other derivative job, a captions job is retried before it fails (section 12, decision 5). It gets 5 attempts, more than encodes' 3, because progress is kept and the service is a network hop. Attempts back off as the queue's other retries do, so a transcription pod that restarts has time to come back.
 
 - **Permanent:** limits (`source_too_long`, `source_too_large`, `no_audio_stream`, `out_of_processing_minutes`), ffmpeg exiting with an error on our local file (`bad_input`), `transcription_unavailable`, and the job's timeout.
 - **Retried:** the service unreachable, a 5xx, a chunk request timing out, storage and database errors. A chunk that fails three times in one attempt fails the attempt.
@@ -213,7 +222,7 @@ Under the media's folder, as one derivative with key `captions/`:
 
 ### D10. Captions don't hold up the media, and have their own webhook
 
-Captions and extracted audio add to a file that already plays. They can also take much longer than the encodes: one Whisper replica works through captions one at a time (D6), so a queue there could delay a video's `ready` by hours if the media waited for them.
+Captions and extracted audio add to a file that already plays. They can also take much longer than the encodes: one transcription service replica works through captions one at a time (D6), so a queue there could delay a video's `ready` by hours if the media waited for them.
 
 - **`audio` and `captions` are background derivatives.** The media settles when every other derivative has settled, as phase 1 does, without waiting for them. `media.processing.ready` (or `failed`) fires then, and its payload shows `captions` as `queued` or `processing`.
 - **They never change the media's status.** Whatever their error, the original, poster, HLS and MP4 are still there, so a failed `audio` or `captions` never makes the media `failed`, and their settling doesn't touch `processing_status`. `leavesMediaUsable` isn't consulted for them.
@@ -282,13 +291,13 @@ No migration of existing rows.
 
 **Playback:** VTT through `<track>` for the original and the MP4; a subtitle track in HLS (D11).
 
-**Delete:** unchanged. The prefix delete removes `audio.m4a`, `captions/` (with any progress files) and `hls/subs/`. A running transcription aborts on its next heartbeat; the request in flight to Whisper is cancelled with the job's signal. Usage rows stay.
+**Delete:** unchanged. The prefix delete removes `audio.m4a`, `captions/` (with any progress files) and `hls/subs/`. A running transcription aborts on its next heartbeat; the request in flight to the transcription service is cancelled with the job's signal. Usage rows stay.
 
 ## 6. API surface
 
 These changes only add fields and routes.
 
-- **Media settings** (REST, MCP, SDK): `generateCaptions`. The `GET` response adds `captionsAvailable: boolean`, false when the server has no transcription provider configured (D4).
+- **Media settings** (REST, MCP, SDK): `generateCaptions` and `transcriptionProvider`. The `GET` response adds `transcriptionProviders` (D1). Setting a provider that isn't configured is a `400`.
 - **Media response** (REST, MCP, CLI, `@medialit/models`): `derivatives.captions` with `url`, `language` and `files` (D8). The internal `audio` derivative is left out of responses and webhook payloads.
 - **New route:** `GET /media/{mediaId}/hls/{token}/subs/index.m3u8` (D11), in the OpenAPI spec.
 - **CLI:** `medialit settings set --captions <on|off>`. `medialit get <mediaId>` shows the captions' language and URL.
@@ -303,13 +312,13 @@ Through `@codelitdev/observability`, as phase 1 (section 7 there). Events carry 
 
 ### 7.1 Events
 
-| Event               | When                                                                            | Properties                                                                                                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `audio.extracted`   | an audio job succeeds                                                           | `media_id`, `copied` (stream copy or encode), `source_duration_s`, `audio_codec`, `duration_ms`, `size_bytes`                                                                 |
-| `captions.made`     | a captions job succeeds                                                         | `media_id`, `source`(`audio_upload` \| `video`), `language`, `provider`, `model`, `source_duration_s`, `chunks`, `cues`, `resumed`, `duration_ms`, `speed`, `minutes_charged` |
-| `captions.failed`   | a captions job fails for good                                                   | `media_id`, `failed_reason`, `provider`, `source_duration_s`, `chunks_done`                                                                                                   |
-| `whisper.restarted` | the worker sees a new `instance_id` from the service (health check or response) | `previous_instance_id`, `instance_id`, `during_job` (a chunk was in flight), `uptime_s` of the previous instance when known                                                   |
-| `captions.daily`    | once a day, from the worker holding the alerts lock                             | `jobs`, `failed`, `audio_minutes`, `median_speed`, `p95_queue_wait_s`, `max_cpu_steal_pct`, `whisper_restarts`, `model_loads` (all over the last 24 hours)                    |
+| Event                  | When                                                                            | Properties                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audio.extracted`      | an audio job succeeds                                                           | `media_id`, `copied` (stream copy or encode), `source_duration_s`, `audio_codec`, `duration_ms`, `size_bytes`                                                                 |
+| `captions.made`        | a captions job succeeds                                                         | `media_id`, `source`(`audio_upload` \| `video`), `language`, `provider`, `model`, `source_duration_s`, `chunks`, `cues`, `resumed`, `duration_ms`, `speed`, `minutes_charged` |
+| `captions.failed`      | a captions job fails for good                                                   | `media_id`, `failed_reason`, `provider`, `source_duration_s`, `chunks_done`                                                                                                   |
+| `transcribe.restarted` | the worker sees a new `instance_id` from the service (health check or response) | `previous_instance_id`, `instance_id`, `during_job` (a chunk was in flight), `uptime_s` of the previous instance when known                                                   |
+| `captions.daily`       | once a day, from the worker holding the alerts lock                             | `jobs`, `failed`, `audio_minutes`, `median_speed`, `p95_queue_wait_s`, `max_cpu_steal_pct`, `transcribe_restarts`, `model_loads` (all over the last 24 hours)                 |
 
 `captions.made` also carries `cpu_steal_pct` (the highest over its chunks) and `model_loads` (chunks that loaded the model), from the service's `stats` (D4). `captions.daily` is what the capacity dashboard reads; `operations.page` covers the alerts below.
 
@@ -321,7 +330,7 @@ Through `@codelitdev/observability`, as phase 1 (section 7 there). Events carry 
 | ------------------------------ | ----- | -------------------------------------------------------------------------------------------- |
 | `audio extracted`              | info  | `copied`, `source_duration_s`, `duration_ms`, `size_bytes`                                   |
 | `captions chunk transcribed`   | debug | `chunk`, `chunks`, `chunk_duration_s`, `duration_ms`, `segments`, `cpu_steal_pct`, `load_ms` |
-| `whisper restarted`            | warn  | `previous_instance_id`, `instance_id`, `during_job`, `uptime_s`                              |
+| `transcribe restarted`         | warn  | `previous_instance_id`, `instance_id`, `during_job`, `uptime_s`                              |
 | `captions resumed`             | info  | `chunks_done`, `chunks`                                                                      |
 | `captions made`                | info  | `language`, `chunks`, `cues`, `source_duration_s`, `duration_ms`, `speed`                    |
 | `transcription request failed` | warn  | `chunk`, `status_code` or `error_class`, `attempt`                                           |
@@ -336,35 +345,35 @@ Through `@codelitdev/observability`, as phase 1 (section 7 there). Events carry 
 
 ### 7.4 Alerts
 
-| Code                   | Checked by | Condition                                                                                                                                                               |
-| ---------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `transcribe_queue_lag` | worker     | the oldest queued `transcribe` job is more than 6 hours old (revisited with the benchmark). `jobs_queue_lag` excludes the class, as `video`.                            |
-| `whisper_unavailable`  | worker     | the service's health check has failed for 10 minutes while `transcribe` jobs are queued.                                                                                |
-| `captions_volume`      | worker     | more than `CAPTIONS_DAILY_MINUTES_ALERT` (default 120) minutes of audio captioned in the last 24 hours. Time to plan the dedicated node (D5).                           |
-| `whisper_throttled`    | worker     | over the last 6 hours, at least 3 captions jobs finished and their median `cpu_steal_pct` is above 10%. The node is out of CPU credits.                                 |
-| `whisper_restarts`     | worker     | 3 or more `whisper.restarted` with `during_job` in the last 24 hours: evictions or out-of-memory kills. A deploy can also restart it mid-job, so one or two don't page. |
-| `jobs_no_worker`       | API        | as today, now also for `transcribe`.                                                                                                                                    |
+| Code                     | Checked by | Condition                                                                                                                                                                  |
+| ------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `transcribe_queue_lag`   | worker     | the oldest queued `transcribe` job is more than 6 hours old (revisited with the benchmark). `jobs_queue_lag` excludes the class, as `video`.                               |
+| `transcribe_unavailable` | worker     | the service's health check has failed for 10 minutes while `transcribe` jobs are queued.                                                                                   |
+| `captions_volume`        | worker     | more than `CAPTIONS_DAILY_MINUTES_ALERT` (default 120) minutes of audio captioned in the last 24 hours. Time to plan the dedicated node (D5).                              |
+| `transcribe_throttled`   | worker     | over the last 6 hours, at least 3 captions jobs finished and their median `cpu_steal_pct` is above 10%. The node is out of CPU credits.                                    |
+| `transcribe_restarts`    | worker     | 3 or more `transcribe.restarted` with `during_job` in the last 24 hours: evictions or out-of-memory kills. A deploy can also restart it mid-job, so one or two don't page. |
+| `jobs_no_worker`         | API        | as today, now also for `transcribe`.                                                                                                                                       |
 
 The three capacity alerts aren't urgent, so they page at most once a day: `pageAlert` takes a cooldown per code, 24 hours for these and the current 30 minutes for the rest. The checks read Postgres, not the analytics backend: caption minutes from `processing_usage`, and `speed` and `cpu_steal_pct` from the captions derivative, where the job stores them alongside the outputs. The worker counts restarts in memory, so a worker restart resets the count; that only delays the alert.
 
 ### 7.5 Allowlist and failure reasons
 
-- New properties: `copied`, `audio_codec`, `source`, `language`, `provider`, `model`, `chunks`, `chunk`, `chunks_done`, `chunk_duration_s`, `cues`, `segments`, `resumed`, `generate_captions`, `after`, `status_code`, `attempt`, `instance_id`, `previous_instance_id`, `during_job`, `uptime_s`, `cpu_steal_pct`, `model_loads`, `load_ms`, `jobs`, `failed`, `audio_minutes`, `median_speed`, `p95_queue_wait_s`, `max_cpu_steal_pct`, `whisper_restarts`.
+- New properties: `copied`, `audio_codec`, `source`, `language`, `provider`, `model`, `chunks`, `chunk`, `chunks_done`, `chunk_duration_s`, `cues`, `segments`, `resumed`, `generate_captions`, `after`, `status_code`, `attempt`, `instance_id`, `previous_instance_id`, `during_job`, `uptime_s`, `cpu_steal_pct`, `model_loads`, `load_ms`, `jobs`, `failed`, `audio_minutes`, `median_speed`, `p95_queue_wait_s`, `max_cpu_steal_pct`, `transcribe_restarts`.
 - New `failed_reason` values: `no_audio_stream`, `transcription_unavailable`.
 - `jobs show` shows `chunks_done` and `speed` for captions jobs. `jobs minutes <userId>` lists captions rows with their kind.
 
 ## 8. Deployment and testing
 
-- **Images:** the API image is unchanged (it has ffmpeg). New image `codelit/medialit-whisper`, built and pushed by CI from `apps/whisper/Dockerfile` with the runtime and the model pinned, released with the same tags as the API.
+- **Images:** the API image is unchanged (it has ffmpeg). New image `codelit/medialit-transcribe`, built and pushed by CI from `apps/transcribe/Dockerfile` with the runtime and the model pinned, released with the same tags as the API.
 - **Infra** (QA first; prod by an operator at release):
-    - `medialit-whisper` deployment, one replica, `ClusterIP` service, a network policy admitting only the worker, a readiness probe on its health route, on the existing nodes (D5): requests of 0.25 CPU and 512 MiB, limits of 2 CPU and 2.5 GiB (1.9 GB measured while transcribing), and a priority class below the apps. A dedicated node comes later, when the D5 signals call for it.
-    - Worker: `WHISPER_URL`, `WORKER_CONCURRENCY_TRANSCRIBE=1`. API: `WHISPER_URL` (for `captionsAvailable`).
-- **`docker-compose.yml`** (self-hosting) gains the whisper service. **`docker-compose.local.yml`** gains it too, behind a compose profile (`--profile captions`), so local development doesn't pull a multi-GB image by default.
-- **`.env.example`:** `TRANSCRIPTION_PROVIDER`, `WHISPER_URL`, `WORKER_CONCURRENCY_TRANSCRIBE`, `CAPTIONS_MAX_DURATION_SECONDS`, `CAPTIONS_DAILY_MINUTES_ALERT`, and `WHISPER_IDLE_UNLOAD_SECONDS` for the whisper service.
-- **Docs:** the setting, the captions and transcript files and their URLs, using the VTT with `<video>`, hls.js and Video.js, captions in HLS, minutes, and self-hosting the Whisper service (CPU, memory, and what happens without it).
+    - `medialit-transcribe` deployment, one replica, `ClusterIP` service, a network policy admitting only the worker, a readiness probe on its health route, on the existing nodes (D5): requests of 0.25 CPU and 512 MiB, limits of 2 CPU and 2.5 GiB (1.9 GB measured while transcribing), and a priority class below the apps. A dedicated node comes later, when the D5 signals call for it.
+    - Worker: `TRANSCRIBE_URL`, `WORKER_CONCURRENCY_TRANSCRIBE=1`. API: `TRANSCRIBE_URL` (for `transcriptionProviders` and their health).
+- **`docker-compose.yml`** (self-hosting) gains the transcription service. **`docker-compose.local.yml`** gains it too, behind a compose profile (`--profile captions`), so local development doesn't pull a multi-GB image by default.
+- **`.env.example`:** `TRANSCRIBE_URL`, `WORKER_CONCURRENCY_TRANSCRIBE`, `CAPTIONS_MAX_DURATION_SECONDS`, `CAPTIONS_DAILY_MINUTES_ALERT`, and `TRANSCRIBE_IDLE_UNLOAD_SECONDS` for the transcription service.
+- **Docs:** the setting, the captions and transcript files and their URLs, using the VTT with `<video>`, hls.js and Video.js, captions in HLS, minutes, and self-hosting the transcription service (CPU, memory, and what happens without it).
 - **Tests:**
     - Unit tests: chunk cutting at silences (no silence, silence at the edges, a file shorter than one chunk), segment offsets across chunks, VTT cue building (line length, duration, timestamps over an hour), transcript paragraphs, dropping empty and repeated segments, the master playlist rewrite (idempotent, keeps every rendition line), the subtitle playlist, waiting derivatives (released on ready, failed on failure, ignored by the reconciler while waiting), and the settle rule for `audio` and `captions`.
-    - A **fake transcription provider** for integration tests (deterministic segments from the chunk's length), so the stack suites don't need the Whisper image. One suite runs against the real service, in CI with the `tiny` model.
+    - A **fake transcription provider** for integration tests (deterministic segments from the chunk's length), so the stack suites don't need the transcription image. One suite runs against the real service, in CI with the `tiny` model.
     - Integration tests with generated media (ffmpeg `sine` with gaps for silences, and `testsrc`):
         - `generateCaptions` on queues audio then captions for a video, captions only for an audio upload, and nothing for a video with no audio;
         - an AAC source is copied, an Opus source is encoded, and the audio is gone from storage and from the response once captions settle, whether they are ready or failed;
@@ -375,16 +384,18 @@ The three capacity alerts aren't urgent, so they page at most once a day: `pageA
         - the media settles and sends `media.processing.ready` while captions are still queued, and `media.captions.ready` follows; captions finishing before HLS sends the two in the other order; an audio upload with captions on settles at seal; an endpoint not subscribed to `media.captions.ready` gets nothing;
         - `MediaLitVideo` with a caller's `ref`: the ref gets the `<video>` element, and hls.js still attaches;
         - the provider failing every time fails `captions` after its attempts, leaves the media `ready`, and raises a `critical` exception; `no_audio_stream` raises none;
-        - without `WHISPER_URL`, captions fail with `transcription_unavailable`, and settings report `captionsAvailable: false`;
+        - without `TRANSCRIBE_URL`, captions fail with `transcription_unavailable`, and settings list no provider;
+        - with the service down, settings still list `medialit` with `available: false`, a saved choice is kept, and queued captions finish once it is back;
+        - `transcriptionProvider` is copied at seal: changing it doesn't affect a job already queued;
         - HLS with captions, both orders of finishing, private and public: the master lists the track, the subtitle playlist and VTT load, and a rewrite run twice gives the same playlist;
         - deleting media during a transcription aborts the request and leaves nothing in either bucket, including progress files;
         - events and logs carry only allowlisted properties and never transcript text (checked with a capture client).
-    - The AGENTS.md end-to-end checks (REST form-data and tus, browser, CLI) with captions on, against the real Whisper service: a short spoken video and an audio file get captions in the right language, the captions show in `MediaLitVideo` for HLS (hls.js in Chrome, native in Safari) and for the MP4, for public and private media.
+    - The AGENTS.md end-to-end checks (REST form-data and tus, browser, CLI) with captions on, against the real transcription service: a short spoken video and an audio file get captions in the right language, the captions show in `MediaLitVideo` for HLS (hls.js in Chrome, native in Safari) and for the MP4, for public and private media.
 
 ## 9. Rollout
 
 - `generateCaptions` is off for every app, so nothing changes until an app turns it on.
-- **Deploy order:** the Whisper service, then the worker, then the API.
+- **Deploy order:** the transcription service, then the worker, then the API.
 - **Rollback:** an old worker leaves `media.audio`, `media.captions` and `media.hls_subtitles` jobs queued, and waiting `captions` rows without jobs. After rolling back, cancel them with `jobs cancel --type <type> --yes`; the old reconciler then fails their derivatives. The old reconciler doesn't know about waiting rows, so it also fails `captions` rows waiting for an audio job. That is the result we want after a rollback.
 
 ## 10. Order of work
@@ -392,7 +403,7 @@ The three capacity alerts aren't urgent, so they page at most once a day: `pageA
 0. **Benchmark** (D5): done on 2026-11-27. Before release, check captions by hand on a few real course videos. Thread scaling is measured when a dedicated node is added (D5).
 1. **Setting and waiting derivatives:** `generateCaptions` in REST, MCP, the SDK, the CLI and the dashboard; `after` in the plan, `finishDerivative` and the reconciler (D2); background derivatives and `media.captions.ready` (D10). Nothing queues jobs yet.
 2. **#266 audio extraction** (D3), on the shared video job code.
-3. **The Whisper service and provider** (D4): the image, CI, compose files, infra manifests, the provider interface, the fake provider.
+3. **The transcription service and provider** (D4): the image, CI, compose files, infra manifests, the provider interface, the fake provider.
 4. **#269 captions job** (D7, D8, D9): chunking, resume, outputs, minutes, the response fields, `<track>` in `MediaLitVideo`.
 5. **Captions in HLS** (D11): the served playlist for private media, `media.hls_subtitles` for public media.
 
@@ -400,6 +411,7 @@ Each step ships its events, logs, exceptions and alerts from section 7.
 
 ## 11. Out of scope
 
+- External transcription providers with the tenant's API key (D1 describes how they fit).
 - Uploading or editing captions, and captions in more than one language (translation).
 - Speaker labels (#269: known limit).
 - A language setting (D1).
@@ -407,7 +419,7 @@ Each step ships its events, logs, exceptions and alerts from section 7.
 - Burned-in captions.
 - Summaries and tags (#270, closed).
 - A GPU node, unless the benchmark or the queue says so.
-- Autoscaling the Whisper service (D6).
+- Autoscaling the transcription service (D6).
 
 ## 12. Decisions made in review
 
@@ -416,5 +428,6 @@ Each step ships its events, logs, exceptions and alerts from section 7.
 3. **A caption minute costs one processing minute** (D9), set from the benchmark: transcription uses about as much CPU per minute as the HLS ladder, or less, for most languages.
 4. **The CDN may serve a public master playlist without the subtitle track for up to an hour** (D11). Accepted for now.
 5. **Caption and audio failures leave the media `ready`** (D10), after the job's retries (D7).
-6. **No new node for the first version** (D5). There is no caption traffic yet, so Whisper shares the existing nodes, unloads its model when idle, and is evicted before the apps. A dedicated node is added when the queue, caption minutes, CPU credits or evictions call for it.
+6. **No new node for the first version** (D5). There is no caption traffic yet, so the transcription service shares the existing nodes, unloads its model when idle, and is evicted before the apps. A dedicated node is added when the queue, caption minutes, CPU credits or evictions call for it.
 7. **Captions don't hold up the media** (D10). They are background derivatives with their own webhook, `media.captions.ready`, and apps get a stable `transcript.json` contract and a `ref` on `MediaLitVideo` (D8), enough for synced transcripts without MediaLit knowing about them.
+8. **One transcription service, run by MediaLit: `medialit-transcribe`** (D1, D4). Tenants pick the provider per app; the list shows what is configured, with its health, and never hides a provider that is down. External providers come later, with the tenant's own API key and not charged as processing minutes.
