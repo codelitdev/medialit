@@ -1,5 +1,13 @@
 # medialit
 
+## 0.6.0
+
+### Minor Changes
+
+- 4819104: Captions are made. With `generateCaptions` on, sealed videos and audio files get a `captions` derivative: WebVTT captions (`url`, also `files.vtt`), a plain transcript (`files.text`) and a JSON transcript with timed segments (`files.json`), plus the spoken `language`. They are transcribed by the transcription worker, count the file's length in processing minutes, and fail with `no_audio_stream` for a file with no audio. `MediaLitVideo` shows them as a `<track>` and now forwards a `ref` to its `<video>` element. The dashboard's file details show the captions and link the files, and `medialit get` notes them on stderr. A new alert, `captions_volume`, emails at most once a day when more than `CAPTIONS_DAILY_MINUTES_ALERT` minutes are captioned in 24 hours.
+- 6dd28df: A new media setting, `generateCaptions` (off by default), in the REST API, the MCP server, the SDK, `medialit settings set --captions` and a **Captions** card in the dashboard. Settings report `captionsAvailable`, false when no transcription worker is running. Seals can override it per upload (`processing.generateCaptions`, `--captions` on `upload` and `seal`). Captions never hold up a file's processing status: they report through a new opt-in webhook, `media.captions.ready`, sent only to endpoints that list it. Workers gain a `transcribe` job class, served only when `WORKER_CLASSES` lists it (`WORKER_CONCURRENCY_TRANSCRIBE`, default 1).
+- b4bb02c: Sealing can override the app's processing settings for one upload: `POST /media/seal/{mediaId}` takes an optional `processing: { videoStreaming }`, and so do MCP's `seal_media`, the SDK's `seal(mediaId, { processing })` and the CLI's `upload` and `seal` (`--video-streaming`). A field left out uses the app's setting, and sealing again ignores it. Use it to process some users' videos and not others, for example to skip HLS for trial accounts.
+
 ## 0.5.0
 
 ### Minor Changes
