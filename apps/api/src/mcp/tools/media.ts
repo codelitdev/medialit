@@ -145,6 +145,12 @@ export const mediaTools = (): MedialitMcpTool[] => [
                         .describe(
                             "How this video is prepared for playback, instead of the app's setting",
                         ),
+                    generateCaptions: z
+                        .boolean()
+                        .optional()
+                        .describe(
+                            "Make captions for this video or audio file, instead of the app's setting",
+                        ),
                 })
                 .strict()
                 .optional()

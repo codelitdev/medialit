@@ -120,6 +120,13 @@
       "when": 1795371776870,
       "tag": "0016_media_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795866303264,
+      "tag": "0017_captions_setting",
+      "breakpoints": true
     }
   ]
 }

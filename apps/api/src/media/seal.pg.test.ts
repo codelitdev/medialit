@@ -196,6 +196,7 @@ async function settings(overrides: {
     useWebP?: boolean;
     videoStreaming?: "off" | "hls" | "mp4";
     hlsRenditions?: string[];
+    generateCaptions?: boolean;
 }) {
     await db.upsertMediaSettings({
         userId,
@@ -204,6 +205,7 @@ async function settings(overrides: {
         webpOutputQuality: 80,
         videoStreaming: overrides.videoStreaming ?? "off",
         hlsRenditions: overrides.hlsRenditions ?? null,
+        generateCaptions: overrides.generateCaptions ?? false,
     });
 }
 
@@ -743,6 +745,69 @@ describe("seal", { skip }, () => {
             ]);
         } finally {
             restore();
+            await settings({});
+        }
+    });
+
+    test("generateCaptions is per app, false until set, and captionsAvailable follows the transcription worker", async () => {
+        const { getMediaSettings } = await import(
+            "../media-settings/service.js"
+        );
+        const { updateMediaSettings } = await import(
+            "../media-settings/queries.js"
+        );
+        const { recordWorker } = await import("../jobs/queue.js");
+        await pgTest.db.execute(sql`DELETE FROM workers`);
+        try {
+            await settings({});
+            let current = await getMediaSettings(userId, appId);
+            assert.equal(current.generateCaptions, false);
+            assert.equal(current.captionsAvailable, false);
+
+            await updateMediaSettings({
+                userId,
+                appId,
+                generateCaptions: true,
+            });
+            await recordWorker(pgTest.db, {
+                id: "transcribe-worker",
+                classes: ["transcribe"],
+            });
+            current = await getMediaSettings(userId, appId);
+            assert.equal(current.generateCaptions, true);
+            assert.equal(current.captionsAvailable, true);
+            // Other settings are left alone.
+            assert.equal(current.videoStreaming, "off");
+
+            // A seal's override is reported with the value in effect.
+            const events = await import("../services/events.js");
+            const sent: Array<{
+                event: string;
+                properties?: Record<string, unknown>;
+            }> = [];
+            const restore = events.setEventSinkForTests((input) => {
+                sent.push(input);
+            });
+            try {
+                const clip = await upload(await blackStartVideo(), {
+                    mimeType: "video/mp4",
+                    fileName: "no-captions.mp4",
+                });
+                await mediaService.sealMedia({
+                    userId,
+                    appId,
+                    mediaId: clip.mediaId,
+                    processing: { generateCaptions: false },
+                });
+                await events.flushEventsForTests();
+                const sealed = sent.find((e) => e.event === "media.sealed");
+                assert.equal(sealed?.properties?.generate_captions, false);
+                assert.equal(sealed?.properties?.processing_overridden, true);
+            } finally {
+                restore();
+            }
+        } finally {
+            await pgTest.db.execute(sql`DELETE FROM workers`);
             await settings({});
         }
     });

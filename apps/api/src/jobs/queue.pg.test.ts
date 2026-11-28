@@ -559,7 +559,7 @@ describe("job runner (Postgres)", { skip }, () => {
             workerId: `runner-${Math.random().toString(36).slice(2)}`,
             definitions,
             classes: ["cpu", "io"],
-            concurrency: { cpu: 2, io: 4, video: 1 },
+            concurrency: { cpu: 2, io: 4, video: 1, transcribe: 1 },
             logger,
             pollMs: 100,
             heartbeatMs: 100,
@@ -804,7 +804,7 @@ describe("job runner (Postgres)", { skip }, () => {
                     },
                 },
             ],
-            { concurrency: { cpu: 2, io: 1, video: 1 } },
+            { concurrency: { cpu: 2, io: 1, video: 1, transcribe: 1 } },
         );
         const ids: string[] = [];
         for (let i = 0; i < 6; i++) {

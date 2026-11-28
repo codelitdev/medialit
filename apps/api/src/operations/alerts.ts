@@ -9,6 +9,7 @@ import { SYSTEM_SUBJECT, type CaptureException } from "../jobs/telemetry";
 export type AlertCode =
     | "jobs_queue_lag"
     | "video_queue_lag"
+    | "transcribe_queue_lag"
     | "jobs_failure_spike"
     | "jobs_no_worker"
     | "webp_busy";

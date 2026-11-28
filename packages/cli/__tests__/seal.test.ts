@@ -11,6 +11,11 @@ describe("--video-streaming on upload and seal", () => {
             processing: { videoStreaming: "mp4" },
         });
         assert.deepEqual(sealOptions({}), {});
+        assert.deepEqual(
+            sealOptions({ captions: "off", videoStreaming: "hls" }),
+            { processing: { videoStreaming: "hls", generateCaptions: false } },
+        );
+        assert.throws(() => sealOptions({ captions: "yes" }), /on or off/);
     });
 
     test("a bad value is refused before anything is sent", async () => {
@@ -27,7 +32,7 @@ describe("--video-streaming on upload and seal", () => {
     test("can't be combined with --temp, which doesn't seal", async () => {
         await assert.rejects(
             upload(["missing.mp4"], { videoStreaming: "off", temp: true }),
-            /applies when a file is sealed/,
+            /apply when a file is sealed/,
         );
     });
 });

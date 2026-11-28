@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Film, ImageIcon } from "lucide-react";
+import { Captions, Film, ImageIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -284,6 +284,74 @@ export function VideoStreamingCard({
                             streaming === "hls" && renditions.length === 0
                         }
                         message="Video settings saved."
+                    />
+                </SettingsStack>
+            </form>
+        </SettingsCard>
+    );
+}
+
+export function CaptionsCard({
+    appId,
+    settings,
+}: {
+    appId: string;
+    settings: MediaSettings;
+}) {
+    const [captions, setCaptions] = useState(settings.generateCaptions);
+    const { pending, error, saved, save, edited } = useSave(appId);
+
+    function submit(event: FormEvent) {
+        event.preventDefault();
+        void save({ generateCaptions: captions });
+    }
+
+    return (
+        <SettingsCard
+            icon={<Captions aria-hidden="true" />}
+            title="Captions"
+            description="Captions (WebVTT) and a transcript for videos and audio files, in the language that is spoken. Each minute of audio uses one processing minute."
+        >
+            <form onSubmit={submit}>
+                <SettingsStack>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            id="generate-captions"
+                            checked={captions}
+                            onCheckedChange={(checked) => {
+                                edited();
+                                setCaptions(checked);
+                            }}
+                        />
+                        <label
+                            htmlFor="generate-captions"
+                            className={settingsOptionClass}
+                        >
+                            Make captions when videos and audio files are sealed
+                        </label>
+                    </div>
+                    {settings.captionsAvailable ? null : (
+                        <p
+                            className="text-[13px] text-muted-foreground"
+                            role="note"
+                        >
+                            This server has no transcription worker running, so
+                            captions wait until one starts.{" "}
+                            <a
+                                href="https://medialit.cloud/docs/self-hosting"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary underline-offset-2 hover:underline"
+                            >
+                                How to run one
+                            </a>
+                        </p>
+                    )}
+                    <SaveRow
+                        pending={pending}
+                        error={error}
+                        saved={saved}
+                        message="Caption settings saved."
                     />
                 </SettingsStack>
             </form>

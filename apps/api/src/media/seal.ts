@@ -45,12 +45,18 @@ import {
     effectiveVideoSettings,
     type VideoSettings,
 } from "../media-settings/video";
-import { isOverride, planProcessing, withOverride } from "./processing-plan";
+import {
+    captionsInEffect,
+    isOverride,
+    planProcessing,
+    withOverride,
+} from "./processing-plan";
 import { recordWebpBusy } from "../operations/checks";
 import {
     claimSeal,
     commitSeal,
     getMediaSettingsRecord,
+    isBackgroundDerivative,
     releaseSealClaim,
     renewSealClaim,
 } from "@/db";
@@ -122,6 +128,7 @@ type SealResult = {
     jobsQueued: number;
     /** The value in effect: the app's, or the seal's override. */
     videoStreaming: VideoSettings["videoStreaming"];
+    generateCaptions: boolean;
     processingOverridden: boolean;
     webp: WebpOutcome["kind"];
     /** Why WebP was skipped or failed. */
@@ -377,6 +384,10 @@ async function runSeal(
             effectiveVideoSettings(settings),
             processing,
         );
+        const generateCaptions = captionsInEffect(
+            settings?.generateCaptions,
+            processing,
+        );
         const planned = planProcessing({
             mimeType: media.mimeType,
             metadata,
@@ -390,12 +401,14 @@ async function runSeal(
             metadata,
             mediaRowId,
             token,
-            processingStatus:
-                planned.length > 0
-                    ? "processing"
-                    : webp.kind === "failed"
-                      ? "failed"
-                      : "ready",
+            // Captions don't hold the media in processing (phase 2, D8).
+            processingStatus: planned.some(
+                (job) => !isBackgroundDerivative(job.derivative),
+            )
+                ? "processing"
+                : webp.kind === "failed"
+                  ? "failed"
+                  : "ready",
             processingError:
                 webp.kind === "skipped" || webp.kind === "failed"
                     ? webp.message
@@ -430,6 +443,7 @@ async function runSeal(
         return {
             jobsQueued: planned.length,
             videoStreaming: video.videoStreaming,
+            generateCaptions,
             processingOverridden: isOverride(processing),
             webp: webp.kind,
             reason:
@@ -474,6 +488,7 @@ function reportSealed(
         webp: result.webp,
         jobs_queued: result.jobsQueued,
         video_streaming: result.videoStreaming,
+        generate_captions: result.generateCaptions,
         processing_overridden: result.processingOverridden,
         ...(result.reason ? { reason: result.reason } : {}),
         ...timing,

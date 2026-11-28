@@ -227,6 +227,27 @@ describe("worker checks (Postgres)", { skip }, () => {
         await db.execute(sql`DELETE FROM jobs WHERE id = ${id}`);
     });
 
+    test("a captions job pages transcribe_queue_lag after 6 hours, not jobs_queue_lag", async () => {
+        await db.execute(sql`DELETE FROM jobs WHERE status = 'queued'`);
+        const id = (await enqueue(db, {
+            type: "media.captions",
+            payload: {},
+            maxAttempts: 1,
+        }))!;
+        await db.execute(
+            sql`UPDATE jobs SET run_at = now() - interval '2 hours' WHERE id = ${id}`,
+        );
+        assert.deepEqual(await collectWorkerAlerts(db), []);
+        await db.execute(
+            sql`UPDATE jobs SET run_at = now() - interval '7 hours' WHERE id = ${id}`,
+        );
+        assert.deepEqual(
+            (await collectWorkerAlerts(db)).map((alert) => alert.code),
+            ["transcribe_queue_lag"],
+        );
+        await db.execute(sql`DELETE FROM jobs WHERE id = ${id}`);
+    });
+
     test("more than 10 failures in 10 minutes page jobs_failure_spike, webhooks aside", async () => {
         const failJobs = async (type: string, count: number, ago: string) => {
             for (let index = 0; index < count; index++) {
@@ -305,6 +326,42 @@ describe("API checks (Postgres)", { skip }, () => {
 
         await recordWorker(db, { id: "video-worker", classes: ["video"] });
         assert.deepEqual(await check(), []);
+    });
+
+    test("a missing transcription worker pages only while captions are queued", async () => {
+        await db.execute(sql`DELETE FROM jobs WHERE status = 'queued'`);
+        await recordWorker(db, {
+            id: "main-worker",
+            classes: ["cpu", "io", "video"],
+        });
+        let now = 0;
+        const check = apiAlertCheck({
+            db,
+            logger: { warn: () => undefined },
+            now: () => now,
+        });
+        now += 10 * 60 * 1000;
+        // Installs that never run one aren't told it is missing.
+        assert.deepEqual(await check(), []);
+
+        const id = (await enqueue(db, {
+            type: "media.captions",
+            payload: {},
+            maxAttempts: 1,
+        }))!;
+        const alerts = await check();
+        assert.deepEqual(
+            alerts.map((alert) => alert.details.reason),
+            ["transcribe"],
+        );
+        assert.match(alerts[0].message, /Captions are not made/);
+
+        await recordWorker(db, {
+            id: "transcribe-worker",
+            classes: ["transcribe"],
+        });
+        assert.deepEqual(await check(), []);
+        await db.execute(sql`DELETE FROM jobs WHERE id = ${id}`);
     });
 
     test("a stopped worker counts as live for 5 more minutes", async () => {

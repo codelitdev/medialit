@@ -19,6 +19,8 @@ import {
 interface VideoSettings {
     videoStreaming: string;
     hlsRenditions: string[];
+    generateCaptions?: boolean;
+    captionsAvailable?: boolean;
 }
 
 export async function runVideoIntegrationTests(
@@ -223,6 +225,21 @@ export async function runVideoIntegrationTests(
         assert.deepEqual(current.hlsRenditions, ["1080p", "720p", "480p"]);
         log("PASS video settings: null restores the default renditions");
 
+        // Captions (pipelines-phase-2.md, D1): off until set, and the
+        // server says whether a transcription worker is running.
+        assert.equal(typeof current.captionsAvailable, "boolean");
+        await api("settings/media/create", { generateCaptions: true });
+        current = await settings();
+        assert.equal(current.generateCaptions, true);
+        assert.equal(current.videoStreaming, "mp4");
+        const refusedCaptions = await call("settings/media/create", {
+            generateCaptions: "yes",
+        });
+        assert.equal(refusedCaptions.status, 400);
+        await api("settings/media/create", { generateCaptions: false });
+        assert.equal((await settings()).generateCaptions, false);
+        log("PASS captions setting: set, read back and validated");
+
         const stats = await api("media/get/size");
         const minutes = object(stats.processingMinutes);
         assert.equal(typeof minutes.used, "number");
@@ -402,6 +419,9 @@ export async function runVideoIntegrationTests(
                 await api("settings/media/create", {
                     videoStreaming: original.videoStreaming,
                     hlsRenditions: original.hlsRenditions,
+                    ...(typeof original.generateCaptions === "boolean"
+                        ? { generateCaptions: original.generateCaptions }
+                        : {}),
                 });
             } catch (error) {
                 log(

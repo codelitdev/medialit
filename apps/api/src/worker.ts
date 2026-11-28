@@ -137,6 +137,7 @@ async function main() {
             concurrency_cpu: config.concurrency.cpu,
             concurrency_io: config.concurrency.io,
             concurrency_video: config.concurrency.video,
+            concurrency_transcribe: config.concurrency.transcribe,
         },
         "Medialit worker running",
     );

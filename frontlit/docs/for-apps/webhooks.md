@@ -41,8 +41,11 @@ The test action answers `{ "result": "delivered", "status": 200 }`, or `"failed"
 | ------------------------- | -------------------------------------------------------- |
 | `media.processing.ready`  | Processing of a sealed file finished.                    |
 | `media.processing.failed` | Some processing of a sealed file failed. The file works. |
+| `media.captions.ready`    | [Captions](/docs/concepts#captions) finished or failed.  |
 
-Endpoints receive both unless you pass `events`. A failed step never makes the original file unavailable.
+Endpoints receive the two processing events unless you pass `events`. `media.captions.ready` is sent only to endpoints that list it. A failed step never makes the original file unavailable.
+
+Captions don't hold up `media.processing.ready`: a video is ready to play once its poster and its MP4 or HLS are done, and its `derivatives.captions` may still be `queued` or `processing` then. `media.captions.ready` follows when captions are done, with `derivatives.captions.status` `ready` or `failed` (and its `error`). The two can arrive in either order, and `status` in a captions event is the file's processing status at that moment, which can still be `processing`.
 
 Sealed videos send an event once their poster is made. A failure that leaves the file fully usable (a poster that couldn't be made, or video processing refused because the account is out of processing minutes or the video is over a limit) sends `media.processing.ready`, with that derivative's `status: "failed"` and its `error` in `derivatives`. Check `derivatives` if you want to tell your users about it.
 

@@ -11,6 +11,7 @@ import {
     type GuardOptions,
 } from "./guard";
 import {
+    DEFAULT_WEBHOOK_EVENTS,
     WEBHOOK_EVENTS,
     deleteEndpoint,
     getEndpoint,
@@ -136,7 +137,7 @@ export async function createWebhook(
     options: ServiceOptions = {},
 ): Promise<WebhookEndpoint> {
     const guard = options.guard ?? guardOptionsFromEnv();
-    const events = parseEvents(input.events) ?? [...WEBHOOK_EVENTS];
+    const events = parseEvents(input.events) ?? [...DEFAULT_WEBHOOK_EVENTS];
     const enabled = parseEnabled(input.enabled) ?? true;
     const url = await checkedUrl(input.url, guard);
     const row = await insertEndpoint({

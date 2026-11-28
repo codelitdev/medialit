@@ -18,6 +18,7 @@ import {
     listWebhooks,
 } from "@/app/actions";
 import {
+    CaptionsCard,
     ImageOptimizationCard,
     VideoStreamingCard,
 } from "./media-settings-section";
@@ -198,6 +199,10 @@ export default async function Settings(props: {
                                     appId={app.appId}
                                     settings={mediaSettings}
                                     minutes={minutes}
+                                />
+                                <CaptionsCard
+                                    appId={app.appId}
+                                    settings={mediaSettings}
                                 />
                             </>
                         ) : (

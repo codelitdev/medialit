@@ -66,7 +66,7 @@ The CLI prints each file's URL. Uploads are private unless you pass `--public`.
 
 Unlike the API and the MCP server, the CLI [seals](/docs/concepts#temporary-uploads-and-sealing) each upload right away, because running the command is the decision to keep the file. Pass `--temp` to leave uploads temporary, so MediaLit deletes them after 24 hours unless you run `medialit seal <id>`. Agents should use `--temp` for scratch files.
 
-`--video-streaming <off|hls|mp4>` on `upload` or `seal` overrides the app's [video streaming](/docs/concepts#video-streaming) setting for those files only. It can't be combined with `--temp`, which doesn't seal.
+`--video-streaming <off|hls|mp4>` and `--captions <on|off>` on `upload` or `seal` override the app's [video streaming](/docs/concepts#video-streaming) and [captions](/docs/concepts#captions) settings for those files only. It can't be combined with `--temp`, which doesn't seal.
 
 Large files are sent in chunks and retried if the connection drops.
 
@@ -115,7 +115,7 @@ medialit settings set --video-streaming hls --hls-renditions 1080p,720p,480p
 medialit settings set --webp on --webp-quality 85
 ```
 
-`settings set` changes only the options you pass, and changes apply to files sealed afterwards. `--video-streaming` takes `off`, `hls` or `mp4`; apps start `off`. `--hls-renditions default` goes back to the default sizes. `medialit whoami` also shows the video processing minutes used this month.
+`settings set` changes only the options you pass, and changes apply to files sealed afterwards. `--video-streaming` takes `off`, `hls` or `mp4`; apps start `off`. `--hls-renditions default` goes back to the default sizes. `--captions <on|off>` turns [captions](/docs/concepts#captions) on or off. `medialit whoami` also shows the video processing minutes used this month.
 
 ## Use it from a coding agent
 

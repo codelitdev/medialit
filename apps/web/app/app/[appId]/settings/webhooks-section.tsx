@@ -34,6 +34,7 @@ import {
 const EVENT_LABELS: Record<WebhookEvent, string> = {
     "media.processing.ready": "Processing finished",
     "media.processing.failed": "Processing failed",
+    "media.captions.ready": "Captions finished or failed",
 };
 
 function describeTest(result: WebhookTestResult): string {

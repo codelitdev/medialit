@@ -13,6 +13,9 @@ export const POSTER_ATTEMPTS = 3;
 /** Kept here, not in mp4.ts, so seal doesn't load the encoders. */
 export const MP4_JOB_TYPE = "media.mp4";
 export const HLS_JOB_TYPE = "media.hls";
+/** Captions (pipelines-phase-2.md, D2), in the `transcribe` class. */
+export const CAPTIONS_JOB_TYPE = "media.captions";
+export const CAPTIONS_ATTEMPTS = 3;
 export const VIDEO_ENCODE_ATTEMPTS = 3;
 
 /** Paid and self-hosted encodes run before free ones (D11, Priority). The
@@ -99,9 +102,20 @@ export function withOverride(
     };
 }
 
+/** Whether to make captions: the seal's override, else the app's setting. */
+export function captionsInEffect(
+    appSetting: boolean | null | undefined,
+    processing: ProcessingOverride | undefined,
+): boolean {
+    return processing?.generateCaptions ?? appSetting ?? false;
+}
+
 /** True when the seal set at least one processing field. */
 export function isOverride(
     processing: ProcessingOverride | undefined,
 ): boolean {
-    return processing?.videoStreaming !== undefined;
+    return (
+        processing?.videoStreaming !== undefined ||
+        processing?.generateCaptions !== undefined
+    );
 }

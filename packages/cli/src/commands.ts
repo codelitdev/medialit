@@ -36,6 +36,7 @@ export interface Flags {
     hlsRenditions?: string;
     webp?: string;
     webpQuality?: string;
+    captions?: string;
 }
 
 export async function login(flags: Flags): Promise<void> {
@@ -137,23 +138,31 @@ export async function whoami(flags: Flags): Promise<void> {
 
 const VIDEO_STREAMING: readonly VideoStreaming[] = ["off", "hls", "mp4"];
 
-/** `--video-streaming` on upload and seal overrides the app's setting for
- * these files only. Checked here, not only by the server, so `upload`
+/** `--video-streaming` and `--captions` on upload and seal override the
+ * app's settings for these files only. Checked here, not only by the server, so `upload`
  * refuses a bad value before sending any file. */
 export function sealOptions(flags: Flags): SealOptions {
-    if (flags.videoStreaming === undefined) return {};
-    const value = flags.videoStreaming.trim().toLowerCase() as VideoStreaming;
-    if (!VIDEO_STREAMING.includes(value)) {
-        throw new Error("--video-streaming must be off, hls or mp4.");
+    const processing: NonNullable<SealOptions["processing"]> = {};
+    if (flags.videoStreaming !== undefined) {
+        const value = flags.videoStreaming
+            .trim()
+            .toLowerCase() as VideoStreaming;
+        if (!VIDEO_STREAMING.includes(value)) {
+            throw new Error("--video-streaming must be off, hls or mp4.");
+        }
+        processing.videoStreaming = value;
     }
-    return { processing: { videoStreaming: value } };
+    if (flags.captions !== undefined) {
+        processing.generateCaptions = onOff(flags.captions, "--captions");
+    }
+    return Object.keys(processing).length > 0 ? { processing } : {};
 }
 
 export async function upload(paths: string[], flags: Flags): Promise<void> {
     const options = sealOptions(flags);
     if (flags.temp && options.processing) {
         throw new Error(
-            "--video-streaming applies when a file is sealed. Pass it to `medialit seal` instead of using --temp.",
+            "--video-streaming and --captions apply when a file is sealed. Pass them to `medialit seal` instead of using --temp.",
         );
     }
     if (!paths.length) throw new Error("Pass at least one file to upload.");
@@ -275,7 +284,7 @@ export async function settings(args: string[], flags: Flags): Promise<void> {
     const update = settingsUpdate(flags);
     if (Object.keys(update).length === 0) {
         throw new Error(
-            "Pass --video-streaming, --hls-renditions, --webp or --webp-quality.",
+            "Pass --video-streaming, --hls-renditions, --webp, --webp-quality or --captions.",
         );
     }
     await client.updateSettings(update);
@@ -312,7 +321,19 @@ export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
     if (flags.webpQuality !== undefined) {
         update.webpOutputQuality = Number(flags.webpQuality);
     }
+    if (flags.captions !== undefined) {
+        update.generateCaptions = onOff(flags.captions, "--captions");
+    }
     return update;
+}
+
+/** `on` or `off`, as a boolean. */
+function onOff(value: string, flag: string): boolean {
+    const normalized = value.trim().toLowerCase();
+    if (normalized !== "on" && normalized !== "off") {
+        throw new Error(`${flag} takes on or off.`);
+    }
+    return normalized === "on";
 }
 
 function describeSettings(settings: MediaSettings): string {
@@ -323,6 +344,15 @@ function describeSettings(settings: MediaSettings): string {
         lines.push(
             `Video streaming: ${settings.videoStreaming}`,
             `HLS renditions:  ${(settings.hlsRenditions ?? []).join(", ")}`,
+        );
+    }
+    if (settings.generateCaptions !== undefined) {
+        lines.push(
+            `Captions:        ${settings.generateCaptions ? "on" : "off"}${
+                settings.captionsAvailable === false
+                    ? " (this server has no transcription worker)"
+                    : ""
+            }`,
         );
     }
     return lines.join("\n");

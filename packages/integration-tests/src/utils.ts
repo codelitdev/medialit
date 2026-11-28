@@ -177,7 +177,12 @@ export interface WebhookClient {
 
 export class WebhookRefused extends Error {}
 
-const WEBHOOK_EVENTS = ["media.processing.ready", "media.processing.failed"];
+/** What an endpoint created without `events` gets: media.captions.ready
+ * is opt-in (pipelines-phase-2.md, D8). */
+const DEFAULT_WEBHOOK_EVENTS = [
+    "media.processing.ready",
+    "media.processing.failed",
+];
 
 /** Checks an endpoint's shape. With `secret`, it must carry the full
  * secret (create and rotate); without, it must not (everything else). */
@@ -237,7 +242,7 @@ export async function checkWebhooks(
         });
         created.add(endpoint.id);
         assert.equal(endpoint.url, url);
-        assert.deepEqual(endpoint.events, WEBHOOK_EVENTS);
+        assert.deepEqual(endpoint.events, DEFAULT_WEBHOOK_EVENTS);
         assert.equal(endpoint.enabled, true);
         const listed = await client.list();
         assert.equal(listed.length, before.length + 1);
@@ -254,13 +259,16 @@ export async function checkWebhooks(
         const updated = checkEndpoint(
             await client.update(endpoint.id, {
                 url: `${url}/v2`,
-                events: ["media.processing.failed"],
+                events: ["media.processing.failed", "media.captions.ready"],
                 enabled: false,
             }),
             { secret: false },
         );
         assert.equal(updated.url, `${url}/v2`);
-        assert.deepEqual(updated.events, ["media.processing.failed"]);
+        assert.deepEqual(updated.events, [
+            "media.processing.failed",
+            "media.captions.ready",
+        ]);
         assert.equal(updated.enabled, false);
         assert.equal(updated.secretHint, endpoint.secretHint);
         const rotated = checkEndpoint(

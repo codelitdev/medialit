@@ -5,7 +5,9 @@ import { WEBHOOK_EVENTS } from "./queries";
 const events = Joi.array()
     .items(Joi.string().valid(...WEBHOOK_EVENTS))
     .min(1)
-    .description("Events to send. Defaults to every event.");
+    .description(
+        "Events to send. Defaults to media.processing.ready and media.processing.failed; media.captions.ready is sent only to endpoints that list it.",
+    );
 
 export const webhookEndpointSchema = Joi.object({
     id: Joi.string().required().example("wh_V1StGXR8_Z5jdHi6B-myT"),

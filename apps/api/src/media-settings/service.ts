@@ -1,4 +1,5 @@
-import { getMediaSettingsRecord } from "@/db";
+import { getDb, getMediaSettingsRecord } from "@/db";
+import { hasLiveWorker } from "../jobs/runner";
 import { MediaSettingsResponse, mediaSettingsSchema } from "./schemas";
 import { DEFAULT_WEBP_QUALITY } from "../config/constants";
 import { effectiveVideoSettings } from "./video";
@@ -8,12 +9,17 @@ export async function getMediaSettings(
     userId: string,
     appId: string,
 ): Promise<MediaSettingsResponse> {
-    const mediaSettings = await getMediaSettingsRecord(userId, appId);
+    const [mediaSettings, captionsAvailable] = await Promise.all([
+        getMediaSettingsRecord(userId, appId),
+        hasLiveWorker(getDb(), "transcribe"),
+    ]);
     return {
         useWebP: mediaSettings?.useWebP || false,
         webpOutputQuality:
             mediaSettings?.webpOutputQuality || DEFAULT_WEBP_QUALITY,
         ...effectiveVideoSettings(mediaSettings),
+        generateCaptions: mediaSettings?.generateCaptions ?? false,
+        captionsAvailable,
     };
 }
 
@@ -24,6 +30,7 @@ const FIELDS = [
     "webpOutputQuality",
     "videoStreaming",
     "hlsRenditions",
+    "generateCaptions",
 ] as const;
 
 /** Picks the settings fields from a request body and validates them. A field

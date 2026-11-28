@@ -54,6 +54,7 @@ const PROPERTY_ALLOWLIST = new Set([
     "use_webp",
     "video_streaming",
     "processing_overridden",
+    "generate_captions",
     "hls_renditions",
     "kind",
     "plan",

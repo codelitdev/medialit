@@ -84,6 +84,8 @@ export const mediaSettingsSchema = z.object({
     webpOutputQuality: z.number().min(1).max(100),
     videoStreaming: z.enum(VIDEO_STREAMING_VALUES),
     hlsRenditions: z.array(z.enum(HLS_RENDITIONS)),
+    generateCaptions: z.boolean(),
+    captionsAvailable: z.boolean(),
 });
 
 export const successMessageSchema = z.object({

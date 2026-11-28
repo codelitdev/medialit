@@ -258,9 +258,18 @@ export function publicKeyOf(
 
 export type SettledStatus = Extract<ProcessingStatus, "ready" | "failed">;
 
+/** Derivatives that never hold up the media's status, nor change it
+ * (pipelines-phase-2.md, D8): captions can take hours behind a queue, and
+ * the file plays without them. They report through their own webhook. */
+export const BACKGROUND_DERIVATIVES: readonly string[] = ["captions"];
+
+export function isBackgroundDerivative(name: string): boolean {
+    return BACKGROUND_DERIVATIVES.includes(name);
+}
+
 /**
  * Sets the media's final status once none of its derivatives is queued or
- * processing. Only media that is `processing` settles: seal answers for
+ * processing. Background derivatives (captions) don't count, either way. Only media that is `processing` settles: seal answers for
  * work it finished inline. The caller holds the media row lock. Returns the
  * new status, or null when nothing changed.
  */
@@ -269,7 +278,9 @@ export async function settleMedia(
     media: LockedMedia,
 ): Promise<{ status: SettledStatus; error: string | null } | null> {
     if (media.temp || media.processingStatus !== "processing") return null;
-    const all = await listDerivatives(db, media.id);
+    const all = (await listDerivatives(db, media.id)).filter(
+        (d) => !isBackgroundDerivative(d.name),
+    );
     if (all.some((d) => d.status === "queued" || d.status === "processing")) {
         return null;
     }

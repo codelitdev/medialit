@@ -97,6 +97,14 @@ Every app starts with `off`, and each app has its own setting: choose `hls` or `
 
 The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` or `hls` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
 
+### Captions
+
+With `generateCaptions` on, MediaLit transcribes sealed videos and audio files and makes captions (WebVTT) and a transcript, in the language that is spoken. Every app starts with it off. Like video streaming, a [seal can override it](#video-streaming) for one upload with `processing: { generateCaptions }`.
+
+Captions don't hold up the file: a video is `ready` once its poster and its MP4 or HLS are done, and captions follow. The [`media.captions.ready` webhook](/docs/webhooks#events) tells you when they are done, or failed. A failure never makes the file `failed`.
+
+The media settings report `captionsAvailable`: `false` means the server has no transcription worker running, so captions wait until one starts. On a self-hosted server, see [Self-hosting](/docs/self-hosting).
+
 ### Processing minutes
 
 Video processing is measured in minutes of video, rounded up per video. Re-encoding counts; rewriting an MP4 that is already web-ready and making posters don't. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers in OSS mode (`MEDIALIT_DEPLOYMENT_MODE=oss`, the Docker Compose default) have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.

@@ -1,2362 +1,2241 @@
 {
-  "openapi": "3.0.3",
-  "info": {
-    "title": "Medialit API",
-    "description": "Easy file uploads for serverless apps",
-    "version": "0.3.0",
-    "termsOfService": "https://medialit.cloud/p/terms",
-    "contact": {
-      "name": "Medialit Support",
-      "url": "https://medialit.cloud"
-    },
-    "license": {
-      "name": "AGPL-3.0",
-      "url": "https://www.gnu.org/licenses/agpl-3.0.en.html"
-    }
-  },
-  "servers": [
-    {
-      "url": "{protocol}://{host}",
-      "description": "API Server",
-      "variables": {
-        "protocol": {
-          "default": "https",
-          "enum": [
-            "https",
-            "http"
-          ]
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Medialit API",
+        "description": "Easy file uploads for serverless apps",
+        "version": "0.3.0",
+        "termsOfService": "https://medialit.cloud/p/terms",
+        "contact": {
+            "name": "Medialit Support",
+            "url": "https://medialit.cloud"
         },
-        "host": {
-          "default": "api.medialit.cloud"
+        "license": {
+            "name": "AGPL-3.0",
+            "url": "https://www.gnu.org/licenses/agpl-3.0.en.html"
         }
-      }
-    }
-  ],
-  "tags": [
-    {
-      "name": "Media",
-      "description": "Upload, list, and manage media resources."
     },
-    {
-      "name": "Media processing",
-      "description": "How new uploads are processed: WebP conversion and its quality, and thumbnail sizes."
-    },
-    {
-      "name": "Webhooks",
-      "description": "Endpoints that receive signed events when media processing finishes or fails."
-    }
-  ],
-  "paths": {
-    "/health": {
-      "get": {
-        "summary": "Status of the server",
-        "description": "Returns the status of the server and uptime",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "ok"
+    "servers": [
+        {
+            "url": "{protocol}://{host}",
+            "description": "API Server",
+            "variables": {
+                "protocol": {
+                    "default": "https",
+                    "enum": ["https", "http"]
+                },
+                "host": {
+                    "default": "api.medialit.cloud"
+                }
+            }
+        }
+    ],
+    "tags": [
+        {
+            "name": "Media",
+            "description": "Upload, list, and manage media resources."
+        },
+        {
+            "name": "Media processing",
+            "description": "How new uploads are processed: WebP conversion and its quality, and thumbnail sizes."
+        },
+        {
+            "name": "Webhooks",
+            "description": "Endpoints that receive signed events when media processing finishes or fails."
+        }
+    ],
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Status of the server",
+                "description": "Returns the status of the server and uptime",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        },
+                                        "uptime": {
+                                            "type": "number",
+                                            "example": 12.345
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "operationId": "getHealth",
+                "security": []
+            }
+        },
+        "/settings/media/create": {
+            "post": {
+                "tags": ["Media processing"],
+                "summary": "Update Media Settings",
+                "description": "Change media processing settings: WebP and video streaming. Send only the fields to change. Apps start with videoStreaming off, and null sets hlsRenditions back to the default sizes. Applies to media sealed afterwards.",
+                "responses": {
+                    "200": {
+                        "description": "Settings updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "success"
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     },
-                    "uptime": {
-                      "type": "number",
-                      "example": 12.345
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
                     }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "operationId": "getHealth",
-        "security": []
-      }
-    },
-    "/settings/media/create": {
-      "post": {
-        "tags": [
-          "Media processing"
-        ],
-        "summary": "Update Media Settings",
-        "description": "Change media processing settings: WebP and video streaming. Send only the fields to change. Apps start with videoStreaming off, and null sets hlsRenditions back to the default sizes. Applies to media sealed afterwards.",
-        "responses": {
-          "200": {
-            "description": "Settings updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "success"
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
                     }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MediaSettingsPayload"
-              }
-            }
-          }
-        },
-        "operationId": "updateMediaSettings"
-      }
-    },
-    "/settings/media/get": {
-      "post": {
-        "tags": [
-          "Media processing"
-        ],
-        "summary": "Get Media Settings",
-        "description": "Retrieve current media processing configuration.",
-        "responses": {
-          "200": {
-            "description": "Settings retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaSettings"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "More than one credential was sent, for example both a Bearer token and an API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "credential_ambiguous",
-                  "error_description": "Exactly one credential mechanism is allowed."
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "operationId": "getMediaSettings"
-      }
-    },
-    "/settings/webhooks/create": {
-      "post": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "Create a webhook endpoint",
-        "description": "Adds an endpoint that receives processing events, and returns its signing secret. The URL is checked: in production it must use https, and it must not resolve to a private or internal address.",
-        "responses": {
-          "201": {
-            "description": "Endpoint created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebhookEndpoint"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "409": {
-            "description": "The app has the most endpoints allowed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Conflict"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateWebhookPayload"
-              }
-            }
-          }
-        },
-        "operationId": "createWebhook"
-      }
-    },
-    "/settings/webhooks/get": {
-      "post": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "List webhook endpoints",
-        "description": "Lists the app’s webhook endpoints. Signing secrets are not included, only their last characters (`secretHint`); read a secret with `POST /settings/webhooks/secret`.",
-        "responses": {
-          "200": {
-            "description": "The endpoints",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebhookEndpointList"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "More than one credential was sent, for example both a Bearer token and an API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "credential_ambiguous",
-                  "error_description": "Exactly one credential mechanism is allowed."
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "operationId": "listWebhooks"
-      }
-    },
-    "/settings/webhooks/secret": {
-      "post": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "Reveal a signing secret",
-        "description": "Returns the endpoint’s signing secret. Needs write access (`data:write`), like creating or rotating one, because the secret lets its holder sign webhooks.",
-        "responses": {
-          "200": {
-            "description": "The signing secret",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebhookSecret"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WebhookIdPayload"
-              }
-            }
-          }
-        },
-        "operationId": "revealWebhookSecret"
-      }
-    },
-    "/settings/webhooks/update": {
-      "post": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "Update a webhook endpoint",
-        "description": "Changes the URL, events or enabled flag, or rotates the signing secret. Fields left out keep their values. The response includes `secret` only when it was rotated.",
-        "responses": {
-          "200": {
-            "description": "The updated endpoint",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebhookEndpoint"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateWebhookPayload"
-              }
-            }
-          }
-        },
-        "operationId": "updateWebhook"
-      }
-    },
-    "/settings/webhooks/delete": {
-      "post": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "Delete a webhook endpoint",
-        "description": "Removes the endpoint. Deliveries still queued for it are not sent.",
-        "responses": {
-          "200": {
-            "description": "Endpoint deleted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "success"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MediaSettingsPayload"
+                            }
+                        }
                     }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
+                "operationId": "updateMediaSettings"
             }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WebhookIdPayload"
-              }
+        "/settings/media/get": {
+            "post": {
+                "tags": ["Media processing"],
+                "summary": "Get Media Settings",
+                "description": "Retrieve current media processing configuration.",
+                "responses": {
+                    "200": {
+                        "description": "Settings retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MediaSettings"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "More than one credential was sent, for example both a Bearer token and an API key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "credential_ambiguous",
+                                    "error_description": "Exactly one credential mechanism is allowed."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "operationId": "getMediaSettings"
             }
-          }
         },
-        "operationId": "deleteWebhook"
-      }
-    },
-    "/settings/webhooks/test": {
-      "post": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "Send a test event",
-        "description": "Sends a signed `webhook.test` event to the endpoint now. The result is only \"delivered\" or \"failed\", with the status code the endpoint answered or a generic error class.",
-        "responses": {
-          "200": {
-            "description": "What the endpoint did with the test event",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WebhookTestResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+        "/settings/webhooks/create": {
+            "post": {
+                "tags": ["Webhooks"],
+                "summary": "Create a webhook endpoint",
+                "description": "Adds an endpoint that receives processing events, and returns its signing secret. The URL is checked: in production it must use https, and it must not resolve to a private or internal address.",
+                "responses": {
+                    "201": {
+                        "description": "Endpoint created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookEndpoint"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "409": {
+                        "description": "The app has the most endpoints allowed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Conflict"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
                 },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateWebhookPayload"
+                            }
+                        }
+                    }
                 },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
+                "operationId": "createWebhook"
             }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WebhookIdPayload"
-              }
+        "/settings/webhooks/get": {
+            "post": {
+                "tags": ["Webhooks"],
+                "summary": "List webhook endpoints",
+                "description": "Lists the app’s webhook endpoints. Signing secrets are not included, only their last characters (`secretHint`); read a secret with `POST /settings/webhooks/secret`.",
+                "responses": {
+                    "200": {
+                        "description": "The endpoints",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookEndpointList"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "More than one credential was sent, for example both a Bearer token and an API key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "credential_ambiguous",
+                                    "error_description": "Exactly one credential mechanism is allowed."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "operationId": "listWebhooks"
             }
-          }
         },
-        "operationId": "testWebhook"
-      }
-    },
-    "/media/signature/create": {
-      "post": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Create Upload Signature",
-        "description": "Generate a signature for secure client-side uploads.",
-        "responses": {
-          "200": {
-            "description": "Signature generated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SignatureResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+        "/settings/webhooks/secret": {
+            "post": {
+                "tags": ["Webhooks"],
+                "summary": "Reveal a signing secret",
+                "description": "Returns the endpoint’s signing secret. Needs write access (`data:write`), like creating or rotating one, because the secret lets its holder sign webhooks.",
+                "responses": {
+                    "200": {
+                        "description": "The signing secret",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookSecret"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
                 },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WebhookIdPayload"
+                            }
+                        }
+                    }
                 },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
+                "operationId": "revealWebhookSecret"
             }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "operationId": "createUploadSignature"
-      }
-    },
-    "/media/{mediaId}/hls/{token}/master.m3u8": {
-      "get": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "HLS master playlist of private media",
-        "description": "The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the length of the video plus an hour. Players fetch it themselves; clients never build this URL.",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "required": true
-          },
-          {
-            "name": "token",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The master playlist (application/vnd.apple.mpegurl)"
-          },
-          "403": {
-            "description": "Wrong or expired token"
-          },
-          "404": {
-            "description": "No ready HLS for this media",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+        "/settings/webhooks/update": {
+            "post": {
+                "tags": ["Webhooks"],
+                "summary": "Update a webhook endpoint",
+                "description": "Changes the URL, events or enabled flag, or rotates the signing secret. Fields left out keep their values. The response includes `secret` only when it was rotated.",
+                "responses": {
+                    "200": {
+                        "description": "The updated endpoint",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookEndpoint"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
                 },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateWebhookPayload"
+                            }
+                        }
+                    }
+                },
+                "operationId": "updateWebhook"
             }
-          },
-          "502": {
-            "description": "Bad Gateway"
-          }
+        },
+        "/settings/webhooks/delete": {
+            "post": {
+                "tags": ["Webhooks"],
+                "summary": "Delete a webhook endpoint",
+                "description": "Removes the endpoint. Deliveries still queued for it are not sent.",
+                "responses": {
+                    "200": {
+                        "description": "Endpoint deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "success"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WebhookIdPayload"
+                            }
+                        }
+                    }
+                },
+                "operationId": "deleteWebhook"
+            }
+        },
+        "/settings/webhooks/test": {
+            "post": {
+                "tags": ["Webhooks"],
+                "summary": "Send a test event",
+                "description": "Sends a signed `webhook.test` event to the endpoint now. The result is only \"delivered\" or \"failed\", with the status code the endpoint answered or a generic error class.",
+                "responses": {
+                    "200": {
+                        "description": "What the endpoint did with the test event",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookTestResult"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WebhookIdPayload"
+                            }
+                        }
+                    }
+                },
+                "operationId": "testWebhook"
+            }
+        },
+        "/media/signature/create": {
+            "post": {
+                "tags": ["Media"],
+                "summary": "Create Upload Signature",
+                "description": "Generate a signature for secure client-side uploads.",
+                "responses": {
+                    "200": {
+                        "description": "Signature generated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SignatureResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "operationId": "createUploadSignature"
+            }
+        },
+        "/media/{mediaId}/hls/{token}/master.m3u8": {
+            "get": {
+                "tags": ["Media"],
+                "summary": "HLS master playlist of private media",
+                "description": "The URL in `derivatives.hls.url` of a private video. No API key: the token in the path is the credential, valid for the length of the video plus an hour. Players fetch it themselves; clients never build this URL.",
+                "parameters": [
+                    {
+                        "name": "mediaId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The master playlist (application/vnd.apple.mpegurl)"
+                    },
+                    "403": {
+                        "description": "Wrong or expired token"
+                    },
+                    "404": {
+                        "description": "No ready HLS for this media",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway"
+                    }
+                }
+            }
+        },
+        "/media/{mediaId}/hls/{token}/{rendition}/index.m3u8": {
+            "get": {
+                "tags": ["Media"],
+                "summary": "HLS rendition playlist of private media",
+                "description": "A rendition playlist the master playlist points to, with every segment as a signed storage URL that lasts as long as the token.",
+                "parameters": [
+                    {
+                        "name": "mediaId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "name": "rendition",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The rendition playlist (application/vnd.apple.mpegurl)"
+                    },
+                    "403": {
+                        "description": "Wrong or expired token"
+                    },
+                    "404": {
+                        "description": "No such rendition, or no ready HLS",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway"
+                    }
+                }
+            }
+        },
+        "/media/create": {
+            "post": {
+                "tags": ["Media"],
+                "summary": "Upload Media",
+                "description": "Upload a new media file. Use OAuth Bearer auth, API key auth from Authorize (`x-medialit-apikey`), or pass `x-medialit-signature` for this endpoint only.",
+                "parameters": [
+                    {
+                        "name": "content-length",
+                        "in": "header"
+                    },
+                    {
+                        "name": "x-medialit-signature",
+                        "in": "header",
+                        "description": "Upload Signature for secure client-side uploads",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The created Media object",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Media"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Invalid signature",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Invalid signature"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Too many uploads in progress; retry after the Retry-After header"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    },
+                    {
+                        "signatureAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "caption": {
+                                        "type": "string"
+                                    },
+                                    "access": {
+                                        "type": "string",
+                                        "enum": ["public", "private"]
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": ["file"]
+                            }
+                        }
+                    }
+                },
+                "operationId": "uploadMedia"
+            }
+        },
+        "/media/get/count": {
+            "post": {
+                "tags": ["Media"],
+                "summary": "Get Media Count",
+                "description": "Get the total number of media files.",
+                "responses": {
+                    "200": {
+                        "description": "Count retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MediaCountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "More than one credential was sent, for example both a Bearer token and an API key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "credential_ambiguous",
+                                    "error_description": "Exactly one credential mechanism is allowed."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "operationId": "getMediaCount"
+            }
+        },
+        "/media/get/size": {
+            "post": {
+                "tags": ["Media"],
+                "summary": "Get Total Size",
+                "description": "Get the total size of all media files in bytes.",
+                "responses": {
+                    "200": {
+                        "description": "Size retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MediaSizeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "More than one credential was sent, for example both a Bearer token and an API key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "credential_ambiguous",
+                                    "error_description": "Exactly one credential mechanism is allowed."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "operationId": "getMediaSize"
+            }
+        },
+        "/media/get/{mediaId}": {
+            "post": {
+                "tags": ["Media"],
+                "summary": "Get Media Details",
+                "description": "Retrieve metadata for a specific media item.",
+                "parameters": [
+                    {
+                        "name": "mediaId",
+                        "in": "path",
+                        "required": true,
+                        "description": "ID of the media file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Media details retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Media"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "More than one credential was sent, for example both a Bearer token and an API key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "credential_ambiguous",
+                                    "error_description": "Exactly one credential mechanism is allowed."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Media not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "operationId": "getMediaDetails"
+            }
+        },
+        "/media/get": {
+            "post": {
+                "tags": ["Media"],
+                "summary": "List Media",
+                "description": "List media files filtered by optional query payload.",
+                "responses": {
+                    "200": {
+                        "description": "List retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MediaListItem"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/GetMediaQuery"
+                            }
+                        }
+                    }
+                },
+                "operationId": "listMedia"
+            }
+        },
+        "/media/seal/{mediaId}": {
+            "post": {
+                "tags": ["Media"],
+                "summary": "Seal Media",
+                "description": "Seal a temporary upload so it is kept. Public media is published to the public bucket. When the app has WebP on, JPEG and PNG images are converted to WebP first, and the response describes the WebP. Sealing media that is already sealed returns it unchanged, and ignores `processing`. `processing` overrides the processing settings of the app for this upload only: a field left out uses the setting of the app.",
+                "parameters": [
+                    {
+                        "name": "mediaId",
+                        "in": "path",
+                        "required": true,
+                        "description": "ID of the media file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The created Media object",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Media"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid processing settings (the media stays temporary), or more than one credential was sent, for example both a Bearer token and an API key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Bad Request"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Not enough storage",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Media not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Not Found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Another request is sealing this media and did not finish in time. Retry after the number of seconds in Retry-After; the retry returns the sealed media.",
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before retrying",
+                                "schema": {
+                                    "type": "integer",
+                                    "example": 1
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "processing": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "description": "Processing settings for this upload, instead of the settings of the app",
+                                        "properties": {
+                                            "videoStreaming": {
+                                                "type": "string",
+                                                "enum": ["off", "hls", "mp4"],
+                                                "description": "How this video is prepared for playback"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "example": {
+                                "processing": {
+                                    "videoStreaming": "off"
+                                }
+                            }
+                        }
+                    }
+                },
+                "operationId": "sealMedia"
+            }
+        },
+        "/media/delete/{mediaId}": {
+            "delete": {
+                "tags": ["Media"],
+                "summary": "Delete Media",
+                "description": "Permanently delete a media file.",
+                "parameters": [
+                    {
+                        "name": "mediaId",
+                        "in": "path",
+                        "required": true,
+                        "description": "ID of the media file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Media deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "success"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "More than one credential was sent, for example both a Bearer token and an API key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "credential_ambiguous",
+                                    "error_description": "Exactly one credential mechanism is allowed."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Unauthorized"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": "Internal Server Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "apiKeyAuth": []
+                    }
+                ],
+                "operationId": "deleteMedia"
+            }
         }
-      }
     },
-    "/media/{mediaId}/hls/{token}/{rendition}/index.m3u8": {
-      "get": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "HLS rendition playlist of private media",
-        "description": "A rendition playlist the master playlist points to, with every segment as a signed storage URL that lasts as long as the token.",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "required": true
-          },
-          {
-            "name": "token",
-            "in": "path",
-            "required": true
-          },
-          {
-            "name": "rendition",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The rendition playlist (application/vnd.apple.mpegurl)"
-          },
-          "403": {
-            "description": "Wrong or expired token"
-          },
-          "404": {
-            "description": "No such rendition, or no ready HLS",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Bad Gateway"
-          }
-        }
-      }
-    },
-    "/media/create": {
-      "post": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Upload Media",
-        "description": "Upload a new media file. Use OAuth Bearer auth, API key auth from Authorize (`x-medialit-apikey`), or pass `x-medialit-signature` for this endpoint only.",
-        "parameters": [
-          {
-            "name": "content-length",
-            "in": "header"
-          },
-          {
-            "name": "x-medialit-signature",
-            "in": "header",
-            "description": "Upload Signature for secure client-side uploads",
-            "schema": {
-              "type": "string"
+    "components": {
+        "securitySchemes": {
+            "apiKeyAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "x-medialit-apikey"
             },
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The created Media object",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Media"
-                }
-              }
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            },
+            "signatureAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "x-medialit-signature"
             }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Invalid signature",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Invalid signature"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Too many uploads in progress; retry after the Retry-After header"
-          }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          },
-          {
-            "signatureAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
+        "schemas": {
+            "Media": {
                 "type": "object",
                 "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  },
-                  "caption": {
-                    "type": "string"
-                  },
-                  "access": {
-                    "type": "string",
-                    "enum": [
-                      "public",
-                      "private"
-                    ]
-                  },
-                  "group": {
-                    "type": "string"
-                  }
+                    "mediaId": {
+                        "type": "string"
+                    },
+                    "originalFileName": {
+                        "type": "string"
+                    },
+                    "mimeType": {
+                        "type": "string"
+                    },
+                    "size": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "access": {
+                        "type": "string",
+                        "enum": ["public", "private"]
+                    },
+                    "file": {
+                        "type": "string"
+                    },
+                    "thumbnail": {
+                        "type": "string"
+                    },
+                    "caption": {
+                        "type": "string"
+                    },
+                    "group": {
+                        "type": "string"
+                    },
+                    "processing": {
+                        "type": "object",
+                        "properties": {
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "pending",
+                                    "processing",
+                                    "ready",
+                                    "failed"
+                                ]
+                            },
+                            "error": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["status"],
+                        "additionalProperties": false
+                    },
+                    "derivatives": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "status": {
+                                    "type": "string",
+                                    "enum": [
+                                        "queued",
+                                        "processing",
+                                        "ready",
+                                        "failed"
+                                    ]
+                                },
+                                "url": {
+                                    "type": "string"
+                                },
+                                "mimeType": {
+                                    "type": "string"
+                                },
+                                "size": {
+                                    "type": "number",
+                                    "format": "float"
+                                },
+                                "error": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["status"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["video", "audio", "image"]
+                            },
+                            "durationSeconds": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "width": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "height": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "rotation": {
+                                "type": "number",
+                                "format": "float",
+                                "enum": [0, 90, 180, 270]
+                            },
+                            "frameRate": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "videoCodec": {
+                                "type": "string"
+                            },
+                            "audioCodec": {
+                                "type": "string"
+                            },
+                            "bitrate": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "sampleRate": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "channels": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "format": {
+                                "type": "string"
+                            }
+                        },
+                        "required": ["kind"],
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "description": "Duration, size, codecs and format, read at seal. Null before seal or when the file couldn't be read."
+                    }
                 },
                 "required": [
-                  "file"
-                ]
-              }
-            }
-          }
-        },
-        "operationId": "uploadMedia"
-      }
-    },
-    "/media/get/count": {
-      "post": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Get Media Count",
-        "description": "Get the total number of media files.",
-        "responses": {
-          "200": {
-            "description": "Count retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaCountResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "More than one credential was sent, for example both a Bearer token and an API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "credential_ambiguous",
-                  "error_description": "Exactly one credential mechanism is allowed."
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "operationId": "getMediaCount"
-      }
-    },
-    "/media/get/size": {
-      "post": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Get Total Size",
-        "description": "Get the total size of all media files in bytes.",
-        "responses": {
-          "200": {
-            "description": "Size retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaSizeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "More than one credential was sent, for example both a Bearer token and an API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "credential_ambiguous",
-                  "error_description": "Exactly one credential mechanism is allowed."
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "operationId": "getMediaSize"
-      }
-    },
-    "/media/get/{mediaId}": {
-      "post": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Get Media Details",
-        "description": "Retrieve metadata for a specific media item.",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "required": true,
-            "description": "ID of the media file",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Media details retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Media"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "More than one credential was sent, for example both a Bearer token and an API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "credential_ambiguous",
-                  "error_description": "Exactly one credential mechanism is allowed."
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Media not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "operationId": "getMediaDetails"
-      }
-    },
-    "/media/get": {
-      "post": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "List Media",
-        "description": "List media files filtered by optional query payload.",
-        "responses": {
-          "200": {
-            "description": "List retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MediaListItem"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetMediaQuery"
-              }
-            }
-          }
-        },
-        "operationId": "listMedia"
-      }
-    },
-    "/media/seal/{mediaId}": {
-      "post": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Seal Media",
-        "description": "Seal a temporary upload so it is kept. Public media is published to the public bucket. When the app has WebP on, JPEG and PNG images are converted to WebP first, and the response describes the WebP. Sealing media that is already sealed returns it unchanged, and ignores `processing`. `processing` overrides the processing settings of the app for this upload only: a field left out uses the setting of the app.",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "required": true,
-            "description": "ID of the media file",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The created Media object",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Media"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid processing settings (the media stays temporary), or more than one credential was sent, for example both a Bearer token and an API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Not enough storage",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Media not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Another request is sealing this media and did not finish in time. Retry after the number of seconds in Retry-After; the retry returns the sealed media.",
-            "headers": {
-              "Retry-After": {
-                "description": "Seconds to wait before retrying",
-                "schema": {
-                  "type": "integer",
-                  "example": 1
-                }
-              }
+                    "mediaId",
+                    "originalFileName",
+                    "mimeType",
+                    "size",
+                    "access",
+                    "file",
+                    "processing",
+                    "derivatives"
+                ],
+                "additionalProperties": false
             },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
+            "MediaListItem": {
                 "type": "object",
                 "properties": {
-                  "processing": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "description": "Processing settings for this upload, instead of the settings of the app",
-                    "properties": {
-                      "videoStreaming": {
+                    "mediaId": {
+                        "type": "string"
+                    },
+                    "originalFileName": {
+                        "type": "string"
+                    },
+                    "mimeType": {
+                        "type": "string"
+                    },
+                    "size": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "access": {
+                        "type": "string",
+                        "enum": ["public", "private"]
+                    },
+                    "thumbnail": {
+                        "type": "string"
+                    },
+                    "caption": {
+                        "type": "string"
+                    },
+                    "group": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "mediaId",
+                    "originalFileName",
+                    "mimeType",
+                    "size",
+                    "access",
+                    "createdAt"
+                ],
+                "additionalProperties": false
+            },
+            "MediaSettings": {
+                "type": "object",
+                "properties": {
+                    "useWebP": {
+                        "type": "boolean"
+                    },
+                    "webpOutputQuality": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                    },
+                    "videoStreaming": {
+                        "type": "string",
+                        "enum": ["off", "hls", "mp4"]
+                    },
+                    "hlsRenditions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["1080p", "720p", "480p", "360p"]
+                        }
+                    }
+                },
+                "additionalProperties": false
+            },
+            "MediaSettingsPayload": {
+                "type": "object",
+                "properties": {
+                    "useWebP": {
+                        "type": "boolean"
+                    },
+                    "webpOutputQuality": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                    },
+                    "videoStreaming": {
+                        "type": "string",
+                        "enum": ["off", "hls", "mp4"]
+                    },
+                    "hlsRenditions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["1080p", "720p", "480p", "360p"]
+                        },
+                        "minItems": 1,
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "UploadMediaPayload": {
+                "type": "object",
+                "properties": {
+                    "caption": {
+                        "type": "string"
+                    },
+                    "access": {
+                        "type": "string",
+                        "enum": ["public", "private"]
+                    },
+                    "group": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "GetMediaQuery": {
+                "type": "object",
+                "properties": {
+                    "page": {
+                        "type": "number",
+                        "format": "float",
+                        "minimum": 1
+                    },
+                    "limit": {
+                        "type": "number",
+                        "format": "float",
+                        "minimum": 1
+                    },
+                    "access": {
+                        "type": "string",
+                        "enum": ["public", "private"]
+                    },
+                    "group": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "SignatureResponse": {
+                "type": "object",
+                "properties": {
+                    "signature": {
+                        "type": "string",
+                        "description": "HMAC signature for secure uploads"
+                    }
+                },
+                "required": ["signature"],
+                "additionalProperties": false
+            },
+            "MediaCountResponse": {
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "number",
+                        "format": "float"
+                    }
+                },
+                "required": ["count"],
+                "additionalProperties": false
+            },
+            "MediaSizeResponse": {
+                "type": "object",
+                "properties": {
+                    "storage": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "maxStorage": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "processingMinutes": {
+                        "type": "object",
+                        "properties": {
+                            "used": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "allowed": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true,
+                                "description": "Null when there is no limit"
+                            }
+                        },
+                        "required": ["used", "allowed"],
+                        "additionalProperties": false,
+                        "description": "Video processing minutes this calendar month (UTC)"
+                    }
+                },
+                "required": ["storage", "maxStorage"],
+                "additionalProperties": false
+            },
+            "WebhookEndpoint": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "example": "wh_V1StGXR8_Z5jdHi6B-myT"
+                    },
+                    "url": {
+                        "type": "string",
+                        "example": "https://example.com/hooks"
+                    },
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "media.processing.ready",
+                                "media.processing.failed"
+                            ]
+                        },
+                        "minItems": 1,
+                        "description": "Events to send. Defaults to every event."
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "secretHint": {
+                        "type": "string",
+                        "description": "The signing secret's last characters.",
+                        "example": "…LaSw"
+                    },
+                    "secret": {
+                        "type": "string",
+                        "description": "Signing secret (Standard Webhooks). Returned only when the endpoint is created or its secret rotated; read it with POST /settings/webhooks/secret.",
+                        "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "url",
+                    "events",
+                    "enabled",
+                    "secretHint",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "additionalProperties": false
+            },
+            "WebhookEndpointList": {
+                "type": "object",
+                "properties": {
+                    "endpoints": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string",
+                                    "example": "wh_V1StGXR8_Z5jdHi6B-myT"
+                                },
+                                "url": {
+                                    "type": "string",
+                                    "example": "https://example.com/hooks"
+                                },
+                                "events": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": [
+                                            "media.processing.ready",
+                                            "media.processing.failed"
+                                        ]
+                                    },
+                                    "minItems": 1,
+                                    "description": "Events to send. Defaults to every event."
+                                },
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "secretHint": {
+                                    "type": "string",
+                                    "description": "The signing secret's last characters.",
+                                    "example": "…LaSw"
+                                },
+                                "secret": {
+                                    "type": "string",
+                                    "description": "Signing secret (Standard Webhooks). Returned only when the endpoint is created or its secret rotated; read it with POST /settings/webhooks/secret.",
+                                    "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+                                },
+                                "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "url",
+                                "events",
+                                "enabled",
+                                "secretHint",
+                                "createdAt",
+                                "updatedAt"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": ["endpoints"],
+                "additionalProperties": false
+            },
+            "CreateWebhookPayload": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "Receiving URL. Must use https in production.",
+                        "example": "https://example.com/hooks"
+                    },
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "media.processing.ready",
+                                "media.processing.failed"
+                            ]
+                        },
+                        "minItems": 1,
+                        "description": "Events to send. Defaults to every event."
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Defaults to true."
+                    }
+                },
+                "required": ["url"],
+                "additionalProperties": false
+            },
+            "UpdateWebhookPayload": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "example": "wh_V1StGXR8_Z5jdHi6B-myT"
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "media.processing.ready",
+                                "media.processing.failed"
+                            ]
+                        },
+                        "minItems": 1,
+                        "description": "Events to send. Defaults to every event."
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "rotateSecret": {
+                        "type": "boolean",
+                        "description": "Replace the signing secret with a new one."
+                    }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+            },
+            "WebhookIdPayload": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "example": "wh_V1StGXR8_Z5jdHi6B-myT"
+                    }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+            },
+            "WebhookTestResult": {
+                "type": "object",
+                "properties": {
+                    "result": {
+                        "type": "string",
+                        "enum": ["delivered", "failed"]
+                    },
+                    "status": {
+                        "type": "integer",
+                        "description": "The HTTP status the endpoint answered."
+                    },
+                    "error": {
                         "type": "string",
                         "enum": [
-                          "off",
-                          "hls",
-                          "mp4"
+                            "timeout",
+                            "connection_failed",
+                            "tls_error",
+                            "blocked_address"
                         ],
-                        "description": "How this video is prepared for playback"
-                      }
+                        "description": "Why no response came back."
                     }
-                  }
-                }
-              },
-              "example": {
-                "processing": {
-                  "videoStreaming": "off"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "sealMedia"
-      }
-    },
-    "/media/delete/{mediaId}": {
-      "delete": {
-        "tags": [
-          "Media"
-        ],
-        "summary": "Delete Media",
-        "description": "Permanently delete a media file.",
-        "parameters": [
-          {
-            "name": "mediaId",
-            "in": "path",
-            "required": true,
-            "description": "ID of the media file",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Media deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "success"
+                },
+                "required": ["result"],
+                "additionalProperties": false
+            },
+            "WebhookSecret": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "example": "wh_V1StGXR8_Z5jdHi6B-myT"
+                    },
+                    "secret": {
+                        "type": "string",
+                        "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
                     }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "More than one credential was sent, for example both a Bearer token and an API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": "credential_ambiguous",
-                  "error_description": "Exactly one credential mechanism is allowed."
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                "required": ["id", "secret"],
+                "additionalProperties": false
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "type": "string",
+                        "example": "Unauthorized"
+                    }
                 },
-                "example": {
-                  "error": "Unauthorized"
-                }
-              }
+                "required": ["error"],
+                "additionalProperties": false
             }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "operationId": "deleteMedia"
-      }
+        }
     }
-  },
-  "components": {
-    "securitySchemes": {
-      "apiKeyAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "x-medialit-apikey"
-      },
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      },
-      "signatureAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "x-medialit-signature"
-      }
-    },
-    "schemas": {
-      "Media": {
-        "type": "object",
-        "properties": {
-          "mediaId": {
-            "type": "string"
-          },
-          "originalFileName": {
-            "type": "string"
-          },
-          "mimeType": {
-            "type": "string"
-          },
-          "size": {
-            "type": "number",
-            "format": "float"
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "public",
-              "private"
-            ]
-          },
-          "file": {
-            "type": "string"
-          },
-          "thumbnail": {
-            "type": "string"
-          },
-          "caption": {
-            "type": "string"
-          },
-          "group": {
-            "type": "string"
-          },
-          "processing": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "enum": [
-                  "pending",
-                  "processing",
-                  "ready",
-                  "failed"
-                ]
-              },
-              "error": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "status"
-            ],
-            "additionalProperties": false
-          },
-          "derivatives": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "queued",
-                    "processing",
-                    "ready",
-                    "failed"
-                  ]
-                },
-                "url": {
-                  "type": "string"
-                },
-                "mimeType": {
-                  "type": "string"
-                },
-                "size": {
-                  "type": "number",
-                  "format": "float"
-                },
-                "error": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "status"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "metadata": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "video",
-                  "audio",
-                  "image"
-                ]
-              },
-              "durationSeconds": {
-                "type": "number",
-                "format": "float"
-              },
-              "width": {
-                "type": "number",
-                "format": "float"
-              },
-              "height": {
-                "type": "number",
-                "format": "float"
-              },
-              "rotation": {
-                "type": "number",
-                "format": "float",
-                "enum": [
-                  0,
-                  90,
-                  180,
-                  270
-                ]
-              },
-              "frameRate": {
-                "type": "number",
-                "format": "float"
-              },
-              "videoCodec": {
-                "type": "string"
-              },
-              "audioCodec": {
-                "type": "string"
-              },
-              "bitrate": {
-                "type": "number",
-                "format": "float"
-              },
-              "sampleRate": {
-                "type": "number",
-                "format": "float"
-              },
-              "channels": {
-                "type": "number",
-                "format": "float"
-              },
-              "format": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "kind"
-            ],
-            "additionalProperties": false,
-            "nullable": true,
-            "description": "Duration, size, codecs and format, read at seal. Null before seal or when the file couldn't be read."
-          }
-        },
-        "required": [
-          "mediaId",
-          "originalFileName",
-          "mimeType",
-          "size",
-          "access",
-          "file",
-          "processing",
-          "derivatives"
-        ],
-        "additionalProperties": false
-      },
-      "MediaListItem": {
-        "type": "object",
-        "properties": {
-          "mediaId": {
-            "type": "string"
-          },
-          "originalFileName": {
-            "type": "string"
-          },
-          "mimeType": {
-            "type": "string"
-          },
-          "size": {
-            "type": "number",
-            "format": "float"
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "public",
-              "private"
-            ]
-          },
-          "thumbnail": {
-            "type": "string"
-          },
-          "caption": {
-            "type": "string"
-          },
-          "group": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "mediaId",
-          "originalFileName",
-          "mimeType",
-          "size",
-          "access",
-          "createdAt"
-        ],
-        "additionalProperties": false
-      },
-      "MediaSettings": {
-        "type": "object",
-        "properties": {
-          "useWebP": {
-            "type": "boolean"
-          },
-          "webpOutputQuality": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 100
-          },
-          "videoStreaming": {
-            "type": "string",
-            "enum": [
-              "off",
-              "hls",
-              "mp4"
-            ]
-          },
-          "hlsRenditions": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "1080p",
-                "720p",
-                "480p",
-                "360p"
-              ]
-            }
-          }
-        },
-        "additionalProperties": false
-      },
-      "MediaSettingsPayload": {
-        "type": "object",
-        "properties": {
-          "useWebP": {
-            "type": "boolean"
-          },
-          "webpOutputQuality": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 100
-          },
-          "videoStreaming": {
-            "type": "string",
-            "enum": [
-              "off",
-              "hls",
-              "mp4"
-            ]
-          },
-          "hlsRenditions": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "1080p",
-                "720p",
-                "480p",
-                "360p"
-              ]
-            },
-            "minItems": 1,
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "UploadMediaPayload": {
-        "type": "object",
-        "properties": {
-          "caption": {
-            "type": "string"
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "public",
-              "private"
-            ]
-          },
-          "group": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "GetMediaQuery": {
-        "type": "object",
-        "properties": {
-          "page": {
-            "type": "number",
-            "format": "float",
-            "minimum": 1
-          },
-          "limit": {
-            "type": "number",
-            "format": "float",
-            "minimum": 1
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "public",
-              "private"
-            ]
-          },
-          "group": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "SignatureResponse": {
-        "type": "object",
-        "properties": {
-          "signature": {
-            "type": "string",
-            "description": "HMAC signature for secure uploads"
-          }
-        },
-        "required": [
-          "signature"
-        ],
-        "additionalProperties": false
-      },
-      "MediaCountResponse": {
-        "type": "object",
-        "properties": {
-          "count": {
-            "type": "number",
-            "format": "float"
-          }
-        },
-        "required": [
-          "count"
-        ],
-        "additionalProperties": false
-      },
-      "MediaSizeResponse": {
-        "type": "object",
-        "properties": {
-          "storage": {
-            "type": "number",
-            "format": "float"
-          },
-          "maxStorage": {
-            "type": "number",
-            "format": "float"
-          },
-          "processingMinutes": {
-            "type": "object",
-            "properties": {
-              "used": {
-                "type": "number",
-                "format": "float"
-              },
-              "allowed": {
-                "type": "number",
-                "format": "float",
-                "nullable": true,
-                "description": "Null when there is no limit"
-              }
-            },
-            "required": [
-              "used",
-              "allowed"
-            ],
-            "additionalProperties": false,
-            "description": "Video processing minutes this calendar month (UTC)"
-          }
-        },
-        "required": [
-          "storage",
-          "maxStorage"
-        ],
-        "additionalProperties": false
-      },
-      "WebhookEndpoint": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "wh_V1StGXR8_Z5jdHi6B-myT"
-          },
-          "url": {
-            "type": "string",
-            "example": "https://example.com/hooks"
-          },
-          "events": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "media.processing.ready",
-                "media.processing.failed"
-              ]
-            },
-            "minItems": 1,
-            "description": "Events to send. Defaults to every event."
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "secretHint": {
-            "type": "string",
-            "description": "The signing secret's last characters.",
-            "example": "…LaSw"
-          },
-          "secret": {
-            "type": "string",
-            "description": "Signing secret (Standard Webhooks). Returned only when the endpoint is created or its secret rotated; read it with POST /settings/webhooks/secret.",
-            "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "url",
-          "events",
-          "enabled",
-          "secretHint",
-          "createdAt",
-          "updatedAt"
-        ],
-        "additionalProperties": false
-      },
-      "WebhookEndpointList": {
-        "type": "object",
-        "properties": {
-          "endpoints": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "example": "wh_V1StGXR8_Z5jdHi6B-myT"
-                },
-                "url": {
-                  "type": "string",
-                  "example": "https://example.com/hooks"
-                },
-                "events": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "enum": [
-                      "media.processing.ready",
-                      "media.processing.failed"
-                    ]
-                  },
-                  "minItems": 1,
-                  "description": "Events to send. Defaults to every event."
-                },
-                "enabled": {
-                  "type": "boolean"
-                },
-                "secretHint": {
-                  "type": "string",
-                  "description": "The signing secret's last characters.",
-                  "example": "…LaSw"
-                },
-                "secret": {
-                  "type": "string",
-                  "description": "Signing secret (Standard Webhooks). Returned only when the endpoint is created or its secret rotated; read it with POST /settings/webhooks/secret.",
-                  "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-                },
-                "createdAt": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updatedAt": {
-                  "type": "string",
-                  "format": "date-time"
-                }
-              },
-              "required": [
-                "id",
-                "url",
-                "events",
-                "enabled",
-                "secretHint",
-                "createdAt",
-                "updatedAt"
-              ],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": [
-          "endpoints"
-        ],
-        "additionalProperties": false
-      },
-      "CreateWebhookPayload": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "description": "Receiving URL. Must use https in production.",
-            "example": "https://example.com/hooks"
-          },
-          "events": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "media.processing.ready",
-                "media.processing.failed"
-              ]
-            },
-            "minItems": 1,
-            "description": "Events to send. Defaults to every event."
-          },
-          "enabled": {
-            "type": "boolean",
-            "description": "Defaults to true."
-          }
-        },
-        "required": [
-          "url"
-        ],
-        "additionalProperties": false
-      },
-      "UpdateWebhookPayload": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "wh_V1StGXR8_Z5jdHi6B-myT"
-          },
-          "url": {
-            "type": "string"
-          },
-          "events": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "media.processing.ready",
-                "media.processing.failed"
-              ]
-            },
-            "minItems": 1,
-            "description": "Events to send. Defaults to every event."
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "rotateSecret": {
-            "type": "boolean",
-            "description": "Replace the signing secret with a new one."
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "additionalProperties": false
-      },
-      "WebhookIdPayload": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "wh_V1StGXR8_Z5jdHi6B-myT"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "additionalProperties": false
-      },
-      "WebhookTestResult": {
-        "type": "object",
-        "properties": {
-          "result": {
-            "type": "string",
-            "enum": [
-              "delivered",
-              "failed"
-            ]
-          },
-          "status": {
-            "type": "integer",
-            "description": "The HTTP status the endpoint answered."
-          },
-          "error": {
-            "type": "string",
-            "enum": [
-              "timeout",
-              "connection_failed",
-              "tls_error",
-              "blocked_address"
-            ],
-            "description": "Why no response came back."
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "additionalProperties": false
-      },
-      "WebhookSecret": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "wh_V1StGXR8_Z5jdHi6B-myT"
-          },
-          "secret": {
-            "type": "string",
-            "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-          }
-        },
-        "required": [
-          "id",
-          "secret"
-        ],
-        "additionalProperties": false
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string",
-            "example": "Unauthorized"
-          }
-        },
-        "required": [
-          "error"
-        ],
-        "additionalProperties": false
-      }
-    }
-  }
 }

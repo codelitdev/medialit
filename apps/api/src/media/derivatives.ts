@@ -17,6 +17,7 @@ import { sql } from "drizzle-orm";
 import type { AppDb } from "../db/client";
 import {
     getDb,
+    isBackgroundDerivative,
     listDerivatives,
     lockMedia,
     markDerivativesPublic,
@@ -187,6 +188,29 @@ type SettledHook = (
 
 const settledHooks: SettledHook[] = [];
 
+/** A background derivative (captions) reached `ready` or `failed`. */
+export type BackgroundSettledEvent = {
+    media: LockedMedia;
+    derivative: DerivativeRecord;
+};
+
+type BackgroundHook = (
+    db: Executor,
+    event: BackgroundSettledEvent,
+) => Promise<void>;
+
+const backgroundHooks: BackgroundHook[] = [];
+
+/** Runs in the transaction that records a background derivative's result,
+ * so what it queues (the captions webhook) commits with it. */
+export function onBackgroundSettled(hook: BackgroundHook): () => void {
+    backgroundHooks.push(hook);
+    return () => {
+        const index = backgroundHooks.indexOf(hook);
+        if (index >= 0) backgroundHooks.splice(index, 1);
+    };
+}
+
 /** Runs in the transaction that settles a media item's processing status,
  * so what it queues (webhook deliveries) commits with the status change. */
 export function onProcessingSettled(hook: SettledHook): () => void {
@@ -202,7 +226,22 @@ export function onProcessingSettled(hook: SettledHook): () => void {
 async function settle(
     db: Executor,
     media: LockedMedia,
+    name: string,
 ): Promise<ProcessingSettledEvent | null> {
+    if (isBackgroundDerivative(name)) {
+        // Sealed media only: a temp upload never has derivative jobs.
+        if (!media.temp) {
+            const derivative = (await listDerivatives(db, media.id)).find(
+                (d) => d.name === name,
+            );
+            if (derivative) {
+                for (const hook of backgroundHooks) {
+                    await hook(db, { media, derivative });
+                }
+            }
+        }
+        return null;
+    }
     const settled = await settleMedia(db, media);
     if (!settled) return null;
     const derivatives = await listDerivatives(db, media.id);
@@ -392,7 +431,7 @@ export async function finishDerivative(input: {
                 status: "failed",
                 error,
             });
-            const settled = await settle(tx, media);
+            const settled = await settle(tx, media, input.name);
             report = () =>
                 reportFinished(
                     input.name,
@@ -417,7 +456,7 @@ export async function finishDerivative(input: {
         if (needsPublicCopy(media, input.name)) {
             await queuePublish(tx, media);
         }
-        const settled = await settle(tx, media);
+        const settled = await settle(tx, media, input.name);
         report = () =>
             reportFinished(
                 input.name,

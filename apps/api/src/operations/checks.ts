@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import type { Executor } from "../jobs/queue";
 import { missingWorkerClasses, WORKER_SEEN_WITHIN_MS } from "../jobs/runner";
 import { WEBHOOK_DELIVER_JOB } from "../webhooks/queries";
+import { CAPTIONS_JOB_TYPE } from "../media/processing-plan";
 import type { Alert } from "./alerts";
 
 /** The advisory lock that picks the one worker running the queue checks. */
@@ -16,6 +17,13 @@ export const QUEUE_LAG_MS = 10 * 60 * 1000;
 /** Video encodes take an hour or two each, one at a time, so a video job
  * waits far longer than others before something is wrong. */
 export const VIDEO_QUEUE_LAG_MS = 6 * 60 * 60 * 1000;
+/** Captions wait behind one transcription at a time (pipelines-phase-2.md,
+ * D5), so they get the video jobs' patience. */
+export const TRANSCRIBE_QUEUE_LAG_MS = 6 * 60 * 60 * 1000;
+/** Job types of the `transcribe` class. Named here rather than read from
+ * the worker's definitions: every worker checks the queue, and only
+ * transcription workers load the captions job. */
+const TRANSCRIBE_JOB_TYPES = [CAPTIONS_JOB_TYPE];
 export const FAILURE_WINDOW_MS = 10 * 60 * 1000;
 /** More failures than this within the window page. */
 export const FAILURE_SPIKE = 10;
@@ -36,19 +44,27 @@ export async function collectWorkerAlerts(
         TENANT_JOB_TYPES.map((type) => sql`${type}`),
         sql`, `,
     );
-    // A list that is never empty, so NOT IN and IN stay valid SQL.
+    // Lists that are never empty, so NOT IN and IN stay valid SQL.
     const videoTypes = sql.join(
         ["", ...(options.videoJobTypes ?? [])].map((type) => sql`${type}`),
+        sql`, `,
+    );
+    const transcribeTypes = sql.join(
+        TRANSCRIBE_JOB_TYPES.map((type) => sql`${type}`),
         sql`, `,
     );
     const result = await db.execute(
         sql`SELECT
                 (SELECT floor(extract(epoch FROM now() - min(run_at)) * 1000)
                     FROM jobs WHERE status = 'queued' AND run_at <= now()
-                    AND type NOT IN (${videoTypes})) AS "lagMs",
+                    AND type NOT IN (${videoTypes})
+                    AND type NOT IN (${transcribeTypes})) AS "lagMs",
                 (SELECT floor(extract(epoch FROM now() - min(run_at)) * 1000)
                     FROM jobs WHERE status = 'queued' AND run_at <= now()
                     AND type IN (${videoTypes})) AS "videoLagMs",
+                (SELECT floor(extract(epoch FROM now() - min(run_at)) * 1000)
+                    FROM jobs WHERE status = 'queued' AND run_at <= now()
+                    AND type IN (${transcribeTypes})) AS "transcribeLagMs",
                 (SELECT count(*) FROM jobs
                     WHERE status = 'failed'
                     AND finished_at > now() - (${FAILURE_WINDOW_MS} * interval '1 millisecond')
@@ -57,6 +73,7 @@ export async function collectWorkerAlerts(
     const row = result.rows[0] as {
         lagMs: string | number | null;
         videoLagMs: string | number | null;
+        transcribeLagMs: string | number | null;
         failed: string | number;
     };
     const alerts: Alert[] = [];
@@ -76,6 +93,16 @@ export async function collectWorkerAlerts(
             message:
                 "A video job has waited more than 6 hours. The video worker is down, stuck or too slow.",
             details: { age_ms: videoLagMs },
+        });
+    }
+    const transcribeLagMs =
+        row.transcribeLagMs === null ? 0 : Number(row.transcribeLagMs);
+    if (transcribeLagMs > TRANSCRIBE_QUEUE_LAG_MS) {
+        alerts.push({
+            code: "transcribe_queue_lag",
+            message:
+                "A captions job has waited more than 6 hours. The transcription worker is down, stuck or too slow; consider a dedicated node.",
+            details: { age_ms: transcribeLagMs },
         });
     }
     const failed = Number(row.failed);
@@ -130,7 +157,9 @@ export function apiAlertCheck(input: {
     let lastWarnedAt: number | undefined;
     return async () => {
         const alerts: Alert[] = [];
-        const missing = await missingWorkerClasses(input.db);
+        const missing = await missingWorkerClasses(input.db, {
+            transcribe: [CAPTIONS_JOB_TYPE],
+        });
         if (missing.length > 0) {
             const at = now();
             if (
@@ -173,6 +202,11 @@ function noWorkerConsequence(missing: readonly string[]): string {
     }
     if (missing.includes("video")) {
         effects.push("Videos are not encoded.");
+    }
+    if (missing.includes("transcribe")) {
+        effects.push(
+            "Captions are not made. Start the medialit-transcribe worker (WORKER_CLASSES=transcribe).",
+        );
     }
     return effects.join(" ");
 }

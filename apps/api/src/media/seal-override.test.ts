@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isOverride, withOverride } from "./processing-plan.js";
+import {
+    captionsInEffect,
+    isOverride,
+    withOverride,
+} from "./processing-plan.js";
 import { sealMediaSchema } from "./schemas.js";
 
 const app = {
@@ -18,6 +22,14 @@ test("an override replaces only the fields it sets", () => {
     assert.equal(isOverride({ videoStreaming: "mp4" }), true);
     assert.equal(isOverride({}), false);
     assert.equal(isOverride(undefined), false);
+    assert.equal(isOverride({ generateCaptions: false }), true);
+});
+
+test("captions: the override wins, then the app's setting, then off", () => {
+    assert.equal(captionsInEffect(true, { generateCaptions: false }), false);
+    assert.equal(captionsInEffect(false, { generateCaptions: true }), true);
+    assert.equal(captionsInEffect(true, {}), true);
+    assert.equal(captionsInEffect(null, undefined), false);
 });
 
 test("the seal body: optional, with a strict processing object", () => {
@@ -29,6 +41,8 @@ test("the seal body: optional, with a strict processing object", () => {
     assert.ok(valid({ processing: {} }));
     assert.ok(valid({ processing: { videoStreaming: "off" } }));
     assert.ok(valid({ processing: { videoStreaming: "mp4" } }));
+    assert.ok(valid({ processing: { generateCaptions: true } }));
+    assert.ok(!valid({ processing: { generateCaptions: "yes" } }));
     // A typo or a bad value is refused, not ignored.
     assert.ok(!valid({ processing: { videoStreming: "off" } }));
     assert.ok(!valid({ processing: { videoStreaming: "dash" } }));

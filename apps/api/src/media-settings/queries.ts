@@ -12,6 +12,7 @@ export interface UpdateMediaSettingsProps {
     webpOutputQuality?: number;
     videoStreaming?: VideoStreaming;
     hlsRenditions?: string[] | null;
+    generateCaptions?: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export async function updateMediaSettings({
     webpOutputQuality,
     videoStreaming,
     hlsRenditions,
+    generateCaptions,
 }: UpdateMediaSettingsProps): Promise<void> {
     const renditions =
         hlsRenditions === undefined || hlsRenditions === null
@@ -38,12 +40,14 @@ export async function updateMediaSettings({
         webpOutputQuality,
         videoStreaming,
         hlsRenditions: renditions,
+        generateCaptions,
     });
     const given = {
         useWebP,
         webpOutputQuality,
         videoStreaming,
         hlsRenditions,
+        generateCaptions,
     };
     const changed = Object.entries(given)
         .filter(([, value]) => value !== undefined)
@@ -62,6 +66,9 @@ export async function updateMediaSettings({
                 : {}),
             ...(renditions !== undefined
                 ? { hls_renditions: renditions ?? "default" }
+                : {}),
+            ...(generateCaptions !== undefined
+                ? { generate_captions: generateCaptions }
                 : {}),
         },
     });

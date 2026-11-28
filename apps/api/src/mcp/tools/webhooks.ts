@@ -67,7 +67,7 @@ export const webhookTools = (): MedialitMcpTool[] => [
         title: "List webhooks",
         risk: "read",
         description:
-            "Lists the connected app's webhook endpoints: URL, events, whether each is enabled, and the last characters of its signing secret (secretHint). Secrets themselves are returned only by create_webhook and by update_webhook with rotateSecret. Endpoints receive media.processing.ready and media.processing.failed events, signed per Standard Webhooks.",
+            "Lists the connected app's webhook endpoints: URL, events, whether each is enabled, and the last characters of its signing secret (secretHint). Secrets themselves are returned only by create_webhook and by update_webhook with rotateSecret. Endpoints receive media.processing.ready and media.processing.failed events, and media.captions.ready when they list it, signed per Standard Webhooks.",
         inputSchema: z.object({}),
         outputSchema: z.object({ endpoints: z.array(endpointSchema) }),
         annotations: { idempotentHint: true },
@@ -87,7 +87,9 @@ export const webhookTools = (): MedialitMcpTool[] => [
             events: eventsSchema
                 .min(1)
                 .optional()
-                .describe("Events to send; defaults to every event"),
+                .describe(
+                    "Events to send; defaults to media.processing.ready and media.processing.failed. media.captions.ready is sent only to endpoints that list it",
+                ),
             enabled: z
                 .boolean()
                 .optional()

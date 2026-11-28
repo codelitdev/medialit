@@ -1,0 +1,1 @@
+ALTER TABLE "media_settings" ADD COLUMN "generate_captions" boolean;

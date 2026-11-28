@@ -22,6 +22,7 @@ export const sealMediaSchema = Joi.object({
         videoStreaming: Joi.string()
             .valid(...VIDEO_STREAMING_VALUES)
             .optional(),
+        generateCaptions: Joi.boolean().strict().optional(),
     })
         .optional()
         .allow(null),

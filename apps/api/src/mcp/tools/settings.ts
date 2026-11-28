@@ -13,7 +13,7 @@ export const settingsTools = (): MedialitMcpTool[] => [
         title: "Get media settings",
         risk: "read",
         description:
-            "Returns the current media processing configuration for the connected app: WebP conversion and quality, and video streaming (videoStreaming is off, hls or mp4; apps start off; hlsRenditions lists the HLS sizes made).",
+            "Returns the current media processing configuration for the connected app: WebP conversion and quality, video streaming (videoStreaming is off, hls or mp4; apps start off; hlsRenditions lists the HLS sizes made), and captions (generateCaptions; captionsAvailable is false when the server has no transcription worker).",
         inputSchema: z.object({}),
         outputSchema: mediaSettingsSchema,
         annotations: { idempotentHint: true },
@@ -53,6 +53,12 @@ export const settingsTools = (): MedialitMcpTool[] => [
                 .optional()
                 .describe(
                     'HLS sizes to make, e.g. ["1080p", "720p", "480p"]. Sizes larger than the video are skipped. null goes back to the default',
+                ),
+            generateCaptions: z
+                .boolean()
+                .optional()
+                .describe(
+                    "Make captions (WebVTT) and a transcript for sealed videos and audio files. Apps start false. Uses processing minutes",
                 ),
         }),
         outputSchema: successMessageSchema,
