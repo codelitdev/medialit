@@ -92,7 +92,7 @@ services:
       retries: 12
 
   # Captions (optional): the transcription worker, from the transcription image
-  # (about 3 GB), so it is behind a profile:
+  # (about 5 GB), so it is behind a profile:
   #   docker compose -f docker-compose.local.yml --profile captions up
   # It reads apps/api/.env like the host-run API and worker, and reaches
   # Postgres and MinIO over the Compose network. Build a local image with

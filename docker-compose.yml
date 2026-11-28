@@ -142,7 +142,7 @@ services:
         condition: service_completed_successfully
 
   # Captions (optional): a worker for the transcribe job class, from the
-  # transcription image (the API image plus Whisper and its model, about 3
+  # transcription image (the API image plus Whisper and its model, about 5
   # GB). Start it with `docker compose --profile captions up -d`. It runs one
   # transcription at a time and uses up to 2 CPU cores and about 2.5 GB of
   # memory while it works.

@@ -63,7 +63,7 @@ Alternatives rejected: **a separate `audio` derivative and a captions job that w
 - **Its own worker image.** `codelit/medialit-transcribe` is the API image plus Python, faster-whisper and the model, built and pushed by CI with the same release tags, so the worker code and the API always match. The model is baked in, so pods download nothing at start. The API image stays as it is.
 - **Its own deployment.** `medialit-transcribe` runs the ordinary MediaLit worker with `WORKER_CLASSES=transcribe`. The existing worker doesn't serve that class. No HTTP service, network policy, health route or URL: the queue is the interface.
 - **Memory is freed after every job.** The model loads when the transcriber starts (10 to 16 seconds on the QA node, D4) and goes away when it exits, so an idle transcription pod holds only the worker process.
-- **Self-hosting:** one more container in `docker-compose.yml`, the same worker command with a different image and `WORKER_CLASSES`, behind a `captions` profile so installs that don't want captions never pull the 3 GB image. Without it, captions aren't available (D1).
+- **Self-hosting:** one more container in `docker-compose.yml`, the same worker command with a different image and `WORKER_CLASSES`, behind a `captions` profile so installs that don't want captions never pull the 5 GB image. Without it, captions aren't available (D1).
 - The provider stays a small interface in `apps/api/src/transcription/`, so tests use a fake one (section 8) and another engine can be added later without changing the job.
 
     ```ts
@@ -313,7 +313,7 @@ Through `@codelitdev/observability`, as phase 1 (section 7 there). Events carry 
 ## 10. Order of work
 
 0. **Benchmark** (D4): done on 2026-11-27. Before release, check captions by hand on a few real course videos.
-    - **Before step 3:** run one 1–2 hour file through the script on the QA node, to confirm memory stays under 3 GiB and speed holds for whole-file transcription (the benchmark's longest input was 18 minutes), and check that the transcription image (with the model, about 3 GB) fits the nodes' free disk.
+    - **Before step 3:** run one 1–2 hour file through the script on the QA node, to confirm memory stays under 3 GiB and speed holds for whole-file transcription (the benchmark's longest input was 18 minutes), and check that the transcription image (with the model, 4.9 GB on disk) fits the nodes' free disk.
     - **Before step 4:** check that a sidecar `<track>` shows with native HLS on an iPhone, inline and fullscreen. If it doesn't, the HLS subtitle track comes back into scope (section 11) for Safari.
 1. **Per-upload override at seal** (D9), in REST, MCP, the SDK and the CLI. It ships first, on its own: it also covers phase 1's `videoStreaming`, which CourseLit can use for trial schools now.
 2. **Setting, background derivative and webhook:** `generateCaptions` in REST, MCP, the SDK, the CLI and the dashboard, `captionsAvailable`, the `transcribe` class, the settle rule and `media.captions.ready` (D1, D5, D8).
