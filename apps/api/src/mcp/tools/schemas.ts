@@ -31,6 +31,20 @@ export const mediaSchema = z.object({
                 mimeType: z.string().optional(),
                 size: z.number().optional(),
                 error: z.string().optional(),
+                language: z
+                    .string()
+                    .optional()
+                    .describe("Captions: the spoken language, ISO 639-1"),
+                files: z
+                    .object({
+                        vtt: z.string(),
+                        text: z.string(),
+                        json: z.string(),
+                    })
+                    .optional()
+                    .describe(
+                        "Captions: URLs of the WebVTT, plain transcript and JSON transcript",
+                    ),
             }),
         )
         .optional()
@@ -84,6 +98,8 @@ export const mediaSettingsSchema = z.object({
     webpOutputQuality: z.number().min(1).max(100),
     videoStreaming: z.enum(VIDEO_STREAMING_VALUES),
     hlsRenditions: z.array(z.enum(HLS_RENDITIONS)),
+    generateCaptions: z.boolean(),
+    captionsAvailable: z.boolean(),
 });
 
 export const successMessageSchema = z.object({

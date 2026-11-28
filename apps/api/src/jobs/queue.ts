@@ -406,6 +406,23 @@ export async function recordWorker(
 }
 
 /** Job classes with a worker seen within `withinMs`. */
+/** True when any job of these types is queued. */
+export async function hasQueuedJobs(
+    db: Executor,
+    types: readonly string[],
+): Promise<boolean> {
+    if (types.length === 0) return false;
+    const found = await rows<{ found: number }>(
+        db,
+        sql`SELECT 1 AS found FROM jobs WHERE status = 'queued'
+            AND type IN (${sql.join(
+                types.map((type) => sql`${type}`),
+                sql`, `,
+            )}) LIMIT 1`,
+    );
+    return found.length > 0;
+}
+
 export async function liveWorkerClasses(
     db: Executor,
     withinMs: number,

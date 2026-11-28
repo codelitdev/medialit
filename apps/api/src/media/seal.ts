@@ -7,7 +7,11 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { createReadStream } from "node:fs";
 import { convertToWebp, ProcessLimitError } from "@medialit/images";
-import { Constants, type MediaWithUserId } from "@medialit/models";
+import {
+    Constants,
+    type MediaWithUserId,
+    type ProcessingOverride,
+} from "@medialit/models";
 import {
     DISABLE_TAGGING,
     cloudBucket,
@@ -37,13 +41,22 @@ import {
     storageLimitFor,
     type AccountPlan,
 } from "../billing/entitlements";
-import { effectiveVideoSettings } from "../media-settings/video";
-import { planProcessing } from "./processing-plan";
+import {
+    effectiveVideoSettings,
+    type VideoSettings,
+} from "../media-settings/video";
+import {
+    captionsInEffect,
+    isOverride,
+    planProcessing,
+    withOverride,
+} from "./processing-plan";
 import { recordWebpBusy } from "../operations/checks";
 import {
     claimSeal,
     commitSeal,
     getMediaSettingsRecord,
+    isBackgroundDerivative,
     releaseSealClaim,
     renewSealClaim,
 } from "@/db";
@@ -101,9 +114,22 @@ type WebpOutcome =
       };
 
 /** What a seal that committed did, for its log line and event. */
+type SealInput = {
+    userId: string;
+    appId: string;
+    mediaId: string;
+    /** The seal request's override of the app's processing settings
+     * (pipelines-phase-2.md, D9). Ignored when the media is already sealed. */
+    processing?: ProcessingOverride;
+};
+
 type SealResult = {
     /** Derivative jobs queued in the commit. */
     jobsQueued: number;
+    /** The value in effect: the app's, or the seal's override. */
+    videoStreaming: VideoSettings["videoStreaming"];
+    generateCaptions: boolean;
+    processingOverridden: boolean;
     webp: WebpOutcome["kind"];
     /** Why WebP was skipped or failed. */
     reason?: string;
@@ -127,11 +153,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * `SEAL_IN_PROGRESS` when another seal held it for longer than
  * `SEAL_WAIT_MS`.
  */
-export async function sealStoredMedia(input: {
-    userId: string;
-    appId: string;
-    mediaId: string;
-}): Promise<void> {
+export async function sealStoredMedia(input: SealInput): Promise<void> {
     const startedAt = Date.now();
     try {
         await sealOrWait(input, startedAt);
@@ -149,10 +171,7 @@ export async function sealStoredMedia(input: {
     }
 }
 
-async function sealOrWait(
-    input: { userId: string; appId: string; mediaId: string },
-    startedAt: number,
-): Promise<void> {
+async function sealOrWait(input: SealInput, startedAt: number): Promise<void> {
     const userId = String(input.userId);
     const { appId, mediaId } = input;
     const media = await getMedia({ userId, appId, mediaId });
@@ -188,6 +207,7 @@ async function sealOrWait(
                 config,
                 limit,
                 plan,
+                input.processing,
             );
             if (result) {
                 reportSealed(media, appId, result, {
@@ -214,6 +234,7 @@ async function runSeal(
     config: SealConfig,
     storageLimit: number,
     plan: AccountPlan,
+    processing: ProcessingOverride | undefined,
 ): Promise<SealResult | null> {
     const { mediaId } = media;
     const userId = String(media.userId);
@@ -359,10 +380,19 @@ async function runSeal(
 
         // The jobs to queue in the commit (phase 1, D11), with the settings
         // in effect now copied into them.
+        const video = withOverride(
+            effectiveVideoSettings(settings),
+            processing,
+        );
+        const generateCaptions = captionsInEffect(
+            settings?.generateCaptions,
+            processing,
+        );
         const planned = planProcessing({
             mimeType: media.mimeType,
             metadata,
-            video: effectiveVideoSettings(settings),
+            video,
+            generateCaptions,
             plan,
         });
 
@@ -372,12 +402,14 @@ async function runSeal(
             metadata,
             mediaRowId,
             token,
-            processingStatus:
-                planned.length > 0
-                    ? "processing"
-                    : webp.kind === "failed"
-                      ? "failed"
-                      : "ready",
+            // Captions don't hold the media in processing (phase 2, D8).
+            processingStatus: planned.some(
+                (job) => !isBackgroundDerivative(job.derivative),
+            )
+                ? "processing"
+                : webp.kind === "failed"
+                  ? "failed"
+                  : "ready",
             processingError:
                 webp.kind === "skipped" || webp.kind === "failed"
                     ? webp.message
@@ -411,6 +443,9 @@ async function runSeal(
         await deleteQuietly(unneeded, mediaId);
         return {
             jobsQueued: planned.length,
+            videoStreaming: video.videoStreaming,
+            generateCaptions,
+            processingOverridden: isOverride(processing),
             webp: webp.kind,
             reason:
                 webp.kind === "skipped" || webp.kind === "failed"
@@ -453,6 +488,9 @@ function reportSealed(
         app_id: appId,
         webp: result.webp,
         jobs_queued: result.jobsQueued,
+        video_streaming: result.videoStreaming,
+        generate_captions: result.generateCaptions,
+        processing_overridden: result.processingOverridden,
         ...(result.reason ? { reason: result.reason } : {}),
         ...timing,
     };

@@ -182,6 +182,9 @@ export const mediaSettings = pgTable("media_settings", {
     videoStreaming: text("video_streaming").$type<VideoStreaming>(),
     /** Renditions to make for HLS; null means the default ladder. */
     hlsRenditions: text("hls_renditions").array(),
+    /** Make captions for sealed video and audio; null means false
+     * (pipelines-phase-2.md, D1). */
+    generateCaptions: boolean("generate_captions"),
 });
 
 export type { VideoStreaming };

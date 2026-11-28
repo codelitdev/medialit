@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { sql } from "drizzle-orm";
 import { Webhook } from "standardwebhooks";
-import { setDb, softDeleteApp } from "@/db";
+import { setDb, softDeleteApp, upsertDerivative } from "@/db";
 import type { AppDb } from "../db/client.js";
 import {
     createOwner as owner,
@@ -441,6 +441,123 @@ describe("webhooks (Postgres)", { skip }, () => {
         await cancelQueuedDeliveries();
     });
 
+    test("captions don't hold up the media, and send media.captions.ready only to endpoints that list it", async () => {
+        const { user, app } = await owner();
+        const create = (input: Record<string, unknown>) =>
+            createWebhook(
+                app.id,
+                { url: hookUrl, ...input },
+                { guard: localGuard },
+            );
+        // Created without events: the processing events only (opt-in).
+        const processingOnly = await create({});
+        assert.deepEqual(processingOnly.events, [
+            "media.processing.ready",
+            "media.processing.failed",
+        ]);
+        const captionsToo = await create({
+            events: ["media.processing.ready", "media.captions.ready"],
+        });
+        const { media } = await createProcessingMedia({
+            owner: { user, app },
+            queued: "poster",
+        });
+        await upsertDerivative(db, {
+            mediaRowId: media.id,
+            name: "captions",
+            status: "queued",
+        });
+        const status = async () =>
+            (
+                await db.execute(
+                    sql`SELECT processing_status AS status, processing_error AS error
+                        FROM media WHERE id = ${media.id}`,
+                )
+            ).rows[0] as { status: string; error: string | null };
+
+        // The poster finishes first: the media settles while captions wait.
+        await finishDerivative({
+            mediaRowId: media.id,
+            name: "poster",
+            result: {
+                status: "ready",
+                output: { key: "poster.webp", mimeType: "image/webp", size: 1 },
+            },
+        });
+        assert.deepEqual(await status(), { status: "ready", error: null });
+        const ready = (await deliveries(app.id)).filter(
+            (row) => row.payload.event === "media.processing.ready",
+        );
+        assert.equal(ready.length, 2);
+        assert.deepEqual(JSON.parse(ready[0].payload.body).data.derivatives, {
+            poster: { status: "ready" },
+            captions: { status: "queued" },
+        });
+
+        // Captions fail later: the media stays ready, with no error, and
+        // only the endpoint that listed the event hears about it.
+        await finishDerivative({
+            mediaRowId: media.id,
+            name: "captions",
+            result: { status: "failed", error: "no_audio_stream" },
+        });
+        assert.deepEqual(await status(), { status: "ready", error: null });
+        const captions = (await deliveries(app.id)).filter(
+            (row) => row.payload.event === "media.captions.ready",
+        );
+        assert.deepEqual(
+            captions.map((row) => row.payload.endpointId),
+            [captionsToo.id],
+        );
+        assert.deepEqual(JSON.parse(captions[0].payload.body).data, {
+            mediaId: media.mediaId,
+            appId: app.appId,
+            status: "ready",
+            derivatives: {
+                captions: { status: "failed", error: "no_audio_stream" },
+            },
+        });
+
+        // Captions finishing before the encodes: the event says the media is
+        // still processing, and the media doesn't settle on it.
+        const { media: early } = await createProcessingMedia({
+            owner: { user, app },
+            queued: "hls",
+        });
+        await upsertDerivative(db, {
+            mediaRowId: early.id,
+            name: "captions",
+            status: "queued",
+        });
+        await finishDerivative({
+            mediaRowId: early.id,
+            name: "captions",
+            result: {
+                status: "ready",
+                output: { key: "captions/", size: 10 },
+            },
+        });
+        const earlyEvents = (await deliveries(app.id)).filter(
+            (row) =>
+                row.payload.mediaId === early.mediaId &&
+                row.payload.event === "media.captions.ready",
+        );
+        assert.equal(earlyEvents.length, 1);
+        assert.equal(
+            JSON.parse(earlyEvents[0].payload.body).data.status,
+            "processing",
+        );
+        assert.equal(
+            (
+                await db.execute(
+                    sql`SELECT processing_status AS status FROM media WHERE id = ${early.id}`,
+                )
+            ).rows[0].status,
+            "processing",
+        );
+        await cancelQueuedDeliveries();
+    });
+
     test("a rolled-back status change queues no delivery", async () => {
         const { user, app } = await owner();
         await createWebhook(app.id, { url: hookUrl }, { guard: localGuard });
@@ -511,7 +628,7 @@ describe("webhooks (Postgres)", { skip }, () => {
                 },
             ],
             classes: ["io"],
-            concurrency: { cpu: 1, io: 4, video: 1 },
+            concurrency: { cpu: 1, io: 4, video: 1, transcribe: 1 },
             logger: silent,
             pollMs: 50,
         });
@@ -614,7 +731,7 @@ describe("webhooks (Postgres)", { skip }, () => {
             workerId: "webhook-test-worker-2",
             definitions: [webhookDeliverJob({ guard: () => localGuard })],
             classes: ["io"],
-            concurrency: { cpu: 1, io: 4, video: 1 },
+            concurrency: { cpu: 1, io: 4, video: 1, transcribe: 1 },
             logger: silent,
             pollMs: 50,
         });

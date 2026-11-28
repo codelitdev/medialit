@@ -46,6 +46,11 @@ export interface MediaSettings {
     videoStreaming?: VideoStreaming;
     /** HLS sizes to make, largest first. */
     hlsRenditions?: HlsRendition[];
+    /** Make captions and a transcript for sealed video and audio. Apps
+     * start `false`. */
+    generateCaptions?: boolean;
+    /** False when the server has no transcription worker. */
+    captionsAvailable?: boolean;
 }
 
 /** What `updateSettings` accepts: only the fields to change. `null` sets the
@@ -55,9 +60,24 @@ export interface MediaSettingsUpdate {
     webpOutputQuality?: number;
     videoStreaming?: VideoStreaming;
     hlsRenditions?: HlsRendition[] | null;
+    generateCaptions?: boolean;
 }
 
-export type WebhookEvent = "media.processing.ready" | "media.processing.failed";
+/** Processing settings for one upload, given when sealing it. A field left
+ * out uses the app's setting. Ignored when the media is already sealed. */
+export interface ProcessingOverride {
+    videoStreaming?: VideoStreaming;
+    generateCaptions?: boolean;
+}
+
+export interface SealOptions {
+    processing?: ProcessingOverride;
+}
+
+export type WebhookEvent =
+    | "media.processing.ready"
+    | "media.processing.failed"
+    | "media.captions.ready";
 
 export interface WebhookEndpoint {
     id: string;
@@ -214,13 +234,19 @@ export class MediaLit {
         }
     }
 
-    async seal(mediaId: string): Promise<Media> {
+    /** Seals a temporary upload so it is kept. `options.processing`
+     * overrides the app's processing settings for this upload, for example
+     * `{ processing: { videoStreaming: "off" } }`. */
+    async seal(mediaId: string, options: SealOptions = {}): Promise<Media> {
         const response = await fetch(this.mediaUrl("seal", mediaId), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 ...this.authHeaders(),
             },
+            ...(options.processing
+                ? { body: JSON.stringify({ processing: options.processing }) }
+                : {}),
         });
 
         if (!response.ok) {
@@ -450,6 +476,7 @@ export class MediaLit {
 export type {
     Media,
     MediaDerivative,
+    CaptionFiles,
     MediaMetadata,
     MediaProcessing,
     ProcessingStatus,

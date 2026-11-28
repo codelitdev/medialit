@@ -47,3 +47,14 @@ jobs:
           name: api-log
           path: ${{ runner.temp }}/api.log
           if-no-files-found: ignore
+
+  # The transcription image and the real transcriber, with the small `tiny`
+  # model (pipelines-phase-2.md, D3). The stack above uses the fake.
+  transcriber:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the transcription image and transcribe synthesized speech
+        run: bash packages/integration-tests/scripts/check-transcriber.sh

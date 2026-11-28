@@ -17,6 +17,7 @@ import { sql } from "drizzle-orm";
 import type { AppDb } from "../db/client";
 import {
     getDb,
+    isBackgroundDerivative,
     listDerivatives,
     lockMedia,
     markDerivativesPublic,
@@ -58,6 +59,7 @@ import { releaseOrphanedMinutes } from "../billing/processing-minutes";
 import type { PlannedJob } from "./processing-plan";
 import { playlistUrl } from "./playback";
 import { mediaKind } from "./kind";
+import { CAPTION_FILES } from "./processing-plan";
 import generateKey from "./utils/generate-key";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
@@ -147,6 +149,31 @@ export async function derivativesResponse(
                     row.bucket === "public"
                         ? `${CDN_ENDPOINT || CLOUD_ENDPOINT_PUBLIC}/${derivativeObjectKey(mediaId, "public", `${row.key}master.m3u8`)}`
                         : playlistUrl(mediaId, options.durationSeconds);
+            } else if (row.name === "captions" && row.key) {
+                // Captions (phase 2, D6): the VTT is the URL players use;
+                // every file gets one.
+                const files = {
+                    vtt: await derivativeUrl(
+                        mediaId,
+                        row.bucket,
+                        `${row.key}${CAPTION_FILES.vtt}`,
+                    ),
+                    text: await derivativeUrl(
+                        mediaId,
+                        row.bucket,
+                        `${row.key}${CAPTION_FILES.text}`,
+                    ),
+                    json: await derivativeUrl(
+                        mediaId,
+                        row.bucket,
+                        `${row.key}${CAPTION_FILES.json}`,
+                    ),
+                };
+                item.url = files.vtt;
+                item.files = files;
+                if (typeof row.params?.language === "string") {
+                    item.language = row.params.language;
+                }
             }
             if (row.mimeType) item.mimeType = row.mimeType;
             item.size = row.size;
@@ -187,6 +214,29 @@ type SettledHook = (
 
 const settledHooks: SettledHook[] = [];
 
+/** A background derivative (captions) reached `ready` or `failed`. */
+export type BackgroundSettledEvent = {
+    media: LockedMedia;
+    derivative: DerivativeRecord;
+};
+
+type BackgroundHook = (
+    db: Executor,
+    event: BackgroundSettledEvent,
+) => Promise<void>;
+
+const backgroundHooks: BackgroundHook[] = [];
+
+/** Runs in the transaction that records a background derivative's result,
+ * so what it queues (the captions webhook) commits with it. */
+export function onBackgroundSettled(hook: BackgroundHook): () => void {
+    backgroundHooks.push(hook);
+    return () => {
+        const index = backgroundHooks.indexOf(hook);
+        if (index >= 0) backgroundHooks.splice(index, 1);
+    };
+}
+
 /** Runs in the transaction that settles a media item's processing status,
  * so what it queues (webhook deliveries) commits with the status change. */
 export function onProcessingSettled(hook: SettledHook): () => void {
@@ -202,7 +252,22 @@ export function onProcessingSettled(hook: SettledHook): () => void {
 async function settle(
     db: Executor,
     media: LockedMedia,
+    name: string,
 ): Promise<ProcessingSettledEvent | null> {
+    if (isBackgroundDerivative(name)) {
+        // Sealed media only: a temp upload never has derivative jobs.
+        if (!media.temp) {
+            const derivative = (await listDerivatives(db, media.id)).find(
+                (d) => d.name === name,
+            );
+            if (derivative) {
+                for (const hook of backgroundHooks) {
+                    await hook(db, { media, derivative });
+                }
+            }
+        }
+        return null;
+    }
     const settled = await settleMedia(db, media);
     if (!settled) return null;
     const derivatives = await listDerivatives(db, media.id);
@@ -325,6 +390,9 @@ export type DerivativeOutput = {
     key: string;
     mimeType?: string;
     size: number;
+    /** Added to the derivative's params, for the response and for support:
+     * captions store their language, model and speed here. */
+    params?: Record<string, unknown>;
 };
 
 export type FinishOutcome = "recorded" | "media_gone" | "not_enough_storage";
@@ -392,7 +460,7 @@ export async function finishDerivative(input: {
                 status: "failed",
                 error,
             });
-            const settled = await settle(tx, media);
+            const settled = await settle(tx, media, input.name);
             report = () =>
                 reportFinished(
                     input.name,
@@ -413,11 +481,12 @@ export async function finishDerivative(input: {
             mimeType: result.output.mimeType ?? null,
             size: result.output.size,
             bucket: "private",
+            addParams: result.output.params,
         });
         if (needsPublicCopy(media, input.name)) {
             await queuePublish(tx, media);
         }
-        const settled = await settle(tx, media);
+        const settled = await settle(tx, media, input.name);
         report = () =>
             reportFinished(
                 input.name,

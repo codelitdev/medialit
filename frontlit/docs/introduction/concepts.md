@@ -93,11 +93,32 @@ The `videoStreaming` setting decides what is made from sealed videos:
 
 Every app starts with `off`, and each app has its own setting: choose `hls` or `mp4` for the apps whose videos you want processed.
 
+**For one upload,** the seal call can override the app's setting with `processing: { videoStreaming }`. Use it when some of your users' videos should be processed and others shouldn't, for example to skip processing for trial accounts: seal their uploads with `{ processing: { videoStreaming: "off" } }`, or the reverse in an app that has it `off`. A field you leave out uses the app's setting. Sealing again ignores `processing`, and the override is only accepted from your server, since a browser can't seal.
+
 The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` or `hls` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
+
+### Captions
+
+With `generateCaptions` on, MediaLit transcribes sealed videos and audio files and makes captions (WebVTT) and a transcript, in the language that is spoken. Every app starts with it off. Like video streaming, a [seal can override it](#video-streaming) for one upload with `processing: { generateCaptions }`.
+
+Captions don't hold up the file: a video is `ready` once its poster and its MP4 or HLS are done, and captions follow. The [`media.captions.ready` webhook](/docs/webhooks#events) tells you when they are done, or failed. A failure never makes the file `failed`.
+
+The media settings report `captionsAvailable`: `false` means the server has no transcription worker running, so captions wait until one starts. On a self-hosted server, see [Self-hosting](/docs/self-hosting).
+
+Once they are made, `derivatives.captions` has three files, with URLs that follow the file's access like `file`:
+
+- **`url`**, also `files.vtt`: WebVTT captions, for a `<track>` element or any player. Each caption is at most two lines of 42 characters and 7 seconds.
+- **`files.text`**: the plain transcript, one paragraph per pause of 2 seconds or more.
+- **`files.json`**: the transcript with times, for building on: `{ version, language, durationSeconds, model, segments: [{ id, start, end, text }] }`. Times are seconds from the start of the file. Segments are in order and don't overlap, and `id` is the segment's index, so you can anchor notes or corrections to a segment. A transcript beside the video that highlights the line being spoken and seeks when a line is clicked needs only this file and the video's `currentTime`. `version` changes only when the format changes in a way that breaks readers.
+- **`language`**: the spoken language, as an ISO 639-1 code such as `en` or `hi`.
+
+The captions and the transcripts come from the same segments, so they always agree. MediaLit never edits them: to correct them, keep your own copy.
+
+Files up to 1 GB and 2 hours are captioned. A file with no audio gets no captions: a video that seal found to be silent gets no `captions` derivative, and one where the audio can't be read fails with `no_audio_stream`. Captions use [processing minutes](#processing-minutes).
 
 ### Processing minutes
 
-Video processing is measured in minutes of video, rounded up per video. Re-encoding counts; rewriting an MP4 that is already web-ready and making posters don't. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers in OSS mode (`MEDIALIT_DEPLOYMENT_MODE=oss`, the Docker Compose default) have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.
+Video processing is measured in minutes of video, rounded up per video. Re-encoding counts; rewriting an MP4 that is already web-ready and making posters don't. Captions count the file's whole length once, silence included, so a 10-minute video with captions and an MP4 re-encode uses 20 minutes. When the minutes run out, captions fail with `out_of_processing_minutes` and the file stays `ready`. Each account has a monthly allowance (calendar month, UTC): 5 minutes on the free plan and 300 on the paid plan. Self-hosted servers in OSS mode (`MEDIALIT_DEPLOYMENT_MODE=oss`, the Docker Compose default) have no limit. The stats from `getStats`, `GET /media/get/size`, the dashboard and `medialit whoami` show the minutes used this month.
 
 ### Processing status and derivatives
 
@@ -105,7 +126,7 @@ Every media response has three more fields:
 
 - **`processing`** says where background processing of the file stands: `{ "status": "pending" }` until the file is sealed, then `processing` while work runs, and `ready` or `failed` when it ends. A failed step never makes the original unavailable, and `processing.error` says what went wrong.
 - **`metadata`** describes the file: `kind` (`video`, `audio` or `image`), and where they apply `durationSeconds`, `width` and `height` (as displayed, after rotation), `rotation`, `frameRate`, `videoCodec`, `audioCodec`, `bitrate`, `sampleRate`, `channels` and `format`. It is read when the file is sealed, so it is `null` for temporary uploads, and stays `null` if the file can't be read; the seal still succeeds. If a video takes too long to read at seal, its poster job reads it and fills it in shortly after.
-- **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. `thumbnail` is the same image as the `thumbnail` field. Sealed videos also get `mp4` or `hls`, as the app's [`videoStreaming`](#video-streaming) asks. A derivative is `queued` until it is made.
+- **`derivatives`** lists what MediaLit made from the original, by name, with a status for each. A derivative has a `url` once it is `ready`, and the URL follows the file's access, like `file`. `thumbnail` is the same image as the `thumbnail` field. Sealed videos also get `mp4` or `hls`, as the app's [`videoStreaming`](#video-streaming) asks, and videos and audio files get `captions` when [captions](#captions) are on. A derivative is `queued` until it is made.
 
 A sealed video is `processing` until its poster and its MP4 or HLS are done, then `ready`. A failed poster, or video processing refused by a limit (out of processing minutes, too large or too long), leaves the file usable: the derivative is `failed` with its reason, `processing.error` says why, and the file's status is still `ready`.
 
@@ -132,7 +153,8 @@ Derivatives other than thumbnails count toward your storage.
 - **Pick a source.** Play `derivatives.hls.url` when `derivatives.hls.status` is `ready`, else `derivatives.mp4.url` when that is `ready`, else `file`. A `<video>` element plays the MP4 and the original as they are.
 - **Play HLS** with hls.js, Video.js, Shaka Player or another player built on Media Source Extensions in browsers, and with the built-in player on iPhone (Safari) and in native apps (AVPlayer, ExoPlayer). Desktop Chrome and Edge report built-in HLS support, but it can fail without an error, so prefer a Media Source Extensions player there.
 - **Don't store private URLs.** The playlist link of a private video expires (the video's length plus an hour), like `file`. Fetch the media again when you need to play it.
-- **Self-hosted:** browser players built on Media Source Extensions need [CORS on your storage](/docs/self-hosting#allow-players-to-read-video-segments). Native players don't.
+- **Show captions** with `<track kind="captions" src={derivatives.captions.url} srclang={derivatives.captions.language} label="…">` inside the `<video>`, whatever it plays: hls.js and Video.js play through the same `<video>` element, so its tracks still show. The captions file is on storage's address, so the `<video>` needs `crossorigin="anonymous"`, and storage needs CORS.
+- **Self-hosted:** browser players built on Media Source Extensions, and captions tracks, need [CORS on your storage](/docs/self-hosting#allow-players-to-read-video-segments). Native players without captions don't.
 
 With hls.js:
 

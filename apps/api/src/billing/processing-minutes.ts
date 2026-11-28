@@ -107,7 +107,7 @@ export async function reserveMinutes(input: {
     appId: string;
     mediaRowId: string;
     jobId: string;
-    kind: "hls" | "mp4";
+    kind: "hls" | "mp4" | "captions";
     minutes: number;
     plan: AccountPlan;
     now?: Date;

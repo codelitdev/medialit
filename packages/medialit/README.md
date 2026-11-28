@@ -120,6 +120,21 @@ Uploads a file to MediaLit. Accepts file path, Buffer, or Readable stream.
 
 - Promise resolving to the uploaded media object
 
+### `seal(mediaId: string, options?: SealOptions): Promise<Media>`
+
+Keeps a temporary upload. Uploads are temporary until sealed, and temporary files are deleted after 24 hours. Sealing a file that is already sealed returns it unchanged.
+
+#### Parameters:
+
+- `mediaId`: The ID of the media to seal
+- `options.processing`: Optional. Processing settings for this file, instead of the app's. Fields left out use the app's settings; ignored when the file is already sealed.
+    - `videoStreaming`: `"off"`, `"hls"` or `"mp4"`, what is made from this video
+    - `generateCaptions`: whether to make captions for this video or audio file
+
+#### Returns:
+
+- `Promise<Media>`: The sealed media, with its final `file` URL
+
 ### `get(mediaId: string): Promise<Media>`
 
 Retrieves details of a specific media file.
@@ -199,6 +214,7 @@ Updates the media settings. Pass only the fields to change; changes apply to fil
     - `webpOutputQuality`: Quality of WebP conversion (1-100, 80 when not set)
     - `videoStreaming`: `"off"`, `"hls"` or `"mp4"`, what is made from sealed videos. Apps start `"off"`
     - `hlsRenditions`: HLS sizes from `"1080p"`, `"720p"`, `"480p"` and `"360p"`, or `null` for the default sizes
+    - `generateCaptions`: make captions and a transcript for sealed videos and audio files. Apps start `false`. `getSettings` also returns `captionsAvailable`, `false` when the server has no transcription worker
 
 ### Webhooks
 

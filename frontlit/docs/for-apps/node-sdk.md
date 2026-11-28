@@ -75,9 +75,15 @@ type={{
 
 ```ts
 const media = await medialit.seal(mediaId);
+// Override the app's processing settings for this upload only:
+const trial = await medialit.seal(mediaId, {
+    processing: { videoStreaming: "off" },
+});
 ```
 
-Keeps a temporary upload. Returns the media with its final `file` URL, which changes for public files. Sealing a file that is already sealed returns it unchanged.
+Keeps a temporary upload. Returns the media with its final `file` URL, which changes for public files. Sealing a file that is already sealed returns it unchanged and ignores `processing`.
+
+`processing.videoStreaming` (`"off"`, `"hls"` or `"mp4"`) replaces the app's [video streaming](/docs/concepts#video-streaming) setting for this file. Fields you leave out use the app's settings.
 
 ## get
 
@@ -131,6 +137,7 @@ Media processing settings for the app. `updateSettings` changes only the fields 
 - `useWebP` converts JPEG and PNG images to WebP when they are sealed, at a `webpOutputQuality` from 1 to 100. It is 80 when you haven't set it, which suits most images.
 - `videoStreaming` is how sealed videos are prepared for playback: `"hls"` (adaptive streaming), `"mp4"` (one file optimized for the web) or `"off"`. Every app starts with `"off"`.
 - `hlsRenditions` lists the HLS sizes to make, from `"1080p"`, `"720p"`, `"480p"` and `"360p"`. Sizes larger than the video are skipped. Pass `null` for the default, `["1080p", "720p", "480p"]`.
+- `generateCaptions` makes [captions](/docs/concepts#captions) and a transcript for sealed videos and audio files. Every app starts with `false`. `getSettings` also returns `captionsAvailable`, which is `false` when the server has no transcription worker.
 
 Video processing counts toward your monthly [processing minutes](/docs/concepts#processing-minutes).
 

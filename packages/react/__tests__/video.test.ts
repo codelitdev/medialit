@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { hlsPlayback, videoSources } from "../src/medialit-video";
+import {
+    captionsTrack,
+    hlsPlayback,
+    videoSources,
+} from "../src/medialit-video";
 
 describe("videoSources", () => {
     test("plays HLS when ready, with the web MP4 as the fallback", () => {
@@ -71,5 +75,49 @@ describe("hlsPlayback", () => {
             hlsPlayback({ mediaSource: false, nativeHls: false }),
             "none",
         );
+    });
+});
+
+describe("captionsTrack", () => {
+    test("a ready captions derivative becomes a labelled track", () => {
+        assert.deepEqual(
+            captionsTrack(
+                {
+                    derivatives: {
+                        captions: {
+                            status: "ready",
+                            url: "https://cdn.example/captions.vtt",
+                            language: "hi",
+                        },
+                    },
+                },
+                "en",
+            ),
+            {
+                src: "https://cdn.example/captions.vtt",
+                srcLang: "hi",
+                label: "Hindi",
+            },
+        );
+    });
+
+    test("no track until ready, and none on older servers", () => {
+        assert.equal(
+            captionsTrack({ derivatives: { captions: { status: "queued" } } }),
+            undefined,
+        );
+        assert.equal(
+            captionsTrack({ file: "https://cdn.example/a.mp4" }),
+            undefined,
+        );
+    });
+
+    test("a code the browser doesn't know is shown as it is", () => {
+        const track = captionsTrack({
+            derivatives: {
+                captions: { status: "ready", url: "u", language: "zz-!!" },
+            },
+        });
+        assert.equal(track?.label, "zz-!!");
     });
 });

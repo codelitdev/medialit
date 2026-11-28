@@ -1,6 +1,6 @@
 import { availableParallelism, hostname } from "node:os";
 import { randomBytes } from "node:crypto";
-import { JOB_CLASSES, type JobClass } from "./runner";
+import { DEFAULT_WORKER_CLASSES, JOB_CLASSES, type JobClass } from "./runner";
 import { wholeNumberSetting } from "../config/env";
 
 export type WorkerConfig = {
@@ -13,7 +13,7 @@ export type WorkerConfig = {
 export function workerConfig(
     env: NodeJS.ProcessEnv = process.env,
 ): WorkerConfig {
-    let classes: JobClass[] = [...JOB_CLASSES];
+    let classes: JobClass[] = [...DEFAULT_WORKER_CLASSES];
     if (env.WORKER_CLASSES && env.WORKER_CLASSES.trim() !== "") {
         const listed = env.WORKER_CLASSES.split(",")
             .map((entry) => entry.trim())
@@ -40,6 +40,12 @@ export function workerConfig(
             io: wholeNumberSetting(env, "WORKER_CONCURRENCY_IO", 16),
             // One encode at a time by default: ffmpeg uses every core.
             video: wholeNumberSetting(env, "WORKER_CONCURRENCY_VIDEO", 1),
+            // One transcription at a time: it uses every core of its pod.
+            transcribe: wholeNumberSetting(
+                env,
+                "WORKER_CONCURRENCY_TRANSCRIBE",
+                1,
+            ),
         },
         shutdownGraceMs: wholeNumberSetting(
             env,

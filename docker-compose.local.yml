@@ -91,6 +91,27 @@ services:
       timeout: 5s
       retries: 12
 
+  # Captions (optional): the transcription worker, from the transcription image
+  # (about 3 GB), so it is behind a profile:
+  #   docker compose -f docker-compose.local.yml --profile captions up
+  # It reads apps/api/.env like the host-run API and worker, and reaches
+  # Postgres and MinIO over the Compose network. Build a local image with
+  # apps/transcribe/Dockerfile to test changes to the script.
+  medialit-transcribe:
+    image: ${MEDIALIT_TRANSCRIBE_IMAGE:-codelit/medialit-transcribe}
+    profiles: ["captions"]
+    restart: unless-stopped
+    env_file: apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://medialit:medialit@postgres:5432/medialit
+      CLOUD_ENDPOINT: http://minio:9000
+      TEMP_FILE_DIR_FOR_UPLOADS: /tmp/medialit
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
 volumes:
   medialit-local-postgres-data:
   medialit-local-minio-data:

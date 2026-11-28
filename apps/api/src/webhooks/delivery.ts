@@ -10,7 +10,9 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/db";
 import {
+    onBackgroundSettled,
     onProcessingSettled,
+    type BackgroundSettledEvent,
     type ProcessingSettledEvent,
 } from "../media/derivatives";
 import { enqueue, type Executor } from "../jobs/queue";
@@ -62,7 +64,9 @@ export type MediaEventData = {
     mediaId: string;
     /** The app's public ID. */
     appId: string;
-    status: "ready" | "failed";
+    /** The media's processing status. For `media.captions.ready` it can
+     * still be `processing`: captions don't wait for the encodes. */
+    status: "ready" | "failed" | "processing";
     derivatives: Record<string, { status: string; error?: string }>;
 };
 
@@ -104,6 +108,53 @@ export async function queueProcessingWebhooks(
             ]),
         ),
     };
+    await queueDeliveries(db, endpoints, type, event.media, data);
+}
+
+/**
+ * Runs in the transaction that records captions as ready or failed for good
+ * (pipelines-phase-2.md, D8). One event for both outcomes: the payload's
+ * `derivatives.captions` says which.
+ */
+export async function queueCaptionsWebhooks(
+    db: Executor,
+    event: BackgroundSettledEvent,
+): Promise<void> {
+    if (event.media.temp || event.derivative.name !== "captions") return;
+    if (
+        event.derivative.status !== "ready" &&
+        event.derivative.status !== "failed"
+    ) {
+        return;
+    }
+    const type: WebhookEvent = "media.captions.ready";
+    const endpoints = await subscribedEndpoints(db, event.media.appId, type);
+    if (endpoints.length === 0) return;
+    const { derivative } = event;
+    const data: MediaEventData = {
+        mediaId: event.media.mediaId,
+        appId: endpoints[0].publicAppId,
+        status: mediaStatusOf(event.media.processingStatus),
+        derivatives: {
+            captions: derivative.error
+                ? { status: derivative.status, error: derivative.error }
+                : { status: derivative.status },
+        },
+    };
+    await queueDeliveries(db, endpoints, type, event.media, data);
+}
+
+function mediaStatusOf(status: string | null): MediaEventData["status"] {
+    return status === "failed" || status === "processing" ? status : "ready";
+}
+
+async function queueDeliveries(
+    db: Executor,
+    endpoints: { id: string; publicAppId: string }[],
+    type: WebhookEvent,
+    media: { mediaId: string; appId: string },
+    data: MediaEventData,
+): Promise<void> {
     const body = eventBody(type, data);
     // One message ID per event; each endpoint's retries reuse it.
     const webhookId = newWebhookId();
@@ -112,14 +163,14 @@ export async function queueProcessingWebhooks(
             endpointId: endpoint.id,
             webhookId,
             event: type,
-            mediaId: event.media.mediaId,
+            mediaId: media.mediaId,
             body,
         };
         await enqueue(db, {
             type: WEBHOOK_DELIVER_JOB,
             payload,
             // No media_id: deleting the media must not drop the event.
-            appId: event.media.appId,
+            appId: media.appId,
             maxAttempts: WEBHOOK_DELIVER_ATTEMPTS,
         });
     }
@@ -132,6 +183,7 @@ let registered = false;
 export function registerWebhookHooks(): void {
     if (registered) return;
     onProcessingSettled(queueProcessingWebhooks);
+    onBackgroundSettled(queueCaptionsWebhooks);
     registered = true;
 }
 

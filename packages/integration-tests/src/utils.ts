@@ -177,7 +177,12 @@ export interface WebhookClient {
 
 export class WebhookRefused extends Error {}
 
-const WEBHOOK_EVENTS = ["media.processing.ready", "media.processing.failed"];
+/** What an endpoint created without `events` gets: media.captions.ready
+ * is opt-in (pipelines-phase-2.md, D8). */
+const DEFAULT_WEBHOOK_EVENTS = [
+    "media.processing.ready",
+    "media.processing.failed",
+];
 
 /** Checks an endpoint's shape. With `secret`, it must carry the full
  * secret (create and rotate); without, it must not (everything else). */
@@ -237,7 +242,7 @@ export async function checkWebhooks(
         });
         created.add(endpoint.id);
         assert.equal(endpoint.url, url);
-        assert.deepEqual(endpoint.events, WEBHOOK_EVENTS);
+        assert.deepEqual(endpoint.events, DEFAULT_WEBHOOK_EVENTS);
         assert.equal(endpoint.enabled, true);
         const listed = await client.list();
         assert.equal(listed.length, before.length + 1);
@@ -254,13 +259,16 @@ export async function checkWebhooks(
         const updated = checkEndpoint(
             await client.update(endpoint.id, {
                 url: `${url}/v2`,
-                events: ["media.processing.failed"],
+                events: ["media.processing.failed", "media.captions.ready"],
                 enabled: false,
             }),
             { secret: false },
         );
         assert.equal(updated.url, `${url}/v2`);
-        assert.deepEqual(updated.events, ["media.processing.failed"]);
+        assert.deepEqual(updated.events, [
+            "media.processing.failed",
+            "media.captions.ready",
+        ]);
         assert.equal(updated.enabled, false);
         assert.equal(updated.secretHint, endpoint.secretHint);
         const rotated = checkEndpoint(
@@ -400,6 +408,8 @@ export function generateVideo(
         height?: number;
         seconds?: number;
         codec?: "h264" | "vp9";
+        /** False for a video with no audio stream. */
+        audio?: boolean;
     } = {},
 ): Buffer | null {
     const { width = 640, height = 360, seconds = 2 } = options;
@@ -417,16 +427,51 @@ export function generateVideo(
                 "lavfi",
                 "-i",
                 `testsrc=size=${width}x${height}:rate=25:duration=${seconds}`,
+                ...(options.audio === false
+                    ? []
+                    : [
+                          "-f",
+                          "lavfi",
+                          "-i",
+                          `sine=frequency=440:duration=${seconds}`,
+                      ]),
+                ...(codec === "vp9"
+                    ? ["-c:v", "libvpx-vp9", "-deadline", "realtime"]
+                    : ["-c:v", "libx264", "-pix_fmt", "yuv420p"]),
+                ...(options.audio === false
+                    ? []
+                    : ["-c:a", codec === "vp9" ? "libopus" : "aac"]),
+                "-shortest",
+                file,
+            ],
+            { stdio: "ignore" },
+        );
+        return readFileSync(file);
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw error;
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+}
+
+/** A WAV of a tone, or null when ffmpeg isn't installed. */
+export function generateAudio(seconds = 6): Buffer | null {
+    const dir = mkdtempSync(join(tmpdir(), "medialit-audio-"));
+    const file = join(dir, "tone.wav");
+    try {
+        execFileSync(
+            "ffmpeg",
+            [
+                "-v",
+                "error",
+                "-y",
                 "-f",
                 "lavfi",
                 "-i",
                 `sine=frequency=440:duration=${seconds}`,
-                ...(codec === "vp9"
-                    ? ["-c:v", "libvpx-vp9", "-deadline", "realtime"]
-                    : ["-c:v", "libx264", "-pix_fmt", "yuv420p"]),
-                "-c:a",
-                codec === "vp9" ? "libopus" : "aac",
-                "-shortest",
+                "-ac",
+                "1",
                 file,
             ],
             { stdio: "ignore" },

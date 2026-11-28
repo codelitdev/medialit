@@ -8,6 +8,7 @@ import type {
     HlsRendition,
     MediaSettings,
     MediaSettingsUpdate,
+    SealOptions,
     VideoStreaming,
     WebhookEndpoint,
     WebhookEvent,
@@ -35,6 +36,7 @@ export interface Flags {
     hlsRenditions?: string;
     webp?: string;
     webpQuality?: string;
+    captions?: string;
 }
 
 export async function login(flags: Flags): Promise<void> {
@@ -134,7 +136,35 @@ export async function whoami(flags: Flags): Promise<void> {
     );
 }
 
+const VIDEO_STREAMING: readonly VideoStreaming[] = ["off", "hls", "mp4"];
+
+/** `--video-streaming` and `--captions` on upload and seal override the
+ * app's settings for these files only. Checked here, not only by the server, so `upload`
+ * refuses a bad value before sending any file. */
+export function sealOptions(flags: Flags): SealOptions {
+    const processing: NonNullable<SealOptions["processing"]> = {};
+    if (flags.videoStreaming !== undefined) {
+        const value = flags.videoStreaming
+            .trim()
+            .toLowerCase() as VideoStreaming;
+        if (!VIDEO_STREAMING.includes(value)) {
+            throw new Error("--video-streaming must be off, hls or mp4.");
+        }
+        processing.videoStreaming = value;
+    }
+    if (flags.captions !== undefined) {
+        processing.generateCaptions = onOff(flags.captions, "--captions");
+    }
+    return Object.keys(processing).length > 0 ? { processing } : {};
+}
+
 export async function upload(paths: string[], flags: Flags): Promise<void> {
+    const options = sealOptions(flags);
+    if (flags.temp && options.processing) {
+        throw new Error(
+            "--video-streaming and --captions apply when a file is sealed. Pass them to `medialit seal` instead of using --temp.",
+        );
+    }
     if (!paths.length) throw new Error("Pass at least one file to upload.");
     const { client, endpoint } = await getClient(flags.endpoint);
     const results: UploadedMedia[] = [];
@@ -162,7 +192,10 @@ export async function upload(paths: string[], flags: Flags): Promise<void> {
 
         const kept = flags.temp
             ? media
-            : ((await client.seal(media.mediaId)) as unknown as UploadedMedia);
+            : ((await client.seal(
+                  media.mediaId,
+                  options,
+              )) as unknown as UploadedMedia);
         results.push(kept);
         if (!flags.json) {
             log(`${kept.originalFileName}  ${kept.mediaId}`);
@@ -211,12 +244,44 @@ export async function get(ids: string[], flags: Flags): Promise<void> {
         requireId(ids),
     )) as unknown as UploadedMedia;
     output(flags, media, () => media.file);
+    if (!flags.json) {
+        const note = captionsNote(media);
+        if (note) log(note);
+    }
+}
+
+/** A line about the file's captions, or null when it has none. On stderr,
+ * so `medialit get` still prints only the URL to stdout. */
+export function captionsNote(media: unknown): string | null {
+    const captions = (
+        media as {
+            derivatives?: Record<
+                string,
+                | {
+                      status?: string;
+                      url?: string;
+                      language?: string;
+                      error?: string;
+                  }
+                | undefined
+            >;
+        }
+    ).derivatives?.captions;
+    if (!captions) return null;
+    if (captions.status === "ready" && captions.url) {
+        return `Captions (${captions.language ?? "unknown language"}): ${captions.url}`;
+    }
+    if (captions.status === "failed") {
+        return `Captions failed: ${captions.error ?? "unknown error"}`;
+    }
+    return `Captions: ${captions.status ?? "unknown"}`;
 }
 
 export async function seal(ids: string[], flags: Flags): Promise<void> {
     const { client } = await getClient(flags.endpoint);
     const media = (await client.seal(
         requireId(ids),
+        sealOptions(flags),
     )) as unknown as UploadedMedia;
     output(flags, media, () => media.file);
 }
@@ -250,7 +315,7 @@ export async function settings(args: string[], flags: Flags): Promise<void> {
     const update = settingsUpdate(flags);
     if (Object.keys(update).length === 0) {
         throw new Error(
-            "Pass --video-streaming, --hls-renditions, --webp or --webp-quality.",
+            "Pass --video-streaming, --hls-renditions, --webp, --webp-quality or --captions.",
         );
     }
     await client.updateSettings(update);
@@ -287,7 +352,19 @@ export function settingsUpdate(flags: Flags): MediaSettingsUpdate {
     if (flags.webpQuality !== undefined) {
         update.webpOutputQuality = Number(flags.webpQuality);
     }
+    if (flags.captions !== undefined) {
+        update.generateCaptions = onOff(flags.captions, "--captions");
+    }
     return update;
+}
+
+/** `on` or `off`, as a boolean. */
+function onOff(value: string, flag: string): boolean {
+    const normalized = value.trim().toLowerCase();
+    if (normalized !== "on" && normalized !== "off") {
+        throw new Error(`${flag} takes on or off.`);
+    }
+    return normalized === "on";
 }
 
 function describeSettings(settings: MediaSettings): string {
@@ -298,6 +375,15 @@ function describeSettings(settings: MediaSettings): string {
         lines.push(
             `Video streaming: ${settings.videoStreaming}`,
             `HLS renditions:  ${(settings.hlsRenditions ?? []).join(", ")}`,
+        );
+    }
+    if (settings.generateCaptions !== undefined) {
+        lines.push(
+            `Captions:        ${settings.generateCaptions ? "on" : "off"}${
+                settings.captionsAvailable === false
+                    ? " (this server has no transcription worker)"
+                    : ""
+            }`,
         );
     }
     return lines.join("\n");

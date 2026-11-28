@@ -1,4 +1,7 @@
-export type WebhookEvent = "media.processing.ready" | "media.processing.failed";
+export type WebhookEvent =
+    | "media.processing.ready"
+    | "media.processing.failed"
+    | "media.captions.ready";
 
 /** A webhook endpoint as the dashboard sees it. `id` is the public ID. The
  * signing secret is returned only on create and rotate; it can be read

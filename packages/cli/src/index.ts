@@ -37,17 +37,21 @@ Options:
   --no-browser          login: print the URL instead of opening it
   --url <url>           webhooks update: new receiving URL
   --events <list>       webhooks create/update: comma-separated events,
-                        media.processing.ready and media.processing.failed
-                        (default: both)
+                        media.processing.ready, media.processing.failed and
+                        media.captions.ready
+                        (default: the two processing events)
   --enable, --disable   webhooks create/update: turn sending on or off
   --video-streaming <off|hls|mp4>
                         settings set: how sealed videos are prepared for
-                        playback (apps start off)
+                        playback (apps start off). upload, seal: override
+                        the app's setting for these files only
   --hls-renditions <list>
                         settings set: comma-separated HLS sizes from 1080p,
                         720p, 480p and 360p, or default
   --webp <on|off>       settings set: convert images to WebP at seal
   --webp-quality <n>    settings set: WebP quality, 1 to 100 (default 80)
+  --captions <on|off>   settings set: make captions for sealed videos and
+                        audio. upload, seal: override for these files only
   -h, --help            Show this help
   -v, --version         Show the version
 
@@ -79,6 +83,7 @@ async function main(argv: string[]): Promise<void> {
             "hls-renditions": { type: "string" },
             webp: { type: "string" },
             "webp-quality": { type: "string" },
+            captions: { type: "string" },
             help: { type: "boolean", short: "h" },
             version: { type: "boolean", short: "v" },
         },

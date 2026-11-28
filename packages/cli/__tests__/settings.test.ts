@@ -19,6 +19,9 @@ describe("medialit settings set", () => {
             },
         );
         assert.deepEqual(settingsUpdate({ webp: "off" }), { useWebP: false });
+        assert.deepEqual(settingsUpdate({ captions: "ON" }), {
+            generateCaptions: true,
+        });
         assert.deepEqual(settingsUpdate({}), {});
     });
 

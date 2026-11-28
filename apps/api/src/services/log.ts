@@ -53,6 +53,8 @@ const PROPERTY_ALLOWLIST = new Set([
     "changed",
     "use_webp",
     "video_streaming",
+    "processing_overridden",
+    "generate_captions",
     "hls_renditions",
     "kind",
     "plan",
@@ -70,6 +72,16 @@ const PROPERTY_ALLOWLIST = new Set([
     "source_height",
     "video_codec",
     "speed",
+    // Captions (phase 2). Never transcript text.
+    "source_kind",
+    "language",
+    "model",
+    "cues",
+    "load_ms",
+    "cpu_steal_pct",
+    "exit_code",
+    "signal",
+    "attempt",
 ]);
 
 /** Allowlisted keys that hold record IDs. They skip the long-token mask,

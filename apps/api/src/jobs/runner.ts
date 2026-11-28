@@ -10,6 +10,7 @@ import {
     complete,
     fail,
     heartbeat,
+    hasQueuedJobs,
     liveWorkerClasses,
     reap,
     recordWorker,
@@ -19,18 +20,53 @@ import {
     type JobRow,
 } from "./queue";
 
-/** `video` holds encodes that use every core. */
-export const JOB_CLASSES = ["cpu", "io", "video"] as const;
+/** `video` holds encodes that use every core. `transcribe` holds captions
+ * (pipelines-phase-2.md, D5), which run in their own worker deployment. */
+export const JOB_CLASSES = ["cpu", "io", "video", "transcribe"] as const;
 export type JobClass = (typeof JOB_CLASSES)[number];
+
+/** What a worker serves when WORKER_CLASSES is unset. `transcribe` needs the
+ * transcription image, so only workers that list it serve it. */
+export const DEFAULT_WORKER_CLASSES: readonly JobClass[] = [
+    "cpu",
+    "io",
+    "video",
+];
 
 /** A worker not seen for this long counts as gone. Workers report every
  * 30 s and keep their row when they stop, so a restart doesn't count. */
 export const WORKER_SEEN_WITHIN_MS = 5 * 60 * 1000;
 
-/** The job classes no live worker serves. */
-export async function missingWorkerClasses(db: Executor): Promise<string[]> {
+/**
+ * The job classes no live worker serves. A class outside
+ * `DEFAULT_WORKER_CLASSES` counts only while jobs of the given types are
+ * queued, so installs that never run a transcription worker aren't told
+ * one is missing.
+ */
+export async function missingWorkerClasses(
+    db: Executor,
+    optional: Partial<Record<JobClass, readonly string[]>> = {},
+): Promise<string[]> {
     const live = await liveWorkerClasses(db, WORKER_SEEN_WITHIN_MS);
-    return JOB_CLASSES.filter((jobClass) => !live.has(jobClass));
+    const missing: string[] = [];
+    for (const jobClass of JOB_CLASSES) {
+        if (live.has(jobClass)) continue;
+        if (!DEFAULT_WORKER_CLASSES.includes(jobClass)) {
+            const types = optional[jobClass] ?? [];
+            if (types.length === 0) continue;
+            if (!(await hasQueuedJobs(db, types))) continue;
+        }
+        missing.push(jobClass);
+    }
+    return missing;
+}
+
+/** True when the worker classes a live worker serves include `jobClass`. */
+export async function hasLiveWorker(
+    db: Executor,
+    jobClass: JobClass,
+): Promise<boolean> {
+    return (await liveWorkerClasses(db, WORKER_SEEN_WITHIN_MS)).has(jobClass);
 }
 
 export type JobContext = {

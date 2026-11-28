@@ -147,6 +147,8 @@ export type MediaSettingsRecord = {
     /** Undefined leaves it unchanged; null goes back to the default. */
     videoStreaming?: VideoStreaming | null;
     hlsRenditions?: string[] | null;
+    /** Undefined leaves it unchanged; null means false. */
+    generateCaptions?: boolean | null;
 };
 
 export type SignatureRecord = {
@@ -1454,6 +1456,7 @@ export async function getMediaSettingsRecord(
         webpOutputQuality: row.webpOutputQuality ?? undefined,
         videoStreaming: row.videoStreaming ?? null,
         hlsRenditions: row.hlsRenditions ?? null,
+        generateCaptions: row.generateCaptions ?? null,
     };
 }
 
@@ -1489,6 +1492,7 @@ export async function upsertMediaSettings(
             webpOutputQuality: input.webpOutputQuality,
             videoStreaming: input.videoStreaming,
             hlsRenditions: input.hlsRenditions,
+            generateCaptions: input.generateCaptions,
         })
         .onConflictDoUpdate({
             target: mediaSettings.appId,
@@ -1497,6 +1501,7 @@ export async function upsertMediaSettings(
                 webpOutputQuality: input.webpOutputQuality,
                 videoStreaming: input.videoStreaming,
                 hlsRenditions: input.hlsRenditions,
+                generateCaptions: input.generateCaptions,
             },
         });
 }

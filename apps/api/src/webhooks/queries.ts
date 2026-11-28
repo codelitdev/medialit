@@ -13,8 +13,17 @@ import type { Executor } from "../jobs/queue";
 export const WEBHOOK_EVENTS = [
     "media.processing.ready",
     "media.processing.failed",
+    "media.captions.ready",
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
+
+/** What an endpoint created without `events` gets. `media.captions.ready`
+ * is opt-in (pipelines-phase-2.md, D8), so an app that never asked for it
+ * never receives it. */
+export const DEFAULT_WEBHOOK_EVENTS: readonly WebhookEvent[] = [
+    "media.processing.ready",
+    "media.processing.failed",
+];
 
 export const WEBHOOK_DELIVER_JOB = "webhook.deliver";
 

@@ -153,6 +153,7 @@ Finalizes a temporary media upload, allowing it to persist and show up in lists/
 - **Inputs:**
     - `mediaId` _(string, required)_: The unique ID of the media item to seal.
     - `confirm` _(boolean, required to run)_: `true` once you have confirmed sealing.
+    - `processing` _(object, optional)_: processing settings for this upload, instead of the app's. `videoStreaming` _(`off` | `hls` | `mp4`)_ decides what is made from a video. Fields left out use the app's settings; ignored when the media is already sealed.
 - **Output:** The updated media document.
 
 #### `delete_media`
@@ -209,6 +210,7 @@ Changes the app's media processing settings. Supply only the properties you wish
     - `webpOutputQuality` _(number, optional)_: Output quality between `1` and `100`. It is `80` when not set.
     - `videoStreaming` _(`off` | `hls` | `mp4`, optional)_: How sealed videos are prepared for playback. Apps start `off`.
     - `hlsRenditions` _(array, optional)_: HLS sizes from `1080p`, `720p`, `480p` and `360p`. `null` restores the default.
+    - `generateCaptions` _(boolean, optional)_: Make [captions](/docs/concepts#captions) and a transcript for sealed videos and audio files. Apps start `false`. `get_media_settings` also returns `captionsAvailable`, `false` when the server has no transcription worker.
 - **Output:** `{ message: "success" }`
 
 ---

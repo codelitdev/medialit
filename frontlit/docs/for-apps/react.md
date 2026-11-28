@@ -195,6 +195,17 @@ import { MediaLitVideo } from "@medialit/react";
 
 Browsers with Media Source Extensions, which is every desktop browser, play HLS with [hls.js](https://github.com/video-dev/hls.js). The component loads it only when a video needs it, so pages without HLS don't download it. On iPhone, Safari plays HLS natively. If HLS fails to play, the component switches to the web MP4 or the original. Any other `<video>` prop, such as `autoPlay`, `muted` or `className`, passes through. `controls` and `playsInline` are on by default.
 
+When the file has [captions](/docs/concepts#captions), the component adds them as a `<track>`, labelled with the language's name, whichever version plays. They are off until the viewer turns them on in the player's controls; add `default` to the track yourself by passing children if you want them on. The captions file is read from storage with CORS, so the `<video>` gets `crossOrigin="anonymous"` when there are captions.
+
+A `ref` gets the `<video>` element, for example to build a transcript that follows the video from `derivatives.captions.files.json`:
+
+```tsx
+const video = useRef<HTMLVideoElement>(null);
+
+<MediaLitVideo media={media} ref={video} />;
+// Seek to a segment: video.current.currentTime = segment.start
+```
+
 To use another player, see [Playing videos](/docs/concepts#playing-videos).
 
 Fetch the media on your server and pass it down: its URLs are signed for private files and expire, so fetch it when the page renders rather than storing it.
