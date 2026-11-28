@@ -12,6 +12,12 @@ export type MediaSettings = {
     hlsRenditions: HlsRendition[];
 };
 
+/** Processing settings a seal request can set for one upload, overriding
+ * the app's media settings. A field left out uses the app's setting. */
+export type ProcessingOverride = {
+    videoStreaming?: VideoStreaming;
+};
+
 /** This month's video processing minutes. `allowed` is null when there is
  * no limit (self-hosted). */
 export type ProcessingMinutes = { used: number; allowed: number | null };

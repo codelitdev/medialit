@@ -364,6 +364,15 @@ export async function runCliIntegrationTests(
         await fails(["get"], /Pass one media ID/);
         await fails(["upload"], /Pass at least one file/);
         await fails(["upload", join(workDir, "missing.png")], /is not a file/);
+        await fails(
+            [
+                "upload",
+                join(workDir, "missing.png"),
+                "--video-streaming",
+                "dash",
+            ],
+            /must be off, hls or mp4/,
+        );
         log("PASS errors go to stderr with exit code 1");
 
         baseline = await stats();
@@ -398,8 +407,10 @@ export async function runCliIntegrationTests(
         await checkTotals(png.length, 0);
         log("PASS upload --temp leaves the upload temporary and hidden");
 
+        // `--video-streaming` overrides the app's setting at seal; for an
+        // image it changes nothing, but the server must accept it.
         const sealed = object(
-            await json(withId("seal", tempId)),
+            await json(["seal", "--video-streaming", "off", "--", tempId]),
             "sealed media",
         );
         assert.equal(sealed.mediaId, tempId);

@@ -75,9 +75,15 @@ type={{
 
 ```ts
 const media = await medialit.seal(mediaId);
+// Override the app's processing settings for this upload only:
+const trial = await medialit.seal(mediaId, {
+    processing: { videoStreaming: "off" },
+});
 ```
 
-Keeps a temporary upload. Returns the media with its final `file` URL, which changes for public files. Sealing a file that is already sealed returns it unchanged.
+Keeps a temporary upload. Returns the media with its final `file` URL, which changes for public files. Sealing a file that is already sealed returns it unchanged and ignores `processing`.
+
+`processing.videoStreaming` (`"off"`, `"hls"` or `"mp4"`) replaces the app's [video streaming](/docs/concepts#video-streaming) setting for this file. Fields you leave out use the app's settings.
 
 ## get
 

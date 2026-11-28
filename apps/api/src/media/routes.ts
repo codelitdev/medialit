@@ -197,13 +197,38 @@ router.post(
     /* 
         #swagger.tags = ['Media']
         #swagger.summary = 'Seal Media'
-        #swagger.description = 'Seal a temporary upload so it is kept. Public media is published to the public bucket. When the app has WebP on, JPEG and PNG images are converted to WebP first, and the response describes the WebP. Sealing media that is already sealed returns it unchanged.'
+        #swagger.description = 'Seal a temporary upload so it is kept. Public media is published to the public bucket. When the app has WebP on, JPEG and PNG images are converted to WebP first, and the response describes the WebP. Sealing media that is already sealed returns it unchanged, and ignores `processing`. `processing` overrides the processing settings of the app for this upload only: a field left out uses the setting of the app.'
         #swagger.security = [{ "bearerAuth": [] }, { "apiKeyAuth": [] }]
         #swagger.parameters['mediaId'] = {
             in: 'path',
             description: 'ID of the media file',
             required: true,
             schema: { type: 'string' }
+        }
+        #swagger.requestBody = {
+            required: false,
+            content: {
+                "application/json": {
+                    schema: {
+                        type: 'object',
+                        properties: {
+                            processing: {
+                                type: 'object',
+                                additionalProperties: false,
+                                description: 'Processing settings for this upload, instead of the settings of the app',
+                                properties: {
+                                    videoStreaming: {
+                                        type: 'string',
+                                        enum: ['off', 'hls', 'mp4'],
+                                        description: 'How this video is prepared for playback'
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    example: { processing: { videoStreaming: 'off' } }
+                }
+            }
         }
         #swagger.responses[200] = {
             description: 'The created Media object',
@@ -213,6 +238,7 @@ router.post(
                 }
             }
         }
+        #swagger.responses[400] = { description: 'Invalid processing settings (the media stays temporary), or more than one credential was sent, for example both a Bearer token and an API key' }
         #swagger.responses[401] = { description: 'Unauthorized' }
         #swagger.responses[403] = {
             description: 'Not enough storage',

@@ -153,6 +153,7 @@ Finalizes a temporary media upload, allowing it to persist and show up in lists/
 - **Inputs:**
     - `mediaId` _(string, required)_: The unique ID of the media item to seal.
     - `confirm` _(boolean, required to run)_: `true` once you have confirmed sealing.
+    - `processing` _(object, optional)_: processing settings for this upload, instead of the app's. `videoStreaming` _(`off` | `hls` | `mp4`)_ decides what is made from a video. Fields left out use the app's settings; ignored when the media is already sealed.
 - **Output:** The updated media document.
 
 #### `delete_media`

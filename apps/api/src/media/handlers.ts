@@ -19,7 +19,7 @@ import {
     type ReceivedUpload,
 } from "./multipart-upload";
 import { getSignatureFromReq } from "../signature/utils";
-import { getMediaSchema, uploadMediaSchema } from "./schemas";
+import { getMediaSchema, sealMediaSchema, uploadMediaSchema } from "./schemas";
 
 function validateUploadOptions(
     fields: Record<string, string>,
@@ -216,12 +216,18 @@ export function sealErrorStatus(err: { message?: string }): number {
 
 export async function sealMedia(req: any, res: any) {
     const { mediaId } = req.params;
+    // A seal without a body (every client before phase 2) is valid.
+    const { error, value } = sealMediaSchema.validate(req.body ?? {});
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
 
     try {
         const media = await mediaService.sealMedia({
             userId: req.user.id,
             appId: req.appId,
             mediaId,
+            processing: value.processing ?? undefined,
         });
 
         return res.status(200).json(media);

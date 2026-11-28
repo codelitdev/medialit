@@ -183,7 +183,7 @@ The media settings are per app, and every video sealed in the app gets the same 
 - **Either direction.** The override can turn processing off for an app that has it on, or on for an app that has it off. The caller holds the account's API key and pays the minutes.
 - **Stored with the jobs**, as the app settings are: seal copies the values in effect into each job's params.
 - **Sealing again changes nothing.** A second seal of sealed media returns it unchanged and ignores its `processing`. There is no reprocessing (section 11), so an upload sealed with processing off stays that way after the school upgrades.
-- **Exposed in** REST (in the OpenAPI spec), MCP (`seal_media` gains `processing`), the SDK, and the CLI (`medialit upload` and `medialit seal` gain `--streaming <off|hls|mp4>` and `--captions <on|off>`). Invalid values are a `400`, and the media stays temp.
+- **Exposed in** REST (in the OpenAPI spec), MCP (`seal_media` gains `processing`), the SDK, and the CLI (`medialit upload` and `medialit seal` gain `--video-streaming <off|hls|mp4>`, the same flag as `settings set`, and `--captions <on|off>`). Invalid values are a `400`, and the media stays temp.
 - `media.sealed` (phase 0) gains `processing_overridden` (boolean), `video_streaming` and `generate_captions`, the values in effect.
 
 Alternatives rejected: **a separate MediaLit app for trial schools** (media would have to move between apps when a school upgrades), and **the override in the upload signature** (signatures are made before the app knows whether the file will be kept).
@@ -234,7 +234,7 @@ These changes only add fields.
 - **Media settings** (REST, MCP, SDK): `generateCaptions`; `GET` adds `captionsAvailable` (D1).
 - **Media response** (REST, MCP, CLI, `@medialit/models`): `derivatives.captions` with `url`, `language` and `files` (D6).
 - **Seal** (REST, MCP, SDK, CLI): optional `processing: { videoStreaming?, generateCaptions? }` (D9).
-- **CLI:** `medialit settings set --captions <on|off>`; `medialit upload` and `medialit seal` take `--streaming` and `--captions`. `medialit get <mediaId>` shows the captions' language and URL.
+- **CLI:** `medialit settings set --captions <on|off>`; `medialit upload` and `medialit seal` take `--video-streaming` and `--captions`. `medialit get <mediaId>` shows the captions' language and URL.
 - **Dashboard:** a Captions switch in the Media tab, with the minutes it uses and a note when `captionsAvailable` is false. File details show the captions' status and language, link the VTT and transcript, and the preview shows the captions.
 - **Webhooks:** new event `media.captions.ready` (D8), subscribed to per endpoint in REST, MCP and the dashboard. `media.processing.ready` no longer waits for captions.
 - **`@medialit/react`:** `MediaLitVideo` adds the captions `<track>` and forwards a `ref` (D6).

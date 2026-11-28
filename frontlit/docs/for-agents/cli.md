@@ -66,6 +66,8 @@ The CLI prints each file's URL. Uploads are private unless you pass `--public`.
 
 Unlike the API and the MCP server, the CLI [seals](/docs/concepts#temporary-uploads-and-sealing) each upload right away, because running the command is the decision to keep the file. Pass `--temp` to leave uploads temporary, so MediaLit deletes them after 24 hours unless you run `medialit seal <id>`. Agents should use `--temp` for scratch files.
 
+`--video-streaming <off|hls|mp4>` on `upload` or `seal` overrides the app's [video streaming](/docs/concepts#video-streaming) setting for those files only. It can't be combined with `--temp`, which doesn't seal.
+
 Large files are sent in chunks and retried if the connection drops.
 
 <TypeTable

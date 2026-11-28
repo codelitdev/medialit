@@ -426,6 +426,10 @@ export async function runMcpIntegrationTests(
             object(sealInput.properties, "seal_media properties").confirm,
             "Destructive tools must advertise confirm",
         );
+        assert(
+            object(sealInput.properties, "seal_media properties").processing,
+            "seal_media must advertise the processing override",
+        );
 
         const originalSettings = await getMediaSettings();
         settingsToRestore = originalSettings;
@@ -556,9 +560,12 @@ export async function runMcpIntegrationTests(
         // open by another request, which a live API can't do on demand. It
         // is covered in apps/api/src/mcp/__tests__/routes.test.ts, which
         // holds the claim in the database.
+        // The override is accepted for any media; it only changes what a
+        // video gets (pipelines-phase-2.md, D9).
         const sealed = await client.callTool("seal_media", {
             mediaId,
             confirm: true,
+            processing: { videoStreaming: "off" },
         });
         assert.equal(sealed.mediaId, mediaId);
         assert.equal(sealed.access, "private");

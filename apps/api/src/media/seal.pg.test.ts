@@ -652,6 +652,101 @@ describe("seal", { skip }, () => {
         }
     });
 
+    test("a seal's processing override wins over the app's setting, in either direction, and only once", async () => {
+        const events = await import("../services/events.js");
+        const sent: Array<{
+            event: string;
+            properties?: Record<string, unknown>;
+        }> = [];
+        const restore = events.setEventSinkForTests((input) => {
+            sent.push(input);
+        });
+        const jobTypes = async (mediaId: string) => {
+            const record = await row(mediaId);
+            return (
+                await pgTest.db.execute(
+                    sql`SELECT type FROM jobs WHERE media_id = ${record!.id} ORDER BY type`,
+                )
+            ).rows.map((job) => job.type);
+        };
+        try {
+            // The app has HLS on; a trial upload turns it off.
+            await settings({ videoStreaming: "hls" });
+            const trial = await upload(await blackStartVideo(), {
+                mimeType: "video/mp4",
+                fileName: "trial.mp4",
+            });
+            const sealedTrial = await mediaService.sealMedia({
+                userId,
+                appId,
+                mediaId: trial.mediaId,
+                processing: { videoStreaming: "off" },
+            });
+            assert.equal(sealedTrial.derivatives.hls, undefined);
+            assert.deepEqual(await jobTypes(trial.mediaId), ["media.poster"]);
+
+            // Sealing again ignores the new override.
+            await mediaService.sealMedia({
+                userId,
+                appId,
+                mediaId: trial.mediaId,
+                processing: { videoStreaming: "mp4" },
+            });
+            assert.deepEqual(await jobTypes(trial.mediaId), ["media.poster"]);
+
+            // The app has streaming off; a paid upload turns MP4 on.
+            await settings({ videoStreaming: "off" });
+            const paid = await upload(await blackStartVideo(), {
+                mimeType: "video/mp4",
+                fileName: "paid.mp4",
+            });
+            const sealedPaid = await mediaService.sealMedia({
+                userId,
+                appId,
+                mediaId: paid.mediaId,
+                processing: { videoStreaming: "mp4" },
+            });
+            assert.equal(sealedPaid.derivatives.mp4.status, "queued");
+            assert.deepEqual(await jobTypes(paid.mediaId), [
+                "media.mp4",
+                "media.poster",
+            ]);
+
+            // An empty override uses the app's setting.
+            await settings({ videoStreaming: "hls" });
+            const plain = await upload(await blackStartVideo(), {
+                mimeType: "video/mp4",
+                fileName: "plain.mp4",
+            });
+            await mediaService.sealMedia({
+                userId,
+                appId,
+                mediaId: plain.mediaId,
+                processing: {},
+            });
+            assert.deepEqual(await jobTypes(plain.mediaId), [
+                "media.hls",
+                "media.poster",
+            ]);
+
+            await events.flushEventsForTests();
+            const sealed = sent
+                .filter((e) => e.event === "media.sealed")
+                .map((e) => ({
+                    video_streaming: e.properties?.video_streaming,
+                    processing_overridden: e.properties?.processing_overridden,
+                }));
+            assert.deepEqual(sealed, [
+                { video_streaming: "off", processing_overridden: true },
+                { video_streaming: "mp4", processing_overridden: true },
+                { video_streaming: "hls", processing_overridden: false },
+            ]);
+        } finally {
+            restore();
+            await settings({});
+        }
+    });
+
     test("the billing page counts the apps with video streaming on", async () => {
         try {
             await settings({ videoStreaming: "off" });

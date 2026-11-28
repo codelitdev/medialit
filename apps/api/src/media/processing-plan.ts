@@ -5,6 +5,7 @@
  */
 import type { AccountPlan } from "../billing/entitlements";
 import type { MediaMetadata } from "./probe";
+import type { ProcessingOverride } from "@medialit/models";
 import type { VideoSettings } from "../media-settings/video";
 
 export const POSTER_JOB = "media.poster";
@@ -81,4 +82,26 @@ export function planProcessing(input: PlanInput): PlannedJob[] {
         });
     }
     return jobs;
+}
+
+/** The app's video settings with the seal's override applied
+ * (pipelines-phase-2.md, D9). A field the override leaves out keeps the
+ * app's value. */
+export function withOverride(
+    settings: VideoSettings,
+    processing: ProcessingOverride | undefined,
+): VideoSettings {
+    return {
+        ...settings,
+        ...(processing?.videoStreaming
+            ? { videoStreaming: processing.videoStreaming }
+            : {}),
+    };
+}
+
+/** True when the seal set at least one processing field. */
+export function isOverride(
+    processing: ProcessingOverride | undefined,
+): boolean {
+    return processing?.videoStreaming !== undefined;
 }

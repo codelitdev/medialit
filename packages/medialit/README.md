@@ -120,6 +120,20 @@ Uploads a file to MediaLit. Accepts file path, Buffer, or Readable stream.
 
 - Promise resolving to the uploaded media object
 
+### `seal(mediaId: string, options?: SealOptions): Promise<Media>`
+
+Keeps a temporary upload. Uploads are temporary until sealed, and temporary files are deleted after 24 hours. Sealing a file that is already sealed returns it unchanged.
+
+#### Parameters:
+
+- `mediaId`: The ID of the media to seal
+- `options.processing`: Optional. Processing settings for this file, instead of the app's. Fields left out use the app's settings; ignored when the file is already sealed.
+    - `videoStreaming`: `"off"`, `"hls"` or `"mp4"`, what is made from this video
+
+#### Returns:
+
+- `Promise<Media>`: The sealed media, with its final `file` URL
+
 ### `get(mediaId: string): Promise<Media>`
 
 Retrieves details of a specific media file.

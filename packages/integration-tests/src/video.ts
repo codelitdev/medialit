@@ -313,6 +313,35 @@ export async function runVideoIntegrationTests(
             }
             log("PASS mp4: VP9 re-encoded to H.264, one minute charged");
 
+            // A seal can override the app's setting for one upload
+            // (pipelines-phase-2.md, D9). The app has MP4 on here.
+            const trial = await upload(video, "trial.mp4", "video/mp4");
+            const refusedSeal = await call(
+                `media/seal/${encodeURIComponent(String(trial.mediaId))}`,
+                { processing: { videoStreaming: "dash" } },
+            );
+            assert.equal(refusedSeal.status, 400, "a bad override is refused");
+            const stillTemp = await api(
+                `media/get/${encodeURIComponent(String(trial.mediaId))}`,
+            );
+            assert.equal(
+                object(stillTemp.processing).status,
+                "pending",
+                "a refused seal leaves the media temporary",
+            );
+            const overridden = await api(
+                `media/seal/${encodeURIComponent(String(trial.mediaId))}`,
+                { processing: { videoStreaming: "off" } },
+            );
+            assert.equal(object(overridden.derivatives).mp4, undefined);
+            const trialDone = await waitForProcessing(trial.mediaId);
+            assert.deepEqual(Object.keys(object(trialDone.derivatives)), [
+                "thumbnail",
+            ]);
+            log(
+                "PASS seal override: off skips the app's MP4, a bad value is a 400",
+            );
+
             // HLS (D5, D6): renditions capped at the source; private media
             // plays through the API's signed playlists, public from storage.
             await api("settings/media/create", {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VIDEO_STREAMING_VALUES } from "@medialit/models";
 import mediaService from "../../media/service";
 import mediaQueries from "../../media/queries";
 import { storageStats } from "../../billing/usage";
@@ -133,9 +134,23 @@ export const mediaTools = (): MedialitMcpTool[] => [
         // Sealing can't be undone, and a public upload becomes public.
         risk: "destructive",
         description:
-            "Finalizes a temporary upload for retention, preventing automatic cleanup. Public uploads become publicly accessible. Already sealed items are returned unchanged.",
+            "Finalizes a temporary upload for retention, preventing automatic cleanup. Public uploads become publicly accessible. Already sealed items are returned unchanged. `processing` overrides the app's processing settings for this upload only.",
         inputSchema: z.object({
             mediaId: z.string().describe("ID of the media item to seal"),
+            processing: z
+                .object({
+                    videoStreaming: z
+                        .enum(VIDEO_STREAMING_VALUES)
+                        .optional()
+                        .describe(
+                            "How this video is prepared for playback, instead of the app's setting",
+                        ),
+                })
+                .strict()
+                .optional()
+                .describe(
+                    "Processing settings for this upload. A field left out uses the app's setting.",
+                ),
         }),
         outputSchema: mediaSchema,
         annotations: { openWorldHint: true },
@@ -145,6 +160,7 @@ export const mediaTools = (): MedialitMcpTool[] => [
                     userId: context.userId,
                     appId: context.appId,
                     mediaId: args.mediaId,
+                    processing: args.processing,
                 });
             } catch (error) {
                 const message = (error as Error | undefined)?.message;

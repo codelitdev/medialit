@@ -93,6 +93,8 @@ The `videoStreaming` setting decides what is made from sealed videos:
 
 Every app starts with `off`, and each app has its own setting: choose `hls` or `mp4` for the apps whose videos you want processed.
 
+**For one upload,** the seal call can override the app's setting with `processing: { videoStreaming }`. Use it when some of your users' videos should be processed and others shouldn't, for example to skip processing for trial accounts: seal their uploads with `{ processing: { videoStreaming: "off" } }`, or the reverse in an app that has it `off`. A field you leave out uses the app's setting. Sealing again ignores `processing`, and the override is only accepted from your server, since a browser can't seal.
+
 The original is always kept. Videos up to 1 GB and 2 hours are processed; larger or longer ones keep their original and poster, and their `mp4` or `hls` derivative fails with `source_too_large` or `source_too_long` while the file stays `ready`.
 
 ### Processing minutes

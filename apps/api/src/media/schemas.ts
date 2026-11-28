@@ -1,6 +1,7 @@
 import Joi from "joi";
 import {
     AccessControl,
+    VIDEO_STREAMING_VALUES,
     type MediaDerivative,
     type MediaMetadata,
     type MediaProcessing,
@@ -11,6 +12,20 @@ export const uploadMediaSchema = Joi.object({
     access: Joi.string().valid("public", "private").optional(),
     group: Joi.string().optional(),
 });
+
+/** The seal request's optional `processing` override (pipelines-phase-2.md,
+ * D9). Other top-level fields are ignored, as before phase 2, so a client
+ * that sends extra fields keeps working. Unknown fields inside `processing` are refused, so a typo
+ * doesn't silently fall back to the app's setting. */
+export const sealMediaSchema = Joi.object({
+    processing: Joi.object({
+        videoStreaming: Joi.string()
+            .valid(...VIDEO_STREAMING_VALUES)
+            .optional(),
+    })
+        .optional()
+        .allow(null),
+}).unknown(true);
 
 export const getMediaSchema = Joi.object({
     page: Joi.number().positive(),

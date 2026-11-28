@@ -1428,7 +1428,7 @@
           "Media"
         ],
         "summary": "Seal Media",
-        "description": "Seal a temporary upload so it is kept. Public media is published to the public bucket. When the app has WebP on, JPEG and PNG images are converted to WebP first, and the response describes the WebP. Sealing media that is already sealed returns it unchanged.",
+        "description": "Seal a temporary upload so it is kept. Public media is published to the public bucket. When the app has WebP on, JPEG and PNG images are converted to WebP first, and the response describes the WebP. Sealing media that is already sealed returns it unchanged, and ignores `processing`. `processing` overrides the processing settings of the app for this upload only: a field left out uses the setting of the app.",
         "parameters": [
           {
             "name": "mediaId",
@@ -1452,15 +1452,14 @@
             }
           },
           "400": {
-            "description": "More than one credential was sent, for example both a Bearer token and an API key",
+            "description": "Invalid processing settings (the media stays temporary), or more than one credential was sent, for example both a Bearer token and an API key",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
                 "example": {
-                  "error": "credential_ambiguous",
-                  "error_description": "Exactly one credential mechanism is allowed."
+                  "error": "Bad Request"
                 }
               }
             }
@@ -1552,6 +1551,39 @@
             "apiKeyAuth": []
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "processing": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Processing settings for this upload, instead of the settings of the app",
+                    "properties": {
+                      "videoStreaming": {
+                        "type": "string",
+                        "enum": [
+                          "off",
+                          "hls",
+                          "mp4"
+                        ],
+                        "description": "How this video is prepared for playback"
+                      }
+                    }
+                  }
+                }
+              },
+              "example": {
+                "processing": {
+                  "videoStreaming": "off"
+                }
+              }
+            }
+          }
+        },
         "operationId": "sealMedia"
       }
     },

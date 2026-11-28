@@ -40,7 +40,7 @@ In CI, skip logging in and set `MEDIALIT_API_KEY` (and `MEDIALIT_ENDPOINT` if yo
 | `medialit whoami`          | Shows the server, account, app and storage used    |
 | `medialit logout`          | Logs out of the server                             |
 
-Uploads are private unless you pass `--public`. Add `--caption <text>` or `--group <name>` to label them, or `--temp` to leave them unsealed so MediaLit deletes them after 24 hours. Large files are uploaded in chunks and retried if the connection drops.
+Uploads are private unless you pass `--public`. Add `--caption <text>` or `--group <name>` to label them, or `--temp` to leave them unsealed so MediaLit deletes them after 24 hours. `--video-streaming <off|hls|mp4>` on `upload` or `seal` overrides the app's setting for those files only. Large files are uploaded in chunks and retried if the connection drops.
 
 `ls` takes `--public`, `--private`, `--group <name>`, `--page <n>` and `--limit <n>`.
 

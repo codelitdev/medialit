@@ -13,6 +13,7 @@ export {
     VIDEO_STREAMING_VALUES,
     type HlsRendition,
     type MediaSettings,
+    type ProcessingOverride,
     type ProcessingMinutes,
     type VideoStreaming,
 } from "./media-settings";

@@ -8,6 +8,7 @@ import type {
     HlsRendition,
     MediaSettings,
     MediaSettingsUpdate,
+    SealOptions,
     VideoStreaming,
     WebhookEndpoint,
     WebhookEvent,
@@ -134,7 +135,27 @@ export async function whoami(flags: Flags): Promise<void> {
     );
 }
 
+const VIDEO_STREAMING: readonly VideoStreaming[] = ["off", "hls", "mp4"];
+
+/** `--video-streaming` on upload and seal overrides the app's setting for
+ * these files only. Checked here, not only by the server, so `upload`
+ * refuses a bad value before sending any file. */
+export function sealOptions(flags: Flags): SealOptions {
+    if (flags.videoStreaming === undefined) return {};
+    const value = flags.videoStreaming.trim().toLowerCase() as VideoStreaming;
+    if (!VIDEO_STREAMING.includes(value)) {
+        throw new Error("--video-streaming must be off, hls or mp4.");
+    }
+    return { processing: { videoStreaming: value } };
+}
+
 export async function upload(paths: string[], flags: Flags): Promise<void> {
+    const options = sealOptions(flags);
+    if (flags.temp && options.processing) {
+        throw new Error(
+            "--video-streaming applies when a file is sealed. Pass it to `medialit seal` instead of using --temp.",
+        );
+    }
     if (!paths.length) throw new Error("Pass at least one file to upload.");
     const { client, endpoint } = await getClient(flags.endpoint);
     const results: UploadedMedia[] = [];
@@ -162,7 +183,10 @@ export async function upload(paths: string[], flags: Flags): Promise<void> {
 
         const kept = flags.temp
             ? media
-            : ((await client.seal(media.mediaId)) as unknown as UploadedMedia);
+            : ((await client.seal(
+                  media.mediaId,
+                  options,
+              )) as unknown as UploadedMedia);
         results.push(kept);
         if (!flags.json) {
             log(`${kept.originalFileName}  ${kept.mediaId}`);
@@ -217,6 +241,7 @@ export async function seal(ids: string[], flags: Flags): Promise<void> {
     const { client } = await getClient(flags.endpoint);
     const media = (await client.seal(
         requireId(ids),
+        sealOptions(flags),
     )) as unknown as UploadedMedia;
     output(flags, media, () => media.file);
 }

@@ -32,7 +32,12 @@ import {
     startUpload,
 } from "./ingest";
 import { getPublicFileUrl, getThumbnailUrl } from "./utils/get-public-urls";
-import { AccessControl, Constants, MediaWithUserId } from "@medialit/models";
+import {
+    AccessControl,
+    Constants,
+    MediaWithUserId,
+    type ProcessingOverride,
+} from "@medialit/models";
 import { MediaResponse } from "./schemas";
 import { isTextPreview, MAX_TEXT_PREVIEW_BYTES, mediaPreview } from "./preview";
 
@@ -413,17 +418,21 @@ async function deleteMediaMany({
 
 /* Seals temp media (pipelines-phase-0.md, D5): converts it to WebP when the
    app asks for it, publishes it, and returns the sealed media. Already sealed
-   media is returned unchanged. */
+   media is returned unchanged, and its `processing` is ignored. */
 async function sealMedia({
     userId,
     appId,
     mediaId,
+    processing,
 }: {
     userId: string;
     appId: string;
     mediaId: string;
+    /** Overrides the app's processing settings for this upload
+     * (pipelines-phase-2.md, D9). */
+    processing?: ProcessingOverride;
 }): Promise<MediaResponse> {
-    await sealStoredMedia({ userId, appId, mediaId });
+    await sealStoredMedia({ userId, appId, mediaId, processing });
     const sealed = await getMedia({ userId, appId, mediaId });
     if (!sealed) {
         throw new Error("Media not found");

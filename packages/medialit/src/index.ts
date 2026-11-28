@@ -57,6 +57,16 @@ export interface MediaSettingsUpdate {
     hlsRenditions?: HlsRendition[] | null;
 }
 
+/** Processing settings for one upload, given when sealing it. A field left
+ * out uses the app's setting. Ignored when the media is already sealed. */
+export interface ProcessingOverride {
+    videoStreaming?: VideoStreaming;
+}
+
+export interface SealOptions {
+    processing?: ProcessingOverride;
+}
+
 export type WebhookEvent = "media.processing.ready" | "media.processing.failed";
 
 export interface WebhookEndpoint {
@@ -214,13 +224,19 @@ export class MediaLit {
         }
     }
 
-    async seal(mediaId: string): Promise<Media> {
+    /** Seals a temporary upload so it is kept. `options.processing`
+     * overrides the app's processing settings for this upload, for example
+     * `{ processing: { videoStreaming: "off" } }`. */
+    async seal(mediaId: string, options: SealOptions = {}): Promise<Media> {
         const response = await fetch(this.mediaUrl("seal", mediaId), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 ...this.authHeaders(),
             },
+            ...(options.processing
+                ? { body: JSON.stringify({ processing: options.processing }) }
+                : {}),
         });
 
         if (!response.ok) {
