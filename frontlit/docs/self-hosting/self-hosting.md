@@ -381,14 +381,14 @@ Without a worker, sealed files stay `processing`, videos aren't encoded, webhook
 
 You can run several workers. Each job runs once, on one of them.
 
-| Variable                   | Default          | What it does                                                                                                                |
-| -------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `WORKER_PORT`              | `8001`           | Port for `/health` and `/ready`                                                                                             |
-| `WORKER_CONCURRENCY_CPU`   | one per CPU core | Media processing jobs other than video encodes (posters, for example) run at once                                           |
-| `WORKER_CONCURRENCY_IO`    | `16`             | Cleanup and other network-bound jobs run at once                                                                            |
-| `WORKER_CONCURRENCY_VIDEO` | `1`              | Video encodes run at once. Each encode uses every core, so keep this at 1 unless the worker has cores to spare              |
-| `WORKER_CLASSES`           | `cpu,io,video`   | Limit a worker to some kinds of jobs, for example `io`, or `video` for a worker that only encodes                           |
-| `WORKER_SHUTDOWN_GRACE_MS` | `8000`           | On shutdown, how long running jobs get to finish. Unfinished jobs go back to the queue, and another worker runs them again. |
+| Variable                   | Default          | What it does                                                                                                                                                                                     |
+| -------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WORKER_PORT`              | `8001`           | Port for `/health` and `/ready`                                                                                                                                                                  |
+| `WORKER_CONCURRENCY_CPU`   | one per CPU core | Media processing jobs other than video encodes (posters, for example) run at once                                                                                                                |
+| `WORKER_CONCURRENCY_IO`    | `16`             | Cleanup and other network-bound jobs run at once                                                                                                                                                 |
+| `WORKER_CONCURRENCY_VIDEO` | `1`              | Video encodes run at once. Each encode uses every core, so keep this at 1 unless the worker has cores to spare                                                                                   |
+| `WORKER_CLASSES`           | `cpu,io,video`   | Limit a worker to some kinds of jobs, for example `io`, or `video` for a worker that only encodes. `transcribe` runs captions, on the [transcription worker](#run-the-transcription-worker) only |
+| `WORKER_SHUTDOWN_GRACE_MS` | `8000`           | On shutdown, how long running jobs get to finish. Unfinished jobs go back to the queue, and another worker runs them again.                                                                      |
 
 Set your container's stop timeout a few seconds above `WORKER_SHUTDOWN_GRACE_MS`.
 
@@ -410,13 +410,14 @@ It turns the address check off and also allows `http` URLs in production. Only s
 
 The API and the workers check the job queue every minute. When something is wrong, they log an error with an `alert_code` and email the addresses in `OPERATOR_ALERT_EMAIL` (comma-separated), through the `EMAIL_*` SMTP settings. Each alert emails at most once every 30 minutes, however many API instances and workers you run. Without `OPERATOR_ALERT_EMAIL`, alerts are only logged.
 
-| Alert                | Means                                                                     | What to do                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `jobs_no_worker`     | No worker has reported for 5 minutes, so nothing is cleaned up.           | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
-| `jobs_queue_lag`     | A job other than a video encode has waited more than 10 minutes to start. | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
-| `video_queue_lag`    | A video job has waited more than 6 hours to start.                        | Video encodes run one at a time and can take an hour or two each. Check the worker, or give it more CPU.         |
-| `jobs_failure_spike` | More than 10 jobs failed for good in the last 10 minutes.                 | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
-| `webp_busy`          | Seal skipped WebP because every conversion slot was busy.                 | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
+| Alert                  | Means                                                                                                          | What to do                                                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `jobs_no_worker`       | No worker has reported for 5 minutes, so nothing is cleaned up. For captions, only while captions are waiting. | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
+| `jobs_queue_lag`       | A job other than a video encode has waited more than 10 minutes to start.                                      | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
+| `video_queue_lag`      | A video job has waited more than 6 hours to start.                                                             | Video encodes run one at a time and can take an hour or two each. Check the worker, or give it more CPU.         |
+| `transcribe_queue_lag` | A captions job has waited more than 6 hours to start.                                                          | Check the transcription worker. If it is busy all day, give it its own machine or run another one.               |
+| `jobs_failure_spike`   | More than 10 jobs failed for good in the last 10 minutes.                                                      | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
+| `webp_busy`            | Seal skipped WebP because every conversion slot was busy.                                                      | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
 
 With `POSTHOG_API_KEY` set, the API and the worker also send their logs and errors to PostHog. A job that fails for good shows there as an exception from `worker.<job type>.failed`.
 
@@ -556,6 +557,28 @@ For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 12 GB o
 | `VIDEO_MAX_MEMORY_MB`        | `3072`                | Address space ffmpeg may reserve for one encode, a guard against a file that makes it run away. It uses far less: about 0.5 GB for a 4K source at 2 threads |
 | `VIDEO_MAX_WORK_BYTES`       | `10737418240` (10 GB) | Temporary disk one encode may use, source and output together. Keep the worker's disk larger                                                                |
 | `VIDEO_ENCODE_THREADS`       | `2`                   | Threads per encode. Match the worker's CPUs; more threads only reserve more memory                                                                          |
+
+## Run the transcription worker
+
+[Captions](/docs/concepts#captions) are made by a separate worker, from the `codelit/medialit-transcribe` image: the API image plus Whisper (faster-whisper with the `large-v3-turbo` model, quantized to int8) and its model, about 3 GB. It runs the ordinary worker for the `transcribe` job class only, so it needs the same settings as the API and the other worker. Audio never leaves your server.
+
+In the repository's `docker-compose.yml` it is behind a profile, so it is only pulled when you want captions:
+
+```sh
+docker compose --profile captions up -d
+```
+
+On Kubernetes, run it as its own deployment with the API's environment. The image sets `WORKER_CLASSES=transcribe`.
+
+Without it, captions jobs wait in the queue, and the media settings report `captionsAvailable: false`. Nothing else changes: files are `ready` without their captions.
+
+One transcription runs at a time and uses every core it is given: give it 2 CPUs and 3 GB of memory. The model is loaded for each job (10 to 20 seconds) and freed when the job ends, so an idle transcription worker uses little memory. On 2 CPUs, an hour of English audio takes about an hour; some languages, such as Hindi, take two to three times as long.
+
+| Variable                        | Default            | What it does                                                                                                   |
+| ------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `WORKER_CONCURRENCY_TRANSCRIBE` | `1`                | Transcriptions at once. Each uses every core, so keep this at 1 and run more workers instead                   |
+| `TRANSCRIBE_THREADS`            | the number of CPUs | Threads per transcription. Set it to the worker's CPU limit when the container sees more cores than it may use |
+| `CAPTIONS_MAX_DURATION_SECONDS` | `7200` (2 hours)   | Longer files aren't captioned                                                                                  |
 
 ## Create a key at startup
 

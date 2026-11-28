@@ -49,6 +49,31 @@ jobs:
       - name: Image digest
         run: echo ${{ steps.docker_build_api.outputs.digest }}
 
+      # The transcription worker (pipelines-phase-2.md, D3): the API image of
+      # this release plus Whisper and its pinned model.
+      - name: Docker meta for the transcription worker
+        id: meta_transcribe
+        uses: docker/metadata-action@v5
+        with:
+          images: codelit/medialit-transcribe
+
+      - name: Build and push the transcription worker
+        id: docker_build_transcribe
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/transcribe/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            API_IMAGE=codelit/medialit:${{ steps.meta_api.outputs.version }}
+          tags: ${{ steps.meta_transcribe.outputs.tags }}
+          cache-from: type=gha,scope=transcribe
+          cache-to: type=gha,mode=max,scope=transcribe
+
+      - name: Transcription image digest
+        run: echo ${{ steps.docker_build_transcribe.outputs.digest }}
+
       - name: Docker meta for Web app
         id: meta_web
         uses: docker/metadata-action@v5

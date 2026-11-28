@@ -63,7 +63,7 @@ Alternatives rejected: **a separate `audio` derivative and a captions job that w
 - **Its own worker image.** `codelit/medialit-transcribe` is the API image plus Python, faster-whisper and the model, built and pushed by CI with the same release tags, so the worker code and the API always match. The model is baked in, so pods download nothing at start. The API image stays as it is.
 - **Its own deployment.** `medialit-transcribe` runs the ordinary MediaLit worker with `WORKER_CLASSES=transcribe`. The existing worker doesn't serve that class. No HTTP service, network policy, health route or URL: the queue is the interface.
 - **Memory is freed after every job.** The model loads when the transcriber starts (10 to 16 seconds on the QA node, D4) and goes away when it exits, so an idle transcription pod holds only the worker process.
-- **Self-hosting:** one more container in `docker-compose.yml`, the same worker command with a different image and `WORKER_CLASSES`. Without it, captions aren't available (D1).
+- **Self-hosting:** one more container in `docker-compose.yml`, the same worker command with a different image and `WORKER_CLASSES`, behind a `captions` profile so installs that don't want captions never pull the 3 GB image. Without it, captions aren't available (D1).
 - The provider stays a small interface in `apps/api/src/transcription/`, so tests use a fake one (section 8) and another engine can be added later without changing the job.
 
     ```ts
@@ -284,12 +284,12 @@ Through `@codelitdev/observability`, as phase 1 (section 7 there). Events carry 
 
 - **Images:** the API image is unchanged. New image `codelit/medialit-transcribe` (D3), built by CI from `apps/transcribe/Dockerfile` on top of the API image, with Python, faster-whisper, PyAV and the model pinned, released with the same tags.
 - **Infra** (QA first; prod by an operator at release): a `medialit-transcribe` deployment, one replica, running the worker with `WORKER_CLASSES=transcribe` and `WORKER_CONCURRENCY_TRANSCRIBE=1`, the worker's usual environment, on the existing nodes (D4): requests of 0.25 CPU and 512 MiB, limits of 2 CPU and 3 GiB, and a priority class below the apps. The existing worker keeps its classes, without `transcribe`.
-- **`docker-compose.yml`** (self-hosting) gains the transcription worker. **`docker-compose.local.yml`** gains it behind a compose profile (`--profile captions`), so local development doesn't pull a multi-GB image by default.
+- **`docker-compose.yml`** (self-hosting) and **`docker-compose.local.yml`** gain the transcription worker behind a compose profile (`--profile captions`), so nobody pulls a multi-GB image by default.
 - **`.env.example`:** `WORKER_CONCURRENCY_TRANSCRIBE`, `CAPTIONS_MAX_DURATION_SECONDS`, `CAPTIONS_DAILY_MINUTES_ALERT`.
 - **Docs:** the setting and the seal override, the captions and transcript files and their URLs, using the VTT with `<video>`, hls.js and Video.js, minutes, and self-hosting the transcription worker (CPU, memory, and what happens without it).
 - **Tests:**
     - Unit tests: VTT cue building (line length, duration, timestamps over an hour), transcript paragraphs, `transcript.json`, dropping empty and repeated segments, the settle rule for `captions`, and the seal plan with and without an override.
-    - A **fake transcriber** for integration tests (deterministic segments from the file's length), so the stack suites don't need the transcription image. One suite runs the real script, in CI with the `tiny` model.
+    - A **fake transcriber** for integration tests (deterministic segments from the file's length), so the stack suites don't need the transcription image. A CI job (`check-transcriber.sh`) builds the image with the `tiny` model and transcribes synthesized English speech with the real script.
     - Integration tests with generated media (ffmpeg `sine` with gaps, and `testsrc`):
         - `generateCaptions` on queues captions for a video and an audio upload, and nothing for a video with no audio;
         - a seal with `processing: { videoStreaming: "off", generateCaptions: false }` in an app with both on queues only the poster; the reverse queues HLS and captions; a field left out uses the app's setting; an invalid value is a `400` and the media stays temp; sealing again changes nothing;
