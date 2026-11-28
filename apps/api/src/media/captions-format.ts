@@ -71,8 +71,10 @@ export function wrap(words: string[]): string[] {
 
 /**
  * Splits segments into cues that fit on screen. A segment too long for one
- * cue is cut between words; each part's times are shared out by its share
- * of the characters, which tracks speech closely enough for captions.
+ * cue is cut between words into as few cues as fit, with the words shared
+ * evenly, so no cue is left with a word or two that flashes past. Each
+ * part's times are shared out by its share of the characters, which tracks
+ * speech closely enough for captions.
  */
 export function buildCues(segments: TranscriptSegment[]): Cue[] {
     const cues: Cue[] = [];
@@ -87,27 +89,14 @@ export function buildCues(segments: TranscriptSegment[]): Cue[] {
                 : Infinity,
         );
         let charsBefore = 0;
-        let i = 0;
-        while (i < words.length) {
-            const part: string[] = [];
-            while (i < words.length) {
-                const next = [...part, words[i]];
-                const fits =
-                    wrap(next).length <= MAX_CUE_LINES &&
-                    next.join(" ").length <= maxChars;
-                if (!fits && part.length > 0) break;
-                part.push(words[i]);
-                i++;
-            }
+        for (const part of balancedParts(words, maxChars)) {
             const text = part.join(" ");
             const start = segment.start + (duration * charsBefore) / totalChars;
             charsBefore += text.length + 1;
             const end =
-                i >= words.length
+                charsBefore >= totalChars
                     ? segment.end
-                    : segment.start +
-                      (duration * Math.min(charsBefore, totalChars)) /
-                          totalChars;
+                    : segment.start + (duration * charsBefore) / totalChars;
             cues.push({
                 start: round(start),
                 end: round(end),
@@ -116,6 +105,47 @@ export function buildCues(segments: TranscriptSegment[]): Cue[] {
         }
     }
     return cues;
+}
+
+/** Cuts words into parts that fit a cue: as few parts as the greedy cut
+ * makes, then the smallest limit that still needs no more, which evens out
+ * their lengths. */
+function balancedParts(words: string[], maxChars: number): string[][] {
+    const greedy = cutWords(words, maxChars);
+    if (greedy.length < 2) return greedy;
+    const total = words.join(" ").length;
+    // Two full lines is the most a cue holds, whatever maxChars allows.
+    const ceiling = Math.min(maxChars, MAX_LINE_CHARS * MAX_CUE_LINES + 1);
+    for (
+        let chars = Math.ceil(total / greedy.length);
+        chars < ceiling;
+        chars++
+    ) {
+        const parts = cutWords(words, chars);
+        if (parts.length === greedy.length) return parts;
+    }
+    return greedy;
+}
+
+/** Fills each part with as many words as fit in `MAX_CUE_LINES` lines and
+ * `maxChars` characters. A part always takes at least one word. */
+function cutWords(words: string[], maxChars: number): string[][] {
+    const parts: string[][] = [];
+    let i = 0;
+    while (i < words.length) {
+        const part: string[] = [];
+        while (i < words.length) {
+            const next = [...part, words[i]];
+            const fits =
+                wrap(next).length <= MAX_CUE_LINES &&
+                next.join(" ").length <= maxChars;
+            if (!fits && part.length > 0) break;
+            part.push(words[i]);
+            i++;
+        }
+        parts.push(part);
+    }
+    return parts;
 }
 
 /** `HH:MM:SS.mmm`, as WebVTT wants. */

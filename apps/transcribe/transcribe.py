@@ -50,7 +50,12 @@ def main() -> int:
         beam_size=args.beam_size,
         # Whisper invents text in music and silence without it (D4).
         vad_filter=True,
-        condition_on_previous_text=False,
+        # Each window sees the text before it. Without it, large-v3-turbo
+        # drops punctuation and capitals for minutes at a time (60% of a
+        # 10-minute talk in testing). faster-whisper drops that context when
+        # a window falls back to a higher temperature, which breaks repetition
+        # loops, and captions-format.ts removes any repeats that get through.
+        condition_on_previous_text=True,
     )
     result = {
         "language": info.language,

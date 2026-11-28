@@ -73,6 +73,17 @@ test("cues fit two lines and seven seconds, and cover the segment", () => {
     assert.equal(cues.flatMap((c) => c.lines).join(" "), text);
 });
 
+test("a segment just over one cue splits evenly, not with a stray word", () => {
+    const text =
+        "And I'm going to explain what happened and how AI was the thing that ultimately killed it.";
+    const cues = buildCues([{ start: 6.98, end: 12.56, text }]);
+    assert.equal(cues.length, 2);
+    const words = cues.map((c) => c.lines.join(" ").split(" ").length);
+    assert.ok(Math.min(...words) >= 6, `${words}`);
+    assert.equal(cues.flatMap((c) => c.lines).join(" "), text);
+    assert.equal(cues[1].end, 12.56);
+});
+
 test("the VTT escapes markup and numbers its cues", () => {
     const vtt = toVtt(buildCues([{ start: 0, end: 2, text: "a < b & c > d" }]));
     assert.equal(
