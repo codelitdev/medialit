@@ -560,7 +560,7 @@ For sources up to 1 GB, give the worker about 2 CPUs, 2 GB of memory and 12 GB o
 
 ## Run the transcription worker
 
-[Captions](/docs/concepts#captions) are made by a separate worker, from the `codelit/medialit-transcribe` image: the API image plus Whisper (faster-whisper with the `large-v3-turbo` model, quantized to int8) and its model, about 5 GB on disk. It runs the ordinary worker for the `transcribe` job class only, so it needs the same settings as the API and the other worker. Audio never leaves your server.
+[Captions](/docs/concepts#captions) are made by a separate worker, from the `codelit/medialit-transcribe` image: the API image plus Whisper (faster-whisper with the `large-v3-turbo` model, quantized to int8) and its model: about 3.3 GB, of which 1.2 GB are the API image's layers that a server running MediaLit already has. It runs the ordinary worker for the `transcribe` job class only, so it needs the same settings as the API and the other worker. Audio never leaves your server.
 
 In the repository's `docker-compose.yml` it is behind a profile, so it is only pulled when you want captions:
 
