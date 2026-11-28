@@ -10,8 +10,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@codelitdev/design-system": "0.15.0",
-    "@codelitdev/observability": "0.15.0",
+    "@codelitdev/design-system": "0.17.0",
+    "@codelitdev/observability": "0.17.0",
     "@medialit/models": "workspace:*",
     "@medialit/react": "workspace:*",
     "@medialit/uploader": "workspace:*",
