@@ -35,6 +35,17 @@ export interface MediaDerivative {
     mimeType?: string;
     size?: number;
     error?: string;
+    /** Captions only: the spoken language, ISO 639-1. */
+    language?: string;
+    /** Captions only: the WebVTT, the plain transcript and the JSON
+     * transcript (segments with start and end times). */
+    files?: CaptionFiles;
+}
+
+export interface CaptionFiles {
+    vtt: string;
+    text: string;
+    json: string;
 }
 
 /** Technical metadata, read when the media is sealed. Fields that don't

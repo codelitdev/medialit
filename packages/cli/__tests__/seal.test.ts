@@ -36,3 +36,32 @@ describe("--video-streaming on upload and seal", () => {
         );
     });
 });
+
+test("get notes the captions on stderr: ready, failed or pending", async () => {
+    const { captionsNote } = await import("../src/commands");
+    assert.equal(captionsNote({ derivatives: {} }), null);
+    assert.equal(
+        captionsNote({
+            derivatives: {
+                captions: {
+                    status: "ready",
+                    url: "https://x/c.vtt",
+                    language: "en",
+                },
+            },
+        }),
+        "Captions (en): https://x/c.vtt",
+    );
+    assert.equal(
+        captionsNote({
+            derivatives: {
+                captions: { status: "failed", error: "no_audio_stream: none" },
+            },
+        }),
+        "Captions failed: no_audio_stream: none",
+    );
+    assert.equal(
+        captionsNote({ derivatives: { captions: { status: "queued" } } }),
+        "Captions: queued",
+    );
+});

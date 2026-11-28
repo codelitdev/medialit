@@ -140,7 +140,7 @@ Under the media's folder, as one derivative with key `captions/`:
 
 - **The media response:** `derivatives.captions` gets `url` (the VTT), `language` (ISO 639-1), and `files: { vtt, text, json }` with a URL for each. `MediaDerivative` gains the two optional fields. URLs are signed for private media, as for any derivative.
 - **The size** is the sum of the three files. **Public media:** published like other derivatives.
-- **`MediaLitVideo`** adds `<track kind="captions" srclang={language} label={language name} src={derivatives.captions.url} crossorigin>` whatever it plays: HLS through hls.js (which plays through the same `<video>` element, so its tracks still show), native HLS on Safari, the MP4 or the original. The HLS playlist isn't changed (section 11). Safari's fullscreen player on iPhone is checked before release (section 8). An audio player isn't part of this phase.
+- **`MediaLitVideo`** adds `<track kind="captions" srclang={language} label={language name} src={derivatives.captions.url}>`, with `crossOrigin="anonymous"` on the `<video>` (a cross-origin track loads only in CORS mode, which the bucket CORS from phase 1 already allows), whatever it plays: HLS through hls.js (which plays through the same `<video>` element, so its tracks still show), native HLS on Safari, the MP4 or the original. The HLS playlist isn't changed (section 11). Safari's fullscreen player on iPhone is checked before release (section 8). An audio player isn't part of this phase.
 - **What apps build on it**, such as a transcript beside the video that highlights the line being spoken and seeks when a line is clicked, search within a lesson, or an app's own corrected copy:
     - `transcript.json` is the contract for apps. Its segments are in order, don't overlap, and their times are from the start of the media. `id` is stable for that file, so an app can anchor notes or corrections to a segment. `version` changes only on a breaking change; new fields (word-level times, later) are added without one.
     - The VTT's cues come from the same segments, split for display, so the transcript and the captions never disagree on what was said or when.
@@ -234,7 +234,7 @@ These changes only add fields.
 - **Media settings** (REST, MCP, SDK): `generateCaptions`; `GET` adds `captionsAvailable` (D1).
 - **Media response** (REST, MCP, CLI, `@medialit/models`): `derivatives.captions` with `url`, `language` and `files` (D6).
 - **Seal** (REST, MCP, SDK, CLI): optional `processing: { videoStreaming?, generateCaptions? }` (D9).
-- **CLI:** `medialit settings set --captions <on|off>`; `medialit upload` and `medialit seal` take `--video-streaming` and `--captions`. `medialit get <mediaId>` shows the captions' language and URL.
+- **CLI:** `medialit settings set --captions <on|off>`; `medialit upload` and `medialit seal` take `--video-streaming` and `--captions`. `medialit get <mediaId>` shows the captions' language and URL on stderr, so stdout stays the file's URL.
 - **Dashboard:** a Captions switch in the Media tab, with the minutes it uses and a note when `captionsAvailable` is false. File details show the captions' status and language, link the VTT and transcript, and the preview shows the captions.
 - **Webhooks:** new event `media.captions.ready` (D8), subscribed to per endpoint in REST, MCP and the dashboard. `media.processing.ready` no longer waits for captions.
 - **`@medialit/react`:** `MediaLitVideo` adds the captions `<track>` and forwards a `ref` (D6).
@@ -246,10 +246,10 @@ Through `@codelitdev/observability`, as phase 1 (section 7 there). Events carry 
 
 ### 7.1 Events
 
-| Event             | When                          | Properties                                                                                                                                                                |
-| ----------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `captions.made`   | a captions job succeeds       | `media_id`, `source` (`audio_upload` \| `video`), `language`, `model`, `source_duration_s`, `cues`, `duration_ms`, `load_ms`, `speed`, `cpu_steal_pct`, `minutes_charged` |
-| `captions.failed` | a captions job fails for good | `media_id`, `failed_reason`, `source_duration_s`, `attempt`                                                                                                               |
+| Event             | When                          | Properties                                                                                                                                                                     |
+| ----------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `captions.made`   | a captions job succeeds       | `media_id`, `source_kind` (`audio_upload` \| `video`), `language`, `model`, `source_duration_s`, `cues`, `duration_ms`, `load_ms`, `speed`, `cpu_steal_pct`, `minutes_charged` |
+| `captions.failed` | a captions job fails for good | `media_id`, `failed_reason`, `source_duration_s`, `attempt`                                                                                                                    |
 
 - `speed` is audio seconds per second of transcription. `cpu_steal_pct` is the node's CPU steal while the transcriber ran, read by the job from `/proc/stat` (node-wide): a burstable instance out of CPU credits shows up as steal, and as `speed` falling. Together they show when the shared node is too small (D4).
 - `media_settings.updated` gains `generate_captions`. `media.sealed` gains the D9 properties.
@@ -276,7 +276,7 @@ Through `@codelitdev/observability`, as phase 1 (section 7 there). Events carry 
 
 ### 7.5 Allowlist and failure reasons
 
-- New properties: `source`, `language`, `model`, `cues`, `load_ms`, `speed`, `cpu_steal_pct`, `generate_captions`, `video_streaming`, `processing_overridden`, `exit_code`, `signal`, `attempt`.
+- New properties: `source_kind` (not `source`, which every event already has), `language`, `model`, `cues`, `load_ms`, `speed`, `cpu_steal_pct`, `generate_captions`, `video_streaming`, `processing_overridden`, `exit_code`, `signal`, `attempt`.
 - New `failed_reason`: `no_audio_stream`.
 - `jobs minutes <userId>` lists captions rows with their kind.
 

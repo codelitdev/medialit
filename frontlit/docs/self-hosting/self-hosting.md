@@ -410,14 +410,15 @@ It turns the address check off and also allows `http` URLs in production. Only s
 
 The API and the workers check the job queue every minute. When something is wrong, they log an error with an `alert_code` and email the addresses in `OPERATOR_ALERT_EMAIL` (comma-separated), through the `EMAIL_*` SMTP settings. Each alert emails at most once every 30 minutes, however many API instances and workers you run. Without `OPERATOR_ALERT_EMAIL`, alerts are only logged.
 
-| Alert                  | Means                                                                                                          | What to do                                                                                                       |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `jobs_no_worker`       | No worker has reported for 5 minutes, so nothing is cleaned up. For captions, only while captions are waiting. | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.       |
-| `jobs_queue_lag`       | A job other than a video encode has waited more than 10 minutes to start.                                      | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.      |
-| `video_queue_lag`      | A video job has waited more than 6 hours to start.                                                             | Video encodes run one at a time and can take an hour or two each. Check the worker, or give it more CPU.         |
-| `transcribe_queue_lag` | A captions job has waited more than 6 hours to start.                                                          | Check the transcription worker. If it is busy all day, give it its own machine or run another one.               |
-| `jobs_failure_spike`   | More than 10 jobs failed for good in the last 10 minutes.                                                      | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them. |
-| `webp_busy`            | Seal skipped WebP because every conversion slot was busy.                                                      | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.       |
+| Alert                  | Means                                                                                                                                   | What to do                                                                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `jobs_no_worker`       | No worker has reported for 5 minutes, so nothing is cleaned up. For captions, only while captions are waiting.                          | Start the worker, or read its log to see why it stopped. `jobs workers` shows when each one was last seen.                                       |
+| `jobs_queue_lag`       | A job other than a video encode has waited more than 10 minutes to start.                                                               | Check that the workers are running and not stuck. If they are busy, raise their concurrency or add workers.                                      |
+| `video_queue_lag`      | A video job has waited more than 6 hours to start.                                                                                      | Video encodes run one at a time and can take an hour or two each. Check the worker, or give it more CPU.                                         |
+| `transcribe_queue_lag` | A captions job has waited more than 6 hours to start.                                                                                   | Check the transcription worker. If it is busy all day, give it its own machine or run another one.                                               |
+| `captions_volume`      | More than `CAPTIONS_DAILY_MINUTES_ALERT` minutes (default 120) of audio were captioned in the last 24 hours. Emails at most once a day. | Plan capacity: one transcription worker handles about 20 hours of English audio a day on 2 CPUs. Give it its own machine before it falls behind. |
+| `jobs_failure_spike`   | More than 10 jobs failed for good in the last 10 minutes.                                                                               | `jobs list --status failed --since 1h` shows why. Fix the cause, often storage or the database, then retry them.                                 |
+| `webp_busy`            | Seal skipped WebP because every conversion slot was busy.                                                                               | Images sealed meanwhile kept their original. Raise `WEBP_CONCURRENCY` if the API has spare CPU and memory.                                       |
 
 With `POSTHOG_API_KEY` set, the API and the worker also send their logs and errors to PostHog. A job that fails for good shows there as an exception from `worker.<job type>.failed`.
 
@@ -574,11 +575,12 @@ Without it, captions jobs wait in the queue, and the media settings report `capt
 
 One transcription runs at a time and uses every core it is given: give it 2 CPUs and 3 GB of memory. The model is loaded for each job (10 to 20 seconds) and freed when the job ends, so an idle transcription worker uses little memory. On 2 CPUs, an hour of English audio takes about an hour; some languages, such as Hindi, take two to three times as long.
 
-| Variable                        | Default            | What it does                                                                                                   |
-| ------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `WORKER_CONCURRENCY_TRANSCRIBE` | `1`                | Transcriptions at once. Each uses every core, so keep this at 1 and run more workers instead                   |
-| `TRANSCRIBE_THREADS`            | the number of CPUs | Threads per transcription. Set it to the worker's CPU limit when the container sees more cores than it may use |
-| `CAPTIONS_MAX_DURATION_SECONDS` | `7200` (2 hours)   | Longer files aren't captioned                                                                                  |
+| Variable                        | Default            | What it does                                                                                                                            |
+| ------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `WORKER_CONCURRENCY_TRANSCRIBE` | `1`                | Transcriptions at once. Each uses every core, so keep this at 1 and run more workers instead                                            |
+| `TRANSCRIBE_THREADS`            | the number of CPUs | Threads per transcription. Set it to the worker's CPU limit when the container sees more cores than it may use                          |
+| `CAPTIONS_MAX_DURATION_SECONDS` | `7200` (2 hours)   | Longer files aren't captioned                                                                                                           |
+| `CAPTIONS_DAILY_MINUTES_ALERT`  | `120`              | Minutes of audio captioned in 24 hours above which the `captions_volume` alert emails. Counts metered minutes, so OSS mode never alerts |
 
 ## Create a key at startup
 

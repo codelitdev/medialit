@@ -1727,6 +1727,25 @@
                                 },
                                 "error": {
                                     "type": "string"
+                                },
+                                "language": {
+                                    "type": "string"
+                                },
+                                "files": {
+                                    "type": "object",
+                                    "properties": {
+                                        "vtt": {
+                                            "type": "string"
+                                        },
+                                        "text": {
+                                            "type": "string"
+                                        },
+                                        "json": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": ["vtt", "text", "json"],
+                                    "additionalProperties": false
                                 }
                             },
                             "required": ["status"],
@@ -1866,6 +1885,13 @@
                             "type": "string",
                             "enum": ["1080p", "720p", "480p", "360p"]
                         }
+                    },
+                    "generateCaptions": {
+                        "type": "boolean"
+                    },
+                    "captionsAvailable": {
+                        "type": "boolean",
+                        "description": "True when a transcription worker is running, so captions can be made"
                     }
                 },
                 "additionalProperties": false
@@ -1893,6 +1919,9 @@
                         },
                         "minItems": 1,
                         "nullable": true
+                    },
+                    "generateCaptions": {
+                        "type": "boolean"
                     }
                 },
                 "additionalProperties": false
@@ -2008,11 +2037,12 @@
                             "type": "string",
                             "enum": [
                                 "media.processing.ready",
-                                "media.processing.failed"
+                                "media.processing.failed",
+                                "media.captions.ready"
                             ]
                         },
                         "minItems": 1,
-                        "description": "Events to send. Defaults to every event."
+                        "description": "Events to send. Defaults to media.processing.ready and media.processing.failed; media.captions.ready is sent only to endpoints that list it."
                     },
                     "enabled": {
                         "type": "boolean"
@@ -2069,11 +2099,12 @@
                                         "type": "string",
                                         "enum": [
                                             "media.processing.ready",
-                                            "media.processing.failed"
+                                            "media.processing.failed",
+                                            "media.captions.ready"
                                         ]
                                     },
                                     "minItems": 1,
-                                    "description": "Events to send. Defaults to every event."
+                                    "description": "Events to send. Defaults to media.processing.ready and media.processing.failed; media.captions.ready is sent only to endpoints that list it."
                                 },
                                 "enabled": {
                                     "type": "boolean"
@@ -2127,11 +2158,12 @@
                             "type": "string",
                             "enum": [
                                 "media.processing.ready",
-                                "media.processing.failed"
+                                "media.processing.failed",
+                                "media.captions.ready"
                             ]
                         },
                         "minItems": 1,
-                        "description": "Events to send. Defaults to every event."
+                        "description": "Events to send. Defaults to media.processing.ready and media.processing.failed; media.captions.ready is sent only to endpoints that list it."
                     },
                     "enabled": {
                         "type": "boolean",
@@ -2157,11 +2189,12 @@
                             "type": "string",
                             "enum": [
                                 "media.processing.ready",
-                                "media.processing.failed"
+                                "media.processing.failed",
+                                "media.captions.ready"
                             ]
                         },
                         "minItems": 1,
-                        "description": "Events to send. Defaults to every event."
+                        "description": "Events to send. Defaults to media.processing.ready and media.processing.failed; media.captions.ready is sent only to endpoints that list it."
                     },
                     "enabled": {
                         "type": "boolean"

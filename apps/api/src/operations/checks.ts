@@ -8,6 +8,7 @@ import type { Executor } from "../jobs/queue";
 import { missingWorkerClasses, WORKER_SEEN_WITHIN_MS } from "../jobs/runner";
 import { WEBHOOK_DELIVER_JOB } from "../webhooks/queries";
 import { CAPTIONS_JOB_TYPE } from "../media/processing-plan";
+import { numberFromEnv } from "../config/env";
 import type { Alert } from "./alerts";
 
 /** The advisory lock that picks the one worker running the queue checks. */
@@ -25,6 +26,11 @@ export const TRANSCRIBE_QUEUE_LAG_MS = 6 * 60 * 60 * 1000;
  * transcription workers load the captions job. */
 const TRANSCRIBE_JOB_TYPES = [CAPTIONS_JOB_TYPE];
 export const FAILURE_WINDOW_MS = 10 * 60 * 1000;
+/** Minutes of audio captioned in 24 hours above which to plan the
+ * dedicated transcription node (pipelines-phase-2.md, D4). */
+export function captionsDailyMinutesAlert(): number {
+    return numberFromEnv("CAPTIONS_DAILY_MINUTES_ALERT", 120);
+}
 /** More failures than this within the window page. */
 export const FAILURE_SPIKE = 10;
 export const WEBP_BUSY_WINDOW_MS = 10 * 60 * 1000;
@@ -68,13 +74,17 @@ export async function collectWorkerAlerts(
                 (SELECT count(*) FROM jobs
                     WHERE status = 'failed'
                     AND finished_at > now() - (${FAILURE_WINDOW_MS} * interval '1 millisecond')
-                    AND type NOT IN (${tenantTypes})) AS "failed"`,
+                    AND type NOT IN (${tenantTypes})) AS "failed",
+                (SELECT coalesce(sum(minutes), 0) FROM processing_usage
+                    WHERE kind = 'captions'
+                    AND created_at > now() - interval '24 hours') AS "captionMinutes"`,
     );
     const row = result.rows[0] as {
         lagMs: string | number | null;
         videoLagMs: string | number | null;
         transcribeLagMs: string | number | null;
         failed: string | number;
+        captionMinutes: string | number;
     };
     const alerts: Alert[] = [];
     const lagMs = row.lagMs === null ? 0 : Number(row.lagMs);
@@ -111,6 +121,15 @@ export async function collectWorkerAlerts(
             code: "jobs_failure_spike",
             message: `${failed} jobs failed for good in the last 10 minutes.`,
             details: { count: failed },
+        });
+    }
+    const captionMinutes = Number(row.captionMinutes);
+    const captionLimit = captionsDailyMinutesAlert();
+    if (captionMinutes > captionLimit) {
+        alerts.push({
+            code: "captions_volume",
+            message: `${captionMinutes} minutes of audio were captioned in the last 24 hours, over ${captionLimit}. Time to plan a dedicated transcription node.`,
+            details: { minutes: captionMinutes },
         });
     }
     return alerts;

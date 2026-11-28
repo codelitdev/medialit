@@ -244,6 +244,37 @@ export async function get(ids: string[], flags: Flags): Promise<void> {
         requireId(ids),
     )) as unknown as UploadedMedia;
     output(flags, media, () => media.file);
+    if (!flags.json) {
+        const note = captionsNote(media);
+        if (note) log(note);
+    }
+}
+
+/** A line about the file's captions, or null when it has none. On stderr,
+ * so `medialit get` still prints only the URL to stdout. */
+export function captionsNote(media: unknown): string | null {
+    const captions = (
+        media as {
+            derivatives?: Record<
+                string,
+                | {
+                      status?: string;
+                      url?: string;
+                      language?: string;
+                      error?: string;
+                  }
+                | undefined
+            >;
+        }
+    ).derivatives?.captions;
+    if (!captions) return null;
+    if (captions.status === "ready" && captions.url) {
+        return `Captions (${captions.language ?? "unknown language"}): ${captions.url}`;
+    }
+    if (captions.status === "failed") {
+        return `Captions failed: ${captions.error ?? "unknown error"}`;
+    }
+    return `Captions: ${captions.status ?? "unknown"}`;
 }
 
 export async function seal(ids: string[], flags: Flags): Promise<void> {

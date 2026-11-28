@@ -248,6 +248,45 @@ describe("worker checks (Postgres)", { skip }, () => {
         await db.execute(sql`DELETE FROM jobs WHERE id = ${id}`);
     });
 
+    test("more than 120 minutes captioned in 24 hours pages captions_volume, once a day", async () => {
+        const [owner] = (
+            await db.execute(
+                sql`INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at)
+                    VALUES (${`u-${Date.now()}`}, 'Ops', ${`cv-${Date.now()}@example.com`}, true, now(), now())
+                    RETURNING id`,
+            )
+        ).rows as Array<{ id: string }>;
+        const usage = async (kind: string, minutes: number, ago: string) =>
+            await db.execute(
+                sql`INSERT INTO processing_usage (id, user_id, job_id, kind, minutes, created_at)
+                    VALUES (${`pu-${Math.random()}`}, ${owner.id}, ${`job-${Math.random()}`},
+                        ${kind}, ${minutes}, now() - ${ago}::interval)`,
+            );
+        await usage("captions", 100, "1 hour");
+        await usage("hls", 500, "1 hour");
+        await usage("captions", 500, "2 days");
+        const codes = async () =>
+            (await collectWorkerAlerts(db)).map((alert) => alert.code);
+        assert.ok(!(await codes()).includes("captions_volume"));
+        await usage("captions", 21, "5 minutes");
+        assert.ok((await codes()).includes("captions_volume"));
+        assert.equal(await claimPage(db, "captions_volume"), true);
+        // Past the usual 30 minutes, still within the day.
+        await db.execute(
+            sql`UPDATE operator_alerts SET last_paged_at = now() - interval '2 hours'
+                WHERE code = 'captions_volume'`,
+        );
+        assert.equal(await claimPage(db, "captions_volume"), false);
+        await db.execute(
+            sql`UPDATE operator_alerts SET last_paged_at = now() - interval '25 hours'
+                WHERE code = 'captions_volume'`,
+        );
+        assert.equal(await claimPage(db, "captions_volume"), true);
+        await db.execute(
+            sql`DELETE FROM processing_usage WHERE user_id = ${owner.id}`,
+        );
+    });
+
     test("more than 10 failures in 10 minutes page jobs_failure_spike, webhooks aside", async () => {
         const failJobs = async (type: string, count: number, ago: string) => {
             for (let index = 0; index < count; index++) {

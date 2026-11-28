@@ -33,6 +33,8 @@ export type ProductEvent =
     | "media_settings.updated"
     | "video.encoded"
     | "video.encode_failed"
+    | "captions.made"
+    | "captions.failed"
     | "processing_minutes.exhausted";
 
 type AppOwner = { userId: string; publicAppId: string };

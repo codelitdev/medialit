@@ -130,6 +130,9 @@ export type DerivativeUpdate = {
     mimeType?: string | null;
     size?: number;
     params?: Record<string, unknown>;
+    /** Fields added to the params already stored (what a job learned, such
+     * as the captions' language). Ignored when `params` is given. */
+    addParams?: Record<string, unknown>;
     error?: string | null;
     bucket?: DerivativeBucket;
 };
@@ -146,7 +149,7 @@ export async function upsertDerivative(
                 (id, media_id, name, status, bucket, key, mime_type, size, params, error, completed_at)
             VALUES (${randomUUID()}, ${input.mediaRowId}, ${input.name}, ${input.status},
                 ${input.bucket ?? "private"}, ${input.key ?? null}, ${input.mimeType ?? null},
-                ${input.size ?? 0}, ${JSON.stringify(input.params ?? {})}::jsonb,
+                ${input.size ?? 0}, ${JSON.stringify(input.params ?? input.addParams ?? {})}::jsonb,
                 ${input.error ?? null}, ${done ? sql`now()` : null})
             ON CONFLICT (media_id, name) DO UPDATE SET
                 status = excluded.status,
@@ -154,8 +157,9 @@ export async function upsertDerivative(
                 key = coalesce(excluded.key, d.key),
                 mime_type = coalesce(excluded.mime_type, d.mime_type),
                 size = excluded.size,
-                params = CASE WHEN ${input.params === undefined}
-                    THEN d.params ELSE excluded.params END,
+                params = CASE WHEN ${input.params !== undefined}
+                    THEN excluded.params
+                    ELSE d.params || ${JSON.stringify(input.addParams ?? {})}::jsonb END,
                 error = excluded.error,
                 completed_at = excluded.completed_at,
                 updated_at = now()

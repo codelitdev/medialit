@@ -8,6 +8,7 @@
  */
 import assert from "node:assert/strict";
 import {
+    generateAudio,
     generatePng,
     generateVideo,
     isWebp,
@@ -106,6 +107,62 @@ export async function runVideoIntegrationTests(
             }
             await new Promise((resolve) => setTimeout(resolve, 1_000));
         }
+    }
+
+    /** Polls a media item until its captions settle. */
+    async function waitForCaptions(
+        mediaId: unknown,
+        timeoutMs = 120_000,
+    ): Promise<JsonObject> {
+        const deadline = Date.now() + timeoutMs;
+        for (;;) {
+            const media = await api(
+                `media/get/${encodeURIComponent(String(mediaId))}`,
+            );
+            const captions = object(media.derivatives).captions as
+                | JsonObject
+                | undefined;
+            if (captions?.status === "ready" || captions?.status === "failed") {
+                return media;
+            }
+            if (Date.now() > deadline) {
+                throw new Error(`${String(mediaId)} captions not settled`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1_000));
+        }
+    }
+
+    /** Checks the three captions files of a media item. */
+    async function checkCaptions(media: JsonObject, access: string) {
+        const captions = object(object(media.derivatives).captions);
+        assert.equal(captions.status, "ready", JSON.stringify(captions));
+        assert.equal(captions.language, "en");
+        const files = object(captions.files);
+        assert.equal(captions.url, files.vtt);
+        if (access === "private") {
+            assert.match(String(files.vtt), /X-Amz-Signature=/);
+        }
+        const origin = { Origin: "https://player.example" };
+        const vtt = await fetch(String(files.vtt), { headers: origin });
+        assert.equal(vtt.status, 200);
+        assert.match(String(vtt.headers.get("content-type")), /^text\/vtt/);
+        const vttText = await vtt.text();
+        assert.match(vttText, /^WEBVTT\n\n1\n00:00:00\.000 --> 00:00:0/);
+        const text = await (await fetch(String(files.text))).text();
+        assert.match(text, /^Segment 1\./);
+        const json = object(await (await fetch(String(files.json))).json());
+        assert.equal(json.version, 1);
+        assert.equal(json.language, "en");
+        assert.equal(json.model, "fake");
+        const segments = json.segments as JsonObject[];
+        assert.ok(segments.length >= 1);
+        assert.deepEqual(Object.keys(segments[0]), [
+            "id",
+            "start",
+            "end",
+            "text",
+        ]);
+        assert.equal(segments[0].id, 0);
     }
 
     /** Fetches a master playlist, its renditions, their init files and
@@ -387,6 +444,69 @@ export async function runVideoIntegrationTests(
                 );
             }
         }
+        // Captions (pipelines-phase-2.md, D2, D8, D10), made by the stack's
+        // worker with the fake transcriber.
+        const spoken = generateVideo({ width: 320, height: 180, seconds: 6 });
+        const tone = generateAudio(6);
+        const silent = generateVideo({
+            width: 320,
+            height: 180,
+            seconds: 2,
+            audio: false,
+        });
+        if (!spoken || !tone || !silent) {
+            log("SKIP captions (ffmpeg is not installed here)");
+        } else if (!(await settings()).captionsAvailable) {
+            log("SKIP captions (no transcription worker is running)");
+        } else {
+            await api("settings/media/create", {
+                videoStreaming: "off",
+                generateCaptions: true,
+            });
+            for (const access of ["private", "public"] as const) {
+                const source = await upload(
+                    spoken,
+                    `captions-${access}.mp4`,
+                    "video/mp4",
+                    access,
+                );
+                await seal(source.mediaId);
+                // The media settles without waiting for captions (D8).
+                await waitForProcessing(source.mediaId);
+                const done = await waitForCaptions(source.mediaId);
+                assert.deepEqual(done.processing, { status: "ready" });
+                await checkCaptions(done, access);
+                log(`PASS captions: ${access} video gets VTT and transcripts`);
+            }
+
+            // An audio upload settles at seal; captions follow.
+            const audio = await upload(tone, "tone.wav", "audio/wav");
+            const sealedAudio = await seal(audio.mediaId);
+            assert.deepEqual(sealedAudio.processing, { status: "ready" });
+            await checkCaptions(
+                await waitForCaptions(audio.mediaId),
+                "private",
+            );
+            log(
+                "PASS captions: an audio upload settles at seal, then captions",
+            );
+
+            // Seal knows there's no audio: no captions job at all.
+            const mute = await upload(silent, "mute.mp4", "video/mp4");
+            const sealedMute = await seal(mute.mediaId);
+            assert.equal(object(sealedMute.derivatives).captions, undefined);
+            log("PASS captions: a video with no audio gets none");
+
+            // The seal override turns them off for one upload (D9).
+            const skipped = await upload(spoken, "skip.mp4", "video/mp4");
+            const sealedSkip = await api(
+                `media/seal/${encodeURIComponent(String(skipped.mediaId))}`,
+                { processing: { generateCaptions: false } },
+            );
+            assert.equal(object(sealedSkip.derivatives).captions, undefined);
+            log("PASS captions: the seal override turns them off");
+        }
+
         const image = await upload(
             generatePng(64, 36),
             "image.png",

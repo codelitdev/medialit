@@ -10,6 +10,7 @@ export type AlertCode =
     | "jobs_queue_lag"
     | "video_queue_lag"
     | "transcribe_queue_lag"
+    | "captions_volume"
     | "jobs_failure_spike"
     | "jobs_no_worker"
     | "webp_busy";
@@ -22,6 +23,15 @@ export type Alert = {
 
 /** Each alert code waits this long before paging again. */
 export const PAGE_COOLDOWN_MS = 30 * 60 * 1000;
+
+/** Codes that page less often: a trend to plan for, not an outage. */
+const COOLDOWN_MS: Partial<Record<AlertCode, number>> = {
+    captions_volume: 24 * 60 * 60 * 1000,
+};
+
+export function cooldownFor(code: string): number {
+    return COOLDOWN_MS[code as AlertCode] ?? PAGE_COOLDOWN_MS;
+}
 
 export type PageDeps = {
     db: Executor;
@@ -45,11 +55,15 @@ export type PageDeps = {
  * row is shared, so API replicas and workers never page the same code twice
  * in one cooldown.
  */
-export async function claimPage(db: Executor, code: string): Promise<boolean> {
+export async function claimPage(
+    db: Executor,
+    code: string,
+    cooldownMs = cooldownFor(code),
+): Promise<boolean> {
     const result = await db.execute(
         sql`INSERT INTO operator_alerts (code, last_paged_at) VALUES (${code}, now())
             ON CONFLICT (code) DO UPDATE SET last_paged_at = now()
-            WHERE operator_alerts.last_paged_at <= now() - (${PAGE_COOLDOWN_MS} * interval '1 millisecond')
+            WHERE operator_alerts.last_paged_at <= now() - (${cooldownMs} * interval '1 millisecond')
             RETURNING code`,
     );
     return result.rows.length > 0;

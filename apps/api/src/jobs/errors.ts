@@ -14,7 +14,9 @@ export type FailedReason =
     | "out_of_processing_minutes"
     | "source_too_long"
     | "source_too_large"
-    | "no_video_stream";
+    | "no_video_stream"
+    // Captions (phase 2): a file with no audio to transcribe.
+    | "no_audio_stream";
 
 /**
  * Thrown by a handler to say how its job failed. Any other error counts as

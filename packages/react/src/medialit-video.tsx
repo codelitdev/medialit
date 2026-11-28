@@ -1,14 +1,55 @@
-import { useEffect, useRef, useState, type VideoHTMLAttributes } from "react";
+import {
+    forwardRef,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    type ForwardedRef,
+    type VideoHTMLAttributes,
+} from "react";
+
+type PlayableDerivative = { status: string; url?: string; language?: string };
 
 /** The parts of a MediaLit media response the player reads. */
 export interface PlayableMedia {
     file?: string;
     thumbnail?: string;
-    derivatives?: Record<string, { status: string; url?: string } | undefined>;
+    derivatives?: Record<string, PlayableDerivative | undefined>;
 }
 
-function ready(derivative?: { status: string; url?: string }) {
+function ready(derivative?: PlayableDerivative) {
     return derivative?.status === "ready" ? derivative.url : undefined;
+}
+
+/** The captions track to show, once `derivatives.captions` is ready. The
+ * label is the language's name in the viewer's language, where the browser
+ * knows it. */
+export function captionsTrack(
+    media: PlayableMedia,
+    locale?: string,
+): { src: string; srcLang?: string; label: string } | undefined {
+    const captions = media.derivatives?.captions;
+    const src = ready(captions);
+    if (!src) return undefined;
+    const language = captions?.language;
+    let label = language ?? "Captions";
+    if (language) {
+        try {
+            label =
+                new Intl.DisplayNames(locale ? [locale] : undefined, {
+                    type: "language",
+                }).of(language) ?? language;
+        } catch {
+            // An unknown code: show it as it is.
+        }
+    }
+    return { src, srcLang: language, label };
+}
+
+/** Sets a ref the caller passed, whichever kind it is. */
+function assignRef<T>(ref: ForwardedRef<T> | undefined, value: T | null) {
+    if (typeof ref === "function") ref(value);
+    else if (ref) ref.current = value;
 }
 
 /**
@@ -52,18 +93,33 @@ type HlsInstance = { destroy(): void };
  * Plays a MediaLit video: HLS when ready (with hls.js, loaded only when
  * needed, or natively on iPhone), otherwise the web MP4 or the original.
  * If HLS fails to play, it switches to the web MP4 or the original. The
- * poster is the media's thumbnail. Other `<video>` props pass through.
+ * poster is the media's thumbnail. Captions, when ready, are a `<track>`
+ * whatever plays. Other `<video>` props pass through, and a `ref` gets the
+ * `<video>` element, to read `currentTime` or seek.
  */
-export function MediaLitVideo({
-    media,
-    poster,
-    controls = true,
-    playsInline = true,
-    preload = "metadata",
-    onError,
-    ...props
-}: MediaLitVideoProps) {
-    const ref = useRef<HTMLVideoElement>(null);
+export const MediaLitVideo = forwardRef(function MediaLitVideo(
+    {
+        media,
+        poster,
+        controls = true,
+        playsInline = true,
+        preload = "metadata",
+        onError,
+        crossOrigin,
+        children,
+        ...props
+    }: MediaLitVideoProps,
+    forwardedRef: ForwardedRef<HTMLVideoElement>,
+) {
+    const ref = useRef<HTMLVideoElement | null>(null);
+    const setRef = useCallback(
+        (element: HTMLVideoElement | null) => {
+            ref.current = element;
+            assignRef(forwardedRef, element);
+        },
+        [forwardedRef],
+    );
+    const track = captionsTrack(media);
     const [src, setSrc] = useState<string | undefined>(undefined);
     const { hls: hlsUrl, fallback } = videoSources(media);
 
@@ -120,7 +176,8 @@ export function MediaLitVideo({
 
     return (
         <video
-            ref={ref}
+            {...props}
+            ref={setRef}
             src={src}
             onError={(event) => {
                 // Native HLS that won't play: switch to the file that will.
@@ -131,7 +188,19 @@ export function MediaLitVideo({
             controls={controls}
             playsInline={playsInline}
             preload={preload}
-            {...props}
-        />
+            // The captions file is on storage's origin: a <track> from
+            // another origin loads only in CORS mode.
+            crossOrigin={crossOrigin ?? (track ? "anonymous" : undefined)}
+        >
+            {track ? (
+                <track
+                    kind="captions"
+                    src={track.src}
+                    srcLang={track.srcLang}
+                    label={track.label}
+                />
+            ) : null}
+            {children}
+        </video>
     );
-}
+});

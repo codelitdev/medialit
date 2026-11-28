@@ -29,6 +29,7 @@ import {
     deleteMediaFolders,
     derivativeJob,
     derivativeObjectKey,
+    derivativesResponse,
     finishDerivative,
     mediaFolder,
     onProcessingSettled,
@@ -375,6 +376,47 @@ describe("derivatives (Postgres)", { skip }, () => {
         assert.equal(mp4.error, "not_enough_storage");
         assert.equal((await mediaStatus(media.id)).status, "failed");
         assert.equal(await totalMediaSize({ userId: media.userId }), 1);
+    });
+
+    test("captions keep their seal params, add what the job learned, and list their files", async () => {
+        const { media } = await processingMedia({ queued: "thumbnail" });
+        await upsertDerivative(db, {
+            mediaRowId: media.id,
+            name: "captions",
+            status: "queued",
+            params: { source: "video", durationSeconds: 6 },
+        });
+        await finishDerivative({
+            mediaRowId: media.id,
+            name: "captions",
+            result: {
+                status: "ready",
+                output: {
+                    key: "captions/",
+                    size: 300,
+                    params: { language: "en", model: "fake" },
+                },
+            },
+        });
+        const rows = await listDerivatives(db, media.id);
+        const captions = rows.find((d) => d.name === "captions")!;
+        assert.deepEqual(captions.params, {
+            source: "video",
+            durationSeconds: 6,
+            language: "en",
+            model: "fake",
+        });
+        // A background derivative: the media still waits for its poster.
+        assert.equal((await mediaStatus(media.id)).status, "processing");
+        const response = await derivativesResponse(media.mediaId, rows);
+        const item = response.captions;
+        assert.equal(item.status, "ready");
+        assert.equal(item.language, "en");
+        assert.equal(item.size, 300);
+        assert.match(item.files!.vtt, /captions\/captions\.vtt/);
+        assert.match(item.files!.text, /captions\/transcript\.txt/);
+        assert.match(item.files!.json, /captions\/transcript\.json/);
+        assert.equal(item.url, item.files!.vtt);
     });
 
     test("a job finishing after its media was deleted records nothing", async () => {

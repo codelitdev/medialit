@@ -16,6 +16,7 @@ import { prune } from "./queue";
 import { posterJob } from "../media/poster";
 import { mp4Job } from "../media/mp4";
 import { hlsJob } from "../media/hls";
+import { captionsJobDefinition } from "../media/captions";
 import { registerWebhookHooks, webhookDeliverJob } from "../webhooks/delivery";
 import type { JobDefinition, PeriodicJob } from "./runner";
 
@@ -66,6 +67,7 @@ export const jobDefinitions: JobDefinition[] = [
     posterJob,
     mp4Job,
     hlsJob,
+    captionsJobDefinition,
     webhookDeliverJob(),
 ];
 

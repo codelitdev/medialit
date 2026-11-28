@@ -111,13 +111,21 @@ wait_ready() {
     exit 1
 }
 
+# The video suite's encodes and captions take about 8 minutes, more than the
+# free allowance. Set after the Postgres tests, which expect the default.
+export PROCESSING_MINUTES_FREE=30
+
 echo "--- Starting the API on port $api_port"
 (cd apps/api && exec bun src/index.ts) >"$api_log" 2>&1 &
 api_pid=$!
 wait_ready API "$api_pid" "$api_port"
 
 echo "--- Starting the worker on port $worker_port"
-(cd apps/api && WORKER_PORT="$worker_port" exec bun src/worker.ts) >"$worker_log" 2>&1 &
+# One worker for every class, captions included, with the fake transcriber:
+# the real one runs in its own image, checked by check-transcriber.sh.
+(cd apps/api && WORKER_PORT="$worker_port" \
+    WORKER_CLASSES=cpu,io,video,transcribe TRANSCRIBER=fake \
+    exec bun src/worker.ts) >"$worker_log" 2>&1 &
 worker_pid=$!
 wait_ready worker "$worker_pid" "$worker_port"
 
@@ -155,7 +163,7 @@ grep -q "Live workers: 1" <<<"$stats" || {
     echo "jobs stats did not count the running worker"
     exit 1
 }
-(cd apps/api && bun run --silent jobs workers) | grep -Eq "cpu,io,video .* yes$" || {
+(cd apps/api && bun run --silent jobs workers) | grep -Eq "cpu,io,video,transcribe .* yes$" || {
     echo "jobs workers did not list the running worker as live"
     exit 1
 }

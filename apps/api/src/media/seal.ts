@@ -392,6 +392,7 @@ async function runSeal(
             mimeType: media.mimeType,
             metadata,
             video,
+            generateCaptions,
             plan,
         });
 

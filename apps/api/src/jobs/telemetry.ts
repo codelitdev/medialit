@@ -27,7 +27,12 @@ const NOT_REPORTED = new Set([WEBHOOK_DELIVER_JOB]);
 
 /** Jobs that read a tenant's video. ffmpeg refusing the file is the file's
  * problem there, so `bad_input` raises no exception for them. */
-const VIDEO_JOB_TYPES = new Set(["media.poster", "media.mp4", "media.hls"]);
+const VIDEO_JOB_TYPES = new Set([
+    "media.poster",
+    "media.mp4",
+    "media.hls",
+    "media.captions",
+]);
 
 /** Failures caused by the tenant's input or MediaLit's limits. They are
  * logged and shown on the media, and raise no exception. */
@@ -37,6 +42,7 @@ const TENANT_REASONS = new Set<FailedReason>([
     "source_too_long",
     "source_too_large",
     "no_video_stream",
+    "no_audio_stream",
 ]);
 
 /** Failures that point at MediaLit itself rather than at one job's input. */

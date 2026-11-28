@@ -3,6 +3,7 @@ export * as Constants from "./constants";
 export type {
     Media,
     MediaDerivative,
+    CaptionFiles,
     MediaProcessing,
     ProcessingStatus,
     MediaMetadata,

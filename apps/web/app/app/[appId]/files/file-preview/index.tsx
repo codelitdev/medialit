@@ -199,6 +199,62 @@ function StreamingFact({
     );
 }
 
+/* The language's name in the viewer's language, else its code. */
+function languageName(code?: string): string | undefined {
+    if (!code) return undefined;
+    try {
+        return (
+            new Intl.DisplayNames(undefined, { type: "language" }).of(code) ??
+            code
+        );
+    } catch {
+        return code;
+    }
+}
+
+/* Captions and transcripts, when the app made them for this file. */
+function CaptionsFact({ playable }: { playable?: FileMedia }) {
+    const captions = playable?.derivatives?.captions;
+    if (!captions) return null;
+    const files = captions.files;
+    return (
+        <div className="file-dialog-fact-stacked">
+            <dt>Captions</dt>
+            <dd>
+                {captions.status === "ready"
+                    ? (languageName(captions.language) ?? "Ready")
+                    : (streamingStatus[captions.status] ?? captions.status)}
+                {captions.status === "ready" && files && (
+                    <span className="file-dialog-fact-note">
+                        <a href={files.vtt} target="_blank" rel="noreferrer">
+                            WebVTT
+                        </a>
+                        {" · "}
+                        <a href={files.text} target="_blank" rel="noreferrer">
+                            Transcript
+                        </a>
+                        {" · "}
+                        <a href={files.json} target="_blank" rel="noreferrer">
+                            JSON
+                        </a>
+                    </span>
+                )}
+                {captions.status === "failed" && captions.error && (
+                    <span className="file-dialog-fact-note">
+                        {captions.error}
+                    </span>
+                )}
+                {(captions.status === "queued" ||
+                    captions.status === "processing") && (
+                    <span className="file-dialog-fact-note">
+                        The file plays now; captions are added when ready.
+                    </span>
+                )}
+            </dd>
+        </div>
+    );
+}
+
 function FileDetailsContent({
     media,
     appId,
@@ -306,6 +362,7 @@ function FileDetailsContent({
                     {media.kind === "video" && (
                         <StreamingFact appId={appId} playable={playable} />
                     )}
+                    <CaptionsFact playable={playable} />
                 </dl>
                 <FileInteractivity
                     media={media}

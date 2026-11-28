@@ -92,6 +92,8 @@ medialit whoami                # server, account, app and storage used
 medialit logout
 ```
 
+When a file has [captions](/docs/concepts#captions), `medialit get` also prints their language and URL, or their status, to stderr, so stdout is still just the file's URL. `--json` returns everything, including `derivatives.captions`.
+
 ## Manage webhooks
 
 [Webhooks](/docs/webhooks) tell your server when processing of a sealed file finishes or fails.

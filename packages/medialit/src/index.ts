@@ -476,6 +476,7 @@ export class MediaLit {
 export type {
     Media,
     MediaDerivative,
+    CaptionFiles,
     MediaMetadata,
     MediaProcessing,
     ProcessingStatus,

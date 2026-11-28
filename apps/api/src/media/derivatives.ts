@@ -59,6 +59,7 @@ import { releaseOrphanedMinutes } from "../billing/processing-minutes";
 import type { PlannedJob } from "./processing-plan";
 import { playlistUrl } from "./playback";
 import { mediaKind } from "./kind";
+import { CAPTION_FILES } from "./processing-plan";
 import generateKey from "./utils/generate-key";
 
 export const MEDIA_PUBLISH_JOB = "media.publish";
@@ -148,6 +149,31 @@ export async function derivativesResponse(
                     row.bucket === "public"
                         ? `${CDN_ENDPOINT || CLOUD_ENDPOINT_PUBLIC}/${derivativeObjectKey(mediaId, "public", `${row.key}master.m3u8`)}`
                         : playlistUrl(mediaId, options.durationSeconds);
+            } else if (row.name === "captions" && row.key) {
+                // Captions (phase 2, D6): the VTT is the URL players use;
+                // every file gets one.
+                const files = {
+                    vtt: await derivativeUrl(
+                        mediaId,
+                        row.bucket,
+                        `${row.key}${CAPTION_FILES.vtt}`,
+                    ),
+                    text: await derivativeUrl(
+                        mediaId,
+                        row.bucket,
+                        `${row.key}${CAPTION_FILES.text}`,
+                    ),
+                    json: await derivativeUrl(
+                        mediaId,
+                        row.bucket,
+                        `${row.key}${CAPTION_FILES.json}`,
+                    ),
+                };
+                item.url = files.vtt;
+                item.files = files;
+                if (typeof row.params?.language === "string") {
+                    item.language = row.params.language;
+                }
             }
             if (row.mimeType) item.mimeType = row.mimeType;
             item.size = row.size;
@@ -364,6 +390,9 @@ export type DerivativeOutput = {
     key: string;
     mimeType?: string;
     size: number;
+    /** Added to the derivative's params, for the response and for support:
+     * captions store their language, model and speed here. */
+    params?: Record<string, unknown>;
 };
 
 export type FinishOutcome = "recorded" | "media_gone" | "not_enough_storage";
@@ -452,6 +481,7 @@ export async function finishDerivative(input: {
             mimeType: result.output.mimeType ?? null,
             size: result.output.size,
             bucket: "private",
+            addParams: result.output.params,
         });
         if (needsPublicCopy(media, input.name)) {
             await queuePublish(tx, media);

@@ -93,6 +93,12 @@ export const mediaResponseSchema = Joi.object<MediaResponse>({
                 mimeType: Joi.string().optional(),
                 size: Joi.number().optional(),
                 error: Joi.string().optional(),
+                language: Joi.string().optional(),
+                files: Joi.object({
+                    vtt: Joi.string().uri().required(),
+                    text: Joi.string().uri().required(),
+                    json: Joi.string().uri().required(),
+                }).optional(),
             }),
         )
         .required(),
